@@ -10,12 +10,12 @@ export default async function handler(request, response) {
         // On récupère les variables d'environnement depuis Vercel
         const GOOGLE_CLOUD_API_KEY = process.env.GOOGLE_CLOUD_API_KEY;
         const GOOGLE_CLOUD_PROJECT_ID = process.env.GOOGLE_CLOUD_PROJECT_ID;
-        const RECAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY; // Clé publique
+        const NEXT_PUBLIC_RECAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY; // Clé publique
 
         if (!token) {
             return response.status(400).json({ success: false, message: 'Jeton manquant.' });
         }
-        if (!GOOGLE_CLOUD_API_KEY || !GOOGLE_CLOUD_PROJECT_ID || !RECAPTCHA_SITE_KEY) {
+        if (!GOOGLE_CLOUD_API_KEY || !GOOGLE_CLOUD_PROJECT_ID || !NEXT_PUBLIC_RECAPTCHA_SITE_KEY) {
             return response.status(500).json({ success: false, message: 'Configuration du serveur incomplète. Vérifiez les variables d\'environnement sur Vercel (GOOGLE_CLOUD_API_KEY, GOOGLE_CLOUD_PROJECT_ID, NEXT_PUBLIC_RECAPTCHA_SITE_KEY).' });
         }
         
@@ -24,7 +24,7 @@ export default async function handler(request, response) {
         const requestBody = {
             event: {
                 token: token,
-                siteKey: RECAPTCHA_SITE_KEY,
+                siteKey: NEXT_PUBLIC_RECAPTCHA_SITE_KEY,
                 expectedAction: 'LOGIN'
             }
         };
