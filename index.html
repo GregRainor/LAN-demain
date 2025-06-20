@@ -89,15 +89,31 @@
         .priority-group { background-color: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); }
         .priority-group h3 { margin: 0 0 15px 0; color: var(--accent-color); text-align: left; }
         .game-input-list { display: flex; flex-direction: column; gap: 10px; }
-        .game-input-wrapper { display: flex; align-items: center; gap: 10px; }
+        .game-input-wrapper {
+            display: flex; /* On utilise Flexbox pour l'alignement */
+            align-items: center;
+            gap: 10px; /* Espace entre les éléments */
+        }
         .game-input-wrapper input {
-            flex-grow: 1;
-            padding: 8px;
-            background-color: var(--dark-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            color: var(--secondary-text);
-            padding-right: 40px; /* AJOUTEZ CETTE LIGNE */
+            flex-grow: 1; /* L'input prend toute la place disponible */
+        }
+        .steam-search-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            opacity: 0.6;
+            transition: opacity 0.2s;
+        }
+        .steam-search-btn:hover {
+            opacity: 1;
+        }
+        .steam-search-btn svg {
+            width: 20px;
+            height: 20px;
+            fill: var(--secondary-text);
         }
         .add-game-btn, .remove-game-btn { background-color: var(--border-color); color: var(--secondary-text); border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; font-weight: bold; font-size: 1.2em; line-height: 28px; text-align: center; flex-shrink: 0; transition: background-color 0.3s, transform 0.3s; }
         .add-game-btn:hover, .remove-game-btn:hover { background-color: var(--accent-color); color: var(--dark-bg); transform: rotate(90deg); }
@@ -330,7 +346,6 @@
         </div>
         <div class="form-actions">
             <button type="submit" id="submit-vote-btn">Soumettre mon Vote</button>
-            <button type="button" id="delete-vote-btn" style="display: none;">Supprimer ce Vote</button>
         </div>
     </form>
 </div>
@@ -560,7 +575,6 @@ if(user.uid === ADMIN_UID) {
         
         const voteForm = document.getElementById('vote-form');
         const voterSelectMenu = document.getElementById('voter-select-menu');
-        const deleteVoteBtn = document.getElementById('delete-vote-btn');
         const correctionModal = document.getElementById('correction-modal');
         const DEFAULT_GAME_ICON = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23666'%3E%3Cpath d='M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-2.5 14H6.5v-1.5h11V18zm0-2.5H6.5v-1.5h11V15.5zm0-2.5H6.5v-1.5h11V13zm-5-3.25L10.25 8h1.5l2.25 1.75V8h1.5v6h-1.5v-1.75L13.25 14h-1.5L9.5 12.25V14H8V8h1.5v1.75z'/%3E%3C/svg%3E`;
 
@@ -644,20 +658,7 @@ voteForm.addEventListener('click', async (e) => {
             loadVoteIntoForm(userId, globalVotes, user);
         });
 
-        deleteVoteBtn.addEventListener('click', () => {
-            // On cible l'utilisateur sélectionné dans le menu, ou soi-même si le menu est sur "-- Mon Vote --"
-            const userIdToDelete = voterSelectMenu.value || user.uid; 
-            const userName = globalVotes[userIdToDelete]?.name || user.displayName;
 
-            if (userIdToDelete && window.confirm(`Êtes-vous sûr de vouloir supprimer le vote de ${userName} ?`)) {
-                db.ref(`lan/votes/${userIdToDelete}`).remove().then(() => {
-                    alert(`Vote de ${userName} supprimé.`);
-                    // On s'assure de revenir à la vue "Mon Vote" après la suppression
-                    voterSelectMenu.value = ""; 
-                    resetForm(user, globalVotes);
-                });
-            }
-        });
 
         voteForm.addEventListener('submit', (e) => {
             e.preventDefault();
@@ -746,24 +747,47 @@ voteForm.addEventListener('click', async (e) => {
                const createInput = (value = '', isFirst) => {
                     const wrapper = document.createElement('div');
                     wrapper.className = 'game-input-wrapper';
-                    
-                    let inputHTML = `<input type="text" value="${value}" placeholder="Jeu...">`;
-                    
-                    // Icône de recherche Steam (SVG)
-                    let searchButtonHTML = `
-                        <button type="button" class="steam-search-btn" title="Vérifier le nom sur Steam">
-                            <svg viewBox="0 0 512 512"><path d="M256,512C114.62,512,0,397.38,0,256S114.62,0,256,0,512,114.62,512,256,397.38,512,256,512Zm90.38-194.27a34.35,34.35,0,0,1-13.43-2.68l-23.43-11.83-5.18,3.34a75.8,75.8,0,0,1-30.34,7.4,75.8,75.8,0,0,1-30.34-7.4l-5.18-3.34-23.43,11.83a34.37,34.37,0,0,1-42.7-54.08l14.18-22.79-14.18-22.79a34.37,34.37,0,0,1,42.7-54.08l23.43,11.83,5.18-3.34a75.8,75.8,0,0,1,30.34-7.4,75.8,75.8,0,0,1,30.34,7.4l5.18,3.34,23.43-11.83a34.37,34.37,0,0,1,42.7,54.08l-14.18,22.79,14.18,22.79A34.37,34.37,0,0,1,346.38,317.73ZM256,290.62a34.8,34.8,0,1,1,34.8-34.8A34.8,34.8,0,0,1,256,290.62Zm62.65-72.35a16.82,16.82,0,1,1-16.82-16.82A16.82,16.82,0,0,1,318.65,218.27Z"/></svg>
-                        </button>`;
 
-                    let removeButtonHTML = `<button type="button" class="remove-game-btn">-</button>`;
+                    const input = document.createElement('input');
+                    input.type = 'text';
+                    input.value = value;
+                    input.placeholder = 'Jeu...';
                     
-                    if (isFirst && group.dataset.priority !== 'p1') {
-                        removeButtonHTML = `<button type="button" class="remove-game-btn" style="visibility: hidden;">-</button>`;
-                    } else if (group.dataset.priority === 'p1') {
-                        removeButtonHTML = '';
+                    wrapper.appendChild(input);
+
+                    // --- Icône de recherche Steam ---
+                    const searchButton = document.createElement('button');
+                    searchButton.type = 'button';
+                    searchButton.className = 'steam-search-btn';
+                    searchButton.title = 'Vérifier le nom sur Steam';
+                    // SVG pour l'icône Steam, comme vous l'avez suggéré
+                    searchButton.innerHTML = `<svg viewBox="0 0 512 512" fill="currentColor"><path d="M256,512C114.62,512,0,397.38,0,256S114.62,0,256,0,512,114.62,512,256,397.38,512,256,512Zm90.38-194.27a34.35,34.35,0,0,1-13.43-2.68l-23.43-11.83-5.18,3.34a75.8,75.8,0,0,1-30.34,7.4,75.8,75.8,0,0,1-30.34-7.4l-5.18-3.34-23.43,11.83a34.37,34.37,0,0,1-42.7-54.08l14.18-22.79-14.18-22.79a34.37,34.37,0,0,1,42.7-54.08l23.43,11.83,5.18-3.34a75.8,75.8,0,0,1,30.34-7.4,75.8,75.8,0,0,1,30.34,7.4l5.18,3.34,23.43-11.83a34.37,34.37,0,0,1,42.7,54.08l-14.18,22.79,14.18,22.79A34.37,34.37,0,0,1,346.38,317.73ZM256,290.62a34.8,34.8,0,1,1,34.8-34.8A34.8,34.8,0,0,1,256,290.62Zm62.65-72.35a16.82,16.82,0,1,1-16.82-16.82A16.82,16.82,0,0,1,318.65,218.27Z"/></svg>`;
+                    wrapper.appendChild(searchButton);
+
+                    // --- Bouton de suppression de ligne ---
+                    if (!isFirst || (isFirst && group.dataset.priority === 'p1')) {
+                         if (group.dataset.priority !== 'p1') {
+                            const removeButton = document.createElement('button');
+                            removeButton.type = 'button';
+                            removeButton.className = 'remove-game-btn';
+                            removeButton.textContent = '-';
+                            if (isFirst) {
+                                // On le cache sur la première ligne des groupes autres que P1
+                                removeButton.style.visibility = 'hidden';
+                            }
+                            wrapper.appendChild(removeButton);
+                        }
+                    } else { // Cas de la première ligne pour P2, P3, etc.
+                         const removeButton = document.createElement('button');
+                         removeButton.type = 'button';
+                         removeButton.className = 'remove-game-btn';
+                         removeButton.textContent = '-';
+                         if (isFirst) {
+                            removeButton.style.visibility = 'hidden';
+                         }
+                         wrapper.appendChild(removeButton);
                     }
-
-                    wrapper.innerHTML = `${inputHTML}${searchButtonHTML}${removeButtonHTML}`;
+                    
                     list.appendChild(wrapper);
                 };
                 
@@ -771,8 +795,6 @@ voteForm.addEventListener('click', async (e) => {
                 else { games.forEach((game, index) => createInput(game, index === 0)); }
             });
 
-            // Affiche le bouton supprimer seulement si on édite le vote de quelqu'un d'autre
-            deleteVoteBtn.style.display = voteData ? 'block' : 'none';
         }
 
         function levenshtein(s1, s2) { s1 = s1.toLowerCase(); s2 = s2.toLowerCase(); const costs = []; for (let i = 0; i <= s1.length; i++) { let lastValue = i; for (let j = 0; j <= s2.length; j++) { if (i === 0) costs[j] = j; else if (j > 0) { let newValue = costs[j - 1]; if (s1.charAt(i - 1) !== s2.charAt(j - 1)) newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1; costs[j - 1] = lastValue; lastValue = newValue; } } if (i > 0) costs[s2.length] = lastValue; } return costs[s2.length]; }
