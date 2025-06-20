@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LAN Demain</title>
+    <title>LAN Demain 🚀 Le Sélecteur</title>
 
     <script src="https://www.google.com/recaptcha/enterprise.js?render=6Lc7_WYrAAAAAH5-0Ioe3bFiy3kYoAvAEwoWcltH"></script>
     
@@ -134,7 +134,7 @@
 
     <div id="auth-container">
         <h1>LAN Demain</h1>
-        <p>Connecte-toi pour trouver quels jeux dl !</p>
+        <p>Connecte-toi pour organiser la meilleure LAN !</p>
         <button id="google-login-btn">
             <svg id="google-icon" style="width: 20px; height: 20px;" viewBox="0 0 24 24" fill="white"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
             <span id="login-btn-text">Se connecter avec Google</span>
@@ -142,9 +142,6 @@
         </button>
         <p id="auth-error" style="color: var(--danger-color); margin-top: 15px;"></p>
     </div>
-    
-    <div id="app-container" style="display: none;">
-        </div>
     
     <div id="app-container">
         <div class="container">
@@ -155,93 +152,73 @@
             </div>
             <h1>LAN Demain 🚀 Le Sélecteur</h1>
             <section class="kpi-grid">
-                <div class="kpi-card" style="animation-delay: 0.1s;">
-                    <div class="kpi-card-title">🏆 JEU DE LA LAN</div>
-                    <img id="winner-image" src="" alt="Miniature du jeu gagnant">
-                    <div id="kpi-winner-value" class="kpi-card-value">--</div>
-                </div>
-                <div class="kpi-card" style="animation-delay: 0.2s;"><div class="kpi-card-title">🗳️ NOMBRE DE VOTANTS</div><div id="kpi-voters-value" class="kpi-card-value">0</div></div>
-                <div class="kpi-card" style="animation-delay: 0.3s;"><div class="kpi-card-title">🎮 JEUX PROPOSÉS</div><div id="kpi-games-value" class="kpi-card-value">0</div></div>
-            </section>
-            
+                </section>
             <section class="chart-wrapper animated-section" style="animation-delay: 0.4s;">
-                <h2>Visualisation des Scores</h2>
-                <div id="chart-container"></div>
-            </section>
-
+                </section>
             <main class="main-content">
-                <section class="results-container animated-section" style="animation-delay: 0.5s;">
-                    <h2>Classement Détaillé</h2>
-                    <div style="overflow-x: auto;">
-                        <table class="results-table">
-                            <thead><tr><th>Jeu</th><th>Score</th></tr></thead>
-                            <tbody id="results-table-body"></tbody>
-                        </table>
-                    </div>
-                </section>
-
-                <section class="form-container animated-section" style="animation-delay: 0.6s;">
-                    <h2>Ton Vote !</h2>
-                    <div id="voter-management">
-                        <label for="voter-select-menu">Éditer le vote d'un autre joueur (si admin) :</label>
-                        <select id="voter-select-menu"><option value="">-- Mon Vote --</option></select>
-                    </div>
-                    <form id="vote-form">
-                        <div class="priority-group" data-priority="p1"><h3>Priorité 1 (5 pts)</h3><div class="game-input-list"><div class="game-input-wrapper"><input type="text" placeholder="LE jeu incontournable" required></div></div></div>
-                        <div class="priority-group" data-priority="p2"><h3>Priorité 2 (3 pts)</h3><div class="game-input-list"><div class="game-input-wrapper"><input type="text" placeholder="Ton deuxième choix"><button type="button" class="remove-game-btn" style="visibility: hidden;">-</button></div></div><button type="button" class="add-game-btn" style="margin-top: 10px;">+</button></div>
-                        <div class="priority-group" data-priority="p3"><h3>Priorité 3 (2 pts)</h3><div class="game-input-list"><div class="game-input-wrapper"><input type="text" placeholder="Ton troisième choix"><button type="button" class="remove-game-btn" style="visibility: hidden;">-</button></div></div><button type="button" class="add-game-btn" style="margin-top: 10px;">+</button></div>
-                        <div class="priority-group" data-priority="p_other"><h3>Autres Priorités (1 pt)</h3><div class="game-input-list"><div class="game-input-wrapper"><input type="text" placeholder="Un autre jeu..."><button type="button" class="remove-game-btn" style="visibility: hidden;">-</button></div></div><button type="button" class="add-game-btn" style="margin-top: 10px;">+</button></div>
-                        <div class="form-actions">
-                            <button type="submit" id="submit-vote-btn">Soumettre mon Vote</button>
-                            <button type="button" id="delete-vote-btn" style="display:none;">Supprimer ce vote</button>
-                        </div>
-                    </form>
-                </section>
-            </main>
+                </main>
         </div>
     </div>
     
     <div id="correction-modal" class="modal-overlay">
-        <div class="modal-content">
-            <h3>Suggestions de Correction</h3>
-            <p>Nous avons détecté des noms de jeux qui ressemblent à d'autres déjà votés. Voulez-vous les fusionner ?</p>
-            <ul id="suggestions-list"></ul>
-            <div class="modal-actions">
-                <button id="modal-cancel">Annuler</button>
-                <button id="modal-ignore">Ignorer</button>
-                <button id="modal-accept">Accepter & Soumettre</button>
-            </div>
         </div>
-    </div>
 
 <script>
 // --- CONFIGURATION FIREBASE ---
-// REMPLACE CECI PAR TA PROPRE CONFIGURATION TROUVÉE DANS LA CONSOLE FIREBASE
 const firebaseConfig = {
   apiKey: "AIzaSyBzznlvj9a-A6XuJAi7AaUlxmrCzPXeM_E",
   authDomain: "lan-party-planner-qqggx.firebaseapp.com",
+  databaseURL: "https://lan-party-planner-qqggx-default-rtdb.europe-west1.firebasedatabase.app",
   projectId: "lan-party-planner-qqggx",
   storageBucket: "lan-party-planner-qqggx.firebasestorage.app",
   messagingSenderId: "923746577550",
   appId: "1:923746577550:web:07af6c8cc233201e12addf"
 };
+const RECAPTCHA_SITE_KEY = "6Lc7_WYrAAAAAH5-0Ioe3bFiy3kYoAvAEwoWcltH";
 
 // --- INITIALISATION ---
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.database();
 const googleProvider = new firebase.auth.GoogleAuthProvider();
-const RECAPTCHA_SITE_KEY = "6Lc7_WYrAAAAAH5-0Ioe3bFiy3kYoAvAEwoWcltH";
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- Références DOM ---
+    const authContainer = document.getElementById('auth-container');
+    const appContainer = document.getElementById('app-container');
     const googleLoginBtn = document.getElementById('google-login-btn');
     const loginBtnText = document.getElementById('login-btn-text');
     const loginSpinner = document.getElementById('login-spinner');
     const googleIcon = document.getElementById('google-icon');
     const authErrorP = document.getElementById('auth-error');
+    const logoutBtn = document.getElementById('logout-btn');
+    const userNameSpan = document.getElementById('user-name');
+    const userAvatarImg = document.getElementById('user-avatar');
 
-    // --- NOUVEAU FLUX DE CONNEXION AVEC RECAPTCHA ---
+    let votesRef = null;
+    let currentUser = null;
+
+    // --- LOGIQUE D'AUTHENTIFICATION ---
+    auth.onAuthStateChanged(user => {
+        currentUser = user;
+        if (user) {
+            authContainer.style.display = 'none';
+            appContainer.style.display = 'block';
+            userNameSpan.textContent = user.displayName || user.email;
+            userAvatarImg.src = user.photoURL || '';
+            if (votesRef) {
+                votesRef.off(); // Détache l'ancien listener pour éviter les doublons
+            }
+            initializeApp(user);
+        } else {
+            authContainer.style.display = 'block';
+            appContainer.style.display = 'none';
+            if (votesRef) {
+                votesRef.off();
+            }
+        }
+    });
+
     googleLoginBtn.addEventListener('click', () => {
         authErrorP.textContent = '';
         googleLoginBtn.disabled = true;
@@ -249,62 +226,84 @@ document.addEventListener('DOMContentLoaded', () => {
         googleIcon.style.display = 'none';
         loginSpinner.style.display = 'block';
 
-        // 1. On demande un jeton reCAPTCHA
         grecaptcha.enterprise.ready(async () => {
             try {
-                const recaptchaToken = await grecaptcha.enterprise.execute('6Lc7_WYrAAAAAH5-0Ioe3bFiy3kYoAvAEwoWcltH', {action: 'LOGIN'});
+                const recaptchaToken = await grecaptcha.enterprise.execute(RECAPTCHA_SITE_KEY, {action: 'LOGIN'});
                 
-                // 2. On envoie ce jeton à notre fonction serverless pour validation
                 const verificationResponse = await fetch('/api/verify-recaptcha', {
-    			method: 'POST',
-    			headers: { 'Content-Type': 'application/json' },
-    			body: JSON.stringify({ 
-        		token: recaptchaToken,
-        		siteKey: RECAPTCHA_SITE_KEY // On envoie la clé publique au serveur
-    		})
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: recaptchaToken, siteKey: RECAPTCHA_SITE_KEY })
+                });
                 
                 const verificationResult = await verificationResponse.json();
 
                 if (verificationResult.success && verificationResult.score > 0.5) {
-                    // 3. Si la validation est réussie, on lance le popup Google
                     await auth.signInWithPopup(googleProvider);
                 } else {
-                    // Si le score est trop bas, on considère que c'est un robot
                     throw new Error("La vérification reCAPTCHA a échoué. Veuillez réessayer.");
                 }
-
             } catch (error) {
                 console.error("Erreur d'authentification ou reCAPTCHA:", error);
                 authErrorP.textContent = error.message;
             } finally {
-                // On réactive le bouton quoi qu'il arrive
                 googleLoginBtn.disabled = false;
-                loginBtnText.style.display = 'inline';
+                loginBtnText.style.display = 'inline-block';
                 googleIcon.style.display = 'inline-block';
                 loginSpinner.style.display = 'none';
             }
         });
     });
 
-
-    // --- ÉVÉNEMENTS D'AUTHENTIFICATION ---
-    googleLoginBtn.addEventListener('click', () => {
-        auth.signInWithPopup(googleProvider).catch(error => { authErrorP.textContent = error.message; });
-    });
     logoutBtn.addEventListener('click', () => auth.signOut());
 
-    // --- INITIALISATION DE L'APPLICATION APRÈS CONNEXION ---
+    // --- CŒUR DE L'APPLICATION ---
     function initializeApp(user) {
-        votesRef = db.ref('lan/votes');
         let globalVotes = {};
-
+        votesRef = db.ref('lan/votes');
+        
+        // Listener temps-réel
         votesRef.on('value', (snapshot) => {
             globalVotes = snapshot.val() || {};
             renderDashboard(globalVotes, user);
         });
 
-        const formLogicHandler = (e) => {
+        // --- Déclaration des références DOM de l'app ---
+        const voteForm = document.getElementById('vote-form');
+        const voterSelectMenu = document.getElementById('voter-select-menu');
+        const deleteVoteBtn = document.getElementById('delete-vote-btn');
+        const correctionModal = document.getElementById('correction-modal');
+        const DEFAULT_GAME_ICON = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23666'%3E%3Cpath d='M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-2.5 14H6.5v-1.5h11V18zm0-2.5H6.5v-1.5h11V15.5zm0-2.5H6.5v-1.5h11V13zm-5-3.25L10.25 8h1.5l2.25 1.75V8h1.5v6h-1.5v-1.75L13.25 14h-1.5L9.5 12.25V14H8V8h1.5v1.75z'/%3E%3C/svg%3E`;
+
+        // --- GESTION DES ÉVÉNEMENTS DU FORMULAIRE ---
+        voteForm.addEventListener('click', (e) => {
+            if (e.target.classList.contains('add-game-btn')) {
+                const list = e.target.previousElementSibling;
+                const new_input_wrapper = document.createElement('div');
+                new_input_wrapper.className = 'game-input-wrapper';
+                new_input_wrapper.innerHTML = `<input type="text" placeholder="Un autre jeu..."><button type="button" class="remove-game-btn">-</button>`;
+                list.appendChild(new_input_wrapper);
+            }
+            if (e.target.classList.contains('remove-game-btn')) {
+                e.target.parentElement.remove();
+            }
+        });
+        
+        voterSelectMenu.addEventListener('change', (e) => {
+            const userId = e.target.value || user.uid; // Revient à "Mon Vote" si on déselectionne
+            loadVoteIntoForm(userId, globalVotes);
+        });
+
+        deleteVoteBtn.addEventListener('click', () => {
+            const userId = voterSelectMenu.value;
+            if (userId && window.confirm(`Êtes-vous sûr de vouloir supprimer ce vote ?`)) {
+                db.ref(`lan/votes/${userId}`).remove().then(() => resetForm(user));
+            }
+        });
+
+        voteForm.addEventListener('submit', (e) => {
             e.preventDefault();
+            // On peut éditer son propre vote ou celui d'un autre (si on est admin, futures règles)
             const userIdToSave = voterSelectMenu.value || user.uid;
             const userNameToSave = (voterSelectMenu.value && globalVotes[userIdToSave]) ? globalVotes[userIdToSave].name : user.displayName;
 
@@ -327,77 +326,90 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 saveVote(userIdToSave, userNameToSave, playerVotes);
             }
-        };
+        });
+
+        // --- FONCTIONS SPÉCIFIQUES À L'APPLICATION ---
+        function saveVote(userId, userName, playerVotes) {
+            db.ref(`lan/votes/${userId}`).set({ name: userName, votes: playerVotes })
+                .then(() => {
+                    if (!correctionModal.style.display.includes('flex')) {
+                       alert(`Vote pour ${userName} enregistré !`);
+                    }
+                    resetForm(user);
+                })
+                .catch(error => console.error("Erreur:", error));
+        }
         
-        // On s'assure de n'avoir qu'un seul listener sur le formulaire
-        voteForm.removeEventListener('submit', formLogicHandler);
-        voteForm.addEventListener('submit', formLogicHandler);
+        function resetForm(currentUser) {
+            voteForm.reset();
+            voterSelectMenu.value = "";
+            deleteVoteBtn.style.display = 'none';
+            
+            document.querySelectorAll('.priority-group').forEach(group => {
+                const list = group.querySelector('.game-input-list');
+                const firstChild = list.firstElementChild.cloneNode(true);
+                list.innerHTML = '';
+                list.appendChild(firstChild);
+                list.querySelector('input').value = '';
+            });
+            // Recharge notre propre vote par défaut
+            loadVoteIntoForm(currentUser.uid, globalVotes);
+        }
 
-        // --- GESTION DES AUTRES ÉVÉNEMENTS ---
-        voteForm.addEventListener('click', (e) => {
-            if (e.target.classList.contains('add-game-btn')) { /* ... */ }
-            if (e.target.classList.contains('remove-game-btn')) { /* ... */ }
-        });
+        function loadVoteIntoForm(userId, allVotes) {
+            const voteData = allVotes[userId];
+            const playerVotes = voteData ? voteData.votes : {};
+
+            document.querySelectorAll('.priority-group').forEach(group => {
+                const priority = group.dataset.priority;
+                const games = playerVotes[priority] || [];
+                const list = group.querySelector('.game-input-list');
+                list.innerHTML = '';
+
+                const createInput = (value = '', isFirst) => {
+                    const inputWrapper = document.createElement('div');
+                    inputWrapper.className = 'game-input-wrapper';
+                    let removeButtonHTML = `<button type="button" class="remove-game-btn">-</button>`;
+                    if (isFirst && group.dataset.priority !== 'p1') {
+                        removeButtonHTML = `<button type="button" class="remove-game-btn" style="visibility: hidden;">-</button>`;
+                    } else if (group.dataset.priority === 'p1') {
+                        removeButtonHTML = '';
+                    }
+                    inputWrapper.innerHTML = `<input type="text" value="${value}" placeholder="${group.querySelector('input')?.placeholder || 'Jeu'}">${removeButtonHTML}`;
+                    list.appendChild(inputWrapper);
+                };
+                
+                if (games.length === 0) { createInput('', true); } 
+                else { games.forEach((game, index) => createInput(game, index === 0)); }
+            });
+
+            deleteVoteBtn.style.display = (userId !== user.uid && voterSelectMenu.value !== "") ? 'block' : 'none';
+        }
+
+        function levenshtein(s1, s2) { s1 = s1.toLowerCase(); s2 = s2.toLowerCase(); const costs = []; for (let i = 0; i <= s1.length; i++) { let lastValue = i; for (let j = 0; j <= s2.length; j++) { if (i === 0) costs[j] = j; else if (j > 0) { let newValue = costs[j - 1]; if (s1.charAt(i - 1) !== s2.charAt(j - 1)) newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1; costs[j - 1] = lastValue; lastValue = newValue; } } if (i > 0) costs[s2.length] = lastValue; } return costs[s2.length]; }
+        function checkTypos(newGames, currentVotes) { const suggestions = []; const masterGameList = new Set(); Object.values(currentVotes).forEach(voteData => { if(voteData.votes) Object.values(voteData.votes).forEach(games => games.forEach(game => masterGameList.add(game))); }); const masterArray = Array.from(masterGameList); newGames.forEach(newGame => { if (masterGameList.has(newGame)) return; for (const masterGame of masterArray) { const distance = levenshtein(newGame, masterGame); if (distance > 0 && distance <= 2) { suggestions.push({ original: newGame, suggestion: masterGame }); return; } } }); return suggestions; }
+        function showCorrectionModal(suggestions, voteData) { const listElement = document.getElementById('suggestions-list'); listElement.innerHTML = ''; suggestions.forEach(sugg => { const li = document.createElement('li'); li.innerHTML = `Vouliez-vous dire <strong>${sugg.suggestion}</strong> au lieu de <em>${sugg.original}</em> ?`; listElement.appendChild(li); }); const acceptBtn = document.getElementById('modal-accept'); const ignoreBtn = document.getElementById('modal-ignore'); const cancelBtn = document.getElementById('modal-cancel'); const handler = () => { correctionModal.style.display = 'none'; }; const acceptHandler = () => { const correctedVotes = JSON.parse(JSON.stringify(voteData.playerVotes)); suggestions.forEach(sugg => { for (const priority in correctedVotes) { correctedVotes[priority] = correctedVotes[priority].map(game => game === sugg.original ? sugg.suggestion : game); } }); saveVote(voteData.userIdToSave, voteData.userNameToSave, correctedVotes); handler(); }; const ignoreHandler = () => { saveVote(voteData.userIdToSave, voteData.userNameToSave, voteData.playerVotes); handler(); }; acceptBtn.addEventListener('click', acceptHandler, { once: true }); ignoreBtn.addEventListener('click', ignoreHandler, { once: true }); cancelBtn.addEventListener('click', handler, { once: true }); correctionModal.style.display = 'flex'; }
+        function calculateScores(votes) { const gameScores = {}; const pointsMapping = { p1: 5, p2: 3, p3: 2, p_other: 1 }; for (const userId in votes) { const playerVoteData = votes[userId].votes; if(playerVoteData) { for (const priority in playerVoteData) { playerVoteData[priority].forEach(game => { gameScores[game] = (gameScores[game] || 0) + pointsMapping[priority]; }); } } } return Object.entries(gameScores).map(([name, score]) => ({ name, score })).sort((a, b) => b.score - a.score); }
+        function animateCounter(element, target) { if (element.animationFrameId) cancelAnimationFrame(element.animationFrameId); const startValue = parseInt(element.textContent) || 0; if (startValue === target) { element.textContent = target; return; } const duration = 1000; let startTime = null; function animationStep(timestamp) { if (!startTime) startTime = timestamp; const progress = timestamp - startTime; const currentVal = progress < duration ? startValue + Math.floor(progress / duration * (target - startValue)) : target; element.textContent = currentVal; if (progress < duration) element.animationFrameId = requestAnimationFrame(animationStep); } element.animationFrameId = requestAnimationFrame(animationStep); }
+        async function getGameImage(gameName) { const normalizedName = gameName.toLowerCase().trim(); try { const response = await fetch(`/api/get-game-image?name=${encodeURIComponent(normalizedName)}`); if (response.ok) { const data = await response.json(); return data.imageUrl; } } catch (error) { console.error("API Error:", error); } return DEFAULT_GAME_ICON; }
+        async function renderKPIs(gamesData, votes) { const winnerName = gamesData.length > 0 ? gamesData[0].name : '--'; document.getElementById('kpi-winner-value').textContent = winnerName; const winnerImage = document.getElementById('winner-image'); const imageUrl = await getGameImage(winnerName); winnerImage.src = imageUrl; winnerImage.onload = () => winnerImage.src === DEFAULT_GAME_ICON ? winnerImage.classList.remove('loaded') : winnerImage.classList.add('loaded'); animateCounter(document.getElementById('kpi-voters-value'), Object.keys(votes).length); animateCounter(document.getElementById('kpi-games-value'), gamesData.length); }
+        async function renderTable(gamesData) { const tableBody = document.getElementById('results-table-body'); tableBody.innerHTML = ''; if (gamesData.length === 0) { tableBody.innerHTML = `<tr><td colspan="2" style="text-align: center;">Aucun vote pour le moment...</td></tr>`; return; } for (const [index, game] of gamesData.entries()) { const row = document.createElement('tr'); row.style.animationDelay = `${index * 0.05}s`; if (index === 0) row.classList.add('gold'); else if (index === 1) row.classList.add('silver'); else if (index === 2) row.classList.add('bronze'); const gameIconUrl = await getGameImage(game.name); row.innerHTML = `<td><img src="${gameIconUrl}" alt="Icone" class="game-icon">${index + 1}. ${game.name}</td><td>${game.score}</td>`; tableBody.appendChild(row); } }
+        function renderChart(gamesData) { const chartContainer = document.getElementById('chart-container'); chartContainer.innerHTML = ''; const topGames = gamesData.slice(0, 8); if (topGames.length === 0) return; const maxScore = topGames.length > 0 ? Math.max(...topGames.map(g => g.score)) : 0; topGames.forEach((game, index) => { const barHeight = maxScore > 0 ? (game.score / maxScore) * 100 : 0; const barGroup = document.createElement('div'); barGroup.className = 'chart-bar-group'; barGroup.style.animationDelay = `${0.5 + index * 0.1}s`; if (index === 0) barGroup.classList.add('gold'); else if (index === 1) barGroup.classList.add('silver'); else if (index === 2) barGroup.classList.add('bronze'); const crown = index === 0 ? '👑' : ''; barGroup.innerHTML = `<div class="chart-bar" style="height: ${barHeight}%"><div class="bar-label">${game.score} ${crown}</div></div><div class="chart-game-name">${game.name}</div>`; chartContainer.appendChild(barGroup); }); }
+        function populateVoterMenu(votes, currentUser) { const currentSelection = voterSelectMenu.value; voterSelectMenu.innerHTML = '<option value="">-- Mon Vote --</option>'; const sortedVoters = Object.entries(votes).sort((a,b) => a[1].name.localeCompare(b[1].name)); sortedVoters.forEach(([uid, voteData]) => { if (uid === currentUser.uid) return; const option = document.createElement('option'); option.value = uid; option.textContent = voteData.name; voterSelectMenu.appendChild(option); }); voterSelectMenu.value = currentSelection; }
         
-        voterSelectMenu.addEventListener('change', (e) => {
-            const userId = e.target.value || user.uid;
-            loadVoteIntoForm(userId, globalVotes);
-        });
+        function renderDashboard(votes, user) {
+            const sortedGames = calculateScores(votes);
+            populateVoterMenu(votes, user);
+            renderKPIs(sortedGames, votes);
+            renderTable(sortedGames);
+            renderChart(sortedGames);
+        }
 
-        deleteVoteBtn.addEventListener('click', () => {
-            const userId = voterSelectMenu.value;
-            if (userId && window.confirm(`Êtes-vous sûr de vouloir supprimer ce vote ?`)) {
-                db.ref(`lan/votes/${userId}`).remove().then(() => resetForm(user.uid, globalVotes));
-            }
+        // Charger le vote de l'utilisateur dès l'initialisation
+        db.ref('lan/votes').once('value', snapshot => {
+            const votes = snapshot.val() || {};
+            loadVoteIntoForm(user.uid, votes);
         });
-
-        // Charger le vote de l'utilisateur actuel par défaut
-        loadVoteIntoForm(user.uid, globalVotes);
-    }
-    
-    // Le reste du script est ci-dessous, en dehors de la portée d'initializeApp pour être accessible
-    function saveVote(userId, userName, playerVotes) {
-        db.ref(`lan/votes/${userId}`).set({ name: userName, votes: playerVotes })
-            .then(() => {
-                if (!correctionModal.style.display.includes('flex')) {
-                   alert(`Vote pour ${userName} enregistré !`);
-                }
-                resetForm();
-            })
-            .catch(error => console.error("Erreur:", error));
-    }
-    
-    function resetForm() {
-        voterSelectMenu.value = "";
-        deleteBtn.style.display = 'none';
-        
-        document.querySelectorAll('.priority-group').forEach(group => {
-            const list = group.querySelector('.game-input-list');
-            const firstChild = list.firstElementChild.cloneNode(true);
-            list.innerHTML = '';
-            list.appendChild(firstChild);
-            list.querySelector('input').value = '';
-        });
-    }
-
-    function loadVoteIntoForm(userId, allVotes) { /* ... identique à V3.0, mais utilise allVotes ... */ }
-    function populateVoterMenu(votes, currentUser) { /* ... identique à V3.0 ... */ }
-    function levenshtein(s1, s2) { /* ... identique ... */ }
-    function checkTypos(newGames, currentVotes) { /* ... identique ... */ }
-    function showCorrectionModal(suggestions, voteData) { /* ... identique ... */ }
-    function calculateScores(votes) { /* ... identique ... */ }
-    function animateCounter(element, target) { /* ... identique ... */ }
-    async function getGameImage(gameName) { /* ... identique ... */ }
-    async function renderKPIs(gamesData, votes) { /* ... identique ... */ }
-    async function renderTable(gamesData) { /* ... identique ... */ }
-    function renderChart(gamesData) { /* ... identique ... */ }
-    
-    function renderDashboard(votes, user) {
-        const sortedGames = calculateScores(votes);
-        populateVoterMenu(votes, user);
-        renderKPIs(sortedGames, votes);
-        renderTable(sortedGames);
-        renderChart(sortedGames);
     }
 });
 </script>
