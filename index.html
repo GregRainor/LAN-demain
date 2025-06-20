@@ -6,11 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LAN Demain 🚀</title>
 
-    <script src="https://www.google.com/recaptcha/enterprise.js?render=6Lc7_WYrAAAAAH5-0Ioe3bFiy3kYoAvAEwoWcltH"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-
 
     <style>
         :root {
@@ -89,13 +87,20 @@
         .priority-group { background-color: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); }
         .priority-group h3 { margin: 0 0 15px 0; color: var(--accent-color); text-align: left; }
         .game-input-list { display: flex; flex-direction: column; gap: 10px; }
+
+        /* --- NOUVEAU CSS POUR LE FORMULAIRE --- */
         .game-input-wrapper {
-            display: flex; /* On utilise Flexbox pour l'alignement */
+            display: flex;
             align-items: center;
-            gap: 10px; /* Espace entre les éléments */
+            gap: 10px;
         }
         .game-input-wrapper input {
-            flex-grow: 1; /* L'input prend toute la place disponible */
+            flex-grow: 1;
+            padding: 8px;
+            background-color: var(--dark-bg); /* Fond sombre */
+            color: var(--secondary-text); /* Texte clair */
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
         }
         .steam-search-btn {
             background: none;
@@ -106,6 +111,7 @@
             align-items: center;
             opacity: 0.6;
             transition: opacity 0.2s;
+            flex-shrink: 0;
         }
         .steam-search-btn:hover {
             opacity: 1;
@@ -115,16 +121,38 @@
             height: 20px;
             fill: var(--secondary-text);
         }
-        .add-game-btn, .remove-game-btn { background-color: var(--border-color); color: var(--secondary-text); border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; font-weight: bold; font-size: 1.2em; line-height: 28px; text-align: center; flex-shrink: 0; transition: background-color 0.3s, transform 0.3s; }
+        .add-game-btn, .remove-game-btn { 
+            background-color: var(--border-color); 
+            color: var(--secondary-text); 
+            border: none; 
+            border-radius: 50%; 
+            width: 28px; 
+            height: 28px; 
+            cursor: pointer; 
+            font-weight: bold; 
+            font-size: 1.2em; 
+            line-height: 28px; 
+            text-align: center; 
+            flex-shrink: 0; 
+            transition: background-color 0.3s, transform 0.3s; 
+        }
         .add-game-btn:hover, .remove-game-btn:hover { background-color: var(--accent-color); color: var(--dark-bg); transform: rotate(90deg); }
         .remove-game-btn:hover { transform: rotate(180deg); }
         
         .form-actions { display: flex; gap: 10px; }
-        #submit-vote-btn, #delete-vote-btn { padding: 14px; border: none; border-radius: 8px; color: black; font-size: 1.2em; font-weight: bold; cursor: pointer; flex-grow: 1; transition: transform 0.2s, box-shadow 0.2s; }
-        #submit-vote-btn { background-color: var(--accent-color); }
-        #delete-vote-btn { background-color: var(--danger-color); }
+        #submit-vote-btn { 
+            padding: 14px; 
+            border: none; 
+            border-radius: 8px; 
+            color: black; 
+            font-size: 1.2em; 
+            font-weight: bold; 
+            cursor: pointer; 
+            flex-grow: 1; 
+            transition: transform 0.2s, box-shadow 0.2s;
+            background-color: var(--accent-color); 
+        }
         #submit-vote-btn:hover { transform: scale(1.02); box-shadow: 0 0 15px var(--accent-color); }
-        #delete-vote-btn:hover { transform: scale(1.02); box-shadow: 0 0 15px var(--danger-color); }
 
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7); display: none; justify-content: center; align-items: center; z-index: 1000; animation: fadeInDown 0.3s; }
         .modal-content { background-color: var(--card-bg); padding: 30px; border-radius: 12px; border: 1px solid var(--border-color); max-width: 500px; width: 90%; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
@@ -146,15 +174,15 @@
             body { padding: 15px; }
             h1 { font-size: 1.8em; }
             h2 { font-size: 1.3em; }
-            .kpi-grid { grid-template-columns: 1fr 1fr; gap: 15px; }
+            .kpi-grid { grid-template-columns: 1fr 1fr; }
             .kpi-card-value { font-size: 1.8em; }
             .main-content { grid-template-columns: 1fr; }
             .chart-wrapper { overflow-x: auto; padding-right: 15px;}
             #chart-container { min-width: 650px; }
-            .chart-game-name { transform: rotate(0); white-space: normal; text-align: center; font-size: 0.8em; }
+            .chart-game-name { white-space: normal; text-align: center; font-size: 0.8em; }
         }
 
-#active-users-sidebar {
+        #active-users-sidebar {
             position: fixed;
             top: 0;
             left: 0;
@@ -170,13 +198,11 @@
             overflow-y: auto;
             z-index: 100;
             transition: transform 0.3s ease;
-            transform: translateX(-100%); /* Cachée par défaut */
+            transform: translateX(-100%);
         }
-        
         #active-users-sidebar.visible {
             transform: translateX(0);
         }
-
         #active-users-sidebar .user-avatar-icon {
             width: 40px;
             height: 40px;
@@ -184,52 +210,9 @@
             object-fit: cover;
             border: 2px solid var(--accent-color);
         }
-        
-        /* Ajustement du body pour ne pas être caché par la sidebar */
-        body { 
-            padding-left: 0; /* Changement ici */
-            transition: padding-left 0.3s ease;
-        }
-
         body.sidebar-visible {
             padding-left: 60px;
         }
-
-.game-input-wrapper {
-            position: relative; /* Nécessaire pour positionner l'icône */
-        }
-
-        .steam-search-btn {
-            position: absolute;
-            right: 10px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: none;
-            border: none;
-            cursor: pointer;
-            padding: 4px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            opacity: 0.6;
-            transition: opacity 0.2s;
-        }
-
-        .steam-search-btn:hover {
-            opacity: 1;
-        }
-
-        .steam-search-btn svg {
-            width: 20px;
-            height: 20px;
-            fill: var(--secondary-text);
-        }
-
-        /* On ajuste la marge du bouton "remove" s'il est présent */
-        .steam-search-btn + .remove-game-btn {
-            margin-left: 30px;
-        }
-
     </style>
 </head>
 <body>
@@ -289,66 +272,52 @@
                             </tr>
                         </thead>
                         <tbody id="results-table-body">
-                            </tbody>
+                        </tbody>
                     </table>
                 </div>
 
                 <div class="form-container">
-    <h2>Mon Vote / Édition</h2>
+                    <h2>Mon Vote / Édition</h2>
 
-    <div id="admin-panel" style="display: none; background-color: rgba(207, 102, 121, 0.1); border: 1px solid var(--danger-color); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-        <h3 style="margin: 0 0 10px 0; text-align: left;">Panneau Admin</h3>
-        <button id="reset-all-votes-btn" style="width: 100%; background-color: var(--danger-color); color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer;">Réinitialiser TOUS les votes</button>
+                    <div id="admin-panel" style="display: none; background-color: rgba(207, 102, 121, 0.1); border: 1px solid var(--danger-color); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                        <h3 style="margin: 0 0 10px 0; text-align: left;">Panneau Admin</h3>
+                        <button id="reset-all-votes-btn" style="width: 100%; background-color: var(--danger-color); color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer;">Réinitialiser TOUS les votes</button>
+                    </div>
+
+                    <form id="vote-form">
+                        <div id="voter-management">
+                            <label for="voter-select-menu">Éditer le vote de :</label>
+                            <select id="voter-select-menu">
+                                <option value="">-- Mon Vote --</option>
+                            </select>
+                        </div>
+                        <div class="priority-group" data-priority="p1">
+                            <h3>Priorité 1 (5 pts)</h3>
+                            <div class="game-input-list"></div>
+                        </div>
+                         <div class="priority-group" data-priority="p2">
+                            <h3>Priorité 2 (3 pts)</h3>
+                            <div class="game-input-list"></div>
+                            <button type="button" class="add-game-btn">+</button>
+                        </div>
+                        <div class="priority-group" data-priority="p3">
+                            <h3>Priorité 3 (2 pts)</h3>
+                            <div class="game-input-list"></div>
+                            <button type="button" class="add-game-btn">+</button>
+                        </div>
+                        <div class="priority-group" data-priority="p_other">
+                            <h3>Autres (1 pt)</h3>
+                            <div class="game-input-list"></div>
+                            <button type="button" class="add-game-btn">+</button>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" id="submit-vote-btn">Soumettre mon Vote</button>
+                        </div>
+                    </form>
+                </div>
+            </main>
+        </div>
     </div>
-
-    <form id="vote-form">
-        <div id="voter-management">
-            <label for="voter-select-menu">Éditer le vote de :</label>
-            <select id="voter-select-menu">
-                <option value="">-- Mon Vote --</option>
-            </select>
-        </div>
-
-        <div class="priority-group" data-priority="p1">
-            <h3>Priorité 1 (5 pts)</h3>
-            <div class="game-input-list">
-                <div class="game-input-wrapper">
-                    <input type="text" placeholder="Le jeu que vous voulez absolument...">
-                </div>
-            </div>
-        </div>
-        <div class="priority-group" data-priority="p2">
-            <h3>Priorité 2 (3 pts)</h3>
-            <div class="game-input-list">
-                <div class="game-input-wrapper">
-                    <input type="text" placeholder="Jeu...">
-                </div>
-            </div>
-            <button type="button" class="add-game-btn">+</button>
-        </div>
-        <div class="priority-group" data-priority="p3">
-            <h3>Priorité 3 (2 pts)</h3>
-            <div class="game-input-list">
-                <div class="game-input-wrapper">
-                    <input type="text" placeholder="Jeu...">
-                </div>
-            </div>
-            <button type="button" class="add-game-btn">+</button>
-        </div>
-        <div class="priority-group" data-priority="p_other">
-            <h3>Autres (1 pt)</h3>
-            <div class="game-input-list">
-                <div class="game-input-wrapper">
-                    <input type="text" placeholder="Jeu...">
-                </div>
-            </div>
-            <button type="button" class="add-game-btn">+</button>
-        </div>
-        <div class="form-actions">
-            <button type="submit" id="submit-vote-btn">Soumettre mon Vote</button>
-        </div>
-    </form>
-</div>
     
     <div id="correction-modal" class="modal-overlay">
         <div class="modal-content">
@@ -375,50 +344,9 @@ const firebaseConfig = {
   appId: "1:923746577550:web:07af6c8cc233201e12addf"
 };
 const ADMIN_UID = "ITe5VPuwewMzO7JnJA5oPWMdfvt2";
-const RECAPTCHA_SITE_KEY = "6Lc7_WYrAAAAAH5-0Ioe3bFiy3kYoAvAEwoWcltH";
 
 // --- INITIALISATION ---
 firebase.initializeApp(firebaseConfig);
-
-/*
-try {
-    const appCheck = firebase.appCheck();
-    
-    // On crée un fournisseur personnalisé qui sait comment parler à reCAPTCHA Enterprise
-    const customProvider = new firebase.appCheck.CustomProvider({
-      getToken: () => {
-        return new Promise((resolve, reject) => {
-          grecaptcha.enterprise.ready(() => {
-            grecaptcha.enterprise.execute('6Lc7_WYrAAAAAH5-0Ioe3bFiy3kYoAvAEwoWcltH', { action: 'database_interaction' })
-              .then((token) => {
-                // LIGNE CORRIGÉE : On ajoute une date d'expiration manuelle (ex: 5 minutes)
-                // pour que le SDK mette le jeton en cache et arrête la boucle.
-                const expireTimeMillis = Date.now() + 5 * 60 * 1000;
-                
-                // On renvoie le jeton ET sa date d'expiration à App Check
-                resolve({ 
-                    token: token,
-                    expireTimeMillis: expireTimeMillis 
-                });
-              })
-              .catch((error) => {
-                reject(error);
-              });
-          });
-        });
-      }
-    });
-
-    // On active App Check avec notre fournisseur personnalisé
-    appCheck.activate(customProvider, true);
-    console.log("Firebase App Check activé avec succès via le fournisseur personnalisé.");
-
-} catch (error) {
-    console.error("Erreur lors de l'activation d'App Check:", error);
-}
-
-*/
-
 const auth = firebase.auth();
 const db = firebase.database();
 const googleProvider = new firebase.auth.GoogleAuthProvider();
@@ -437,6 +365,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const userAvatarImg = document.getElementById('user-avatar');
 
     let votesRef = null;
+    let globalVotes = {};
 
     // --- LOGIQUE D'AUTHENTIFICATION ---
     auth.onAuthStateChanged(user => {
@@ -458,45 +387,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    /* // BLOC DE CONNEXION AVEC RECAPTCHA CORRECTEMENT COMMENTÉ
-    googleLoginBtn.addEventListener('click', () => {
-        authErrorP.textContent = '';
-        googleLoginBtn.disabled = true;
-        loginBtnText.style.display = 'none';
-        googleIcon.style.display = 'none';
-        loginSpinner.style.display = 'block';
-
-        grecaptcha.enterprise.ready(async () => {
-            try {
-                const recaptchaToken = await grecaptcha.enterprise.execute(RECAPTCHA_SITE_KEY, {action: 'LOGIN'});
-                
-                const verificationResponse = await fetch('/api/verify-recaptcha', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ token: recaptchaToken, siteKey: RECAPTCHA_SITE_KEY })
-                });
-                
-                const verificationResult = await verificationResponse.json();
-
-                if (verificationResult.success && verificationResult.score > 0.5) {
-                    await auth.signInWithPopup(googleProvider);
-                } else {
-                    throw new Error("La vérification reCAPTCHA a échoué. Veuillez réessayer.");
-                }
-            } catch (error) {
-                console.error("Erreur d'authentification ou reCAPTCHA:", error);
-                authErrorP.textContent = error.message;
-            } finally {
-                googleLoginBtn.disabled = false;
-                loginBtnText.style.display = 'inline-block';
-                googleIcon.style.display = 'inline-block';
-                loginSpinner.style.display = 'none';
-            }
-        });
-    });
-    */
-
-    // BLOC DE CONNEXION SANS CAPTCHA (le seul qui doit être actif)
+    // --- CONNEXION SANS CAPTCHA ---
     googleLoginBtn.addEventListener('click', () => {
         authErrorP.textContent = '';
         googleLoginBtn.disabled = true;
@@ -519,13 +410,12 @@ document.addEventListener('DOMContentLoaded', () => {
     logoutBtn.addEventListener('click', () => auth.signOut());
 
     // --- CŒUR DE L'APPLICATION ---
-
-function renderActiveUsers(users) {
+    function renderActiveUsers(users) {
         const sidebar = document.getElementById('active-users-sidebar');
         const body = document.body;
         if (!sidebar) return;
 
-        sidebar.innerHTML = ''; // On vide la barre avant de la remplir
+        sidebar.innerHTML = '';
         const userCount = users ? Object.keys(users).length : 0;
 
         if (userCount > 0) {
@@ -546,80 +436,99 @@ function renderActiveUsers(users) {
     }
 
     function initializeApp(user) {
-if(user.uid === ADMIN_UID) {
-        document.getElementById('admin-panel').style.display = 'block';
-    }
-// --- GESTION DE LA PRÉSENCE ---
+        if(user.uid === ADMIN_UID) {
+            document.getElementById('admin-panel').style.display = 'block';
+        }
+
         const userStatusRef = db.ref('/status/' + user.uid);
         const connectedRef = db.ref('.info/connected');
 
-        db.ref('/status').on('value', snapshot => {
-            renderActiveUsers(snapshot.val());
-        });
-
         connectedRef.on('value', (snap) => {
             if (snap.val() === true) {
-                // L'utilisateur est connecté
-                const userData = {
-                    name: user.displayName,
-                    avatar: user.photoURL
-                };
+                const userData = { name: user.displayName, avatar: user.photoURL };
                 userStatusRef.set(userData);
-
-                // On prépare la suppression de son statut à la déconnexion
                 userStatusRef.onDisconnect().remove();
             }
         });
-        let globalVotes = {};
-        votesRef = db.ref('lan/votes');
+        
+        db.ref('/status').on('value', snapshot => renderActiveUsers(snapshot.val()));
         
         const voteForm = document.getElementById('vote-form');
         const voterSelectMenu = document.getElementById('voter-select-menu');
         const correctionModal = document.getElementById('correction-modal');
         const DEFAULT_GAME_ICON = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23666'%3E%3Cpath d='M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-2.5 14H6.5v-1.5h11V18zm0-2.5H6.5v-1.5h11V15.5zm0-2.5H6.5v-1.5h11V13zm-5-3.25L10.25 8h1.5l2.25 1.75V8h1.5v6h-1.5v-1.75L13.25 14h-1.5L9.5 12.25V14H8V8h1.5v1.75z'/%3E%3C/svg%3E`;
 
-        // --- LISTENER TEMPS RÉEL ---
+        if (votesRef) votesRef.off();
+        votesRef = db.ref('lan/votes');
         votesRef.on('value', (snapshot) => {
             globalVotes = snapshot.val() || {};
             renderDashboard(globalVotes, user);
-            // On recharge le formulaire avec le bon vote après chaque mise à jour de la BDD
             const selectedUserId = voterSelectMenu.value || user.uid;
             loadVoteIntoForm(selectedUserId, globalVotes, user);
         });
 
         // --- GESTION DES ÉVÉNEMENTS ---
-// Listener pour le bouton de reset admin
-const resetAllBtn = document.getElementById('reset-all-votes-btn');
-if(resetAllBtn) {
-    resetAllBtn.addEventListener('click', () => {
-        const confirmation = prompt("Cette action est irréversible et supprimera TOUS les votes. Pour confirmer, tapez 'RESET'.");
-        if (confirmation === 'RESET') {
-            db.ref('lan/votes').remove()
-                .then(() => alert("Tous les votes ont été réinitialisés."))
-                .catch(err => alert("Erreur lors de la réinitialisation: " + err.message));
-        } else {
-            alert("Action annulée.");
+        const resetAllBtn = document.getElementById('reset-all-votes-btn');
+        if(resetAllBtn) {
+            resetAllBtn.addEventListener('click', () => {
+                const confirmation = prompt("Cette action est irréversible et supprimera TOUS les votes. Pour confirmer, tapez 'RESET'.");
+                if (confirmation === 'RESET') {
+                    db.ref('lan/votes').remove()
+                        .then(() => alert("Tous les votes ont été réinitialisés."))
+                        .catch(err => alert("Erreur lors de la réinitialisation: " + err.message));
+                } else {
+                    alert("Action annulée.");
+                }
+            });
         }
-    });
-}
+        
         voteForm.addEventListener('click', (e) => {
             if (e.target.classList.contains('add-game-btn')) {
                 const list = e.target.previousElementSibling;
-                const wrapper = document.createElement('div');
-                wrapper.className = 'game-input-wrapper';
-                wrapper.innerHTML = `<input type="text" placeholder="Un autre jeu..."><button type="button" class="remove-game-btn">-</button>`;
-                list.appendChild(wrapper);
+                createInput('', false, list); // Utilise la nouvelle fonction createInput
             }
             if (e.target.classList.contains('remove-game-btn')) {
                 e.target.parentElement.remove();
             }
+
+            const searchButton = e.target.closest('.steam-search-btn');
+            if (searchButton) {
+                handleSteamSearch(searchButton);
+            }
+        });
+        
+        voterSelectMenu.addEventListener('change', (e) => {
+            const userId = e.target.value || user.uid;
+            loadVoteIntoForm(userId, globalVotes, user);
         });
 
-voteForm.addEventListener('click', async (e) => {
-            // Utilise .closest() pour fonctionner même si on clique sur l'icône SVG à l'intérieur du bouton
-            const searchButton = e.target.closest('.steam-search-btn');
-            if (!searchButton) return;
+        voteForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const userIdToSave = voterSelectMenu.value || user.uid;
+            const userNameToSave = (voterSelectMenu.value && globalVotes[userIdToSave]) ? globalVotes[userIdToSave].name : user.displayName;
+            const playerVotes = { p1: [], p2: [], p3: [], p_other: [] };
+            const allNewGames = new Set();
+            
+            document.querySelectorAll('.priority-group').forEach(group => {
+                const priority = group.dataset.priority;
+                group.querySelectorAll('.game-input-list input').forEach(input => {
+                    const game = input.value.trim();
+                    if(game) {
+                        playerVotes[priority].push(game);
+                        allNewGames.add(game);
+                    }
+                });
+            });
 
+            const suggestions = checkTypos(Array.from(allNewGames), globalVotes);
+            if (suggestions.length > 0) {
+                showCorrectionModal(suggestions, { userIdToSave, userNameToSave, playerVotes });
+            } else {
+                saveVote(userIdToSave, userNameToSave, playerVotes, user);
+            }
+        });
+        
+        async function handleSteamSearch(searchButton) {
             const inputField = searchButton.closest('.game-input-wrapper').querySelector('input');
             const searchTerm = inputField.value.trim();
 
@@ -628,8 +537,8 @@ voteForm.addEventListener('click', async (e) => {
                 return;
             }
 
-            const originalIcon = searchButton.innerHTML; // On sauvegarde l'icône SVG
-            searchButton.innerHTML = '⏳'; // Feedback visuel pendant la recherche
+            const originalIcon = searchButton.innerHTML;
+            searchButton.innerHTML = '⏳';
             searchButton.disabled = true;
 
             try {
@@ -648,166 +557,104 @@ voteForm.addEventListener('click', async (e) => {
                 console.error("Erreur lors de la recherche Steam:", error);
                 alert("Une erreur est survenue lors de la recherche.");
             } finally {
-                searchButton.innerHTML = originalIcon; // On restaure la belle icône SVG
+                searchButton.innerHTML = originalIcon;
                 searchButton.disabled = false;
             }
-        });
+        }
         
-        voterSelectMenu.addEventListener('change', (e) => {
-            const userId = e.target.value || user.uid;
-            loadVoteIntoForm(userId, globalVotes, user);
-        });
-
-
-
-        voteForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            console.log("Étape 1: Début de la soumission du formulaire.");
-
-            try {
-                const userIdToSave = voterSelectMenu.value || user.uid;
-                const userNameToSave = (voterSelectMenu.value && globalVotes[userIdToSave]) ? globalVotes[userIdToSave].name : user.displayName;
-                console.log(`Étape 2: Vote pour l'utilisateur ${userNameToSave} (ID: ${userIdToSave})`);
-
-                const playerVotes = { p1: [], p2: [], p3: [], p_other: [] };
-                const allNewGames = new Set();
-                document.querySelectorAll('.priority-group').forEach(group => {
-                    const priority = group.dataset.priority;
-                    group.querySelectorAll('.game-input-list input').forEach(input => {
-                        const game = input.value.trim();
-                        if(game) {
-                            playerVotes[priority].push(game);
-                            allNewGames.add(game);
-                        }
-                    });
-                });
-                console.log("Étape 3: Données des votes collectées :", playerVotes);
-
-                const suggestions = checkTypos(Array.from(allNewGames), globalVotes);
-                console.log("Étape 4: Suggestions de correction trouvées :", suggestions);
-
-                if (suggestions.length > 0) {
-                    console.log("Affichage du modal de correction...");
-                    showCorrectionModal(suggestions, { userIdToSave, userNameToSave, playerVotes });
-                } else {
-                    console.log("Aucune suggestion, sauvegarde directe du vote...");
-                    saveVote(userIdToSave, userNameToSave, playerVotes, user, globalVotes);
-                }
-            } catch (error) {
-                console.error("ERREUR FATALE pendant la soumission du vote:", error);
-            }
-        });
-        
-        // --- FONCTIONS SPÉCIFIQUES À L'APPLICATION ---
-        function saveVote(userId, userName, playerVotes, user, currentVotes) {
+        function saveVote(userId, userName, playerVotes, user) {
             db.ref(`lan/votes/${userId}`).set({ name: userName, votes: playerVotes })
                 .then(() => {
                     if (!correctionModal.style.display.includes('flex')) {
                        alert(`Vote pour ${userName} enregistré !`);
                     }
-                    resetForm(user, currentVotes);
+                    // Comportement modifié : ne pas reseter le formulaire pour garder le contexte
                 })
                 .catch(error => console.error("Erreur:", error));
         }
         
-        function resetForm(currentUser, allVotes) {
-            voteForm.reset();
-            voterSelectMenu.value = "";
+        function createInput(value = '', isFirst, list) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'game-input-wrapper';
+
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = value;
+            input.placeholder = 'Jeu...';
+            wrapper.appendChild(input);
+
+            const searchButton = document.createElement('button');
+            searchButton.type = 'button';
+            searchButton.className = 'steam-search-btn';
+            searchButton.title = 'Vérifier le nom sur Steam';
+            searchButton.innerHTML = `<svg viewBox="0 0 512 512" fill="currentColor"><path d="M256,512C114.62,512,0,397.38,0,256S114.62,0,256,0,512,114.62,512,256,397.38,512,256,512Zm90.38-194.27a34.35,34.35,0,0,1-13.43-2.68l-23.43-11.83-5.18,3.34a75.8,75.8,0,0,1-30.34,7.4,75.8,75.8,0,0,1-30.34-7.4l-5.18-3.34-23.43,11.83a34.37,34.37,0,0,1-42.7-54.08l14.18-22.79-14.18-22.79a34.37,34.37,0,0,1,42.7-54.08l23.43,11.83,5.18-3.34a75.8,75.8,0,0,1,30.34-7.4,75.8,75.8,0,0,1,30.34,7.4l5.18,3.34,23.43-11.83a34.37,34.37,0,0,1,42.7,54.08l-14.18,22.79,14.18,22.79A34.37,34.37,0,0,1,346.38,317.73ZM256,290.62a34.8,34.8,0,1,1,34.8-34.8A34.8,34.8,0,0,1,256,290.62Zm62.65-72.35a16.82,16.82,0,1,1-16.82-16.82A16.82,16.82,0,0,1,318.65,218.27Z"/></svg>`;
+            wrapper.appendChild(searchButton);
+
+            const priorityGroup = list.closest('.priority-group');
+            if (priorityGroup.dataset.priority !== 'p1') {
+                const removeButton = document.createElement('button');
+                removeButton.type = 'button';
+                removeButton.className = 'remove-game-btn';
+                removeButton.textContent = '-';
+                if (isFirst) {
+                    removeButton.style.visibility = 'hidden';
+                }
+                wrapper.appendChild(removeButton);
+            }
             
-            document.querySelectorAll('.priority-group').forEach(group => {
-                const list = group.querySelector('.game-input-list');
-                const firstChild = list.firstElementChild.cloneNode(true);
-                list.innerHTML = '';
-                list.appendChild(firstChild);
-                list.querySelector('input').value = '';
-            });
-            loadVoteIntoForm(currentUser.uid, allVotes, currentUser);
+            list.appendChild(wrapper);
         }
 
         function loadVoteIntoForm(userId, allVotes, currentUser) {
             const voteData = allVotes[userId];
             const playerVotes = voteData ? voteData.votes : {};
-            const submitBtn = document.getElementById('submit-vote-btn'); // On récupère le bouton
+            const submitBtn = document.getElementById('submit-vote-btn');
 
-            // --- DEBUT DE LA MODIFICATION ---
-            // Si on charge le vote de l'utilisateur connecté ET qu'il a déjà voté
-            if (userId === currentUser.uid && voteData) {
-                submitBtn.textContent = 'Mettre à jour mon Vote'; // On change le texte
+            if (userId === currentUser.uid && voteData && Object.keys(voteData.votes).some(p => voteData.votes[p].length > 0)) {
+                submitBtn.textContent = 'Mettre à jour mon Vote';
             } else {
-                submitBtn.textContent = 'Soumettre mon Vote'; // Sinon, texte par défaut
+                submitBtn.textContent = 'Soumettre mon Vote';
             }
-            // --- FIN DE LA MODIFICATION ---
 
             document.querySelectorAll('.priority-group').forEach(group => {
                 const priority = group.dataset.priority;
                 const games = playerVotes[priority] || [];
                 const list = group.querySelector('.game-input-list');
-                list.innerHTML = '';
-
-               const createInput = (value = '', isFirst) => {
-                    const wrapper = document.createElement('div');
-                    wrapper.className = 'game-input-wrapper';
-
-                    const input = document.createElement('input');
-                    input.type = 'text';
-                    input.value = value;
-                    input.placeholder = 'Jeu...';
-                    
-                    wrapper.appendChild(input);
-
-                    // --- Icône de recherche Steam ---
-                    const searchButton = document.createElement('button');
-                    searchButton.type = 'button';
-                    searchButton.className = 'steam-search-btn';
-                    searchButton.title = 'Vérifier le nom sur Steam';
-                    // SVG pour l'icône Steam, comme vous l'avez suggéré
-                    searchButton.innerHTML = `<svg viewBox="0 0 512 512" fill="currentColor"><path d="M256,512C114.62,512,0,397.38,0,256S114.62,0,256,0,512,114.62,512,256,397.38,512,256,512Zm90.38-194.27a34.35,34.35,0,0,1-13.43-2.68l-23.43-11.83-5.18,3.34a75.8,75.8,0,0,1-30.34,7.4,75.8,75.8,0,0,1-30.34-7.4l-5.18-3.34-23.43,11.83a34.37,34.37,0,0,1-42.7-54.08l14.18-22.79-14.18-22.79a34.37,34.37,0,0,1,42.7-54.08l23.43,11.83,5.18-3.34a75.8,75.8,0,0,1,30.34-7.4,75.8,75.8,0,0,1,30.34,7.4l5.18,3.34,23.43-11.83a34.37,34.37,0,0,1,42.7,54.08l-14.18,22.79,14.18,22.79A34.37,34.37,0,0,1,346.38,317.73ZM256,290.62a34.8,34.8,0,1,1,34.8-34.8A34.8,34.8,0,0,1,256,290.62Zm62.65-72.35a16.82,16.82,0,1,1-16.82-16.82A16.82,16.82,0,0,1,318.65,218.27Z"/></svg>`;
-                    wrapper.appendChild(searchButton);
-
-                    // --- Bouton de suppression de ligne ---
-                    if (!isFirst || (isFirst && group.dataset.priority === 'p1')) {
-                         if (group.dataset.priority !== 'p1') {
-                            const removeButton = document.createElement('button');
-                            removeButton.type = 'button';
-                            removeButton.className = 'remove-game-btn';
-                            removeButton.textContent = '-';
-                            if (isFirst) {
-                                // On le cache sur la première ligne des groupes autres que P1
-                                removeButton.style.visibility = 'hidden';
-                            }
-                            wrapper.appendChild(removeButton);
-                        }
-                    } else { // Cas de la première ligne pour P2, P3, etc.
-                         const removeButton = document.createElement('button');
-                         removeButton.type = 'button';
-                         removeButton.className = 'remove-game-btn';
-                         removeButton.textContent = '-';
-                         if (isFirst) {
-                            removeButton.style.visibility = 'hidden';
-                         }
-                         wrapper.appendChild(removeButton);
-                    }
-                    
-                    list.appendChild(wrapper);
-                };
+                list.innerHTML = ''; // On nettoie avant de repeupler
                 
-                if (games.length === 0) { createInput('', true); } 
-                else { games.forEach((game, index) => createInput(game, index === 0)); }
+                if (games.length > 0) {
+                    games.forEach((game, index) => createInput(game, index === 0, list));
+                } else {
+                    createInput('', true, list); // Toujours au moins un champ
+                }
             });
-
         }
 
         function levenshtein(s1, s2) { s1 = s1.toLowerCase(); s2 = s2.toLowerCase(); const costs = []; for (let i = 0; i <= s1.length; i++) { let lastValue = i; for (let j = 0; j <= s2.length; j++) { if (i === 0) costs[j] = j; else if (j > 0) { let newValue = costs[j - 1]; if (s1.charAt(i - 1) !== s2.charAt(j - 1)) newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1; costs[j - 1] = lastValue; lastValue = newValue; } } if (i > 0) costs[s2.length] = lastValue; } return costs[s2.length]; }
         function checkTypos(newGames, currentVotes) { const suggestions = []; const masterGameList = new Set(); Object.values(currentVotes).forEach(voteData => { if(voteData.votes) Object.values(voteData.votes).forEach(games => games.forEach(game => masterGameList.add(game))); }); const masterArray = Array.from(masterGameList); newGames.forEach(newGame => { if (masterGameList.has(newGame)) return; for (const masterGame of masterArray) { const distance = levenshtein(newGame, masterGame); if (distance > 0 && distance <= 2) { suggestions.push({ original: newGame, suggestion: masterGame }); return; } } }); return suggestions; }
-        function showCorrectionModal(suggestions, voteData) { const listElement = document.getElementById('suggestions-list'); listElement.innerHTML = ''; suggestions.forEach(sugg => { const li = document.createElement('li'); li.innerHTML = `Vouliez-vous dire <strong>${sugg.suggestion}</strong> au lieu de <em>${sugg.original}</em> ?`; listElement.appendChild(li); }); const acceptBtn = document.getElementById('modal-accept'); const ignoreBtn = document.getElementById('modal-ignore'); const cancelBtn = document.getElementById('modal-cancel'); const handler = () => { correctionModal.style.display = 'none'; }; const acceptHandler = () => { const correctedVotes = JSON.parse(JSON.stringify(voteData.playerVotes)); suggestions.forEach(sugg => { for (const priority in correctedVotes) { correctedVotes[priority] = correctedVotes[priority].map(game => game === sugg.original ? sugg.suggestion : game); } }); saveVote(voteData.userIdToSave, voteData.userNameToSave, correctedVotes, user, globalVotes); handler(); }; const ignoreHandler = () => { saveVote(voteData.userIdToSave, voteData.userNameToSave, voteData.playerVotes, user, globalVotes); handler(); }; acceptBtn.addEventListener('click', acceptHandler, { once: true }); ignoreBtn.addEventListener('click', ignoreHandler, { once: true }); cancelBtn.addEventListener('click', handler, { once: true }); correctionModal.style.display = 'flex'; }
+        function showCorrectionModal(suggestions, voteData) { const listElement = document.getElementById('suggestions-list'); listElement.innerHTML = ''; suggestions.forEach(sugg => { const li = document.createElement('li'); li.innerHTML = `Vouliez-vous dire <strong><span class="math-inline">\{sugg\.suggestion\}</strong\> au lieu de <em\></span>{sugg.original}</em> ?`; listElement.appendChild(li); }); const acceptBtn = document.getElementById('modal-accept'); const ignoreBtn = document.getElementById('modal-ignore'); const cancelBtn = document.getElementById('modal-cancel'); const handler = () => { correctionModal.style.display = 'none'; }; const acceptHandler = () => { const correctedVotes = JSON.parse(JSON.stringify(voteData.playerVotes)); suggestions.forEach(sugg => { for (const priority in correctedVotes) { correctedVotes[priority] = correctedVotes[priority].map(game => game === sugg.original ? sugg.suggestion : game); } }); saveVote(voteData.userIdToSave, voteData.userNameToSave, correctedVotes, user); handler(); }; const ignoreHandler = () => { saveVote(voteData.userIdToSave, voteData.userNameToSave, voteData.playerVotes, user); handler(); }; acceptBtn.addEventListener('click', acceptHandler, { once: true }); ignoreBtn.addEventListener('click', ignoreHandler, { once: true }); cancelBtn.addEventListener('click', handler, { once: true }); correctionModal.style.display = 'flex'; }
+        
         function calculateScores(votes) { const gameScores = {}; const pointsMapping = { p1: 5, p2: 3, p3: 2, p_other: 1 }; for (const userId in votes) { const voteData = votes[userId]; if(voteData && voteData.votes) { for (const priority in voteData.votes) { voteData.votes[priority].forEach(game => { gameScores[game] = (gameScores[game] || 0) + pointsMapping[priority]; }); } } } return Object.entries(gameScores).map(([name, score]) => ({ name, score })).sort((a, b) => b.score - a.score); }
         function animateCounter(element, target) { if (element.animationFrameId) cancelAnimationFrame(element.animationFrameId); const startValue = parseInt(element.textContent) || 0; if (startValue === target) { element.textContent = target; return; } const duration = 1000; let startTime = null; function animationStep(timestamp) { if (!startTime) startTime = timestamp; const progress = timestamp - startTime; const currentVal = progress < duration ? startValue + Math.floor(progress / duration * (target - startValue)) : target; element.textContent = currentVal; if (progress < duration) element.animationFrameId = requestAnimationFrame(animationStep); } element.animationFrameId = requestAnimationFrame(animationStep); }
         async function getGameImage(gameName) { const normalizedName = gameName.toLowerCase().trim(); try { const response = await fetch(`/api/get-game-image?name=${encodeURIComponent(normalizedName)}`); if (response.ok) { const data = await response.json(); return data.imageUrl; } } catch (error) { console.error("API Error:", error); } return DEFAULT_GAME_ICON; }
         
         async function renderKPIs(gamesData, votes) { const winnerName = gamesData.length > 0 ? gamesData[0].name : '--'; document.getElementById('kpi-winner-value').textContent = winnerName; const winnerImage = document.getElementById('winner-image'); const imageUrl = await getGameImage(winnerName); winnerImage.src = imageUrl; winnerImage.onload = () => winnerImage.src === DEFAULT_GAME_ICON ? winnerImage.classList.remove('loaded') : winnerImage.classList.add('loaded'); animateCounter(document.getElementById('kpi-voters-value'), Object.keys(votes).length); animateCounter(document.getElementById('kpi-games-value'), gamesData.length); }
-        async function renderTable(gamesData) { const tableBody = document.getElementById('results-table-body'); tableBody.innerHTML = ''; if (gamesData.length === 0) { tableBody.innerHTML = `<tr><td colspan="2" style="text-align: center;">Aucun vote pour le moment...</td></tr>`; return; } for (const [index, game] of gamesData.entries()) { const row = document.createElement('tr'); row.style.animationDelay = `${index * 0.05}s`; if (index === 0) row.classList.add('gold'); else if (index === 1) row.classList.add('silver'); else if (index === 2) row.classList.add('bronze'); const gameIconUrl = await getGameImage(game.name); row.innerHTML = `<td><img src="${gameIconUrl}" alt="Icone" class="game-icon">${index + 1}. ${game.name}</td><td>${game.score}</td>`; tableBody.appendChild(row); } }
-        function renderChart(gamesData) { const chartContainer = document.getElementById('chart-container'); chartContainer.innerHTML = ''; const topGames = gamesData.slice(0, 8); if (topGames.length === 0) return; const maxScore = topGames.length > 0 ? Math.max(...topGames.map(g => g.score)) : 0; topGames.forEach((game, index) => { const barHeight = maxScore > 0 ? (game.score / maxScore) * 100 : 0; const barGroup = document.createElement('div'); barGroup.className = 'chart-bar-group'; barGroup.style.animationDelay = `${0.5 + index * 0.1}s`; if (index === 0) barGroup.classList.add('gold'); else if (index === 1) barGroup.classList.add('silver'); else if (index === 2) barGroup.classList.add('bronze'); const crown = index === 0 ? '👑' : ''; barGroup.innerHTML = `<div class="chart-bar" style="height: ${barHeight}%"><div class="bar-label">${game.score} ${crown}</div></div><div class="chart-game-name">${game.name}</div>`; chartContainer.appendChild(barGroup); }); }
-        function populateVoterMenu(votes, currentUser) { const currentSelection = voterSelectMenu.value; voterSelectMenu.innerHTML = '<option value="">-- Mon Vote --</option>'; const sortedVoters = Object.entries(votes).sort((a,b) => a[1].name.localeCompare(b[1].name)); sortedVoters.forEach(([uid, voteData]) => { if (uid === currentUser.uid) return; const option = document.createElement('option'); option.value = uid; option.textContent = voteData.name; voterSelectMenu.appendChild(option); }); voterSelectMenu.value = currentSelection; }
+        async function renderTable(gamesData) { const tableBody = document.getElementById('results-table-body'); tableBody.innerHTML = ''; if (gamesData.length === 0) { tableBody.innerHTML = `<tr><td colspan="2" style="text-align: center;">Aucun vote pour le moment...</td></tr>`; return; } for (const [index, game] of gamesData.entries()) { const row = document.createElement('tr'); row.style.animationDelay = `${index * 0.05}s`; if (index === 0) row.classList.add('gold'); else if (index === 1) row.classList.add('silver'); else if (index === 2) row.classList.add('bronze'); const gameIconUrl = await getGameImage(game.name); row.innerHTML = `<td><img src="<span class="math-inline">\{gameIconUrl\}" alt\="Icone" class\="game\-icon"\></span>{index + 1}. <span class="math-inline">\{game\.name\}</td\><td\></span>{game.score}</td>`; tableBody.appendChild(row); } }
+        function renderChart(gamesData) { const chartContainer = document.getElementById('chart-container'); chartContainer.innerHTML = ''; const topGames = gamesData.slice(0, 8); if (topGames.length === 0) return; const maxScore = topGames.length > 0 ? Math.max(...topGames.map(g => g.score)) : 0; topGames.forEach((game, index) => { const barHeight = maxScore > 0 ? (game.score / maxScore) * 100 : 0; const barGroup = document.createElement('div'); barGroup.className = 'chart-bar-group'; barGroup.style.animationDelay = `${0.5 + index * 0.1}s`; if (index === 0) barGroup.classList.add('gold'); else if (index === 1) barGroup.classList.add('silver'); else if (index === 2) barGroup.classList.add('bronze'); const crown = index === 0 ? '👑' : ''; barGroup.innerHTML = `<div class="chart-bar" style="height: <span class="math-inline">\{barHeight\}%"\><div class\="bar\-label"\></span>{game.score} <span class="math-inline">\{crown\}</div\></div\><div class\="chart\-game\-name"\></span>{game.name}</div>`; chartContainer.appendChild(barGroup); }); }
+        
+        function populateVoterMenu(votes, currentUser) { 
+            const currentSelection = voterSelectMenu.value; 
+            voterSelectMenu.innerHTML = '<option value="">-- Mon Vote --</option>'; 
+            const sortedVoters = Object.entries(votes).sort((a,b) => a[1].name.localeCompare(b[1].name)); 
+            sortedVoters.forEach(([uid, voteData]) => { 
+                if (uid === currentUser.uid) return; 
+                const option = document.createElement('option'); 
+                option.value = uid; 
+                option.textContent = voteData.name; 
+                voterSelectMenu.appendChild(option); 
+            }); 
+            voterSelectMenu.value = currentSelection;
+        }
         
         function renderDashboard(votes, user) {
             const sortedGames = calculateScores(votes);
