@@ -47,7 +47,7 @@ export default async function handler(request, response) {
             return response.status(400).json({ success: false, message: 'Erreur de l\'API Google reCAPTCHA.' });
         }
 
-        // Valide le token et vérifie le score (seuil harmonisé à 0.5)
+        // Valide le token et vérifie le score
         if (verificationData.tokenProperties && verificationData.tokenProperties.valid && verificationData.riskAnalysis.score > 0.5) {
             return response.status(200).json({ success: true, score: verificationData.riskAnalysis.score });
         } else {
