@@ -4,10 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LAN Demain 🚀 Le Sélecteur</title>
-
+    <script src="https://www.google.com/recaptcha/enterprise.js?render=6Lc7_WYrAAAAAH5-0Ioe3bFiy3kYoAvAEwoWcltH"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+
 
     <style>
         :root {
@@ -136,11 +138,15 @@
         <h1>LAN Demain</h1>
         <p>Connecte-toi pour organiser la meilleure LAN !</p>
         <button id="google-login-btn">
-            <svg viewBox="0 0 24 24" fill="white"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
-            Se connecter avec Google
+            <svg id="google-icon" viewBox="0 0 24 24" fill="white">...</svg>
+            <span id="login-btn-text">Se connecter avec Google</span>
+            <div id="login-spinner" style="display: none; border: 2px solid #f3f3f3; border-top: 2px solid #3498db; border-radius: 50%; width: 18px; height: 18px; animation: spin 1s linear infinite;"></div>
         </button>
         <p id="auth-error" style="color: var(--danger-color); margin-top: 15px;"></p>
     </div>
+    
+    <div id="app-container" style="display: none;">
+        </div>
     
     <div id="app-container">
         <div class="container">
@@ -230,35 +236,55 @@ const googleProvider = new firebase.auth.GoogleAuthProvider();
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- Références DOM ---
-    const authContainer = document.getElementById('auth-container');
-    const appContainer = document.getElementById('app-container');
     const googleLoginBtn = document.getElementById('google-login-btn');
-    const logoutBtn = document.getElementById('logout-btn');
-    const userNameSpan = document.getElementById('user-name');
-    const userAvatarImg = document.getElementById('user-avatar');
+    const loginBtnText = document.getElementById('login-btn-text');
+    const loginSpinner = document.getElementById('login-spinner');
+    const googleIcon = document.getElementById('google-icon');
     const authErrorP = document.getElementById('auth-error');
-    const voteForm = document.getElementById('vote-form');
-    const voterSelectMenu = document.getElementById('voter-select-menu');
-    const deleteVoteBtn = document.getElementById('delete-vote-btn');
-    const correctionModal = document.getElementById('correction-modal');
-    const DEFAULT_GAME_ICON = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23666'%3E%3Cpath d='M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-2.5 14H6.5v-1.5h11V18zm0-2.5H6.5v-1.5h11V15.5zm0-2.5H6.5v-1.5h11V13zm-5-3.25L10.25 8h1.5l2.25 1.75V8h1.5v6h-1.5v-1.75L13.25 14h-1.5L9.5 12.25V14H8V8h1.5v1.75z'/%3E%3C/svg%3E`;
-    let votesRef = null;
 
-    // --- GESTION DE L'ÉTAT D'AUTHENTIFICATION ---
-    auth.onAuthStateChanged(user => {
-        if (user) {
-            authContainer.style.display = 'none';
-            appContainer.style.display = 'block';
-            userNameSpan.textContent = user.displayName || user.email;
-            userAvatarImg.src = user.photoURL || '';
-            if (votesRef) votesRef.off(); // Détache les anciens listeners pour éviter les doublons
-            initializeApp(user);
-        } else {
-            authContainer.style.display = 'block';
-            appContainer.style.display = 'none';
-            if (votesRef) votesRef.off();
-        }
+    // --- NOUVEAU FLUX DE CONNEXION AVEC RECAPTCHA ---
+    googleLoginBtn.addEventListener('click', () => {
+        authErrorP.textContent = '';
+        googleLoginBtn.disabled = true;
+        loginBtnText.style.display = 'none';
+        googleIcon.style.display = 'none';
+        loginSpinner.style.display = 'block';
+
+        // 1. On demande un jeton reCAPTCHA
+        grecaptcha.enterprise.ready(async () => {
+            try {
+                const recaptchaToken = await grecaptcha.enterprise.execute('6Lc7_WYrAAAAAH5-0Ioe3bFiy3kYoAvAEwoWcltH', {action: 'LOGIN'});
+                
+                // 2. On envoie ce jeton à notre fonction serverless pour validation
+                const verificationResponse = await fetch('/api/verify-recaptcha', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: recaptchaToken })
+                });
+                
+                const verificationResult = await verificationResponse.json();
+
+                if (verificationResult.success && verificationResult.score > 0.5) {
+                    // 3. Si la validation est réussie, on lance le popup Google
+                    await auth.signInWithPopup(googleProvider);
+                } else {
+                    // Si le score est trop bas, on considère que c'est un robot
+                    throw new Error("La vérification reCAPTCHA a échoué. Veuillez réessayer.");
+                }
+
+            } catch (error) {
+                console.error("Erreur d'authentification ou reCAPTCHA:", error);
+                authErrorP.textContent = error.message;
+            } finally {
+                // On réactive le bouton quoi qu'il arrive
+                googleLoginBtn.disabled = false;
+                loginBtnText.style.display = 'inline';
+                googleIcon.style.display = 'inline-block';
+                loginSpinner.style.display = 'none';
+            }
+        });
     });
+
 
     // --- ÉVÉNEMENTS D'AUTHENTIFICATION ---
     googleLoginBtn.addEventListener('click', () => {
