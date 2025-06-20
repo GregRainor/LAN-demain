@@ -217,8 +217,6 @@ document.addEventListener('DOMContentLoaded', () => {
         loginSpinner.style.display = 'block';
 
         // AUTH AVEC CAPTCHA
-
-
         grecaptcha.enterprise.ready(async () => {
             try {
                 const recaptchaToken = await grecaptcha.enterprise.execute(RECAPTCHA_SITE_KEY, {action: 'LOGIN'});
@@ -246,23 +244,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 loginSpinner.style.display = 'none';
             }
         });
+    }); // <-- FIN DE L'ÉCOUTEUR POUR googleLoginBtn
 
-
-// AUTH SANS CAPTCHA 
-
-/*
-	auth.signInWithPopup(googleProvider)
-        	.catch(error => {
-            		authErrorP.textContent = error.message;
-        	})
-        	.finally(() => {
-            		googleLoginBtn.disabled = false;
-                	loginBtnText.style.display = 'inline-block';
-                	googleIcon.style.display = 'inline-block';
-                	loginSpinner.style.display = 'none';
-        	});
-	    });
-*/
+    // AUTH SANS CAPTCHA (maintenu en commentaire pour référence)
+    /*
+    googleLoginBtn.addEventListener('click', () => {
+        auth.signInWithPopup(googleProvider)
+            .catch(error => {
+                authErrorP.textContent = error.message;
+            })
+            .finally(() => {
+                googleLoginBtn.disabled = false;
+                loginBtnText.style.display = 'inline-block';
+                googleIcon.style.display = 'inline-block';
+                loginSpinner.style.display = 'none';
+            });
+    });
+    */
 
     logoutBtn.addEventListener('click', () => auth.signOut());
 
