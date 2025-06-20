@@ -1,0 +1,24 @@
+# Fichiers de configuration spécifiques à l'environnement de développement
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Dépendances Node.js (si tu décides d'en utiliser plus tard)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Fichiers de cache et de build
+.vercel/
+.cache/
+build/
+dist/
+
+# Fichiers système macOS
+.DS_Store
+
+# Fichiers système Windows
+Thumbs.db
