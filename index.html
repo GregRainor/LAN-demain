@@ -382,6 +382,13 @@ const firebaseConfig = {
 };
 const ADMIN_UID = "ITe5VPuwewMzO7JnJA5oPWMdfvt2"; // Remplacez par votre UID Firebase
 
+
+const normalizeGameName = (name) => {
+    if (typeof name !== 'string') return '';
+    // Met en minuscule, supprime les espaces au début/fin, et remplace les espaces multiples par un seul
+    return name.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
 // --- INITIALISATION ---
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
@@ -436,7 +443,15 @@ document.addEventListener('DOMContentLoaded', () => {
             });
     });
 
-    logoutBtn.addEventListener('click', () => auth.signOut());
+    // Dans la fonction `DOMContentLoaded`
+    logoutBtn.addEventListener('click', () => {
+        // CORRECTION : On supprime manuellement le statut de l'utilisateur avant la déconnexion
+        const user = auth.currentUser;
+        if (user) {
+            db.ref('/status/' + user.uid).remove();
+        }
+        auth.signOut();
+    });
 
     // --- CŒUR DE L'APPLICATION ---
     function renderActiveUsers(users) {
@@ -555,7 +570,8 @@ voteForm.addEventListener('input', () => {
             document.querySelectorAll('.priority-group').forEach(group => {
                 const priority = group.dataset.priority;
                 group.querySelectorAll('.game-input-list input').forEach(input => {
-                    const game = input.value.trim();
+                    // À MODIFIER :
+                    const game = normalizeGameName(input.value); // On utilise notre nouvelle fonction
                     if(game) {
                         playerVotes[priority].push(game);
                         allNewGames.add(game);
@@ -693,7 +709,32 @@ voteForm.addEventListener('input', () => {
     handler();
 }; acceptBtn.addEventListener('click', acceptHandler, { once: true }); ignoreBtn.addEventListener('click', ignoreHandler, { once: true }); cancelBtn.addEventListener('click', handler, { once: true }); correctionModal.style.display = 'flex'; }
         
-        function calculateScores(votes) { const gameScores = {}; const pointsMapping = { p1: 5, p2: 3, p3: 2, p_other: 1 }; for (const userId in votes) { const voteData = votes[userId]; if(voteData && voteData.votes) { for (const priority in voteData.votes) { voteData.votes[priority].forEach(game => { gameScores[game] = (gameScores[game] || 0) + pointsMapping[priority]; }); } } } return Object.entries(gameScores).map(([name, score]) => ({ name, score })).sort((a, b) => b.score - a.score); }
+        function calculateScores(votes) { 
+    const gameScores = {}; 
+    const pointsMapping = { p1: 5, p2: 3, p3: 2, p_other: 1 }; 
+    for (const userId in votes) { 
+        const voteData = votes[userId]; 
+        if(voteData && voteData.votes) { 
+            for (const priority in voteData.votes) { 
+                voteData.votes[priority].forEach(game => {
+                    // À MODIFIER :
+                    const normalizedGame = normalizeGameName(game);
+                    if (normalizedGame) {
+                        gameScores[normalizedGame] = (gameScores[normalizedGame] || 0) + pointsMapping[priority]; 
+                    }
+                }); 
+            } 
+        } 
+    } 
+    // On doit reconstruire les noms avec une majuscule pour l'affichage
+    const finalScores = {};
+    Object.keys(gameScores).forEach(name => {
+        const capitalizedName = name.charAt(0).toUpperCase() + name.slice(1);
+        finalScores[capitalizedName] = gameScores[name];
+    });
+
+    return Object.entries(finalScores).map(([name, score]) => ({ name, score })).sort((a, b) => b.score - a.score);
+}
         function animateCounter(element, target) { if (element.animationFrameId) cancelAnimationFrame(element.animationFrameId); const startValue = parseInt(element.textContent) || 0; if (startValue === target) { element.textContent = target; return; } const duration = 1000; let startTime = null; function animationStep(timestamp) { if (!startTime) startTime = timestamp; const progress = timestamp - startTime; const currentVal = progress < duration ? startValue + Math.floor(progress / duration * (target - startValue)) : target; element.textContent = currentVal; if (progress < duration) element.animationFrameId = requestAnimationFrame(animationStep); } element.animationFrameId = requestAnimationFrame(animationStep); }
         async function getGameImage(gameName) { const normalizedName = gameName.toLowerCase().trim(); try { const response = await fetch(`/api/get-game-image?name=${encodeURIComponent(normalizedName)}`); if (response.ok) { const data = await response.json(); return data.imageUrl; } } catch (error) { console.error("API Error:", error); } return DEFAULT_GAME_ICON; }
         
@@ -706,29 +747,37 @@ voteForm.addEventListener('input', () => {
                 tableBody.innerHTML = `<tr><td colspan="2" style="text-align: center;">Aucun vote pour le moment...</td></tr>`; 
                 return;
             }
-            gamesData.forEach(async (game, index) => { 
+
+            // CORRECTION : Remplacement de forEach par une boucle for...of qui attend l'await
+            let rank = 1;
+            for (const game of gamesData) { 
                 const row = document.createElement('tr');
-                row.style.animationDelay = `${index * 0.05}s`;
-                if (index === 0) row.classList.add('gold');
-                else if (index === 1) row.classList.add('silver');
-                else if (index === 2) row.classList.add('bronze');
+                // L'animation est maintenant gérée par la classe, pas par le délai JS
+                // row.style.animationDelay = `${index * 0.05}s`;
+
+                if (rank === 1) row.classList.add('gold');
+                else if (rank === 2) row.classList.add('silver');
+                else if (rank === 3) row.classList.add('bronze');
                 
                 const gameCell = document.createElement('td');
                 const scoreCell = document.createElement('td');
                 
                 const gameIcon = document.createElement('img');
+                // L'await va maintenant bien mettre en pause la boucle
                 gameIcon.src = await getGameImage(game.name);
                 gameIcon.alt = 'Icone';
                 gameIcon.className = 'game-icon';
                 
                 gameCell.appendChild(gameIcon);
-                gameCell.append(`${index + 1}. ${game.name}`);
+                gameCell.append(`${rank}. ${game.name}`);
                 scoreCell.textContent = game.score;
                 
                 row.appendChild(gameCell);
                 row.appendChild(scoreCell);
                 tableBody.appendChild(row);
-            });
+
+                rank++; // On incrémente le rang pour le prochain tour
+            }
         }
 
         function renderChart(gamesData) { 
