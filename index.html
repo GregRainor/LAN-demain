@@ -131,7 +131,7 @@
 </head>
 <body>
 
-    <div id="auth-container">
+     <div id="auth-container">
         <h1>LAN Demain</h1>
         <p>Connecte-toi pour organiser la meilleure LAN !</p>
         <button id="google-login-btn">
@@ -142,18 +142,119 @@
         <p id="auth-error" style="color: var(--danger-color); margin-top: 15px;"></p>
     </div>
     
-    <div id="app-container">
+    <div id="app-container" style="display: none;">
         <div class="container">
-            <div id="user-info">
-                <span id="user-name"></span>
-                <img id="user-avatar" src="" alt="Avatar">
-                <button id="logout-btn">Déconnexion</button>
-            </div>
-            </div>
+            <header>
+                <div id="user-info">
+                    <span id="user-name"></span>
+                    <img id="user-avatar" src="" alt="Avatar">
+                    <button id="logout-btn" style="background-color: var(--danger-color); color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer;">Déconnexion</button>
+                </div>
+                <h1>LAN Demain 🚀 Le Sélecteur</h1>
+            </header>
+
+            <section class="kpi-grid animated-section">
+                <div class="kpi-card">
+                    <div class="kpi-card-title">🏆 Jeu Gagnant 🏆</div>
+                    <img id="winner-image" src="" alt="Winner game image">
+                    <div id="kpi-winner-value" class="kpi-card-value">--</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-card-title">🧑‍🤝‍🧑 Votants</div>
+                    <div id="kpi-voters-value" class="kpi-card-value">0</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-card-title">🎮 Jeux Proposés</div>
+                    <div id="kpi-games-value" class="kpi-card-value">0</div>
+                </div>
+            </section>
+
+            <section class="chart-wrapper animated-section" style="animation-delay: 0.2s;">
+                <h2>Top 8 des Jeux</h2>
+                <div id="chart-container"></div>
+            </section>
+            
+            <main class="main-content animated-section" style="animation-delay: 0.4s;">
+                <div class="results-container">
+                    <h2>Classement & Scores</h2>
+                    <table class="results-table" id="results-table">
+                        <thead>
+                            <tr>
+                                <th>Jeu</th>
+                                <th>Score</th>
+                            </tr>
+                        </thead>
+                        <tbody id="results-table-body">
+                            </tbody>
+                    </table>
+                </div>
+
+                <div class="form-container">
+                    <h2>Mon Vote / Édition</h2>
+                     <div id="voter-management">
+                        <label for="voter-select-menu">Éditer le vote de :</label>
+                        <select id="voter-select-menu">
+                            <option value="">-- Mon Vote --</option>
+                        </select>
+                    </div>
+                    <form id="vote-form">
+                        <div class="priority-group" data-priority="p1">
+                            <h3>Priorité 1 (5 pts)</h3>
+                            <div class="game-input-list">
+                                <div class="game-input-wrapper">
+                                    <input type="text" placeholder="Le jeu que vous voulez absolument...">
+                                    </div>
+                            </div>
+                        </div>
+                         <div class="priority-group" data-priority="p2">
+                            <h3>Priorité 2 (3 pts)</h3>
+                            <div class="game-input-list">
+                                <div class="game-input-wrapper">
+                                    <input type="text" placeholder="Jeu...">
+                                </div>
+                            </div>
+                            <button type="button" class="add-game-btn">+</button>
+                        </div>
+                        <div class="priority-group" data-priority="p3">
+                            <h3>Priorité 3 (2 pts)</h3>
+                            <div class="game-input-list">
+                                <div class="game-input-wrapper">
+                                    <input type="text" placeholder="Jeu...">
+                                </div>
+                            </div>
+                            <button type="button" class="add-game-btn">+</button>
+                        </div>
+                        <div class="priority-group" data-priority="p_other">
+                            <h3>Autres (1 pt)</h3>
+                            <div class="game-input-list">
+                                <div class="game-input-wrapper">
+                                    <input type="text" placeholder="Jeu...">
+                                </div>
+                            </div>
+                            <button type="button" class="add-game-btn">+</button>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" id="submit-vote-btn">Soumettre mon Vote</button>
+                            <button type="button" id="delete-vote-btn" style="display: none;">Supprimer ce Vote</button>
+                        </div>
+                    </form>
+                </div>
+            </main>
+        </div>
     </div>
     
     <div id="correction-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>Correction Automatique</h3>
+            <p>Nous avons détecté des noms de jeux qui ressemblent à d'autres déjà votés. Voulez-vous les fusionner ?</p>
+            <ul id="suggestions-list"></ul>
+            <div class="modal-actions">
+                <button id="modal-cancel">Annuler</button>
+                <button id="modal-ignore">Ignorer & Sauvegarder tel quel</button>
+                <button id="modal-accept">Accepter & Fusionner</button>
+            </div>
         </div>
+    </div>
 
 <script>
 // --- CONFIGURATION FIREBASE ---
@@ -217,6 +318,7 @@ document.addEventListener('DOMContentLoaded', () => {
         loginSpinner.style.display = 'block';
 
         // AUTH AVEC CAPTCHA
+/*
         grecaptcha.enterprise.ready(async () => {
             try {
                 const recaptchaToken = await grecaptcha.enterprise.execute(RECAPTCHA_SITE_KEY, {action: 'LOGIN'});
@@ -245,9 +347,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }); // <-- FIN DE L'ÉCOUTEUR POUR googleLoginBtn
+*/
 
     // AUTH SANS CAPTCHA (maintenu en commentaire pour référence)
-    /*
     googleLoginBtn.addEventListener('click', () => {
         auth.signInWithPopup(googleProvider)
             .catch(error => {
@@ -260,7 +362,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 loginSpinner.style.display = 'none';
             });
     });
-    */
 
     logoutBtn.addEventListener('click', () => auth.signOut());
 
