@@ -505,10 +505,18 @@ let isEditing = false;
 
         if (votesRef) votesRef.off();
         votesRef = db.ref('lan/votes');
-        votesRef.on('value', (snapshot) => {
+        if (votesRef) votesRef.off();
+        votesRef = db.ref('lan/votes');
+        // On ajoute async à la fonction fléchée ici
+        votesRef.on('value', async (snapshot) => {
             globalVotes = snapshot.val() || {};
-            renderDashboard(globalVotes, user);
+            // Et on attend que le rendu complet soit fait
+            await renderDashboard(globalVotes, user); 
+            
             const selectedUserId = voterSelectMenu.value || user.uid;
+            if (!isEditing || selectedUserId !== user.uid) {
+                loadVoteIntoForm(selectedUserId, globalVotes, user);
+            }
     if (!isEditing || selectedUserId !== user.uid) {
         loadVoteIntoForm(selectedUserId, globalVotes, user);
     }
@@ -740,7 +748,7 @@ voteForm.addEventListener('input', () => {
         
         async function renderKPIs(gamesData, votes) { const winnerName = gamesData.length > 0 ? gamesData[0].name : '--'; document.getElementById('kpi-winner-value').textContent = winnerName; const winnerImage = document.getElementById('winner-image'); const imageUrl = await getGameImage(winnerName); winnerImage.src = imageUrl; winnerImage.onload = () => winnerImage.src === DEFAULT_GAME_ICON ? winnerImage.classList.remove('loaded') : winnerImage.classList.add('loaded'); animateCounter(document.getElementById('kpi-voters-value'), Object.keys(votes).length); animateCounter(document.getElementById('kpi-games-value'), gamesData.length); }
         
-        function renderTable(gamesData) { 
+        async function renderTable(gamesData) { 
             const tableBody = document.getElementById('results-table-body');
             tableBody.innerHTML = '';
             if (gamesData.length === 0) { 
@@ -833,13 +841,14 @@ voteForm.addEventListener('input', () => {
             voterSelectMenu.value = currentSelection;
         }
         
-        function renderDashboard(votes, user) {
-            const sortedGames = calculateScores(votes);
-            populateVoterMenu(votes, user);
-            renderKPIs(sortedGames, votes);
-            renderTable(sortedGames);
-            renderChart(sortedGames);
-        }
+        async function renderDashboard(votes, user) {
+    const sortedGames = calculateScores(votes);
+    populateVoterMenu(votes, user);
+    // On attend que les fonctions async se terminent
+    await renderKPIs(sortedGames, votes);
+    await renderTable(sortedGames);
+    renderChart(sortedGames); // renderChart n'est pas async, pas besoin d'await
+}
     }
 });
 </script>
