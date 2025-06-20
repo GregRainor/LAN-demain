@@ -324,16 +324,20 @@ try {
     const customProvider = new firebase.appCheck.CustomProvider({
       getToken: () => {
         return new Promise((resolve, reject) => {
-          // On s'assure que l'API reCAPTCHA est prête
           grecaptcha.enterprise.ready(() => {
-            // On exécute reCAPTCHA pour obtenir un jeton
             grecaptcha.enterprise.execute('6Lc7_WYrAAAAAH5-0Ioe3bFiy3kYoAvAEwoWcltH', { action: 'database_interaction' })
               .then((token) => {
-                // On renvoie le jeton à App Check
-                resolve({ token: token });
+                // LIGNE CORRIGÉE : On ajoute une date d'expiration manuelle (ex: 5 minutes)
+                // pour que le SDK mette le jeton en cache et arrête la boucle.
+                const expireTimeMillis = Date.now() + 5 * 60 * 1000;
+                
+                // On renvoie le jeton ET sa date d'expiration à App Check
+                resolve({ 
+                    token: token,
+                    expireTimeMillis: expireTimeMillis 
+                });
               })
               .catch((error) => {
-                // En cas d'erreur, on la transmet
                 reject(error);
               });
           });
