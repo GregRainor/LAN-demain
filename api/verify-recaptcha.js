@@ -1,4 +1,5 @@
 // api/verify-recaptcha.js
+/*
 export default async function handler(request, response) {
     if (request.method !== 'POST') {
         return response.status(405).json({ error: 'Méthode non autorisée' });
@@ -59,3 +60,4 @@ export default async function handler(request, response) {
         return response.status(500).json({ success: false, message: 'Erreur interne du serveur.' });
     }
 }
+*/
