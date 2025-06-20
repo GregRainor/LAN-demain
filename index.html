@@ -536,6 +536,42 @@ function renderActiveUsers(users) {
                 e.target.parentElement.remove();
             }
         });
+
+voteForm.addEventListener('click', async (e) => {
+            if (!e.target.classList.contains('search-steam-btn')) return;
+
+            const searchButton = e.target;
+            const inputField = searchButton.closest('.game-input-wrapper').querySelector('input');
+            const searchTerm = inputField.value.trim();
+
+            if (searchTerm === '') {
+                alert("Veuillez d'abord saisir un nom de jeu.");
+                return;
+            }
+
+            searchButton.textContent = '⏳'; // Feedback visuel pendant la recherche
+            searchButton.disabled = true;
+
+            try {
+                const response = await fetch(`/api/get-game-image?name=${encodeURIComponent(searchTerm)}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    inputField.value = data.name; // On met à jour le champ avec le nom officiel
+                    inputField.style.borderColor = 'var(--accent-color)'; // Feedback visuel de succès
+                    setTimeout(() => { inputField.style.borderColor = '' }, 2000);
+                } else {
+                    alert('Jeu non trouvé sur Steam. Vérifiez l\'orthographe.');
+                    inputField.style.borderColor = 'var(--danger-color)'; // Feedback visuel d'échec
+                    setTimeout(() => { inputField.style.borderColor = '' }, 2000);
+                }
+            } catch (error) {
+                console.error("Erreur lors de la recherche Steam:", error);
+                alert("Une erreur est survenue lors de la recherche.");
+            } finally {
+                searchButton.textContent = '🔍'; // On restaure le bouton
+                searchButton.disabled = false;
+            }
+        });
         
         voterSelectMenu.addEventListener('change', (e) => {
             const userId = e.target.value || user.uid;
@@ -616,6 +652,16 @@ function renderActiveUsers(users) {
         function loadVoteIntoForm(userId, allVotes, currentUser) {
             const voteData = allVotes[userId];
             const playerVotes = voteData ? voteData.votes : {};
+            const submitBtn = document.getElementById('submit-vote-btn'); // On récupère le bouton
+
+            // --- DEBUT DE LA MODIFICATION ---
+            // Si on charge le vote de l'utilisateur connecté ET qu'il a déjà voté
+            if (userId === currentUser.uid && voteData) {
+                submitBtn.textContent = 'Mettre à jour mon Vote'; // On change le texte
+            } else {
+                submitBtn.textContent = 'Soumettre mon Vote'; // Sinon, texte par défaut
+            }
+            // --- FIN DE LA MODIFICATION ---
 
             document.querySelectorAll('.priority-group').forEach(group => {
                 const priority = group.dataset.priority;
@@ -623,16 +669,21 @@ function renderActiveUsers(users) {
                 const list = group.querySelector('.game-input-list');
                 list.innerHTML = '';
 
-                const createInput = (value = '', isFirst) => {
+               const createInput = (value = '', isFirst) => {
                     const wrapper = document.createElement('div');
                     wrapper.className = 'game-input-wrapper';
                     let removeButtonHTML = `<button type="button" class="remove-game-btn">-</button>`;
+                    
+                    // On ajoute un bouton de recherche à côté de l'input
+                    let searchButtonHTML = `<button type="button" class="search-steam-btn" title="Vérifier le nom sur Steam">🔍</button>`;
+
                     if (isFirst && group.dataset.priority !== 'p1') {
                         removeButtonHTML = `<button type="button" class="remove-game-btn" style="visibility: hidden;">-</button>`;
                     } else if (group.dataset.priority === 'p1') {
                         removeButtonHTML = '';
                     }
-                    wrapper.innerHTML = `<input type="text" value="${value}" placeholder="Jeu...">${removeButtonHTML}`;
+                    // On combine le tout
+                    wrapper.innerHTML = `<input type="text" value="${value}" placeholder="Jeu...">${searchButtonHTML}${removeButtonHTML}`;
                     list.appendChild(wrapper);
                 };
                 

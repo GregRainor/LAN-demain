@@ -21,9 +21,13 @@ export default async function handler(request, response) {
         const data = await steamResponse.json();
 
         if (data.total > 0 && data.items.length > 0) {
-            const appId = data.items[0].id;
+            const topResult = data.items[0];
+            const appId = topResult.id;
+            const officialName = topResult.name; // On récupère le nom officiel
             const imageUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/header.jpg`;
-            return response.status(200).json({ imageUrl });
+
+            // On renvoie l'URL de l'image ET le nom officiel
+            return response.status(200).json({ imageUrl, name: officialName });
         } else {
             return response.status(404).json({ error: 'Jeu non trouvé sur Steam' });
         }
