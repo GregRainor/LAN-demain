@@ -171,6 +171,41 @@
             padding-left: 60px;
         }
 
+.game-input-wrapper {
+            position: relative; /* Nécessaire pour positionner l'icône */
+        }
+
+        .steam-search-btn {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0.6;
+            transition: opacity 0.2s;
+        }
+
+        .steam-search-btn:hover {
+            opacity: 1;
+        }
+
+        .steam-search-btn svg {
+            width: 20px;
+            height: 20px;
+            fill: var(--secondary-text);
+        }
+
+        /* On ajuste la marge du bouton "remove" s'il est présent */
+        .steam-search-btn + .remove-game-btn {
+            margin-left: 30px;
+        }
+
     </style>
 </head>
 <body>
@@ -235,58 +270,62 @@
                 </div>
 
                 <div class="form-container">
-                    <h2>Mon Vote / Édition</h2>
-                     <div id="voter-management">
-                        <label for="voter-select-menu">Éditer le vote de :</label>
-                        <select id="voter-select-menu">
-                            <option value="">-- Mon Vote --</option>
-                        </select>
-                    </div>
-                    <form id="vote-form">
-                        <div class="priority-group" data-priority="p1">
-                            <h3>Priorité 1 (5 pts)</h3>
-                            <div class="game-input-list">
-                                <div class="game-input-wrapper">
-                                    <input type="text" placeholder="Le jeu que vous voulez absolument...">
-                                    </div>
-                            </div>
-                        </div>
-                         <div class="priority-group" data-priority="p2">
-                            <h3>Priorité 2 (3 pts)</h3>
-                            <div class="game-input-list">
-                                <div class="game-input-wrapper">
-                                    <input type="text" placeholder="Jeu...">
-                                </div>
-                            </div>
-                            <button type="button" class="add-game-btn">+</button>
-                        </div>
-                        <div class="priority-group" data-priority="p3">
-                            <h3>Priorité 3 (2 pts)</h3>
-                            <div class="game-input-list">
-                                <div class="game-input-wrapper">
-                                    <input type="text" placeholder="Jeu...">
-                                </div>
-                            </div>
-                            <button type="button" class="add-game-btn">+</button>
-                        </div>
-                        <div class="priority-group" data-priority="p_other">
-                            <h3>Autres (1 pt)</h3>
-                            <div class="game-input-list">
-                                <div class="game-input-wrapper">
-                                    <input type="text" placeholder="Jeu...">
-                                </div>
-                            </div>
-                            <button type="button" class="add-game-btn">+</button>
-                        </div>
-                        <div class="form-actions">
-                            <button type="submit" id="submit-vote-btn">Soumettre mon Vote</button>
-                            <button type="submit" id="delete-vote-btn" style="display: none;">Supprimer ce Vote</button>
-                        </div>
-                    </form>
-                </div>
-            </main>
-        </div>
+    <h2>Mon Vote / Édition</h2>
+
+    <div id="admin-panel" style="display: none; background-color: rgba(207, 102, 121, 0.1); border: 1px solid var(--danger-color); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+        <h3 style="margin: 0 0 10px 0; text-align: left;">Panneau Admin</h3>
+        <button id="reset-all-votes-btn" style="width: 100%; background-color: var(--danger-color); color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer;">Réinitialiser TOUS les votes</button>
     </div>
+
+    <form id="vote-form">
+        <div id="voter-management">
+            <label for="voter-select-menu">Éditer le vote de :</label>
+            <select id="voter-select-menu">
+                <option value="">-- Mon Vote --</option>
+            </select>
+        </div>
+
+        <div class="priority-group" data-priority="p1">
+            <h3>Priorité 1 (5 pts)</h3>
+            <div class="game-input-list">
+                <div class="game-input-wrapper">
+                    <input type="text" placeholder="Le jeu que vous voulez absolument...">
+                </div>
+            </div>
+        </div>
+        <div class="priority-group" data-priority="p2">
+            <h3>Priorité 2 (3 pts)</h3>
+            <div class="game-input-list">
+                <div class="game-input-wrapper">
+                    <input type="text" placeholder="Jeu...">
+                </div>
+            </div>
+            <button type="button" class="add-game-btn">+</button>
+        </div>
+        <div class="priority-group" data-priority="p3">
+            <h3>Priorité 3 (2 pts)</h3>
+            <div class="game-input-list">
+                <div class="game-input-wrapper">
+                    <input type="text" placeholder="Jeu...">
+                </div>
+            </div>
+            <button type="button" class="add-game-btn">+</button>
+        </div>
+        <div class="priority-group" data-priority="p_other">
+            <h3>Autres (1 pt)</h3>
+            <div class="game-input-list">
+                <div class="game-input-wrapper">
+                    <input type="text" placeholder="Jeu...">
+                </div>
+            </div>
+            <button type="button" class="add-game-btn">+</button>
+        </div>
+        <div class="form-actions">
+            <button type="submit" id="submit-vote-btn">Soumettre mon Vote</button>
+            <button type="button" id="delete-vote-btn" style="display: none;">Supprimer ce Vote</button>
+        </div>
+    </form>
+</div>
     
     <div id="correction-modal" class="modal-overlay">
         <div class="modal-content">
@@ -312,6 +351,7 @@ const firebaseConfig = {
   messagingSenderId: "923746577550",
   appId: "1:923746577550:web:07af6c8cc233201e12addf"
 };
+const ADMIN_UID = "ITe5VPuwewMzO7JnJA5oPWMdfvt2";
 const RECAPTCHA_SITE_KEY = "6Lc7_WYrAAAAAH5-0Ioe3bFiy3kYoAvAEwoWcltH";
 
 // --- INITIALISATION ---
@@ -483,7 +523,9 @@ function renderActiveUsers(users) {
     }
 
     function initializeApp(user) {
-
+if(user.uid === ADMIN_UID) {
+        document.getElementById('admin-panel').style.display = 'block';
+    }
 // --- GESTION DE LA PRÉSENCE ---
         const userStatusRef = db.ref('/status/' + user.uid);
         const connectedRef = db.ref('.info/connected');
@@ -524,6 +566,20 @@ function renderActiveUsers(users) {
         });
 
         // --- GESTION DES ÉVÉNEMENTS ---
+// Listener pour le bouton de reset admin
+const resetAllBtn = document.getElementById('reset-all-votes-btn');
+if(resetAllBtn) {
+    resetAllBtn.addEventListener('click', () => {
+        const confirmation = prompt("Cette action est irréversible et supprimera TOUS les votes. Pour confirmer, tapez 'RESET'.");
+        if (confirmation === 'RESET') {
+            db.ref('lan/votes').remove()
+                .then(() => alert("Tous les votes ont été réinitialisés."))
+                .catch(err => alert("Erreur lors de la réinitialisation: " + err.message));
+        } else {
+            alert("Action annulée.");
+        }
+    });
+}
         voteForm.addEventListener('click', (e) => {
             if (e.target.classList.contains('add-game-btn')) {
                 const list = e.target.previousElementSibling;
@@ -579,11 +635,19 @@ voteForm.addEventListener('click', async (e) => {
         });
 
         deleteVoteBtn.addEventListener('click', () => {
-            const userId = voterSelectMenu.value;
-            if (userId && window.confirm(`Êtes-vous sûr de vouloir supprimer ce vote ?`)) {
-                db.ref(`lan/votes/${userId}`).remove().then(() => resetForm(user, globalVotes));
-            }
+    // On cible l'utilisateur sélectionné dans le menu, ou soi-même si le menu est sur "Mon Vote".
+    const userIdToDelete = voterSelectMenu.value || user.uid; 
+    const userName = allVotes[userIdToDelete]?.name || user.displayName;
+
+    if (userIdToDelete && window.confirm(`Êtes-vous sûr de vouloir supprimer le vote de ${userName} ?`)) {
+        db.ref(`lan/votes/${userIdToDelete}`).remove().then(() => {
+            alert(`Vote de ${userName} supprimé.`);
+            // On s'assure de revenir à la vue "Mon Vote"
+            voterSelectMenu.value = "";
+            resetForm(user, globalVotes);
         });
+    }
+});
 
         voteForm.addEventListener('submit', (e) => {
             e.preventDefault();
@@ -672,18 +736,24 @@ voteForm.addEventListener('click', async (e) => {
                const createInput = (value = '', isFirst) => {
                     const wrapper = document.createElement('div');
                     wrapper.className = 'game-input-wrapper';
+                    
+                    let inputHTML = `<input type="text" value="${value}" placeholder="Jeu...">`;
+                    
+                    // Icône de recherche Steam (SVG)
+                    let searchButtonHTML = `
+                        <button type="button" class="steam-search-btn" title="Vérifier le nom sur Steam">
+                            <svg viewBox="0 0 512 512"><path d="M256,512C114.62,512,0,397.38,0,256S114.62,0,256,0,512,114.62,512,256,397.38,512,256,512Zm90.38-194.27a34.35,34.35,0,0,1-13.43-2.68l-23.43-11.83-5.18,3.34a75.8,75.8,0,0,1-30.34,7.4,75.8,75.8,0,0,1-30.34-7.4l-5.18-3.34-23.43,11.83a34.37,34.37,0,0,1-42.7-54.08l14.18-22.79-14.18-22.79a34.37,34.37,0,0,1,42.7-54.08l23.43,11.83,5.18-3.34a75.8,75.8,0,0,1,30.34-7.4,75.8,75.8,0,0,1,30.34,7.4l5.18,3.34,23.43-11.83a34.37,34.37,0,0,1,42.7,54.08l-14.18,22.79,14.18,22.79A34.37,34.37,0,0,1,346.38,317.73ZM256,290.62a34.8,34.8,0,1,1,34.8-34.8A34.8,34.8,0,0,1,256,290.62Zm62.65-72.35a16.82,16.82,0,1,1-16.82-16.82A16.82,16.82,0,0,1,318.65,218.27Z"/></svg>
+                        </button>`;
+
                     let removeButtonHTML = `<button type="button" class="remove-game-btn">-</button>`;
                     
-                    // On ajoute un bouton de recherche à côté de l'input
-                    let searchButtonHTML = `<button type="button" class="search-steam-btn" title="Vérifier le nom sur Steam">🔍</button>`;
-
                     if (isFirst && group.dataset.priority !== 'p1') {
                         removeButtonHTML = `<button type="button" class="remove-game-btn" style="visibility: hidden;">-</button>`;
                     } else if (group.dataset.priority === 'p1') {
                         removeButtonHTML = '';
                     }
-                    // On combine le tout
-                    wrapper.innerHTML = `<input type="text" value="${value}" placeholder="Jeu...">${searchButtonHTML}${removeButtonHTML}`;
+
+                    wrapper.innerHTML = `${inputHTML}${searchButtonHTML}${removeButtonHTML}`;
                     list.appendChild(wrapper);
                 };
                 
@@ -692,7 +762,7 @@ voteForm.addEventListener('click', async (e) => {
             });
 
             // Affiche le bouton supprimer seulement si on édite le vote de quelqu'un d'autre
-            deleteVoteBtn.style.display = (userId !== currentUser.uid) ? 'block' : 'none';
+            deleteVoteBtn.style.display = voteData ? 'block' : 'none';
         }
 
         function levenshtein(s1, s2) { s1 = s1.toLowerCase(); s2 = s2.toLowerCase(); const costs = []; for (let i = 0; i <= s1.length; i++) { let lastValue = i; for (let j = 0; j <= s2.length; j++) { if (i === 0) costs[j] = j; else if (j > 0) { let newValue = costs[j - 1]; if (s1.charAt(i - 1) !== s2.charAt(j - 1)) newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1; costs[j - 1] = lastValue; lastValue = newValue; } } if (i > 0) costs[s2.length] = lastValue; } return costs[s2.length]; }
