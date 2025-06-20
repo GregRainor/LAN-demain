@@ -88,7 +88,7 @@
         .priority-group h3 { margin: 0 0 15px 0; color: var(--accent-color); text-align: left; }
         .game-input-list { display: flex; flex-direction: column; gap: 10px; }
 
-        /* --- NOUVEAU CSS POUR LE FORMULAIRE --- */
+        /* --- CSS CORRIGÉ ET STABILISÉ POUR LE FORMULAIRE --- */
         .game-input-wrapper {
             display: flex;
             align-items: center;
@@ -96,9 +96,9 @@
         }
         .game-input-wrapper input {
             flex-grow: 1;
-            padding: 8px;
-            background-color: var(--dark-bg); /* Fond sombre */
-            color: var(--secondary-text); /* Texte clair */
+            padding: 8px 12px;
+            background-color: var(--dark-bg);
+            color: var(--secondary-text);
             border: 1px solid var(--border-color);
             border-radius: 4px;
         }
@@ -343,7 +343,7 @@ const firebaseConfig = {
   messagingSenderId: "923746577550",
   appId: "1:923746577550:web:07af6c8cc233201e12addf"
 };
-const ADMIN_UID = "ITe5VPuwewMzO7JnJA5oPWMdfvt2";
+const ADMIN_UID = "ITe5VPuwewMzO7JnJA5oPWMdfvt2"; // Remplacez par votre UID Firebase
 
 // --- INITIALISATION ---
 firebase.initializeApp(firebaseConfig);
@@ -358,7 +358,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const googleLoginBtn = document.getElementById('google-login-btn');
     const loginBtnText = document.getElementById('login-btn-text');
     const loginSpinner = document.getElementById('login-spinner');
-    const googleIcon = document.getElementById('google-icon');
     const authErrorP = document.getElementById('auth-error');
     const logoutBtn = document.getElementById('logout-btn');
     const userNameSpan = document.getElementById('user-name');
@@ -374,25 +373,19 @@ document.addEventListener('DOMContentLoaded', () => {
             appContainer.style.display = 'block';
             userNameSpan.textContent = user.displayName || user.email;
             userAvatarImg.src = user.photoURL || '';
-            if (votesRef) {
-                votesRef.off(); 
-            }
+            if (votesRef) votesRef.off();
             initializeApp(user);
         } else {
             authContainer.style.display = 'block';
             appContainer.style.display = 'none';
-            if (votesRef) {
-                votesRef.off();
-            }
+            if (votesRef) votesRef.off();
         }
     });
 
-    // --- CONNEXION SANS CAPTCHA ---
     googleLoginBtn.addEventListener('click', () => {
         authErrorP.textContent = '';
         googleLoginBtn.disabled = true;
         loginBtnText.style.display = 'none';
-        googleIcon.style.display = 'none';
         loginSpinner.style.display = 'block';
 
         auth.signInWithPopup(googleProvider)
@@ -402,7 +395,6 @@ document.addEventListener('DOMContentLoaded', () => {
             .finally(() => {
                 googleLoginBtn.disabled = false;
                 loginBtnText.style.display = 'inline-block';
-                googleIcon.style.display = 'inline-block';
                 loginSpinner.style.display = 'none';
             });
     });
@@ -420,18 +412,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (userCount > 0) {
             sidebar.classList.add('visible');
-            body.classList.add('sidebar-visible');
-            for (const uid in users) {
-                const user = users[uid];
-                const img = document.createElement('img');
-                img.src = user.avatar;
-                img.title = user.name;
-                img.className = 'user-avatar-icon';
-                sidebar.appendChild(img);
-            }
+            document.body.classList.add('sidebar-visible');
         } else {
             sidebar.classList.remove('visible');
-            body.classList.remove('sidebar-visible');
+            document.body.classList.remove('sidebar-visible');
+        }
+
+        for (const uid in users) {
+            const user = users[uid];
+            const img = document.createElement('img');
+            img.src = user.avatar;
+            img.title = user.name;
+            img.className = 'user-avatar-icon';
+            sidebar.appendChild(img);
         }
     }
 
@@ -468,27 +461,24 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         // --- GESTION DES ÉVÉNEMENTS ---
-        const resetAllBtn = document.getElementById('reset-all-votes-btn');
-        if(resetAllBtn) {
-            resetAllBtn.addEventListener('click', () => {
-                const confirmation = prompt("Cette action est irréversible et supprimera TOUS les votes. Pour confirmer, tapez 'RESET'.");
-                if (confirmation === 'RESET') {
-                    db.ref('lan/votes').remove()
-                        .then(() => alert("Tous les votes ont été réinitialisés."))
-                        .catch(err => alert("Erreur lors de la réinitialisation: " + err.message));
-                } else {
-                    alert("Action annulée.");
-                }
-            });
-        }
+        document.getElementById('reset-all-votes-btn')?.addEventListener('click', () => {
+            const confirmation = prompt("Cette action est irréversible et supprimera TOUS les votes. Pour confirmer, tapez 'RESET'.");
+            if (confirmation === 'RESET') {
+                db.ref('lan/votes').remove()
+                    .then(() => alert("Tous les votes ont été réinitialisés."))
+                    .catch(err => alert("Erreur lors de la réinitialisation: " + err.message));
+            } else {
+                alert("Action annulée.");
+            }
+        });
         
         voteForm.addEventListener('click', (e) => {
             if (e.target.classList.contains('add-game-btn')) {
                 const list = e.target.previousElementSibling;
-                createInput('', false, list); // Utilise la nouvelle fonction createInput
+                createInput('', false, list);
             }
             if (e.target.classList.contains('remove-game-btn')) {
-                e.target.parentElement.remove();
+                e.target.closest('.game-input-wrapper').remove();
             }
 
             const searchButton = e.target.closest('.steam-search-btn');
@@ -498,14 +488,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         
         voterSelectMenu.addEventListener('change', (e) => {
-            const userId = e.target.value || user.uid;
-            loadVoteIntoForm(userId, globalVotes, user);
+            loadVoteIntoForm(e.target.value || user.uid, globalVotes, user);
         });
 
         voteForm.addEventListener('submit', (e) => {
             e.preventDefault();
             const userIdToSave = voterSelectMenu.value || user.uid;
-            const userNameToSave = (voterSelectMenu.value && globalVotes[userIdToSave]) ? globalVotes[userIdToSave].name : user.displayName;
+            const userNameToSave = (globalVotes[userIdToSave]) ? globalVotes[userIdToSave].name : user.displayName;
             const playerVotes = { p1: [], p2: [], p3: [], p_other: [] };
             const allNewGames = new Set();
             
@@ -531,11 +520,7 @@ document.addEventListener('DOMContentLoaded', () => {
         async function handleSteamSearch(searchButton) {
             const inputField = searchButton.closest('.game-input-wrapper').querySelector('input');
             const searchTerm = inputField.value.trim();
-
-            if (searchTerm === '') {
-                alert("Veuillez d'abord saisir un nom de jeu.");
-                return;
-            }
+            if (searchTerm === '') return;
 
             const originalIcon = searchButton.innerHTML;
             searchButton.innerHTML = '⏳';
@@ -546,16 +531,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (response.ok) {
                     const data = await response.json();
                     inputField.value = data.name;
-                    inputField.style.borderColor = 'var(--accent-color)';
-                    setTimeout(() => { inputField.style.borderColor = '' }, 2000);
                 } else {
-                    alert('Jeu non trouvé sur Steam. Vérifiez l\'orthographe.');
-                    inputField.style.borderColor = 'var(--danger-color)';
-                    setTimeout(() => { inputField.style.borderColor = '' }, 2000);
+                    alert('Jeu non trouvé sur Steam.');
                 }
             } catch (error) {
-                console.error("Erreur lors de la recherche Steam:", error);
-                alert("Une erreur est survenue lors de la recherche.");
+                console.error("Erreur Steam:", error);
             } finally {
                 searchButton.innerHTML = originalIcon;
                 searchButton.disabled = false;
@@ -568,12 +548,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (!correctionModal.style.display.includes('flex')) {
                        alert(`Vote pour ${userName} enregistré !`);
                     }
-                    // Comportement modifié : ne pas reseter le formulaire pour garder le contexte
                 })
                 .catch(error => console.error("Erreur:", error));
         }
         
-        function createInput(value = '', isFirst, list) {
+        function createInput(value, isFirst, list) {
             const wrapper = document.createElement('div');
             wrapper.className = 'game-input-wrapper';
 
@@ -581,6 +560,9 @@ document.addEventListener('DOMContentLoaded', () => {
             input.type = 'text';
             input.value = value;
             input.placeholder = 'Jeu...';
+            if (list.closest('.priority-group').dataset.priority === 'p1') {
+                input.placeholder = 'Le jeu que vous voulez absolument...';
+            }
             wrapper.appendChild(input);
 
             const searchButton = document.createElement('button');
@@ -589,9 +571,8 @@ document.addEventListener('DOMContentLoaded', () => {
             searchButton.title = 'Vérifier le nom sur Steam';
             searchButton.innerHTML = `<svg viewBox="0 0 512 512" fill="currentColor"><path d="M256,512C114.62,512,0,397.38,0,256S114.62,0,256,0,512,114.62,512,256,397.38,512,256,512Zm90.38-194.27a34.35,34.35,0,0,1-13.43-2.68l-23.43-11.83-5.18,3.34a75.8,75.8,0,0,1-30.34,7.4,75.8,75.8,0,0,1-30.34-7.4l-5.18-3.34-23.43,11.83a34.37,34.37,0,0,1-42.7-54.08l14.18-22.79-14.18-22.79a34.37,34.37,0,0,1,42.7-54.08l23.43,11.83,5.18-3.34a75.8,75.8,0,0,1,30.34-7.4,75.8,75.8,0,0,1,30.34,7.4l5.18,3.34,23.43-11.83a34.37,34.37,0,0,1,42.7,54.08l-14.18,22.79,14.18,22.79A34.37,34.37,0,0,1,346.38,317.73ZM256,290.62a34.8,34.8,0,1,1,34.8-34.8A34.8,34.8,0,0,1,256,290.62Zm62.65-72.35a16.82,16.82,0,1,1-16.82-16.82A16.82,16.82,0,0,1,318.65,218.27Z"/></svg>`;
             wrapper.appendChild(searchButton);
-
-            const priorityGroup = list.closest('.priority-group');
-            if (priorityGroup.dataset.priority !== 'p1') {
+            
+            if (list.closest('.priority-group').dataset.priority !== 'p1') {
                 const removeButton = document.createElement('button');
                 removeButton.type = 'button';
                 removeButton.className = 'remove-game-btn';
@@ -610,7 +591,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const playerVotes = voteData ? voteData.votes : {};
             const submitBtn = document.getElementById('submit-vote-btn');
 
-            if (userId === currentUser.uid && voteData && Object.keys(voteData.votes).some(p => voteData.votes[p].length > 0)) {
+            if (userId === currentUser.uid && voteData && Object.values(playerVotes).some(p => p.length > 0)) {
                 submitBtn.textContent = 'Mettre à jour mon Vote';
             } else {
                 submitBtn.textContent = 'Soumettre mon Vote';
@@ -620,27 +601,96 @@ document.addEventListener('DOMContentLoaded', () => {
                 const priority = group.dataset.priority;
                 const games = playerVotes[priority] || [];
                 const list = group.querySelector('.game-input-list');
-                list.innerHTML = ''; // On nettoie avant de repeupler
+                list.innerHTML = '';
                 
                 if (games.length > 0) {
                     games.forEach((game, index) => createInput(game, index === 0, list));
                 } else {
-                    createInput('', true, list); // Toujours au moins un champ
+                    createInput('', true, list);
                 }
             });
         }
 
         function levenshtein(s1, s2) { s1 = s1.toLowerCase(); s2 = s2.toLowerCase(); const costs = []; for (let i = 0; i <= s1.length; i++) { let lastValue = i; for (let j = 0; j <= s2.length; j++) { if (i === 0) costs[j] = j; else if (j > 0) { let newValue = costs[j - 1]; if (s1.charAt(i - 1) !== s2.charAt(j - 1)) newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1; costs[j - 1] = lastValue; lastValue = newValue; } } if (i > 0) costs[s2.length] = lastValue; } return costs[s2.length]; }
         function checkTypos(newGames, currentVotes) { const suggestions = []; const masterGameList = new Set(); Object.values(currentVotes).forEach(voteData => { if(voteData.votes) Object.values(voteData.votes).forEach(games => games.forEach(game => masterGameList.add(game))); }); const masterArray = Array.from(masterGameList); newGames.forEach(newGame => { if (masterGameList.has(newGame)) return; for (const masterGame of masterArray) { const distance = levenshtein(newGame, masterGame); if (distance > 0 && distance <= 2) { suggestions.push({ original: newGame, suggestion: masterGame }); return; } } }); return suggestions; }
-        function showCorrectionModal(suggestions, voteData) { const listElement = document.getElementById('suggestions-list'); listElement.innerHTML = ''; suggestions.forEach(sugg => { const li = document.createElement('li'); li.innerHTML = `Vouliez-vous dire <strong><span class="math-inline">\{sugg\.suggestion\}</strong\> au lieu de <em\></span>{sugg.original}</em> ?`; listElement.appendChild(li); }); const acceptBtn = document.getElementById('modal-accept'); const ignoreBtn = document.getElementById('modal-ignore'); const cancelBtn = document.getElementById('modal-cancel'); const handler = () => { correctionModal.style.display = 'none'; }; const acceptHandler = () => { const correctedVotes = JSON.parse(JSON.stringify(voteData.playerVotes)); suggestions.forEach(sugg => { for (const priority in correctedVotes) { correctedVotes[priority] = correctedVotes[priority].map(game => game === sugg.original ? sugg.suggestion : game); } }); saveVote(voteData.userIdToSave, voteData.userNameToSave, correctedVotes, user); handler(); }; const ignoreHandler = () => { saveVote(voteData.userIdToSave, voteData.userNameToSave, voteData.playerVotes, user); handler(); }; acceptBtn.addEventListener('click', acceptHandler, { once: true }); ignoreBtn.addEventListener('click', ignoreHandler, { once: true }); cancelBtn.addEventListener('click', handler, { once: true }); correctionModal.style.display = 'flex'; }
+        function showCorrectionModal(suggestions, voteData) { const listElement = document.getElementById('suggestions-list'); listElement.innerHTML = ''; suggestions.forEach(sugg => { const li = document.createElement('li'); li.innerHTML = `Vouliez-vous dire <strong>${sugg.suggestion}</strong> au lieu de <em>${sugg.original}</em> ?`; listElement.appendChild(li); }); const acceptBtn = document.getElementById('modal-accept'); const ignoreBtn = document.getElementById('modal-ignore'); const cancelBtn = document.getElementById('modal-cancel'); const handler = () => { correctionModal.style.display = 'none'; }; const acceptHandler = () => { const correctedVotes = JSON.parse(JSON.stringify(voteData.playerVotes)); suggestions.forEach(sugg => { for (const priority in correctedVotes) { correctedVotes[priority] = correctedVotes[priority].map(game => game === sugg.original ? sugg.suggestion : game); } }); saveVote(voteData.userIdToSave, voteData.userNameToSave, correctedVotes, user); handler(); }; const ignoreHandler = () => { saveVote(voteData.userIdToSave, voteData.userNameToSave, voteData.playerVotes, user); handler(); }; acceptBtn.addEventListener('click', acceptHandler, { once: true }); ignoreBtn.addEventListener('click', ignoreHandler, { once: true }); cancelBtn.addEventListener('click', handler, { once: true }); correctionModal.style.display = 'flex'; }
         
         function calculateScores(votes) { const gameScores = {}; const pointsMapping = { p1: 5, p2: 3, p3: 2, p_other: 1 }; for (const userId in votes) { const voteData = votes[userId]; if(voteData && voteData.votes) { for (const priority in voteData.votes) { voteData.votes[priority].forEach(game => { gameScores[game] = (gameScores[game] || 0) + pointsMapping[priority]; }); } } } return Object.entries(gameScores).map(([name, score]) => ({ name, score })).sort((a, b) => b.score - a.score); }
         function animateCounter(element, target) { if (element.animationFrameId) cancelAnimationFrame(element.animationFrameId); const startValue = parseInt(element.textContent) || 0; if (startValue === target) { element.textContent = target; return; } const duration = 1000; let startTime = null; function animationStep(timestamp) { if (!startTime) startTime = timestamp; const progress = timestamp - startTime; const currentVal = progress < duration ? startValue + Math.floor(progress / duration * (target - startValue)) : target; element.textContent = currentVal; if (progress < duration) element.animationFrameId = requestAnimationFrame(animationStep); } element.animationFrameId = requestAnimationFrame(animationStep); }
         async function getGameImage(gameName) { const normalizedName = gameName.toLowerCase().trim(); try { const response = await fetch(`/api/get-game-image?name=${encodeURIComponent(normalizedName)}`); if (response.ok) { const data = await response.json(); return data.imageUrl; } } catch (error) { console.error("API Error:", error); } return DEFAULT_GAME_ICON; }
         
         async function renderKPIs(gamesData, votes) { const winnerName = gamesData.length > 0 ? gamesData[0].name : '--'; document.getElementById('kpi-winner-value').textContent = winnerName; const winnerImage = document.getElementById('winner-image'); const imageUrl = await getGameImage(winnerName); winnerImage.src = imageUrl; winnerImage.onload = () => winnerImage.src === DEFAULT_GAME_ICON ? winnerImage.classList.remove('loaded') : winnerImage.classList.add('loaded'); animateCounter(document.getElementById('kpi-voters-value'), Object.keys(votes).length); animateCounter(document.getElementById('kpi-games-value'), gamesData.length); }
-        async function renderTable(gamesData) { const tableBody = document.getElementById('results-table-body'); tableBody.innerHTML = ''; if (gamesData.length === 0) { tableBody.innerHTML = `<tr><td colspan="2" style="text-align: center;">Aucun vote pour le moment...</td></tr>`; return; } for (const [index, game] of gamesData.entries()) { const row = document.createElement('tr'); row.style.animationDelay = `${index * 0.05}s`; if (index === 0) row.classList.add('gold'); else if (index === 1) row.classList.add('silver'); else if (index === 2) row.classList.add('bronze'); const gameIconUrl = await getGameImage(game.name); row.innerHTML = `<td><img src="<span class="math-inline">\{gameIconUrl\}" alt\="Icone" class\="game\-icon"\></span>{index + 1}. <span class="math-inline">\{game\.name\}</td\><td\></span>{game.score}</td>`; tableBody.appendChild(row); } }
-        function renderChart(gamesData) { const chartContainer = document.getElementById('chart-container'); chartContainer.innerHTML = ''; const topGames = gamesData.slice(0, 8); if (topGames.length === 0) return; const maxScore = topGames.length > 0 ? Math.max(...topGames.map(g => g.score)) : 0; topGames.forEach((game, index) => { const barHeight = maxScore > 0 ? (game.score / maxScore) * 100 : 0; const barGroup = document.createElement('div'); barGroup.className = 'chart-bar-group'; barGroup.style.animationDelay = `${0.5 + index * 0.1}s`; if (index === 0) barGroup.classList.add('gold'); else if (index === 1) barGroup.classList.add('silver'); else if (index === 2) barGroup.classList.add('bronze'); const crown = index === 0 ? '👑' : ''; barGroup.innerHTML = `<div class="chart-bar" style="height: <span class="math-inline">\{barHeight\}%"\><div class\="bar\-label"\></span>{game.score} <span class="math-inline">\{crown\}</div\></div\><div class\="chart\-game\-name"\></span>{game.name}</div>`; chartContainer.appendChild(barGroup); }); }
+        
+        function renderTable(gamesData) { 
+            const tableBody = document.getElementById('results-table-body');
+            tableBody.innerHTML = '';
+            if (gamesData.length === 0) { 
+                tableBody.innerHTML = `<tr><td colspan="2" style="text-align: center;">Aucun vote pour le moment...</td></tr>`; 
+                return;
+            }
+            gamesData.forEach(async (game, index) => { 
+                const row = document.createElement('tr');
+                row.style.animationDelay = `${index * 0.05}s`;
+                if (index === 0) row.classList.add('gold');
+                else if (index === 1) row.classList.add('silver');
+                else if (index === 2) row.classList.add('bronze');
+                
+                const gameCell = document.createElement('td');
+                const scoreCell = document.createElement('td');
+                
+                const gameIcon = document.createElement('img');
+                gameIcon.src = await getGameImage(game.name);
+                gameIcon.alt = 'Icone';
+                gameIcon.className = 'game-icon';
+                
+                gameCell.appendChild(gameIcon);
+                gameCell.append(`${index + 1}. ${game.name}`);
+                scoreCell.textContent = game.score;
+                
+                row.appendChild(gameCell);
+                row.appendChild(scoreCell);
+                tableBody.appendChild(row);
+            });
+        }
+
+        function renderChart(gamesData) { 
+            const chartContainer = document.getElementById('chart-container');
+            chartContainer.innerHTML = '';
+            const topGames = gamesData.slice(0, 8);
+            if (topGames.length === 0) return;
+            
+            const maxScore = topGames[0].score;
+            
+            topGames.forEach((game, index) => {
+                const barHeight = maxScore > 0 ? (game.score / maxScore) * 100 : 0;
+                
+                const barGroup = document.createElement('div');
+                barGroup.className = 'chart-bar-group';
+                barGroup.style.animationDelay = `${0.5 + index * 0.1}s`;
+                
+                const bar = document.createElement('div');
+                bar.className = 'chart-bar';
+                bar.style.height = `${barHeight}%`;
+                
+                const barLabel = document.createElement('div');
+                barLabel.className = 'bar-label';
+                const crown = index === 0 ? '👑' : '';
+                barLabel.textContent = `${game.score} ${crown}`;
+                
+                const gameNameLabel = document.createElement('div');
+                gameNameLabel.className = 'chart-game-name';
+                gameNameLabel.textContent = game.name;
+
+                if (index === 0) barGroup.classList.add('gold');
+                else if (index === 1) barGroup.classList.add('silver');
+                else if (index === 2) barGroup.classList.add('bronze');
+                
+                bar.appendChild(barLabel);
+                barGroup.appendChild(bar);
+                barGroup.appendChild(gameNameLabel);
+                chartContainer.appendChild(barGroup);
+            });
+        }
         
         function populateVoterMenu(votes, currentUser) { 
             const currentSelection = voterSelectMenu.value; 
