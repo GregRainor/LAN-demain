@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
+    <link rel="icon" href="favicon.png" type="image/png">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LAN Demain 🚀 Le Sélecteur</title>
+    <title>LAN Demain 🚀</title>
 
     <script src="https://www.google.com/recaptcha/enterprise.js?render=6Lc7_WYrAAAAAH5-0Ioe3bFiy3kYoAvAEwoWcltH"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
@@ -127,9 +128,52 @@
             #chart-container { min-width: 650px; }
             .chart-game-name { transform: rotate(0); white-space: normal; text-align: center; font-size: 0.8em; }
         }
+
+#active-users-sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 60px;
+            height: 100%;
+            background-color: var(--card-bg);
+            border-right: 1px solid var(--border-color);
+            padding-top: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            overflow-y: auto;
+            z-index: 100;
+            transition: transform 0.3s ease;
+            transform: translateX(-100%); /* Cachée par défaut */
+        }
+        
+        #active-users-sidebar.visible {
+            transform: translateX(0);
+        }
+
+        #active-users-sidebar .user-avatar-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid var(--accent-color);
+        }
+        
+        /* Ajustement du body pour ne pas être caché par la sidebar */
+        body { 
+            padding-left: 0; /* Changement ici */
+            transition: padding-left 0.3s ease;
+        }
+
+        body.sidebar-visible {
+            padding-left: 60px;
+        }
+
     </style>
 </head>
 <body>
+	<div id="active-users-sidebar"></div>
 
      <div id="auth-container">
         <h1>LAN Demain</h1>
@@ -366,7 +410,55 @@ document.addEventListener('DOMContentLoaded', () => {
     logoutBtn.addEventListener('click', () => auth.signOut());
 
     // --- CŒUR DE L'APPLICATION ---
+
+function renderActiveUsers(users) {
+        const sidebar = document.getElementById('active-users-sidebar');
+        const body = document.body;
+        if (!sidebar) return;
+
+        sidebar.innerHTML = ''; // On vide la barre avant de la remplir
+        const userCount = users ? Object.keys(users).length : 0;
+
+        if (userCount > 0) {
+            sidebar.classList.add('visible');
+            body.classList.add('sidebar-visible');
+            for (const uid in users) {
+                const user = users[uid];
+                const img = document.createElement('img');
+                img.src = user.avatar;
+                img.title = user.name;
+                img.className = 'user-avatar-icon';
+                sidebar.appendChild(img);
+            }
+        } else {
+            sidebar.classList.remove('visible');
+            body.classList.remove('sidebar-visible');
+        }
+    }
+
     function initializeApp(user) {
+
+// --- GESTION DE LA PRÉSENCE ---
+        const userStatusRef = db.ref('/status/' + user.uid);
+        const connectedRef = db.ref('.info/connected');
+
+        db.ref('/status').on('value', snapshot => {
+            renderActiveUsers(snapshot.val());
+        });
+
+        connectedRef.on('value', (snap) => {
+            if (snap.val() === true) {
+                // L'utilisateur est connecté
+                const userData = {
+                    name: user.displayName,
+                    avatar: user.photoURL
+                };
+                userStatusRef.set(userData);
+
+                // On prépare la suppression de son statut à la déconnexion
+                userStatusRef.onDisconnect().remove();
+            }
+        });
         let globalVotes = {};
         votesRef = db.ref('lan/votes');
         
@@ -413,27 +505,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
         voteForm.addEventListener('submit', (e) => {
             e.preventDefault();
-            const userIdToSave = voterSelectMenu.value || user.uid;
-            const userNameToSave = (voterSelectMenu.value && globalVotes[userIdToSave]) ? globalVotes[userIdToSave].name : user.displayName;
+            console.log("Étape 1: Début de la soumission du formulaire.");
 
-            const playerVotes = { p1: [], p2: [], p3: [], p_other: [] };
-            const allNewGames = new Set();
-            document.querySelectorAll('.priority-group').forEach(group => {
-                const priority = group.dataset.priority;
-                group.querySelectorAll('.game-input-list input').forEach(input => {
-                    const game = input.value.trim();
-                    if(game) {
-                        playerVotes[priority].push(game);
-                        allNewGames.add(game);
-                    }
+            try {
+                const userIdToSave = voterSelectMenu.value || user.uid;
+                const userNameToSave = (voterSelectMenu.value && globalVotes[userIdToSave]) ? globalVotes[userIdToSave].name : user.displayName;
+                console.log(`Étape 2: Vote pour l'utilisateur ${userNameToSave} (ID: ${userIdToSave})`);
+
+                const playerVotes = { p1: [], p2: [], p3: [], p_other: [] };
+                const allNewGames = new Set();
+                document.querySelectorAll('.priority-group').forEach(group => {
+                    const priority = group.dataset.priority;
+                    group.querySelectorAll('.game-input-list input').forEach(input => {
+                        const game = input.value.trim();
+                        if(game) {
+                            playerVotes[priority].push(game);
+                            allNewGames.add(game);
+                        }
+                    });
                 });
-            });
+                console.log("Étape 3: Données des votes collectées :", playerVotes);
 
-            const suggestions = checkTypos(Array.from(allNewGames), globalVotes);
-            if (suggestions.length > 0) {
-                showCorrectionModal(suggestions, { userIdToSave, userNameToSave, playerVotes });
-            } else {
-                saveVote(userIdToSave, userNameToSave, playerVotes, user, globalVotes);
+                const suggestions = checkTypos(Array.from(allNewGames), globalVotes);
+                console.log("Étape 4: Suggestions de correction trouvées :", suggestions);
+
+                if (suggestions.length > 0) {
+                    console.log("Affichage du modal de correction...");
+                    showCorrectionModal(suggestions, { userIdToSave, userNameToSave, playerVotes });
+                } else {
+                    console.log("Aucune suggestion, sauvegarde directe du vote...");
+                    saveVote(userIdToSave, userNameToSave, playerVotes, user, globalVotes);
+                }
+            } catch (error) {
+                console.error("ERREUR FATALE pendant la soumission du vote:", error);
             }
         });
         
