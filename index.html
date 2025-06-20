@@ -231,6 +231,7 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.database();
 const googleProvider = new firebase.auth.GoogleAuthProvider();
+const RECAPTCHA_SITE_KEY = "6Lc7_WYrAAAAAH5-0Ioe3bFiy3kYoAvAEwoWcltH";
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- Références DOM ---
@@ -255,10 +256,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 // 2. On envoie ce jeton à notre fonction serverless pour validation
                 const verificationResponse = await fetch('/api/verify-recaptcha', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ token: recaptchaToken })
-                });
+    			method: 'POST',
+    			headers: { 'Content-Type': 'application/json' },
+    			body: JSON.stringify({ 
+        		token: recaptchaToken,
+        		siteKey: RECAPTCHA_SITE_KEY // On envoie la clé publique au serveur
+    		})
                 
                 const verificationResult = await verificationResponse.json();
 
