@@ -319,10 +319,32 @@ const RECAPTCHA_SITE_KEY = "6Lc7_WYrAAAAAH5-0Ioe3bFiy3kYoAvAEwoWcltH";
 firebase.initializeApp(firebaseConfig);
 try {
     const appCheck = firebase.appCheck();
-    appCheck.activate(
-        new firebase.appCheck.ReCaptchaEnterpriseProvider('6Lc7_WYrAAAAAH5-0Ioe3bFiy3kYoAvAEwoWcltH'),
-        true);
-    console.log("Firebase App Check activé.");
+    
+    // On crée un fournisseur personnalisé qui sait comment parler à reCAPTCHA Enterprise
+    const customProvider = new firebase.appCheck.CustomProvider({
+      getToken: () => {
+        return new Promise((resolve, reject) => {
+          // On s'assure que l'API reCAPTCHA est prête
+          grecaptcha.enterprise.ready(() => {
+            // On exécute reCAPTCHA pour obtenir un jeton
+            grecaptcha.enterprise.execute('6Lc7_WYrAAAAAH5-0Ioe3bFiy3kYoAvAEwoWcltH', { action: 'database_interaction' })
+              .then((token) => {
+                // On renvoie le jeton à App Check
+                resolve({ token: token });
+              })
+              .catch((error) => {
+                // En cas d'erreur, on la transmet
+                reject(error);
+              });
+          });
+        });
+      }
+    });
+
+    // On active App Check avec notre fournisseur personnalisé
+    appCheck.activate(customProvider, true);
+    console.log("Firebase App Check activé avec succès via le fournisseur personnalisé.");
+
 } catch (error) {
     console.error("Erreur lors de l'activation d'App Check:", error);
 }
