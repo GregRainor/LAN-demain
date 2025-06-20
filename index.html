@@ -504,8 +504,8 @@ let isEditing = false;
             const confirmation = prompt("Cette action est irréversible et supprimera TOUS les votes. Pour confirmer, tapez 'RESET'.");
             if (confirmation === 'RESET') {
                 db.ref('lan/votes').remove()
-                    .then(() => showToast("Tous les votes ont été réinitialisés.", "success");
-                    .catch(err) => showToast("Erreur lors de la réinitialisation: " + err.message, "error");
+                    .then(() => showToast("Tous les votes ont été réinitialisés.", "success");})
+                    .catch(err) => showToast("Erreur lors de la réinitialisation: " + err.message, "error");})
             } else {
                showToast("Action annulée."); // Par défaut, le style sera 'success', vous pouvez mettre 'error' si vous préférez
             }
