@@ -218,7 +218,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // AUTH AVEC CAPTCHA
 
-/*
+
         grecaptcha.enterprise.ready(async () => {
             try {
                 const recaptchaToken = await grecaptcha.enterprise.execute(RECAPTCHA_SITE_KEY, {action: 'LOGIN'});
@@ -246,9 +246,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 loginSpinner.style.display = 'none';
             }
         });
-*/
+
 
 // AUTH SANS CAPTCHA 
+
+/*
 	auth.signInWithPopup(googleProvider)
         	.catch(error => {
             		authErrorP.textContent = error.message;
@@ -260,7 +262,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 	loginSpinner.style.display = 'none';
         	});
 	    });
-
+*/
 
     logoutBtn.addEventListener('click', () => auth.signOut());
 
