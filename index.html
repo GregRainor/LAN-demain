@@ -505,9 +505,9 @@ let isEditing = false;
             if (confirmation === 'RESET') {
                 db.ref('lan/votes').remove()
                     .then(() => showToast("Tous les votes ont été réinitialisés.", "success");
-                    .catch(err => showToast("Erreur lors de la réinitialisation: " + err.message, "error");
+                    .catch(err) => showToast("Erreur lors de la réinitialisation: " + err.message, "error");
             } else {
-                alert("Action annulée.");
+               showToast("Action annulée."); // Par défaut, le style sera 'success', vous pouvez mettre 'error' si vous préférez
             }
         });
         
