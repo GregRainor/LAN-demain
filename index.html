@@ -10,6 +10,8 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app-check.js"></script> ```
+
 
     <style>
         :root {
@@ -278,7 +280,7 @@
                             <button type="button" class="add-game-btn">+</button>
                         </div>
                         <div class="form-actions">
-                            <button type="submit" id="submit-vote-btn">Soumettre mon Vote</button>
+                            <button type="button" id="submit-vote-btn">Soumettre mon Vote</button>
                             <button type="button" id="delete-vote-btn" style="display: none;">Supprimer ce Vote</button>
                         </div>
                     </form>
@@ -315,6 +317,15 @@ const RECAPTCHA_SITE_KEY = "6Lc7_WYrAAAAAH5-0Ioe3bFiy3kYoAvAEwoWcltH";
 
 // --- INITIALISATION ---
 firebase.initializeApp(firebaseConfig);
+try {
+    const appCheck = firebase.appCheck();
+    appCheck.activate(
+        new firebase.appCheck.ReCaptchaEnterpriseProvider('6Lc7_WYrAAAAAH5-0Ioe3bFiy3kYoAvAEwoWcltH'),
+        true);
+    console.log("Firebase App Check activé.");
+} catch (error) {
+    console.error("Erreur lors de l'activation d'App Check:", error);
+}
 const auth = firebase.auth();
 const db = firebase.database();
 const googleProvider = new firebase.auth.GoogleAuthProvider();
@@ -353,7 +364,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     });
-/*
+
     googleLoginBtn.addEventListener('click', () => {
         authErrorP.textContent = '';
         googleLoginBtn.disabled = true;
@@ -391,8 +402,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }); // <-- FIN DE L'ÉCOUTEUR POUR googleLoginBtn
-*/
 
+/*
     // AUTH SANS CAPTCHA (maintenu en commentaire pour référence)
     googleLoginBtn.addEventListener('click', () => {
         auth.signInWithPopup(googleProvider)
@@ -406,7 +417,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 loginSpinner.style.display = 'none';
             });
     });
-
+*/
     logoutBtn.addEventListener('click', () => auth.signOut());
 
     // --- CŒUR DE L'APPLICATION ---
