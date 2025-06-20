@@ -6,7 +6,6 @@
     <title>LAN Demain 🚀 Le Sélecteur</title>
 
     <script src="https://www.google.com/recaptcha/enterprise.js?render=6Lc7_WYrAAAAAH5-0Ioe3bFiy3kYoAvAEwoWcltH"></script>
-    
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
@@ -150,14 +149,7 @@
                 <img id="user-avatar" src="" alt="Avatar">
                 <button id="logout-btn">Déconnexion</button>
             </div>
-            <h1>LAN Demain 🚀 Le Sélecteur</h1>
-            <section class="kpi-grid">
-                </section>
-            <section class="chart-wrapper animated-section" style="animation-delay: 0.4s;">
-                </section>
-            <main class="main-content">
-                </main>
-        </div>
+            </div>
     </div>
     
     <div id="correction-modal" class="modal-overlay">
@@ -196,18 +188,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const userAvatarImg = document.getElementById('user-avatar');
 
     let votesRef = null;
-    let currentUser = null;
 
     // --- LOGIQUE D'AUTHENTIFICATION ---
     auth.onAuthStateChanged(user => {
-        currentUser = user;
         if (user) {
             authContainer.style.display = 'none';
             appContainer.style.display = 'block';
             userNameSpan.textContent = user.displayName || user.email;
             userAvatarImg.src = user.photoURL || '';
             if (votesRef) {
-                votesRef.off(); // Détache l'ancien listener pour éviter les doublons
+                votesRef.off(); 
             }
             initializeApp(user);
         } else {
@@ -226,7 +216,7 @@ document.addEventListener('DOMContentLoaded', () => {
         googleIcon.style.display = 'none';
         loginSpinner.style.display = 'block';
 
-// AUTH AVEC CAPTCHA
+        // AUTH AVEC CAPTCHA
 
 /*
         grecaptcha.enterprise.ready(async () => {
@@ -271,6 +261,7 @@ document.addEventListener('DOMContentLoaded', () => {
         	});
 	    });
 
+
     logoutBtn.addEventListener('click', () => auth.signOut());
 
     // --- CŒUR DE L'APPLICATION ---
@@ -278,27 +269,29 @@ document.addEventListener('DOMContentLoaded', () => {
         let globalVotes = {};
         votesRef = db.ref('lan/votes');
         
-        // Listener temps-réel
-        votesRef.on('value', (snapshot) => {
-            globalVotes = snapshot.val() || {};
-            renderDashboard(globalVotes, user);
-        });
-
-        // --- Déclaration des références DOM de l'app ---
         const voteForm = document.getElementById('vote-form');
         const voterSelectMenu = document.getElementById('voter-select-menu');
         const deleteVoteBtn = document.getElementById('delete-vote-btn');
         const correctionModal = document.getElementById('correction-modal');
         const DEFAULT_GAME_ICON = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23666'%3E%3Cpath d='M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-2.5 14H6.5v-1.5h11V18zm0-2.5H6.5v-1.5h11V15.5zm0-2.5H6.5v-1.5h11V13zm-5-3.25L10.25 8h1.5l2.25 1.75V8h1.5v6h-1.5v-1.75L13.25 14h-1.5L9.5 12.25V14H8V8h1.5v1.75z'/%3E%3C/svg%3E`;
 
-        // --- GESTION DES ÉVÉNEMENTS DU FORMULAIRE ---
+        // --- LISTENER TEMPS RÉEL ---
+        votesRef.on('value', (snapshot) => {
+            globalVotes = snapshot.val() || {};
+            renderDashboard(globalVotes, user);
+            // On recharge le formulaire avec le bon vote après chaque mise à jour de la BDD
+            const selectedUserId = voterSelectMenu.value || user.uid;
+            loadVoteIntoForm(selectedUserId, globalVotes, user);
+        });
+
+        // --- GESTION DES ÉVÉNEMENTS ---
         voteForm.addEventListener('click', (e) => {
             if (e.target.classList.contains('add-game-btn')) {
                 const list = e.target.previousElementSibling;
-                const new_input_wrapper = document.createElement('div');
-                new_input_wrapper.className = 'game-input-wrapper';
-                new_input_wrapper.innerHTML = `<input type="text" placeholder="Un autre jeu..."><button type="button" class="remove-game-btn">-</button>`;
-                list.appendChild(new_input_wrapper);
+                const wrapper = document.createElement('div');
+                wrapper.className = 'game-input-wrapper';
+                wrapper.innerHTML = `<input type="text" placeholder="Un autre jeu..."><button type="button" class="remove-game-btn">-</button>`;
+                list.appendChild(wrapper);
             }
             if (e.target.classList.contains('remove-game-btn')) {
                 e.target.parentElement.remove();
@@ -306,20 +299,19 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         
         voterSelectMenu.addEventListener('change', (e) => {
-            const userId = e.target.value || user.uid; // Revient à "Mon Vote" si on déselectionne
-            loadVoteIntoForm(userId, globalVotes);
+            const userId = e.target.value || user.uid;
+            loadVoteIntoForm(userId, globalVotes, user);
         });
 
         deleteVoteBtn.addEventListener('click', () => {
             const userId = voterSelectMenu.value;
             if (userId && window.confirm(`Êtes-vous sûr de vouloir supprimer ce vote ?`)) {
-                db.ref(`lan/votes/${userId}`).remove().then(() => resetForm(user));
+                db.ref(`lan/votes/${userId}`).remove().then(() => resetForm(user, globalVotes));
             }
         });
 
         voteForm.addEventListener('submit', (e) => {
             e.preventDefault();
-            // On peut éditer son propre vote ou celui d'un autre (si on est admin, futures règles)
             const userIdToSave = voterSelectMenu.value || user.uid;
             const userNameToSave = (voterSelectMenu.value && globalVotes[userIdToSave]) ? globalVotes[userIdToSave].name : user.displayName;
 
@@ -340,26 +332,25 @@ document.addEventListener('DOMContentLoaded', () => {
             if (suggestions.length > 0) {
                 showCorrectionModal(suggestions, { userIdToSave, userNameToSave, playerVotes });
             } else {
-                saveVote(userIdToSave, userNameToSave, playerVotes);
+                saveVote(userIdToSave, userNameToSave, playerVotes, user, globalVotes);
             }
         });
-
+        
         // --- FONCTIONS SPÉCIFIQUES À L'APPLICATION ---
-        function saveVote(userId, userName, playerVotes) {
+        function saveVote(userId, userName, playerVotes, user, currentVotes) {
             db.ref(`lan/votes/${userId}`).set({ name: userName, votes: playerVotes })
                 .then(() => {
                     if (!correctionModal.style.display.includes('flex')) {
                        alert(`Vote pour ${userName} enregistré !`);
                     }
-                    resetForm(user);
+                    resetForm(user, currentVotes);
                 })
                 .catch(error => console.error("Erreur:", error));
         }
         
-        function resetForm(currentUser) {
+        function resetForm(currentUser, allVotes) {
             voteForm.reset();
             voterSelectMenu.value = "";
-            deleteVoteBtn.style.display = 'none';
             
             document.querySelectorAll('.priority-group').forEach(group => {
                 const list = group.querySelector('.game-input-list');
@@ -368,11 +359,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 list.appendChild(firstChild);
                 list.querySelector('input').value = '';
             });
-            // Recharge notre propre vote par défaut
-            loadVoteIntoForm(currentUser.uid, globalVotes);
+            loadVoteIntoForm(currentUser.uid, allVotes, currentUser);
         }
 
-        function loadVoteIntoForm(userId, allVotes) {
+        function loadVoteIntoForm(userId, allVotes, currentUser) {
             const voteData = allVotes[userId];
             const playerVotes = voteData ? voteData.votes : {};
 
@@ -383,31 +373,33 @@ document.addEventListener('DOMContentLoaded', () => {
                 list.innerHTML = '';
 
                 const createInput = (value = '', isFirst) => {
-                    const inputWrapper = document.createElement('div');
-                    inputWrapper.className = 'game-input-wrapper';
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'game-input-wrapper';
                     let removeButtonHTML = `<button type="button" class="remove-game-btn">-</button>`;
                     if (isFirst && group.dataset.priority !== 'p1') {
                         removeButtonHTML = `<button type="button" class="remove-game-btn" style="visibility: hidden;">-</button>`;
                     } else if (group.dataset.priority === 'p1') {
                         removeButtonHTML = '';
                     }
-                    inputWrapper.innerHTML = `<input type="text" value="${value}" placeholder="${group.querySelector('input')?.placeholder || 'Jeu'}">${removeButtonHTML}`;
-                    list.appendChild(inputWrapper);
+                    wrapper.innerHTML = `<input type="text" value="${value}" placeholder="Jeu...">${removeButtonHTML}`;
+                    list.appendChild(wrapper);
                 };
                 
                 if (games.length === 0) { createInput('', true); } 
                 else { games.forEach((game, index) => createInput(game, index === 0)); }
             });
 
-            deleteVoteBtn.style.display = (userId !== user.uid && voterSelectMenu.value !== "") ? 'block' : 'none';
+            // Affiche le bouton supprimer seulement si on édite le vote de quelqu'un d'autre
+            deleteVoteBtn.style.display = (userId !== currentUser.uid) ? 'block' : 'none';
         }
 
         function levenshtein(s1, s2) { s1 = s1.toLowerCase(); s2 = s2.toLowerCase(); const costs = []; for (let i = 0; i <= s1.length; i++) { let lastValue = i; for (let j = 0; j <= s2.length; j++) { if (i === 0) costs[j] = j; else if (j > 0) { let newValue = costs[j - 1]; if (s1.charAt(i - 1) !== s2.charAt(j - 1)) newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1; costs[j - 1] = lastValue; lastValue = newValue; } } if (i > 0) costs[s2.length] = lastValue; } return costs[s2.length]; }
         function checkTypos(newGames, currentVotes) { const suggestions = []; const masterGameList = new Set(); Object.values(currentVotes).forEach(voteData => { if(voteData.votes) Object.values(voteData.votes).forEach(games => games.forEach(game => masterGameList.add(game))); }); const masterArray = Array.from(masterGameList); newGames.forEach(newGame => { if (masterGameList.has(newGame)) return; for (const masterGame of masterArray) { const distance = levenshtein(newGame, masterGame); if (distance > 0 && distance <= 2) { suggestions.push({ original: newGame, suggestion: masterGame }); return; } } }); return suggestions; }
-        function showCorrectionModal(suggestions, voteData) { const listElement = document.getElementById('suggestions-list'); listElement.innerHTML = ''; suggestions.forEach(sugg => { const li = document.createElement('li'); li.innerHTML = `Vouliez-vous dire <strong>${sugg.suggestion}</strong> au lieu de <em>${sugg.original}</em> ?`; listElement.appendChild(li); }); const acceptBtn = document.getElementById('modal-accept'); const ignoreBtn = document.getElementById('modal-ignore'); const cancelBtn = document.getElementById('modal-cancel'); const handler = () => { correctionModal.style.display = 'none'; }; const acceptHandler = () => { const correctedVotes = JSON.parse(JSON.stringify(voteData.playerVotes)); suggestions.forEach(sugg => { for (const priority in correctedVotes) { correctedVotes[priority] = correctedVotes[priority].map(game => game === sugg.original ? sugg.suggestion : game); } }); saveVote(voteData.userIdToSave, voteData.userNameToSave, correctedVotes); handler(); }; const ignoreHandler = () => { saveVote(voteData.userIdToSave, voteData.userNameToSave, voteData.playerVotes); handler(); }; acceptBtn.addEventListener('click', acceptHandler, { once: true }); ignoreBtn.addEventListener('click', ignoreHandler, { once: true }); cancelBtn.addEventListener('click', handler, { once: true }); correctionModal.style.display = 'flex'; }
-        function calculateScores(votes) { const gameScores = {}; const pointsMapping = { p1: 5, p2: 3, p3: 2, p_other: 1 }; for (const userId in votes) { const playerVoteData = votes[userId].votes; if(playerVoteData) { for (const priority in playerVoteData) { playerVoteData[priority].forEach(game => { gameScores[game] = (gameScores[game] || 0) + pointsMapping[priority]; }); } } } return Object.entries(gameScores).map(([name, score]) => ({ name, score })).sort((a, b) => b.score - a.score); }
+        function showCorrectionModal(suggestions, voteData) { const listElement = document.getElementById('suggestions-list'); listElement.innerHTML = ''; suggestions.forEach(sugg => { const li = document.createElement('li'); li.innerHTML = `Vouliez-vous dire <strong>${sugg.suggestion}</strong> au lieu de <em>${sugg.original}</em> ?`; listElement.appendChild(li); }); const acceptBtn = document.getElementById('modal-accept'); const ignoreBtn = document.getElementById('modal-ignore'); const cancelBtn = document.getElementById('modal-cancel'); const handler = () => { correctionModal.style.display = 'none'; }; const acceptHandler = () => { const correctedVotes = JSON.parse(JSON.stringify(voteData.playerVotes)); suggestions.forEach(sugg => { for (const priority in correctedVotes) { correctedVotes[priority] = correctedVotes[priority].map(game => game === sugg.original ? sugg.suggestion : game); } }); saveVote(voteData.userIdToSave, voteData.userNameToSave, correctedVotes, user, globalVotes); handler(); }; const ignoreHandler = () => { saveVote(voteData.userIdToSave, voteData.userNameToSave, voteData.playerVotes, user, globalVotes); handler(); }; acceptBtn.addEventListener('click', acceptHandler, { once: true }); ignoreBtn.addEventListener('click', ignoreHandler, { once: true }); cancelBtn.addEventListener('click', handler, { once: true }); correctionModal.style.display = 'flex'; }
+        function calculateScores(votes) { const gameScores = {}; const pointsMapping = { p1: 5, p2: 3, p3: 2, p_other: 1 }; for (const userId in votes) { const voteData = votes[userId]; if(voteData && voteData.votes) { for (const priority in voteData.votes) { voteData.votes[priority].forEach(game => { gameScores[game] = (gameScores[game] || 0) + pointsMapping[priority]; }); } } } return Object.entries(gameScores).map(([name, score]) => ({ name, score })).sort((a, b) => b.score - a.score); }
         function animateCounter(element, target) { if (element.animationFrameId) cancelAnimationFrame(element.animationFrameId); const startValue = parseInt(element.textContent) || 0; if (startValue === target) { element.textContent = target; return; } const duration = 1000; let startTime = null; function animationStep(timestamp) { if (!startTime) startTime = timestamp; const progress = timestamp - startTime; const currentVal = progress < duration ? startValue + Math.floor(progress / duration * (target - startValue)) : target; element.textContent = currentVal; if (progress < duration) element.animationFrameId = requestAnimationFrame(animationStep); } element.animationFrameId = requestAnimationFrame(animationStep); }
         async function getGameImage(gameName) { const normalizedName = gameName.toLowerCase().trim(); try { const response = await fetch(`/api/get-game-image?name=${encodeURIComponent(normalizedName)}`); if (response.ok) { const data = await response.json(); return data.imageUrl; } } catch (error) { console.error("API Error:", error); } return DEFAULT_GAME_ICON; }
+        
         async function renderKPIs(gamesData, votes) { const winnerName = gamesData.length > 0 ? gamesData[0].name : '--'; document.getElementById('kpi-winner-value').textContent = winnerName; const winnerImage = document.getElementById('winner-image'); const imageUrl = await getGameImage(winnerName); winnerImage.src = imageUrl; winnerImage.onload = () => winnerImage.src === DEFAULT_GAME_ICON ? winnerImage.classList.remove('loaded') : winnerImage.classList.add('loaded'); animateCounter(document.getElementById('kpi-voters-value'), Object.keys(votes).length); animateCounter(document.getElementById('kpi-games-value'), gamesData.length); }
         async function renderTable(gamesData) { const tableBody = document.getElementById('results-table-body'); tableBody.innerHTML = ''; if (gamesData.length === 0) { tableBody.innerHTML = `<tr><td colspan="2" style="text-align: center;">Aucun vote pour le moment...</td></tr>`; return; } for (const [index, game] of gamesData.entries()) { const row = document.createElement('tr'); row.style.animationDelay = `${index * 0.05}s`; if (index === 0) row.classList.add('gold'); else if (index === 1) row.classList.add('silver'); else if (index === 2) row.classList.add('bronze'); const gameIconUrl = await getGameImage(game.name); row.innerHTML = `<td><img src="${gameIconUrl}" alt="Icone" class="game-icon">${index + 1}. ${game.name}</td><td>${game.score}</td>`; tableBody.appendChild(row); } }
         function renderChart(gamesData) { const chartContainer = document.getElementById('chart-container'); chartContainer.innerHTML = ''; const topGames = gamesData.slice(0, 8); if (topGames.length === 0) return; const maxScore = topGames.length > 0 ? Math.max(...topGames.map(g => g.score)) : 0; topGames.forEach((game, index) => { const barHeight = maxScore > 0 ? (game.score / maxScore) * 100 : 0; const barGroup = document.createElement('div'); barGroup.className = 'chart-bar-group'; barGroup.style.animationDelay = `${0.5 + index * 0.1}s`; if (index === 0) barGroup.classList.add('gold'); else if (index === 1) barGroup.classList.add('silver'); else if (index === 2) barGroup.classList.add('bronze'); const crown = index === 0 ? '👑' : ''; barGroup.innerHTML = `<div class="chart-bar" style="height: ${barHeight}%"><div class="bar-label">${game.score} ${crown}</div></div><div class="chart-game-name">${game.name}</div>`; chartContainer.appendChild(barGroup); }); }
@@ -420,12 +412,6 @@ document.addEventListener('DOMContentLoaded', () => {
             renderTable(sortedGames);
             renderChart(sortedGames);
         }
-
-        // Charger le vote de l'utilisateur dès l'initialisation
-        db.ref('lan/votes').once('value', snapshot => {
-            const votes = snapshot.val() || {};
-            loadVoteIntoForm(user.uid, votes);
-        });
     }
 });
 </script>
