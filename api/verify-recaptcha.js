@@ -40,7 +40,7 @@ export default async function handler(request, response) {
         
         const verificationData = await verificationResponse.json();
 
-        if (verificationData.tokenProperties && verificationData.tokenProperties.valid && verificationData.riskAnalysis.score > 0.5) {
+        if (verificationData.tokenProperties && verificationData.tokenProperties.valid && verificationData.riskAnalysis.score > 0.1) {
             return response.status(200).json({ success: true, score: verificationData.riskAnalysis.score });
         } else {
             return response.status(400).json({ success: false, message: `Échec de la validation reCAPTCHA. Raison: ${verificationData.tokenProperties?.invalidReason || 'Score faible'}` });
