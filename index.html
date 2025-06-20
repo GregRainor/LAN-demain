@@ -317,6 +317,7 @@ const RECAPTCHA_SITE_KEY = "6Lc7_WYrAAAAAH5-0Ioe3bFiy3kYoAvAEwoWcltH";
 
 // --- INITIALISATION ---
 firebase.initializeApp(firebaseConfig);
+
 /*
 try {
     const appCheck = firebase.appCheck();
@@ -353,7 +354,9 @@ try {
 } catch (error) {
     console.error("Erreur lors de l'activation d'App Check:", error);
 }
+
 */
+
 const auth = firebase.auth();
 const db = firebase.database();
 const googleProvider = new firebase.auth.GoogleAuthProvider();
@@ -393,6 +396,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    /* // BLOC DE CONNEXION AVEC RECAPTCHA CORRECTEMENT COMMENTÉ
     googleLoginBtn.addEventListener('click', () => {
         authErrorP.textContent = '';
         googleLoginBtn.disabled = true;
@@ -400,8 +404,6 @@ document.addEventListener('DOMContentLoaded', () => {
         googleIcon.style.display = 'none';
         loginSpinner.style.display = 'block';
 
-        // AUTH AVEC CAPTCHA
-/*
         grecaptcha.enterprise.ready(async () => {
             try {
                 const recaptchaToken = await grecaptcha.enterprise.execute(RECAPTCHA_SITE_KEY, {action: 'LOGIN'});
@@ -429,16 +431,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 loginSpinner.style.display = 'none';
             }
         });
-    }); // <-- FIN DE L'ÉCOUTEUR POUR googleLoginBtn
+    });
+    */
 
-*/
-    // AUTH SANS CAPTCHA (maintenant activé)
+    // BLOC DE CONNEXION SANS CAPTCHA (le seul qui doit être actif)
     googleLoginBtn.addEventListener('click', () => {
-        authErrorP.textContent = ''; // Ligne ajoutée pour la cohérence
-        googleLoginBtn.disabled = true; // Ligne ajoutée
-        loginBtnText.style.display = 'none'; // Ligne ajoutée
-        googleIcon.style.display = 'none'; // Ligne ajoutée
-        loginSpinner.style.display = 'block'; // Ligne ajoutée
+        authErrorP.textContent = '';
+        googleLoginBtn.disabled = true;
+        loginBtnText.style.display = 'none';
+        googleIcon.style.display = 'none';
+        loginSpinner.style.display = 'block';
 
         auth.signInWithPopup(googleProvider)
             .catch(error => {
