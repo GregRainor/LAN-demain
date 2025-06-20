@@ -90,7 +90,15 @@
         .priority-group h3 { margin: 0 0 15px 0; color: var(--accent-color); text-align: left; }
         .game-input-list { display: flex; flex-direction: column; gap: 10px; }
         .game-input-wrapper { display: flex; align-items: center; gap: 10px; }
-        .game-input-wrapper input { flex-grow: 1; padding: 8px; background-color: var(--dark-bg); border: 1px solid var(--border-color); border-radius: 4px; color: var(--secondary-text); }
+        .game-input-wrapper input {
+            flex-grow: 1;
+            padding: 8px;
+            background-color: var(--dark-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            color: var(--secondary-text);
+            padding-right: 40px; /* AJOUTEZ CETTE LIGNE */
+        }
         .add-game-btn, .remove-game-btn { background-color: var(--border-color); color: var(--secondary-text); border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; font-weight: bold; font-size: 1.2em; line-height: 28px; text-align: center; flex-shrink: 0; transition: background-color 0.3s, transform 0.3s; }
         .add-game-btn:hover, .remove-game-btn:hover { background-color: var(--accent-color); color: var(--dark-bg); transform: rotate(90deg); }
         .remove-game-btn:hover { transform: rotate(180deg); }
@@ -594,9 +602,10 @@ if(resetAllBtn) {
         });
 
 voteForm.addEventListener('click', async (e) => {
-            if (!e.target.classList.contains('search-steam-btn')) return;
+            // Utilise .closest() pour fonctionner même si on clique sur l'icône SVG à l'intérieur du bouton
+            const searchButton = e.target.closest('.steam-search-btn');
+            if (!searchButton) return;
 
-            const searchButton = e.target;
             const inputField = searchButton.closest('.game-input-wrapper').querySelector('input');
             const searchTerm = inputField.value.trim();
 
@@ -605,26 +614,27 @@ voteForm.addEventListener('click', async (e) => {
                 return;
             }
 
-            searchButton.textContent = '⏳'; // Feedback visuel pendant la recherche
+            const originalIcon = searchButton.innerHTML; // On sauvegarde l'icône SVG
+            searchButton.innerHTML = '⏳'; // Feedback visuel pendant la recherche
             searchButton.disabled = true;
 
             try {
                 const response = await fetch(`/api/get-game-image?name=${encodeURIComponent(searchTerm)}`);
                 if (response.ok) {
                     const data = await response.json();
-                    inputField.value = data.name; // On met à jour le champ avec le nom officiel
-                    inputField.style.borderColor = 'var(--accent-color)'; // Feedback visuel de succès
+                    inputField.value = data.name;
+                    inputField.style.borderColor = 'var(--accent-color)';
                     setTimeout(() => { inputField.style.borderColor = '' }, 2000);
                 } else {
                     alert('Jeu non trouvé sur Steam. Vérifiez l\'orthographe.');
-                    inputField.style.borderColor = 'var(--danger-color)'; // Feedback visuel d'échec
+                    inputField.style.borderColor = 'var(--danger-color)';
                     setTimeout(() => { inputField.style.borderColor = '' }, 2000);
                 }
             } catch (error) {
                 console.error("Erreur lors de la recherche Steam:", error);
                 alert("Une erreur est survenue lors de la recherche.");
             } finally {
-                searchButton.textContent = '🔍'; // On restaure le bouton
+                searchButton.innerHTML = originalIcon; // On restaure la belle icône SVG
                 searchButton.disabled = false;
             }
         });
@@ -635,19 +645,19 @@ voteForm.addEventListener('click', async (e) => {
         });
 
         deleteVoteBtn.addEventListener('click', () => {
-    // On cible l'utilisateur sélectionné dans le menu, ou soi-même si le menu est sur "Mon Vote".
-    const userIdToDelete = voterSelectMenu.value || user.uid; 
-    const userName = allVotes[userIdToDelete]?.name || user.displayName;
+            // On cible l'utilisateur sélectionné dans le menu, ou soi-même si le menu est sur "-- Mon Vote --"
+            const userIdToDelete = voterSelectMenu.value || user.uid; 
+            const userName = globalVotes[userIdToDelete]?.name || user.displayName;
 
-    if (userIdToDelete && window.confirm(`Êtes-vous sûr de vouloir supprimer le vote de ${userName} ?`)) {
-        db.ref(`lan/votes/${userIdToDelete}`).remove().then(() => {
-            alert(`Vote de ${userName} supprimé.`);
-            // On s'assure de revenir à la vue "Mon Vote"
-            voterSelectMenu.value = "";
-            resetForm(user, globalVotes);
+            if (userIdToDelete && window.confirm(`Êtes-vous sûr de vouloir supprimer le vote de ${userName} ?`)) {
+                db.ref(`lan/votes/${userIdToDelete}`).remove().then(() => {
+                    alert(`Vote de ${userName} supprimé.`);
+                    // On s'assure de revenir à la vue "Mon Vote" après la suppression
+                    voterSelectMenu.value = ""; 
+                    resetForm(user, globalVotes);
+                });
+            }
         });
-    }
-});
 
         voteForm.addEventListener('submit', (e) => {
             e.preventDefault();
