@@ -309,7 +309,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     });
-
+/*
     googleLoginBtn.addEventListener('click', () => {
         authErrorP.textContent = '';
         googleLoginBtn.disabled = true;
@@ -318,7 +318,7 @@ document.addEventListener('DOMContentLoaded', () => {
         loginSpinner.style.display = 'block';
 
         // AUTH AVEC CAPTCHA
-/*
+
         grecaptcha.enterprise.ready(async () => {
             try {
                 const recaptchaToken = await grecaptcha.enterprise.execute(RECAPTCHA_SITE_KEY, {action: 'LOGIN'});
