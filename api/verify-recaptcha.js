@@ -5,18 +5,21 @@ export default async function handler(request, response) {
     }
 
     try {
-        const { token } = request.body;
+        // MODIFIÉ : Lit le token ET la siteKey depuis le corps de la requête
+        const { token, siteKey } = request.body;
         
-        // On récupère les variables d'environnement depuis Vercel
+        // Récupère les variables d'environnement nécessaires depuis Vercel
         const GOOGLE_CLOUD_API_KEY = process.env.GOOGLE_CLOUD_API_KEY;
         const GOOGLE_CLOUD_PROJECT_ID = process.env.GOOGLE_CLOUD_PROJECT_ID;
-        const NEXT_PUBLIC_RECAPTCHA_SITE_KEY = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY; // Clé publique
 
-        if (!token) {
-            return response.status(400).json({ success: false, message: 'Jeton manquant.' });
+        // VÉRIFICATION 1 : S'assure que le token et la siteKey sont bien présents
+        if (!token || !siteKey) {
+            return response.status(400).json({ success: false, message: 'Jeton ou clé de site manquant.' });
         }
-        if (!GOOGLE_CLOUD_API_KEY || !GOOGLE_CLOUD_PROJECT_ID || !NEXT_PUBLIC_RECAPTCHA_SITE_KEY) {
-            return response.status(500).json({ success: false, message: 'Configuration du serveur incomplète. Vérifiez les variables d\'environnement sur Vercel (GOOGLE_CLOUD_API_KEY, GOOGLE_CLOUD_PROJECT_ID, NEXT_PUBLIC_RECAPTCHA_SITE_KEY).' });
+        
+        // VÉRIFICATION 2 : S'assure que le serveur est bien configuré
+        if (!GOOGLE_CLOUD_API_KEY || !GOOGLE_CLOUD_PROJECT_ID) {
+            return response.status(500).json({ success: false, message: 'Configuration du serveur incomplète. Vérifiez les variables d\'environnement sur Vercel (GOOGLE_CLOUD_API_KEY, GOOGLE_CLOUD_PROJECT_ID).' });
         }
         
         const verificationUrl = `https://recaptchaenterprise.googleapis.com/v1/projects/${GOOGLE_CLOUD_PROJECT_ID}/assessments?key=${GOOGLE_CLOUD_API_KEY}`;
@@ -24,7 +27,8 @@ export default async function handler(request, response) {
         const requestBody = {
             event: {
                 token: token,
-                siteKey: NEXT_PUBLIC_RECAPTCHA_SITE_KEY,
+                // MODIFIÉ : Utilise la siteKey reçue du client
+                siteKey: siteKey,
                 expectedAction: 'LOGIN'
             }
         };
@@ -37,13 +41,14 @@ export default async function handler(request, response) {
         
         const verificationData = await verificationResponse.json();
         
-        // On vérifie si Google a renvoyé une erreur
+        // Gère les erreurs renvoyées par l'API Google
         if (verificationData.error) {
             console.error('Google reCAPTCHA API Error:', verificationData.error);
             return response.status(400).json({ success: false, message: 'Erreur de l\'API Google reCAPTCHA.' });
         }
 
-        if (verificationData.tokenProperties && verificationData.tokenProperties.valid && verificationData.riskAnalysis.score > 0.3) { // Seuil abaissé pour les tests
+        // Valide le token et vérifie le score (seuil harmonisé à 0.5)
+        if (verificationData.tokenProperties && verificationData.tokenProperties.valid && verificationData.riskAnalysis.score > 0.5) {
             return response.status(200).json({ success: true, score: verificationData.riskAnalysis.score });
         } else {
             return response.status(400).json({ success: false, message: `Échec de la validation reCAPTCHA. Raison: ${verificationData.tokenProperties?.invalidReason || 'Score faible'}` });
