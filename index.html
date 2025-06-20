@@ -26,7 +26,7 @@
 
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
 
-        body { font-family: 'Inter', sans-serif; background-color: var(--dark-bg); color: var(--secondary-text); margin: 0; padding: 25px; }
+        body { font-family: 'Inter', sans-serif; background-color: var(--dark-bg); color: var(--secondary-text); margin: 0; padding: 25px; transition: padding-left 0.3s ease; }
         .container { width: 100%; max-width: 1200px; margin: 0 auto; }
         h1, h2, h3 { color: var(--primary-text); text-align: center; }
         h1 { font-size: 2.5em; text-shadow: 0 0 10px var(--primary-text); animation: fadeInDown 0.8s ease-out; }
@@ -90,9 +90,27 @@
 
         .game-input-wrapper { display: flex; align-items: center; gap: 10px; }
         .game-input-wrapper input { flex-grow: 1; padding: 8px 12px; background-color: var(--dark-bg); color: var(--secondary-text); border: 1px solid var(--border-color); border-radius: 4px; }
-        .steam-search-btn { background: none; border: none; cursor: pointer; padding: 0; display: flex; align-items: center; opacity: 0.6; transition: opacity 0.2s; flex-shrink: 0; }
-        .steam-search-btn:hover { opacity: 1; }
-        .steam-search-btn svg { width: 20px; height: 20px; fill: var(--secondary-text); }
+        
+        /* Style amélioré pour le bouton Steam */
+        .steam-search-btn {
+            background-color: #5865f2; 
+            color: white;
+            border: none;
+            padding: 6px 10px;
+            font-size: 0.8em;
+            font-weight: bold;
+            border-radius: 4px;
+            cursor: pointer;
+            opacity: 0.85;
+            transition: opacity 0.2s, background-color 0.2s;
+            flex-shrink: 0;
+            white-space: nowrap;
+        }
+        .steam-search-btn:hover {
+            opacity: 1;
+            background-color: #4f5bda;
+        }
+
         .add-game-btn, .remove-game-btn { background-color: var(--border-color); color: var(--secondary-text); border: none; border-radius: 50%; width: 28px; height: 28px; cursor: pointer; font-weight: bold; font-size: 1.2em; line-height: 28px; text-align: center; flex-shrink: 0; transition: background-color 0.3s, transform 0.3s; }
         .add-game-btn:hover, .remove-game-btn:hover { background-color: var(--accent-color); color: var(--dark-bg); transform: rotate(90deg); }
         .remove-game-btn:hover { transform: rotate(180deg); }
@@ -120,7 +138,7 @@
         #active-users-sidebar { position: fixed; top: 0; left: 0; width: 60px; height: 100%; background-color: var(--card-bg); border-right: 1px solid var(--border-color); padding-top: 20px; display: flex; flex-direction: column; align-items: center; gap: 15px; overflow-y: auto; z-index: 100; transition: transform 0.3s ease; transform: translateX(-100%); }
         #active-users-sidebar.visible { transform: translateX(0); }
         #active-users-sidebar .user-avatar-icon { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid var(--accent-color); }
-        body.sidebar-visible { padding-left: 60px; }
+        body.sidebar-visible { padding-left: 80px; }
 
         #toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 2000; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
         .toast { padding: 15px 20px; border-radius: 8px; color: white; font-weight: bold; box-shadow: 0 4px 15px rgba(0,0,0,0.4); transform: translateX(120%); opacity: 0; transition: transform 0.5s ease, opacity 0.5s ease; }
@@ -130,6 +148,9 @@
 
         @media (max-width: 768px) {
             body { padding: 15px; }
+            body.sidebar-visible { padding-left: 15px; padding-top: 70px; }
+            #active-users-sidebar { width: 100%; height: 60px; top: 0; left: 0; flex-direction: row; justify-content: center; transform: translateY(-100%); border-right: none; border-bottom: 1px solid var(--border-color); }
+            #active-users-sidebar.visible { transform: translateY(0); }
             h1 { font-size: 1.8em; }
             h2 { font-size: 1.3em; }
             .kpi-grid { grid-template-columns: 1fr 1fr; }
@@ -148,7 +169,7 @@
         <h1>LAN Demain</h1>
         <p>Connecte-toi pour organiser la meilleure LAN !</p>
         <button id="google-login-btn">
-            <svg id="google-icon" style="width: 20px; height: 20px;" viewBox="0 0 24 24" fill="white"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+            <svg id="google-icon" viewBox="0 0 24 24" fill="white"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
             <span id="login-btn-text">Se connecter avec Google</span>
             <div id="login-spinner"></div>
         </button>
@@ -338,6 +359,34 @@ document.addEventListener('DOMContentLoaded', () => {
         auth.signOut();
     });
 
+    // --- CŒUR DE L'APPLICATION ---
+    
+    function renderActiveUsers(users) {
+        const sidebar = document.getElementById('active-users-sidebar');
+        const body = document.body;
+        if (!sidebar) return;
+
+        sidebar.innerHTML = '';
+        const userCount = users ? Object.keys(users).length : 0;
+
+        if (userCount > 0) {
+            sidebar.classList.add('visible');
+            body.classList.add('sidebar-visible');
+        } else {
+            sidebar.classList.remove('visible');
+            body.classList.remove('sidebar-visible');
+        }
+
+        for (const uid in users) {
+            const user = users[uid];
+            const img = document.createElement('img');
+            img.src = user.avatar;
+            img.title = user.name;
+            img.className = 'user-avatar-icon';
+            sidebar.appendChild(img);
+        }
+    }
+
     function initializeApp(user) {
         if(user.uid === ADMIN_UID) {
             document.getElementById('admin-panel').style.display = 'block';
@@ -462,8 +511,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } catch (error) {
                 console.error("Erreur Steam:", error);
+                showToast('Erreur de l\'API Steam.', 'error');
             } finally {
-                searchButton.innerHTML = originalIcon;
+                searchButton.textContent = 'Vérifier';
                 searchButton.disabled = false;
             }
         }
@@ -501,7 +551,7 @@ document.addEventListener('DOMContentLoaded', () => {
             searchButton.type = 'button';
             searchButton.className = 'steam-search-btn';
             searchButton.title = 'Vérifier le nom sur Steam';
-            searchButton.innerHTML = `<svg viewBox="0 0 512 512" fill="currentColor"><path d="M256,512C114.62,512,0,397.38,0,256S114.62,0,256,0,512,114.62,512,256,397.38,512,256,512Zm90.38-194.27a34.35,34.35,0,0,1-13.43-2.68l-23.43-11.83-5.18,3.34a75.8,75.8,0,0,1-30.34,7.4,75.8,75.8,0,0,1-30.34-7.4l-5.18-3.34-23.43,11.83a34.37,34.37,0,0,1-42.7-54.08l14.18-22.79-14.18-22.79a34.37,34.37,0,0,1,42.7-54.08l23.43,11.83,5.18-3.34a75.8,75.8,0,0,1,30.34-7.4,75.8,75.8,0,0,1,30.34,7.4l5.18,3.34,23.43-11.83a34.37,34.37,0,0,1,42.7,54.08l-14.18,22.79,14.18,22.79A34.37,34.37,0,0,1,346.38,317.73ZM256,290.62a34.8,34.8,0,1,1,34.8-34.8A34.8,34.8,0,0,1,256,290.62Zm62.65-72.35a16.82,16.82,0,1,1-16.82-16.82A16.82,16.82,0,0,1,318.65,218.27Z"/></svg>`;
+            searchButton.textContent = 'Vérifier'; // Bouton texte
             wrapper.appendChild(searchButton);
             
             if (list.closest('.priority-group').dataset.priority !== 'p1') {
@@ -572,21 +622,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 li.innerHTML = `Remplacer votre saisie <em>${sugg.original}</em> par le jeu déjà existant <strong>${sugg.suggestion}</strong> ?`;
                 listElement.appendChild(li);
             });
-            const acceptBtn = document.getElementById('modal-accept'); 
-            const ignoreBtn = document.getElementById('modal-ignore'); 
-            const cancelBtn = document.getElementById('modal-cancel');
             
-            const cleanup = () => {
-                acceptBtn.replaceWith(acceptBtn.cloneNode(true));
-                ignoreBtn.replaceWith(ignoreBtn.cloneNode(true));
-                cancelBtn.replaceWith(cancelBtn.cloneNode(true));
-            };
+            // On s'assure de ne pas avoir de vieux écouteurs d'événements
+            const newAcceptBtn = document.getElementById('modal-accept').cloneNode(true);
+            document.getElementById('modal-accept').replaceWith(newAcceptBtn);
+            const newIgnoreBtn = document.getElementById('modal-ignore').cloneNode(true);
+            document.getElementById('modal-ignore').replaceWith(newIgnoreBtn);
+            const newCancelBtn = document.getElementById('modal-cancel').cloneNode(true);
+            document.getElementById('modal-cancel').replaceWith(newCancelBtn);
 
-            const handler = () => { 
-                correctionModal.style.display = 'none';
-                cleanup();
-            };
-             const acceptHandler = () => {
+            const handler = () => { correctionModal.style.display = 'none'; };
+            const acceptHandler = () => {
                 const correctedVotes = JSON.parse(JSON.stringify(voteData.playerVotes));
                 suggestions.forEach(sugg => {
                     for (const priority in correctedVotes) {
@@ -601,9 +647,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 handler();
             };
 
-            document.getElementById('modal-accept').addEventListener('click', acceptHandler);
-            document.getElementById('modal-ignore').addEventListener('click', ignoreHandler);
-            document.getElementById('modal-cancel').addEventListener('click', handler);
+            newAcceptBtn.addEventListener('click', acceptHandler);
+            newIgnoreBtn.addEventListener('click', ignoreHandler);
+            newCancelBtn.addEventListener('click', handler);
 
             correctionModal.style.display = 'flex';
         }
@@ -687,14 +733,14 @@ document.addEventListener('DOMContentLoaded', () => {
             animateCounter(document.getElementById('kpi-games-value'), gamesData.length);
         }
         
-        async function renderTable(gamesData) {
+        function renderTable(gamesData) {
             const tableBody = document.getElementById('results-table-body');
             tableBody.innerHTML = '';
             if (gamesData.length === 0) { 
                 tableBody.innerHTML = `<tr><td colspan="2" style="text-align: center;">Aucun vote pour le moment...</td></tr>`; 
                 return;
             }
-            for (const [index, game] of gamesData.entries()) { 
+            gamesData.forEach((game, index) => {
                 const row = document.createElement('tr');
                 const rank = index + 1;
                 if (rank === 1) row.classList.add('gold');
@@ -705,9 +751,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 const scoreCell = document.createElement('td');
                 
                 const gameIcon = document.createElement('img');
-                gameIcon.src = await getGameImage(game.name);
+                gameIcon.src = DEFAULT_GAME_ICON;
                 gameIcon.alt = 'Icone';
                 gameIcon.className = 'game-icon';
+                
+                getGameImage(game.name).then(imageUrl => {
+                    gameIcon.src = imageUrl;
+                });
                 
                 gameCell.appendChild(gameIcon);
                 gameCell.append(`${rank}. ${game.name}`);
@@ -716,7 +766,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 row.appendChild(gameCell);
                 row.appendChild(scoreCell);
                 tableBody.appendChild(row);
-            }
+            });
         }
 
         function renderChart(gamesData) { 
@@ -782,6 +832,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function showToast(message, type = 'success') {
         const container = document.getElementById('toast-container');
+        if (!container) return;
         const toast = document.createElement('div');
         toast.className = `toast ${type}`;
         toast.textContent = message;
