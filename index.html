@@ -16,9 +16,13 @@
 
 <body>
     <div class="marquee-bg">
-        <div class="marquee-track" id="waiting-marquee"></div>
+        <div class="marquee-track" id="waiting-marquee-1"></div>
+        <div class="marquee-track" id="waiting-marquee-2" style="animation-delay: -10s; animation-direction: reverse;">
+        </div>
+        <div class="marquee-track" id="waiting-marquee-3" style="animation-delay: -25s;"></div>
+        <div class="marquee-track" id="waiting-marquee-4" style="animation-delay: -5s; animation-direction: reverse;">
+        </div>
     </div>
-    <div id="active-users-sidebar"></div>
 
     <div id="auth-container" class="luxury-panel">
         <h1>LAN Demain</h1>
@@ -54,167 +58,200 @@
             <h1 id="main-title">LAN Demain</h1>
         </header>
 
-        <div id="admin-panel-open" class="luxury-panel"
-            style="display: none; position: sticky; top: 10px; z-index: 100; margin-bottom: 30px; border-color: var(--danger-color); padding: 15px 25px; align-items: center; justify-content: space-between;">
-            <div
-                style="font-family: 'Playfair Display', serif; color: var(--danger-color); font-size: 1.2em; margin: 0;">
-                Mode Admin: Vote en cours</div>
-            <button id="toggle-voting-btn-open" class="gold-btn"
-                style="background: var(--accent-color); color: var(--dark-bg); border: none; padding: 10px 20px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: bold; border-radius: 2px;">Clôturer
-                le Vote</button>
-        </div>
+        <div id="view-voting-open" class="container wide-container" style="display: none;">
 
-        <!-- VIEW 1: VOTING IS OPEN -->
-        <div id="view-voting-open" class="container" style="display: none;">
-
-            <section class="kpi-grid animated-section">
-                <div class="kpi-card luxury-panel">
-                    <div class="kpi-card-title">Jeu Gagnant</div>
-                    <img id="winner-image" src="" alt="Winner game image">
-                    <div id="kpi-winner-value" class="kpi-card-value">--</div>
-                </div>
-                <div class="kpi-card luxury-panel">
-                    <div class="kpi-card-title">Votants</div>
-                    <div id="kpi-voters-value" class="kpi-card-value">0</div>
-                </div>
-                <div class="kpi-card luxury-panel">
-                    <div class="kpi-card-title">Jeux Proposés</div>
-                    <div id="kpi-games-value" class="kpi-card-value">0</div>
-                </div>
-            </section>
-
-            <section class="chart-wrapper luxury-panel animated-section" style="animation-delay: 0.2s;">
-                <h2>Top 8 des Jeux</h2>
-                <div id="chart-container"></div>
-            </section>
-
-            <main class="main-content animated-section" style="animation-delay: 0.4s;">
-                <div class="results-container luxury-panel">
-                    <h2>Classement & Scores</h2>
-                    <table class="results-table" id="results-table">
-                        <thead>
-                            <tr>
-                                <th>Jeu</th>
-                                <th>Score</th>
-                            </tr>
-                        </thead>
-                        <tbody id="results-table-body">
-                        </tbody>
-                    </table>
-                </div>
-
-                <div class="form-container luxury-panel">
-                    <h2>Mon Vote / Édition</h2>
-
-
-                </div>
-
-                <form id="vote-form">
-                    <div id="voter-management">
-                        <label for="voter-select-menu">Éditer le vote de :</label>
-                        <select id="voter-select-menu">
-                            <option value="">-- Mon Vote --</option>
-                        </select>
+            <div class="three-column-layout">
+                <!-- LEFT SIDEBAR -->
+                <aside id="left-sidebar" class="animated-section">
+                    <div id="active-users-sidebar" class="luxury-panel sidebar-module">
+                        <h3 class="sidebar-title">Joueurs</h3>
+                        <div id="users-list-container"></div>
                     </div>
-                    <div class="priority-group" data-priority="p1">
-                        <h3>Priorité 1 <span>(5 pts)</span></h3>
-                        <div class="game-input-list"></div>
-                    </div>
-                    <div class="priority-group" data-priority="p2">
-                        <h3>Priorité 2 <span>(3 pts)</span></h3>
-                        <div class="game-input-list"></div>
-                        <button type="button" class="add-game-btn">+</button>
-                    </div>
-                    <div class="priority-group" data-priority="p3">
-                        <h3>Priorité 3 <span>(2 pts)</span></h3>
-                        <div class="game-input-list"></div>
-                        <button type="button" class="add-game-btn">+</button>
-                    </div>
-                    <div class="priority-group" data-priority="p_other">
-                        <h3>Autres <span>(1 pt)</span></h3>
-                        <div class="game-input-list"></div>
-                        <button type="button" class="add-game-btn">+</button>
-                    </div>
-                    <div class="form-actions">
-                        <button type="submit" id="submit-vote-btn">Soumettre mon Vote</button>
-                    </div>
-                </form>
-        </div>
-        </main>
-    </div>
 
-    <!-- VIEW 2: USER WAITING (CLOSED) -->
-    <div id="view-waiting-closed"
-        style="display: none; position: relative; min-height: 70vh; overflow: hidden; align-items: center; justify-content: center;">
+                    <div id="admin-panel-open" class="luxury-panel sidebar-module"
+                        style="display: none; border-color: var(--danger-color);">
+                        <h3
+                            style="margin: 0 0 15px 0; color: var(--danger-color); font-size: 1.1em; text-align: center;">
+                            Mode Admin</h3>
+                        <div style="display: flex; flex-direction: column; gap: 15px;">
+                            <button id="toggle-voting-btn-open" class="gold-btn"
+                                style="background: var(--accent-color); color: var(--dark-bg); border: none; padding: 12px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: bold; border-radius: 4px; width: 100%;">Clôturer
+                                le Vote</button>
 
-        <div class="waiting-content luxury-panel"
-            style="position: relative; z-index: 10; text-align: center; padding: 60px; max-width: 600px; animation: etherealFadeInUp 1s ease forwards;">
-            <h2 style="font-size: 2.5em; margin-top: 0; margin-bottom: 20px;">Les votes sont fermés</h2>
-            <div class="pulsing-indicator"
-                style="width: 50px; height: 2px; background: var(--accent-color); margin: 0 auto 30px auto; box-shadow: 0 0 10px var(--accent-color);">
-            </div>
-            <p style="font-size: 1.25em; margin: 0;">L'administrateur prépare la suite de la LAN...</p>
-        </div>
-    </div>
+                            <label
+                                style="font-family: 'Playfair Display', serif; font-size: 0.9em; color: var(--accent-color); margin-bottom: -10px;">Éditer
+                                le vote de :</label>
+                            <select id="voter-select-menu"
+                                style="width: 100%; padding: 10px; background: rgba(0,0,0,0.5); border: 1px solid var(--border-color); color: var(--primary-text); font-family: 'Outfit'; border-radius: 2px;">
+                                <option value="">-- Mon Vote --</option>
+                            </select>
+                        </div>
+                    </div>
+                </aside>
 
-    <!-- VIEW 3: ADMIN DASHBOARD (CLOSED) -->
-    <div id="view-admin-dashboard" class="container" style="display: none; padding-top: 40px;">
-        <div class="admin-dashboard-card luxury-panel"
-            style="max-width: 800px; margin: 0 auto; padding: 50px; animation: etherealFadeInUp 0.8s ease forwards;">
-            <h2
-                style="font-size: 2.2em; border-bottom: none; margin-bottom: 40px; text-shadow: 0 0 15px var(--accent-glow);">
-                Console d'Administration</h2>
+                <!-- CENTER FEED -->
+                <main id="main-center-feed">
 
-            <div class="admin-controls-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
-                <div class="admin-control-item"
-                    style="background: rgba(255,255,255,0.02); padding: 25px; border: 1px solid rgba(255,255,255,0.05); border-radius: 2px;">
-                    <h3
-                        style="margin-top: 0; font-size: 1.2em; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; margin-bottom: 20px; color: var(--primary-text);">
-                        Statut de la LAN</h3>
-                    <p style="margin-bottom: 20px; font-size: 0.9em;">Les votes sont actuellement clos. Appuyez
-                        ci-dessous pour relancer les votes.</p>
-                    <button id="toggle-voting-btn-dashboard" class="gold-btn"
-                        style="width: 100%; background: var(--accent-color); color: var(--dark-bg); border: none; padding: 15px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: bold; font-size: 1.1em; letter-spacing: 1px; transition: all 0.3s; border-radius: 2px;">Ouvrir
-                        le Vote</button>
+                    <section class="kpi-grid animated-section">
+                        <div class="kpi-card luxury-panel">
+                            <div class="kpi-card-title">Jeu Gagnant</div>
+                            <img id="winner-image" src="" alt="Winner game image">
+                            <div id="kpi-winner-value" class="kpi-card-value">--</div>
+                        </div>
+                        <div class="kpi-card luxury-panel">
+                            <div class="kpi-card-title">Votants</div>
+                            <div id="kpi-voters-value" class="kpi-card-value">0</div>
+                        </div>
+                        <div class="kpi-card luxury-panel">
+                            <div class="kpi-card-title">Jeux Proposés</div>
+                            <div id="kpi-games-value" class="kpi-card-value">0</div>
+                        </div>
+                    </section>
+
+                    <section class="chart-wrapper luxury-panel animated-section" style="animation-delay: 0.2s;">
+                        <h2>Top 8 des Jeux</h2>
+                        <div id="chart-container"></div>
+                    </section>
+
+                    <div class="main-content animated-section" style="animation-delay: 0.4s;">
+                        <div class="results-container luxury-panel">
+                            <h2>Classement & Scores</h2>
+                            <table class="results-table" id="results-table">
+                                <thead>
+                                    <tr>
+                                        <th>Jeu</th>
+                                        <th>Score</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="results-table-body">
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="form-container luxury-panel">
+                            <h2>Mon Vote</h2>
+
+
+                        </div>
+
+                        <form id="vote-form">
+                            <div class="priority-group" data-priority="p1">
+                                <h3>Priorité 1 <span>(5 pts)</span></h3>
+                                <div class="game-input-list"></div>
+                            </div>
+                            <div class="priority-group" data-priority="p2">
+                                <h3>Priorité 2 <span>(3 pts)</span></h3>
+                                <div class="game-input-list"></div>
+                                <button type="button" class="add-game-btn">+</button>
+                            </div>
+                            <div class="priority-group" data-priority="p3">
+                                <h3>Priorité 3 <span>(2 pts)</span></h3>
+                                <div class="game-input-list"></div>
+                                <button type="button" class="add-game-btn">+</button>
+                            </div>
+                            <div class="priority-group" data-priority="p_other">
+                                <h3>Autres <span>(1 pt)</span></h3>
+                                <div class="game-input-list"></div>
+                                <button type="button" class="add-game-btn">+</button>
+                            </div>
+                            <div class="form-actions">
+                                <button type="submit" id="submit-vote-btn">Soumettre mon Vote</button>
+                            </div>
+                        </form>
+                        </form>
+                    </div>
+
+                    <!-- RIGHT SIDEBAR (Preview) -->
+                    <aside id="right-sidebar" class="animated-section" style="animation-delay: 0.6s;">
+                        <div class="luxury-panel sidebar-module preview-module" style="position: sticky; top: 20px;">
+                            <h3 class="sidebar-title" style="margin-bottom: 20px;">Aperçu du Jeu</h3>
+                            <div id="game-preview-container"
+                                style="width: 100%; aspect-ratio: 16/9; background: rgba(0,0,0,0.5); border: 1px dashed var(--border-color); display: flex; align-items: center; justify-content: center; border-radius: 4px; overflow: hidden; position: relative;">
+                                <span
+                                    style="color: var(--secondary-text); font-style: italic; font-size: 0.9em; text-align: center; padding: 20px;">Recherchez
+                                    un jeu pour voir l'aperçu...</span>
+                                <img id="game-preview-image" src=""
+                                    style="width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0; opacity: 0; transition: opacity 0.5s ease; pointer-events: none;"
+                                    alt="Aperçu">
+                            </div>
+                        </div>
+                    </aside>
+
+            </div> <!-- End Three Column Layout -->
+        </div> <!-- End View Voting Open -->
+
+        <!-- VIEW 2: USER WAITING (CLOSED) -->
+        <div id="view-waiting-closed"
+            style="display: none; position: relative; min-height: 70vh; overflow: hidden; align-items: center; justify-content: center;">
+
+            <div class="waiting-content luxury-panel"
+                style="position: relative; z-index: 10; text-align: center; padding: 60px; max-width: 600px; animation: etherealFadeInUp 1s ease forwards;">
+                <h2 style="font-size: 2.5em; margin-top: 0; margin-bottom: 20px;">Les votes sont fermés</h2>
+                <div class="pulsing-indicator"
+                    style="width: 50px; height: 2px; background: var(--accent-color); margin: 0 auto 30px auto; box-shadow: 0 0 10px var(--accent-color);">
                 </div>
-
-                <div class="admin-control-item"
-                    style="background: rgba(255,255,255,0.02); padding: 25px; border: 1px solid rgba(255,255,255,0.05); border-radius: 2px;">
-                    <h3
-                        style="margin-top: 0; font-size: 1.2em; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; margin-bottom: 20px; color: var(--primary-text);">
-                        Configuration</h3>
-                    <label
-                        style="display: block; margin-bottom: 10px; font-family: 'Playfair Display', serif; font-size: 1.1em; color: var(--accent-color);">Top
-                        Jeux à Télécharger :</label>
-                    <input type="number" id="dashboard-top-games-count" value="10" min="1" max="50"
-                        style="width: 100%; padding: 15px; background: rgba(0,0,0,0.5); border: 1px solid var(--border-color); color: var(--primary-text); font-family: 'Outfit'; font-size: 1.2em; text-align: center; border-radius: 2px; margin-bottom: 20px;"
-                        title="Nombre de jeux à afficher à la clôture">
-                    <label
-                        style="display: block; margin-bottom: 10px; font-family: 'Playfair Display', serif; font-size: 1.1em; color: var(--accent-color);">Nom
-                        de la LAN :</label>
-                    <input type="text" id="dashboard-lan-name" value="LAN Demain"
-                        style="width: 100%; padding: 15px; background: rgba(0,0,0,0.5); border: 1px solid var(--border-color); color: var(--primary-text); font-family: 'Outfit'; font-size: 1.2em; text-align: center; border-radius: 2px;"
-                        placeholder="Nom de l'événement">
-                    <button id="save-config-btn"
-                        style="width: 100%; margin-top: 15px; background: transparent; border: 1px solid var(--border-color); color: var(--primary-text); padding: 10px; cursor: pointer; font-family: 'Outfit'; transition: all 0.3s;">Sauvegarder
-                        Configuration</button>
-                </div>
-
-                <div class="admin-control-item danger-zone"
-                    style="grid-column: 1 / -1; background: rgba(158,54,54,0.05); padding: 25px; border: 1px solid rgba(158,54,54,0.2); border-radius: 2px; margin-top: 20px;">
-                    <h3
-                        style="margin-top: 0; font-size: 1.2em; text-align: left; border-bottom: 1px solid rgba(158,54,54,0.2); padding-bottom: 15px; margin-bottom: 20px; color: var(--danger-color);">
-                        Zone Dangereuse</h3>
-                    <p style="margin-bottom: 20px; font-size: 0.9em;">Attention: réinitialiser les votes supprime de
-                        manière permanente toutes les données de vote actuelles de la base de données.</p>
-                    <button id="reset-all-votes-btn-dashboard"
-                        style="width: 100%; background: transparent; color: var(--danger-color); border: 1px solid var(--danger-color); padding: 15px; cursor: pointer; font-family: 'Outfit', sans-serif; font-size: 1.1em; letter-spacing: 1px; transition: all 0.3s; border-radius: 2px;"
-                        onmouseover="this.style.background='rgba(158,54,54,0.1)'"
-                        onmouseout="this.style.background='transparent'">Réinitialiser TOUS les votes</button>
-                </div>
+                <p style="font-size: 1.25em; margin: 0;">L'administrateur prépare la suite de la LAN...</p>
             </div>
         </div>
-    </div>
+
+        <!-- VIEW 3: ADMIN DASHBOARD (CLOSED) -->
+        <div id="view-admin-dashboard" class="container" style="display: none; padding-top: 40px;">
+            <div class="admin-dashboard-card luxury-panel"
+                style="max-width: 800px; margin: 0 auto; padding: 50px; animation: etherealFadeInUp 0.8s ease forwards;">
+                <h2
+                    style="font-size: 2.2em; border-bottom: none; margin-bottom: 40px; text-shadow: 0 0 15px var(--accent-glow);">
+                    Console d'Administration</h2>
+
+                <div class="admin-controls-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
+                    <div class="admin-control-item"
+                        style="background: rgba(255,255,255,0.02); padding: 25px; border: 1px solid rgba(255,255,255,0.05); border-radius: 2px;">
+                        <h3
+                            style="margin-top: 0; font-size: 1.2em; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; margin-bottom: 20px; color: var(--primary-text);">
+                            Statut de la LAN</h3>
+                        <p style="margin-bottom: 20px; font-size: 0.9em;">Les votes sont actuellement clos. Appuyez
+                            ci-dessous pour relancer les votes.</p>
+                        <button id="toggle-voting-btn-dashboard" class="gold-btn"
+                            style="width: 100%; background: var(--accent-color); color: var(--dark-bg); border: none; padding: 15px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: bold; font-size: 1.1em; letter-spacing: 1px; transition: all 0.3s; border-radius: 2px;">Ouvrir
+                            le Vote</button>
+                    </div>
+
+                    <div class="admin-control-item"
+                        style="background: rgba(255,255,255,0.02); padding: 25px; border: 1px solid rgba(255,255,255,0.05); border-radius: 2px;">
+                        <h3
+                            style="margin-top: 0; font-size: 1.2em; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; margin-bottom: 20px; color: var(--primary-text);">
+                            Configuration</h3>
+                        <label
+                            style="display: block; margin-bottom: 10px; font-family: 'Playfair Display', serif; font-size: 1.1em; color: var(--accent-color);">Top
+                            Jeux à Télécharger :</label>
+                        <input type="number" id="dashboard-top-games-count" value="10" min="1" max="50"
+                            style="width: 100%; padding: 15px; background: rgba(0,0,0,0.5); border: 1px solid var(--border-color); color: var(--primary-text); font-family: 'Outfit'; font-size: 1.2em; text-align: center; border-radius: 2px; margin-bottom: 20px;"
+                            title="Nombre de jeux à afficher à la clôture">
+                        <label
+                            style="display: block; margin-bottom: 10px; font-family: 'Playfair Display', serif; font-size: 1.1em; color: var(--accent-color);">Nom
+                            de la LAN :</label>
+                        <input type="text" id="dashboard-lan-name" value="LAN Demain"
+                            style="width: 100%; padding: 15px; background: rgba(0,0,0,0.5); border: 1px solid var(--border-color); color: var(--primary-text); font-family: 'Outfit'; font-size: 1.2em; text-align: center; border-radius: 2px;"
+                            placeholder="Nom de l'événement">
+                        <button id="save-config-btn"
+                            style="width: 100%; margin-top: 15px; background: transparent; border: 1px solid var(--border-color); color: var(--primary-text); padding: 10px; cursor: pointer; font-family: 'Outfit'; transition: all 0.3s;">Sauvegarder
+                            Configuration</button>
+                    </div>
+
+                    <div class="admin-control-item danger-zone"
+                        style="grid-column: 1 / -1; background: rgba(158,54,54,0.05); padding: 25px; border: 1px solid rgba(158,54,54,0.2); border-radius: 2px; margin-top: 20px;">
+                        <h3
+                            style="margin-top: 0; font-size: 1.2em; text-align: left; border-bottom: 1px solid rgba(158,54,54,0.2); padding-bottom: 15px; margin-bottom: 20px; color: var(--danger-color);">
+                            Zone Dangereuse</h3>
+                        <p style="margin-bottom: 20px; font-size: 0.9em;">Attention: réinitialiser les votes supprime de
+                            manière permanente toutes les données de vote actuelles de la base de données.</p>
+                        <button id="reset-all-votes-btn-dashboard"
+                            style="width: 100%; background: transparent; color: var(--danger-color); border: 1px solid var(--danger-color); padding: 15px; cursor: pointer; font-family: 'Outfit', sans-serif; font-size: 1.1em; letter-spacing: 1px; transition: all 0.3s; border-radius: 2px;"
+                            onmouseover="this.style.background='rgba(158,54,54,0.1)'"
+                            onmouseout="this.style.background='transparent'">Réinitialiser TOUS les votes</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div id="correction-modal" class="modal-overlay">
@@ -459,7 +496,38 @@
                     img.src = user.avatar;
                     img.title = user.name;
                     img.className = 'user-avatar-icon';
-                    sidebar.appendChild(img);
+
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'user-avatar-container online';
+                    wrapper.dataset.name = user.name;
+
+                    if (globalVotes && globalVotes[uid] && Object.values(globalVotes[uid].votes || {}).some(arr => arr.length > 0)) {
+                        wrapper.classList.add('avatar-connected-voted');
+                    }
+                    wrapper.appendChild(img);
+                    sidebar.appendChild(wrapper);
+                }
+
+                // Add disconnected users who have voted
+                if (globalVotes) {
+                    for (const uid in globalVotes) {
+                        if (!users || !users[uid]) {
+                            const voteData = globalVotes[uid];
+                            if (Object.values(voteData.votes || {}).some(arr => arr.length > 0)) {
+                                const wrapper = document.createElement('div');
+                                wrapper.className = 'user-avatar-container avatar-disconnected-voted';
+                                wrapper.dataset.name = voteData.name + ' (Déconnecté)';
+
+                                const img = document.createElement('img');
+                                // Use a placeholder if they are disconnected and we don't naturally have their avatar
+                                img.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(voteData.name)}&background=random`;
+                                img.className = 'user-avatar-icon';
+
+                                wrapper.appendChild(img);
+                                sidebar.appendChild(wrapper);
+                            }
+                        }
+                    }
                 }
             }
 
@@ -690,6 +758,9 @@
             async function handleSteamSearch(searchButton) {
                 const inputField = searchButton.closest('.game-input-wrapper').querySelector('input');
                 const searchTerm = inputField.value.trim();
+                const previewImg = document.getElementById('game-preview-image');
+                const previewContainerMsg = document.querySelector('#game-preview-container span');
+
                 if (searchTerm === '') return;
 
                 searchButton.innerHTML = '...';
@@ -700,8 +771,20 @@
                     if (response.ok) {
                         const data = await response.json();
                         inputField.value = data.name;
+
+                        if (previewImg && data.imageUrl) {
+                            previewImg.src = data.imageUrl;
+                            previewImg.style.opacity = '1';
+                            if (previewContainerMsg) previewContainerMsg.style.display = 'none';
+                        }
                     } else {
                         showToast('Jeu non trouvé sur Steam.', 'error');
+                        const fallbackUrl = `https://placehold.co/600x400/222/FFF?text=${encodeURIComponent(searchTerm)}`;
+                        if (previewImg) {
+                            previewImg.src = fallbackUrl;
+                            previewImg.style.opacity = '1';
+                            if (previewContainerMsg) previewContainerMsg.style.display = 'none';
+                        }
                     }
                 } catch (error) {
                     console.error("Erreur Steam:", error);
@@ -1002,8 +1085,14 @@
             }
 
             async function renderMarquee() {
-                const track = document.getElementById('waiting-marquee');
-                if (!track || track.childElementCount > 0) return;
+                const tracks = [
+                    document.getElementById('waiting-marquee-1'),
+                    document.getElementById('waiting-marquee-2'),
+                    document.getElementById('waiting-marquee-3'),
+                    document.getElementById('waiting-marquee-4')
+                ];
+
+                if (!tracks[0] || tracks[0].childElementCount > 0) return;
 
                 const sortedGames = calculateScores(globalVotes);
                 let gamesForMarquee = sortedGames.slice(0, 5).map(g => g.name);
@@ -1026,7 +1115,8 @@
                     }
                 }
 
-                gamesForMarquee = gamesForMarquee.sort(() => 0.5 - Math.random()).slice(0, 25);
+                // Create a massive pool of cards
+                gamesForMarquee = gamesForMarquee.sort(() => 0.5 - Math.random());
 
                 const createCard = async (gameName) => {
                     const imgUrl = await getGameImage(gameName);
@@ -1039,15 +1129,22 @@
                 };
 
                 const cards = [];
-                for (const name of gamesForMarquee) {
+                // Generate first batch rapidly
+                for (const name of gamesForMarquee.slice(0, 20)) {
                     const c = await createCard(name);
                     if (c) cards.push(c);
                 }
 
                 if (cards.length === 0) return;
 
-                const allCards = [...cards, ...cards.map(c => c.cloneNode(true)), ...cards.map(c => c.cloneNode(true))];
-                allCards.forEach(c => track.appendChild(c));
+                // Distribute clones randomly across all 4 tracks to create the "Wall of Pictures"
+                tracks.forEach((track, index) => {
+                    if (!track) return;
+                    // Shuffle the deck for each track so it looks chaotic and less structured
+                    const trackCards = [...cards].sort(() => 0.5 - Math.random());
+                    const allCards = [...trackCards, ...trackCards.map(c => c.cloneNode(true)), ...trackCards.map(c => c.cloneNode(true))];
+                    allCards.forEach(c => track.appendChild(c.cloneNode(true)));
+                });
             }
 
             renderMarquee();

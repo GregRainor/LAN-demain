@@ -36,6 +36,36 @@ body {
     z-index: 1;
 }
 
+.wide-container {
+    max-width: 95% !important;
+}
+
+.three-column-layout {
+    display: grid;
+    grid-template-columns: 280px 1fr 340px;
+    gap: 40px;
+    align-items: start;
+}
+
+.sidebar-module {
+    margin-bottom: 30px;
+    padding: 25px 20px;
+}
+
+.sidebar-title {
+    margin-top: 0;
+    margin-bottom: 20px;
+    font-size: 1.2em;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 15px;
+    text-align: left;
+    color: var(--primary-text);
+}
+
+.preview-module {
+    border-color: rgba(212, 175, 55, 0.4);
+}
+
 h1,
 h2,
 h3 {
@@ -862,23 +892,91 @@ h2::after {
 }
 
 #active-users-sidebar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 70px;
-    height: 100%;
-    background-color: rgba(10, 10, 10, 0.9);
-    backdrop-filter: blur(10px);
-    border-right: 1px solid rgba(255, 255, 255, 0.05);
-    padding-top: 30px;
+    /* Removed fixed positioning so it flows naturally in the left column */
     display: flex;
     flex-direction: column;
+    gap: 15px;
+    transition: all 0.5s;
+}
+
+.user-avatar-container {
+    position: relative;
+    width: 45px;
+    height: 45px;
+    flex-shrink: 0;
+}
+
+.user-avatar-container img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--border-color);
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+    transition: all 0.3s;
+}
+
+/* Status Indicators */
+.avatar-connected-voted {
+    border-color: #4CAF50 !important;
+    box-shadow: 0 0 15px rgba(76, 175, 80, 0.4) !important;
+}
+
+.avatar-disconnected-voted {
+    border-color: #888 !important;
+    filter: grayscale(80%);
+}
+
+.user-avatar-container::after {
+    /* Connected dot */
+    content: '';
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    width: 10px;
+    height: 10px;
+    background-color: var(--danger-color);
+    border-radius: 50%;
+    border: 2px solid var(--dark-bg);
+    transition: background-color 0.3s;
+}
+
+.user-avatar-container.online::after {
+    background-color: #4CAF50;
+    box-shadow: 0 0 8px #4CAF50;
+}
+
+.sidebar-user-item {
+    display: flex;
     align-items: center;
-    gap: 20px;
-    overflow-y: auto;
-    z-index: 100;
-    transition: transform 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
-    transform: translateX(-100%);
+    gap: 15px;
+    padding: 10px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    transition: transform 0.2s, background 0.3s;
+}
+
+.sidebar-user-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+    transform: translateX(5px);
+}
+
+.sidebar-user-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar-user-name {
+    color: var(--primary-text);
+    font-size: 0.95em;
+    font-weight: 500;
+}
+
+.sidebar-user-status {
+    color: var(--secondary-text);
+    font-size: 0.8em;
+    font-style: italic;
 }
 
 #active-users-sidebar::after {
@@ -1082,28 +1180,35 @@ body.sidebar-visible {
     position: fixed;
     top: 0;
     left: 0;
-    width: 100%;
-    height: 100%;
+    width: 100vw;
+    height: 100vh;
     z-index: -1;
     overflow: hidden;
     opacity: 0.15;
     pointer-events: none;
     filter: blur(4px);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 10px;
+    background-color: #000;
 }
 
 .marquee-track {
     display: flex;
     width: max-content;
-    height: 100%;
+    height: 25vh;
+    /* Each row takes 1/4 of screen */
     align-items: center;
-    gap: 20px;
-    padding: 0 10px;
-    animation: scrollMarquee 40s linear infinite;
+    gap: 10px;
+    padding: 0;
+    animation: scrollMarquee 45s linear infinite;
 }
 
 .marquee-card {
-    width: 320px;
-    height: 150px;
+    height: 100%;
+    aspect-ratio: 16/9;
+    /* typical game banner ratio */
     background-size: cover;
     background-position: center;
     border-radius: 4px;
@@ -1119,10 +1224,8 @@ body.sidebar-visible {
     }
 
     100% {
-        transform: translateX(calc(-340px * 15));
+        transform: translateX(-50%);
     }
-
-    /* adjust based on item count */
 }
 
 /* Pulsing accent line */
