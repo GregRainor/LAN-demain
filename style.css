@@ -635,6 +635,7 @@ body.sidebar-visible { padding-left: 95px; }
     background: var(--accent-color);
 }
 
+<<<<<<< HEAD
 
 /* --- PHASE 3: USER WAITING SCREEN (MARQUEE) --- */
 .marquee-bg {
@@ -707,3 +708,5 @@ body.sidebar-visible { padding-left: 95px; }
     background: rgba(158,54,54,0.1) !important;
 }
 
+=======
+>>>>>>> 491e61d85176c6b298e9c6ed8d6c9d39474cff14
