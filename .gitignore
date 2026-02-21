@@ -4,6 +4,7 @@
 .env.development.local
 .env.test.local
 .env.production.local
+config.js
 
 # Dépendances Node.js (si tu décides d'en utiliser plus tard)
 node_modules/
