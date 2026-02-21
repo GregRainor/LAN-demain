@@ -598,3 +598,112 @@ body.sidebar-visible { padding-left: 95px; }
     #chart-container { min-width: 600px; }
     .chart-game-name { white-space: normal; text-align: center; font-size: 0.75em; }
 }
+
+/* Advanced list entry animations for Final Results */
+@keyframes slideInRightFade {
+    0% { opacity: 0; transform: translateX(50px) scale(0.95); }
+    100% { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+#download-list > div:hover {
+    transform: translateX(10px) scale(1.02);
+    background: rgba(212,175,55,0.08) !important;
+    border-color: rgba(212,175,55,0.4) !important;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.8);
+}
+
+#download-list img {
+    transition: transform 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+#download-list > div:hover img {
+    transform: scale(1.05);
+}
+
+/* Custom scrollbar for the modal */
+#final-results-modal::-webkit-scrollbar {
+    width: 8px;
+}
+#final-results-modal::-webkit-scrollbar-track {
+    background: var(--dark-bg);
+}
+#final-results-modal::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 4px;
+}
+#final-results-modal::-webkit-scrollbar-thumb:hover {
+    background: var(--accent-color);
+}
+
+
+/* --- PHASE 3: USER WAITING SCREEN (MARQUEE) --- */
+.marquee-bg {
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    z-index: 1;
+    overflow: hidden;
+    opacity: 0.3;
+    pointer-events: none;
+}
+.marquee-track {
+    display: flex;
+    width: max-content;
+    height: 100%;
+    align-items: center;
+    gap: 20px;
+    padding: 0 10px;
+    animation: scrollMarquee 40s linear infinite;
+}
+.marquee-card {
+    width: 320px;
+    height: 150px;
+    background-size: cover;
+    background-position: center;
+    border-radius: 4px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.8);
+    opacity: 0.7;
+    filter: grayscale(40%) sepia(30%) hue-rotate(5deg);
+    transition: all 0.5s;
+}
+
+@keyframes scrollMarquee {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(calc(-340px * 15)); } /* adjust based on item count */
+}
+
+/* Pulsing accent line */
+.pulsing-indicator {
+    animation: elegantPulse 2s infinite ease-in-out;
+}
+
+/* --- PHASE 3: ADMIN DASHBOARD --- */
+.admin-dashboard-card {
+    border-top: 3px solid var(--accent-color);
+}
+.gold-btn {
+    position: relative;
+    overflow: hidden;
+}
+.gold-btn::after {
+    content: '';
+    position: absolute;
+    top: -50%; left: -50%; width: 200%; height: 200%;
+    background: linear-gradient(rgba(255,255,255,0.2), transparent, rgba(255,255,255,0.2));
+    transform: rotate(45deg);
+    transition: all 0.5s;
+    opacity: 0;
+}
+.gold-btn:hover::after {
+    opacity: 1;
+    animation: shimmer 1s ease-in-out forwards;
+}
+.gold-btn:hover {
+    box-shadow: 0 0 25px rgba(212,175,55,0.4);
+    transform: translateY(-2px);
+}
+.danger-btn:hover {
+    box-shadow: 0 0 25px rgba(158,54,54,0.4);
+    transform: translateY(-2px);
+    background: rgba(158,54,54,0.1) !important;
+}
+
