@@ -5,7 +5,7 @@
     <link rel="icon" href="favicon.png" type="image/png">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LAN Demain ??</title>
+    <title>LAN Demain</title>
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
@@ -15,6 +15,9 @@
 </head>
 
 <body>
+    <div class="marquee-bg">
+        <div class="marquee-track" id="waiting-marquee"></div>
+    </div>
     <div id="active-users-sidebar"></div>
 
     <div id="auth-container" class="luxury-panel">
@@ -46,26 +49,36 @@
             <div id="user-info">
                 <span id="user-name"></span>
                 <img id="user-avatar" src="" alt="Avatar">
-                <button id="logout-btn">D�connexion</button>
+                <button id="logout-btn">Déconnexion</button>
             </div>
-            <h1 id="main-title">LAN Demain ?? Le Sélecteur</h1>
+            <h1 id="main-title">LAN Demain</h1>
         </header>
+
+        <div id="admin-panel-open" class="luxury-panel"
+            style="display: none; position: sticky; top: 10px; z-index: 100; margin-bottom: 30px; border-color: var(--danger-color); padding: 15px 25px; align-items: center; justify-content: space-between;">
+            <div
+                style="font-family: 'Playfair Display', serif; color: var(--danger-color); font-size: 1.2em; margin: 0;">
+                Mode Admin: Vote en cours</div>
+            <button id="toggle-voting-btn-open" class="gold-btn"
+                style="background: var(--accent-color); color: var(--dark-bg); border: none; padding: 10px 20px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: bold; border-radius: 2px;">Clôturer
+                le Vote</button>
+        </div>
 
         <!-- VIEW 1: VOTING IS OPEN -->
         <div id="view-voting-open" class="container" style="display: none;">
 
             <section class="kpi-grid animated-section">
                 <div class="kpi-card luxury-panel">
-                    <div class="kpi-card-title">🏆 Jeu Gagnant 🏆</div>
+                    <div class="kpi-card-title">Jeu Gagnant</div>
                     <img id="winner-image" src="" alt="Winner game image">
                     <div id="kpi-winner-value" class="kpi-card-value">--</div>
                 </div>
                 <div class="kpi-card luxury-panel">
-                    <div class="kpi-card-title">🧑‍🤝‍🧑 Votants</div>
+                    <div class="kpi-card-title">Votants</div>
                     <div id="kpi-voters-value" class="kpi-card-value">0</div>
                 </div>
                 <div class="kpi-card luxury-panel">
-                    <div class="kpi-card-title">🎮 Jeux Proposés</div>
+                    <div class="kpi-card-title">Jeux Proposés</div>
                     <div id="kpi-games-value" class="kpi-card-value">0</div>
                 </div>
             </section>
@@ -93,15 +106,7 @@
                 <div class="form-container luxury-panel">
                     <h2>Mon Vote / Édition</h2>
 
-                    <div id="admin-panel-open" class="luxury-panel"
-                        style="display: none; border-color: var(--danger-color); margin-bottom: 30px;">
-                        <h3 style="margin: 0 0 15px 0; color: var(--danger-color);">Mode Admin: Vote en cours</h3>
-                        <div style="display: flex; gap: 10px;">
-                            <button id="toggle-voting-btn-open"
-                                style="flex: 1; background: var(--accent-color); color: var(--dark-bg); border: none; padding: 12px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: bold; letter-spacing: 1px; transition: all 0.3s; border-radius: 2px;">Clôturer
-                                le Vote</button>
-                        </div>
-                    </div>
+
                 </div>
 
                 <form id="vote-form">
@@ -141,9 +146,7 @@
     <!-- VIEW 2: USER WAITING (CLOSED) -->
     <div id="view-waiting-closed"
         style="display: none; position: relative; min-height: 70vh; overflow: hidden; align-items: center; justify-content: center;">
-        <div class="marquee-bg">
-            <div class="marquee-track" id="waiting-marquee"></div>
-        </div>
+
         <div class="waiting-content luxury-panel"
             style="position: relative; z-index: 10; text-align: center; padding: 60px; max-width: 600px; animation: etherealFadeInUp 1s ease forwards;">
             <h2 style="font-size: 2.5em; margin-top: 0; margin-bottom: 20px;">Les votes sont fermés</h2>
@@ -160,7 +163,7 @@
             style="max-width: 800px; margin: 0 auto; padding: 50px; animation: etherealFadeInUp 0.8s ease forwards;">
             <h2
                 style="font-size: 2.2em; border-bottom: none; margin-bottom: 40px; text-shadow: 0 0 15px var(--accent-glow);">
-                ⚙️ Console d'Administration</h2>
+                Console d'Administration</h2>
 
             <div class="admin-controls-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
                 <div class="admin-control-item"
@@ -184,8 +187,14 @@
                         style="display: block; margin-bottom: 10px; font-family: 'Playfair Display', serif; font-size: 1.1em; color: var(--accent-color);">Top
                         Jeux à Télécharger :</label>
                     <input type="number" id="dashboard-top-games-count" value="10" min="1" max="50"
-                        style="width: 100%; padding: 15px; background: rgba(0,0,0,0.5); border: 1px solid var(--border-color); color: var(--primary-text); font-family: 'Outfit'; font-size: 1.2em; text-align: center; border-radius: 2px;"
+                        style="width: 100%; padding: 15px; background: rgba(0,0,0,0.5); border: 1px solid var(--border-color); color: var(--primary-text); font-family: 'Outfit'; font-size: 1.2em; text-align: center; border-radius: 2px; margin-bottom: 20px;"
                         title="Nombre de jeux à afficher à la clôture">
+                    <label
+                        style="display: block; margin-bottom: 10px; font-family: 'Playfair Display', serif; font-size: 1.1em; color: var(--accent-color);">Nom
+                        de la LAN :</label>
+                    <input type="text" id="dashboard-lan-name" value="LAN Demain"
+                        style="width: 100%; padding: 15px; background: rgba(0,0,0,0.5); border: 1px solid var(--border-color); color: var(--primary-text); font-family: 'Outfit'; font-size: 1.2em; text-align: center; border-radius: 2px;"
+                        placeholder="Nom de l'événement">
                     <button id="save-config-btn"
                         style="width: 100%; margin-top: 15px; background: transparent; border: 1px solid var(--border-color); color: var(--primary-text); padding: 10px; cursor: pointer; font-family: 'Outfit'; transition: all 0.3s;">Sauvegarder
                         Configuration</button>
@@ -201,7 +210,7 @@
                     <button id="reset-all-votes-btn-dashboard"
                         style="width: 100%; background: transparent; color: var(--danger-color); border: 1px solid var(--danger-color); padding: 15px; cursor: pointer; font-family: 'Outfit', sans-serif; font-size: 1.1em; letter-spacing: 1px; transition: all 0.3s; border-radius: 2px;"
                         onmouseover="this.style.background='rgba(158,54,54,0.1)'"
-                        onmouseout="this.style.background='transparent'">⚡ Réinitialiser TOUS les votes ⚡</button>
+                        onmouseout="this.style.background='transparent'">Réinitialiser TOUS les votes</button>
                 </div>
             </div>
         </div>
@@ -416,14 +425,16 @@
                         imageCache.set(normalizedName, data.imageUrl);
                         return data.imageUrl;
                     } else {
-                        imageCache.set(normalizedName, DEFAULT_GAME_ICON);
-                        return DEFAULT_GAME_ICON;
+                        const fallbackUrl = `https://placehold.co/600x400/222/FFF?text=${encodeURIComponent(gameName)}`;
+                        imageCache.set(normalizedName, fallbackUrl);
+                        return fallbackUrl;
                     }
                 } catch (error) {
                     console.error("API Error:", error);
                 }
-                imageCache.set(normalizedName, DEFAULT_GAME_ICON);
-                return DEFAULT_GAME_ICON;
+                const fallbackUrl = `https://placehold.co/600x400/222/FFF?text=${encodeURIComponent(gameName)}`;
+                imageCache.set(normalizedName, fallbackUrl);
+                return fallbackUrl;
             }
 
             function renderActiveUsers(users) {
@@ -479,13 +490,22 @@
 
                 settingsRef.on('value', (snapshot) => {
                     const newSettings = snapshot.val() || { isVotingOpen: true, topGamesCount: 10 };
+                    globalSettings = newSettings;
+
+                    const lanName = newSettings.lanName || "LAN Demain";
+                    const mainTitle = document.getElementById('main-title');
+                    if (mainTitle) mainTitle.textContent = lanName;
+
+                    const dashboardInput = document.getElementById('dashboard-lan-name');
+                    if (dashboardInput && document.activeElement !== dashboardInput) {
+                        dashboardInput.value = lanName;
+                    }
 
                     if (appInitialized && globalSettings.isVotingOpen === true && newSettings.isVotingOpen === false) {
                         showToast("Les votes sont terminés ! Voici les résultats...", "success");
                         showFinalResults();
                     }
 
-                    globalSettings = newSettings;
                     updateVotingUIState();
 
                     if (isAdmin) {
@@ -538,7 +558,6 @@
                         if (viewAdminDashboard) viewAdminDashboard.style.display = 'block';
                     } else {
                         if (viewWaitingClosed) viewWaitingClosed.style.display = 'flex';
-                        renderMarquee();
                     }
                 }
             }
@@ -547,10 +566,18 @@
                 const newIsOpen = !globalSettings.isVotingOpen;
                 const countInput = document.getElementById('dashboard-top-games-count');
                 const newCount = countInput ? (parseInt(countInput.value) || globalSettings.topGamesCount || 10) : 10;
+                const lanNameInput = document.getElementById('dashboard-lan-name');
+                const newLanName = lanNameInput ? lanNameInput.value.trim() : (globalSettings.lanName || "LAN Demain");
 
                 db.ref('lan/settings').set({
                     isVotingOpen: newIsOpen,
-                    topGamesCount: newCount
+                    topGamesCount: newCount,
+                    lanName: newLanName
+                }).then(() => {
+                    if (newIsOpen) {
+                        db.ref('lan/votes').remove();
+                        showToast("Nouveau vote démarré. Anciens votes effacés.", "success");
+                    }
                 }).catch(error => {
                     showToast("Erreur de permission. Vérifiez les règles Firebase.", "error");
                     console.error("Firebase Rule Error:", error);
@@ -564,9 +591,12 @@
             document.getElementById('save-config-btn')?.addEventListener('click', () => {
                 const countEl = document.getElementById('dashboard-top-games-count');
                 const newCount = countEl ? (parseInt(countEl.value) || 10) : 10;
+                const lanNameInput = document.getElementById('dashboard-lan-name');
+                const newLanName = lanNameInput ? lanNameInput.value.trim() : (globalSettings.lanName || "LAN Demain");
                 db.ref('lan/settings').set({
                     isVotingOpen: globalSettings.isVotingOpen,
-                    topGamesCount: newCount
+                    topGamesCount: newCount,
+                    lanName: newLanName
                 }).then(() => showToast("Configuration sauvegardée", "success"))
                     .catch(e => showToast("Erreur: " + e.message, "error"));
             });
@@ -662,7 +692,7 @@
                 const searchTerm = inputField.value.trim();
                 if (searchTerm === '') return;
 
-                searchButton.innerHTML = '⏳';
+                searchButton.innerHTML = '...';
                 searchButton.disabled = true;
 
                 try {
@@ -885,7 +915,7 @@
 
                     const barLabel = document.createElement('div');
                     barLabel.className = 'bar-label';
-                    const crown = index === 0 ? '👑' : '';
+                    const crown = '';
                     barLabel.textContent = `${game.score} ${crown}`;
 
                     const gameNameLabel = document.createElement('div');
@@ -1019,6 +1049,8 @@
                 const allCards = [...cards, ...cards.map(c => c.cloneNode(true)), ...cards.map(c => c.cloneNode(true))];
                 allCards.forEach(c => track.appendChild(c));
             }
+
+            renderMarquee();
         });
 
     </script>
