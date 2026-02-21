@@ -1,11 +1,11 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="fr">
 
 <head>
     <link rel="icon" href="favicon.png" type="image/png">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LAN Demain 🚀</title>
+    <title>LAN Demain ??</title>
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
@@ -35,7 +35,7 @@
                     d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                     fill="#EA4335" />
             </svg>
-            <span id="login-btn-text">Se connecter avec Google</span>
+            <span id="login-btn-text">Se connecter à Google</span>
             <div id="login-spinner"></div>
         </button>
         <p id="auth-error" style="color: var(--danger-color); margin-top: 15px;"></p>
@@ -46,9 +46,9 @@
             <div id="user-info">
                 <span id="user-name"></span>
                 <img id="user-avatar" src="" alt="Avatar">
-                <button id="logout-btn">Déconnexion</button>
+                <button id="logout-btn">D�connexion</button>
             </div>
-            <h1 id="main-title">LAN Demain 🚀 Le SÃ©lecteur</h1>
+            <h1 id="main-title">LAN Demain ?? Le Sélecteur</h1>
         </header>
 
         <!-- VIEW 1: VOTING IS OPEN -->
@@ -56,16 +56,16 @@
 
             <section class="kpi-grid animated-section">
                 <div class="kpi-card luxury-panel">
-                    <div class="kpi-card-title">ðŸ† Jeu Gagnant ðŸ†</div>
+                    <div class="kpi-card-title">🏆 Jeu Gagnant 🏆</div>
                     <img id="winner-image" src="" alt="Winner game image">
                     <div id="kpi-winner-value" class="kpi-card-value">--</div>
                 </div>
                 <div class="kpi-card luxury-panel">
-                    <div class="kpi-card-title">ðŸ§‘â€ðŸ¤â€ðŸ§‘ Votants</div>
+                    <div class="kpi-card-title">🧑‍🤝‍🧑 Votants</div>
                     <div id="kpi-voters-value" class="kpi-card-value">0</div>
                 </div>
                 <div class="kpi-card luxury-panel">
-                    <div class="kpi-card-title">ðŸŽ® Jeux ProposÃ©s</div>
+                    <div class="kpi-card-title">🎮 Jeux Proposés</div>
                     <div id="kpi-games-value" class="kpi-card-value">0</div>
                 </div>
             </section>
@@ -91,14 +91,14 @@
                 </div>
 
                 <div class="form-container luxury-panel">
-                    <h2>Mon Vote / Ã‰dition</h2>
+                    <h2>Mon Vote / Édition</h2>
 
                     <div id="admin-panel-open" class="luxury-panel"
                         style="display: none; border-color: var(--danger-color); margin-bottom: 30px;">
                         <h3 style="margin: 0 0 15px 0; color: var(--danger-color);">Mode Admin: Vote en cours</h3>
                         <div style="display: flex; gap: 10px;">
                             <button id="toggle-voting-btn-open"
-                                style="flex: 1; background: var(--accent-color); color: var(--dark-bg); border: none; padding: 12px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: bold; letter-spacing: 1px; transition: all 0.3s; border-radius: 2px;">clôturer
+                                style="flex: 1; background: var(--accent-color); color: var(--dark-bg); border: none; padding: 12px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: bold; letter-spacing: 1px; transition: all 0.3s; border-radius: 2px;">Clôturer
                                 le Vote</button>
                         </div>
                     </div>
@@ -160,7 +160,7 @@
             style="max-width: 800px; margin: 0 auto; padding: 50px; animation: etherealFadeInUp 0.8s ease forwards;">
             <h2
                 style="font-size: 2.2em; border-bottom: none; margin-bottom: 40px; text-shadow: 0 0 15px var(--accent-glow);">
-                âš™ï¸ Console d'Administration</h2>
+                ⚙️ Console d'Administration</h2>
 
             <div class="admin-controls-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
                 <div class="admin-control-item"
@@ -182,10 +182,10 @@
                         Configuration</h3>
                     <label
                         style="display: block; margin-bottom: 10px; font-family: 'Playfair Display', serif; font-size: 1.1em; color: var(--accent-color);">Top
-                        Jeux Ã  Télécharger :</label>
+                        Jeux à Télécharger :</label>
                     <input type="number" id="dashboard-top-games-count" value="10" min="1" max="50"
                         style="width: 100%; padding: 15px; background: rgba(0,0,0,0.5); border: 1px solid var(--border-color); color: var(--primary-text); font-family: 'Outfit'; font-size: 1.2em; text-align: center; border-radius: 2px;"
-                        title="Nombre de jeux Ã  afficher Ã  la clôture">
+                        title="Nombre de jeux à afficher à la clôture">
                     <button id="save-config-btn"
                         style="width: 100%; margin-top: 15px; background: transparent; border: 1px solid var(--border-color); color: var(--primary-text); padding: 10px; cursor: pointer; font-family: 'Outfit'; transition: all 0.3s;">Sauvegarder
                         Configuration</button>
@@ -201,7 +201,7 @@
                     <button id="reset-all-votes-btn-dashboard"
                         style="width: 100%; background: transparent; color: var(--danger-color); border: 1px solid var(--danger-color); padding: 15px; cursor: pointer; font-family: 'Outfit', sans-serif; font-size: 1.1em; letter-spacing: 1px; transition: all 0.3s; border-radius: 2px;"
                         onmouseover="this.style.background='rgba(158,54,54,0.1)'"
-                        onmouseout="this.style.background='transparent'">⚡ réinitialiser TOUS les votes ⚡</button>
+                        onmouseout="this.style.background='transparent'">⚡ Réinitialiser TOUS les votes ⚡</button>
                 </div>
             </div>
         </div>
@@ -211,7 +211,7 @@
     <div id="correction-modal" class="modal-overlay">
         <div class="modal-content luxury-panel">
             <h3>Correction Automatique</h3>
-            <p>Nous avons détecté des noms de jeux qui ressemblent Ã  d'autres dÃ©jÃ  votés. Voulez-vous les fusionner ?
+            <p>Nous avons détecté des noms de jeux qui ressemblent à d'autres déjà votés. Voulez-vous les fusionner ?
             </p>
             <ul id="suggestions-list"></ul>
             <div class="modal-actions">
@@ -226,7 +226,7 @@
         style="align-items: flex-start; padding-top: 10vh; overflow-y: auto;">
         <div class="modal-content luxury-panel" style="max-width: 800px; padding: 40px;">
             <h2 style="font-size: 2.5em; margin-top: 0;">Résultats Définitifs</h2>
-            <p style="text-align: center; margin-bottom: 30px; font-size: 1.2em;">La liste des jeux Ã  Télécharger pour
+            <p style="text-align: center; margin-bottom: 30px; font-size: 1.2em;">La liste des jeux à Télécharger pour
                 la LAN !</p>
             <div id="download-list" style="display: flex; flex-direction: column; gap: 20px;"></div>
             <div class="modal-actions" style="margin-top: 40px; justify-content: center;">
@@ -457,7 +457,8 @@
                 window.currentUserIsAdmin = isAdmin;
 
                 if (isAdmin) {
-                    document.getElementById('admin-panel').style.display = 'block';
+                    if (document.getElementById('admin-panel')) document.getElementById('admin-panel').style.display = 'block';
+                    if (document.getElementById('admin-panel-open')) document.getElementById('admin-panel-open').style.display = 'block';
                 }
 
                 const userStatusRef = db.ref('/status/' + user.uid);
@@ -480,7 +481,7 @@
                     const newSettings = snapshot.val() || { isVotingOpen: true, topGamesCount: 10 };
 
                     if (appInitialized && globalSettings.isVotingOpen === true && newSettings.isVotingOpen === false) {
-                        showToast("Les votes sont terminÃ©s ! Voici les rÃ©sultats...", "success");
+                        showToast("Les votes sont terminés ! Voici les résultats...", "success");
                         showFinalResults();
                     }
 
@@ -489,7 +490,7 @@
 
                     if (isAdmin) {
                         const toggleBtns = document.querySelectorAll('#toggle-voting-btn, #toggle-voting-btn-open, #toggle-voting-btn-dashboard');
-                        toggleBtns.forEach(btn => btn && (btn.textContent = globalSettings.isVotingOpen ? "clôturer le Vote" : "Ouvrir le Vote"));
+                        toggleBtns.forEach(btn => btn && (btn.textContent = globalSettings.isVotingOpen ? "Clôturer le Vote" : "Ouvrir le Vote"));
                         const countInputs = document.querySelectorAll('#top-games-count, #dashboard-top-games-count');
                         countInputs.forEach(input => input && (input.value = globalSettings.topGamesCount || 10));
                     }
@@ -551,7 +552,7 @@
                     isVotingOpen: newIsOpen,
                     topGamesCount: newCount
                 }).catch(error => {
-                    showToast("Erreur de permission. VÃ©rifiez les rÃ¨gles Firebase.", "error");
+                    showToast("Erreur de permission. Vérifiez les règles Firebase.", "error");
                     console.error("Firebase Rule Error:", error);
                 });
             };
@@ -566,7 +567,7 @@
                 db.ref('lan/settings').set({
                     isVotingOpen: globalSettings.isVotingOpen,
                     topGamesCount: newCount
-                }).then(() => showToast("Configuration sauvegardÃ©e", "success"))
+                }).then(() => showToast("Configuration sauvegardée", "success"))
                     .catch(e => showToast("Erreur: " + e.message, "error"));
             });
 
@@ -575,24 +576,24 @@
             });
 
             document.getElementById('reset-all-votes-btn')?.addEventListener('click', () => {
-                const confirmation = prompt("Cette action est irrÃ©versible et supprimera TOUS les votes. Pour confirmer, tapez 'RESET'.");
+                const confirmation = prompt("Cette action est irréversible et supprimera TOUS les votes. Pour confirmer, tapez 'RESET'.");
                 if (confirmation === 'RESET') {
                     db.ref('lan/votes').remove()
-                        .then(() => showToast("Tous les votes ont Ã©tÃ© rÃ©initialisÃ©s.", "success"))
-                        .catch((err) => showToast("Erreur lors de la rÃ©initialisation: " + err.message, "error"));
+                        .then(() => showToast("Tous les votes ont été réinitialisés.", "success"))
+                        .catch((err) => showToast("Erreur lors de la réinitialisation: " + err.message, "error"));
                 } else if (confirmation !== null) {
-                    showToast("Action annulÃ©e.");
+                    showToast("Action annulée.");
                 }
             });
 
             document.getElementById('reset-all-votes-btn-dashboard')?.addEventListener('click', () => {
-                const confirmation = prompt("Cette action est irrÃ©versible et supprimera TOUS les votes. Pour confirmer, tapez 'RESET'.");
+                const confirmation = prompt("Cette action est irréversible et supprimera TOUS les votes. Pour confirmer, tapez 'RESET'.");
                 if (confirmation === 'RESET') {
                     db.ref('lan/votes').remove()
-                        .then(() => showToast("Tous les votes ont Ã©tÃ© rÃ©initialisÃ©s.", "success"))
-                        .catch((err) => showToast("Erreur lors de la rÃ©initialisation: " + err.message, "error"));
+                        .then(() => showToast("Tous les votes ont été réinitialisés.", "success"))
+                        .catch((err) => showToast("Erreur lors de la réinitialisation: " + err.message, "error"));
                 } else if (confirmation !== null) {
-                    showToast("Action annulÃ©e.");
+                    showToast("Action annulée.");
                 }
             });
 
@@ -661,7 +662,7 @@
                 const searchTerm = inputField.value.trim();
                 if (searchTerm === '') return;
 
-                searchButton.innerHTML = 'â³';
+                searchButton.innerHTML = '⏳';
                 searchButton.disabled = true;
 
                 try {
@@ -670,13 +671,13 @@
                         const data = await response.json();
                         inputField.value = data.name;
                     } else {
-                        showToast('Jeu non trouvÃ© sur Steam.', 'error');
+                        showToast('Jeu non trouvé sur Steam.', 'error');
                     }
                 } catch (error) {
                     console.error("Erreur Steam:", error);
                     showToast("Erreur de l'API Steam.", 'error');
                 } finally {
-                    searchButton.textContent = 'VÃ©rifier';
+                    searchButton.textContent = 'Vérifier';
                     searchButton.disabled = false;
                 }
             }
@@ -688,7 +689,7 @@
                             isEditing = false;
                         }
                         if (correctionModal && !correctionModal.style.display.includes('flex')) {
-                            showToast(`Vote pour ${userName} enregistrÃ© !`, 'success');
+                            showToast(`Vote pour ${userName} enregistré !`, 'success');
                         }
                     })
                     .catch(error => {
@@ -702,7 +703,7 @@
                 listElement.innerHTML = '';
                 suggestions.forEach(sugg => {
                     const li = document.createElement('li');
-                    li.innerHTML = `Remplacer votre saisie <em>${sugg.original}</em> par le jeu dÃ©jÃ  existant <strong>${sugg.suggestion}</strong> ?`;
+                    li.innerHTML = `Remplacer votre saisie <em>${sugg.original}</em> par le jeu déjà existant <strong>${sugg.suggestion}</strong> ?`;
                     listElement.appendChild(li);
                 });
 
@@ -753,8 +754,8 @@
                 const searchButton = document.createElement('button');
                 searchButton.type = 'button';
                 searchButton.className = 'steam-search-btn';
-                searchButton.title = 'VÃ©rifier le nom sur Steam';
-                searchButton.textContent = 'VÃ©rifier';
+                searchButton.title = 'Vérifier le nom sur Steam';
+                searchButton.textContent = 'Vérifier';
                 wrapper.appendChild(searchButton);
 
                 if (list.closest('.priority-group')?.dataset.priority !== 'p1') {
@@ -777,7 +778,7 @@
 
                 if (submitBtn) {
                     if (userId === currentUser.uid && voteData && Object.values(playerVotes).some(p => p.length > 0)) {
-                        submitBtn.textContent = 'Mettre Ã  jour mon Vote';
+                        submitBtn.textContent = 'Mettre à jour mon Vote';
                     } else {
                         submitBtn.textContent = 'Soumettre mon Vote';
                     }
@@ -884,7 +885,7 @@
 
                     const barLabel = document.createElement('div');
                     barLabel.className = 'bar-label';
-                    const crown = index === 0 ? 'ðŸ‘‘' : '';
+                    const crown = index === 0 ? '👑' : '';
                     barLabel.textContent = `${game.score} ${crown}`;
 
                     const gameNameLabel = document.createElement('div');
