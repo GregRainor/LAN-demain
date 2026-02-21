@@ -93,7 +93,6 @@
                 <div class="form-container luxury-panel">
                     <h2>Mon Vote / Édition</h2>
 
-<<<<<<< HEAD
                     <div id="admin-panel-open" class="luxury-panel"
                         style="display: none; border-color: var(--danger-color); margin-bottom: 30px;">
                         <h3 style="margin: 0 0 15px 0; color: var(--danger-color);">Mode Admin: Vote en cours</h3>
@@ -102,134 +101,111 @@
                                 style="flex: 1; background: var(--accent-color); color: var(--dark-bg); border: none; padding: 12px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: bold; letter-spacing: 1px; transition: all 0.3s; border-radius: 2px;">Clôturer
                                 le Vote</button>
                         </div>
-=======
-                    <div id="admin-panel" class="luxury-panel"
-                        style="display: none; border-color: var(--danger-color); margin-bottom: 30px;">
-                        <h3 style="margin: 0 0 15px 0; color: var(--danger-color);">Panneau Admin</h3>
-                        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                            <button id="toggle-voting-btn"
-                                style="flex: 1; background: var(--accent-color); color: var(--dark-bg); border: none; padding: 12px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: bold; letter-spacing: 1px; transition: all 0.3s; border-radius: 2px;">Démarrer/Arrêter
-                                le Vote</button>
-                            <input type="number" id="top-games-count" value="10" min="1" max="50"
-                                style="width: 70px; padding: 10px; background: transparent; border: 1px solid var(--border-color); color: var(--primary-text); font-family: 'Outfit'; text-align: center; border-radius: 2px;"
-                                title="Nombre de jeux à télécharger">
-                        </div>
-                        <button id="reset-all-votes-btn"
-                            style="width: 100%; background: transparent; color: var(--danger-color); border: 1px solid var(--danger-color); padding: 12px; cursor: pointer; font-family: 'Outfit', sans-serif; letter-spacing: 1px; transition: all 0.3s; border-radius: 2px;"
-                            onmouseover="this.style.background='rgba(158,54,54,0.1)'"
-                            onmouseout="this.style.background='transparent'">Réinitialiser TOUS les votes</button>
                     </div>
-
-                    <div id="voting-closed-message" class="luxury-panel"
-                        style="display: none; text-align: center; padding: 30px; border-color: var(--accent-color); margin-bottom: 30px;">
-                        <h3 style="margin: 0; color: var(--primary-text); font-size: 1.5em; margin-bottom: 10px;">Les
-                            votes sont clos !</h3>
-                        <p style="margin: 0;">Les résultats définitifs sont disponibles ci-dessus.</p>
->>>>>>> 491e61d85176c6b298e9c6ed8d6c9d39474cff14
-                    </div>
-
-                    <form id="vote-form">
-                        <div id="voter-management">
-                            <label for="voter-select-menu">Éditer le vote de :</label>
-                            <select id="voter-select-menu">
-                                <option value="">-- Mon Vote --</option>
-                            </select>
-                        </div>
-                        <div class="priority-group" data-priority="p1">
-                            <h3>Priorité 1 <span>(5 pts)</span></h3>
-                            <div class="game-input-list"></div>
-                        </div>
-                        <div class="priority-group" data-priority="p2">
-                            <h3>Priorité 2 <span>(3 pts)</span></h3>
-                            <div class="game-input-list"></div>
-                            <button type="button" class="add-game-btn">+</button>
-                        </div>
-                        <div class="priority-group" data-priority="p3">
-                            <h3>Priorité 3 <span>(2 pts)</span></h3>
-                            <div class="game-input-list"></div>
-                            <button type="button" class="add-game-btn">+</button>
-                        </div>
-                        <div class="priority-group" data-priority="p_other">
-                            <h3>Autres <span>(1 pt)</span></h3>
-                            <div class="game-input-list"></div>
-                            <button type="button" class="add-game-btn">+</button>
-                        </div>
-                        <div class="form-actions">
-                            <button type="submit" id="submit-vote-btn">Soumettre mon Vote</button>
-                        </div>
-                    </form>
                 </div>
-            </main>
-        </div>
 
-        <!-- VIEW 2: USER WAITING (CLOSED) -->
-        <div id="view-waiting-closed"
-            style="display: none; position: relative; min-height: 70vh; overflow: hidden; display: flex; align-items: center; justify-content: center;">
-            <div class="marquee-bg">
-                <div class="marquee-track" id="waiting-marquee"></div>
+                <form id="vote-form">
+                    <div id="voter-management">
+                        <label for="voter-select-menu">Éditer le vote de :</label>
+                        <select id="voter-select-menu">
+                            <option value="">-- Mon Vote --</option>
+                        </select>
+                    </div>
+                    <div class="priority-group" data-priority="p1">
+                        <h3>Priorité 1 <span>(5 pts)</span></h3>
+                        <div class="game-input-list"></div>
+                    </div>
+                    <div class="priority-group" data-priority="p2">
+                        <h3>Priorité 2 <span>(3 pts)</span></h3>
+                        <div class="game-input-list"></div>
+                        <button type="button" class="add-game-btn">+</button>
+                    </div>
+                    <div class="priority-group" data-priority="p3">
+                        <h3>Priorité 3 <span>(2 pts)</span></h3>
+                        <div class="game-input-list"></div>
+                        <button type="button" class="add-game-btn">+</button>
+                    </div>
+                    <div class="priority-group" data-priority="p_other">
+                        <h3>Autres <span>(1 pt)</span></h3>
+                        <div class="game-input-list"></div>
+                        <button type="button" class="add-game-btn">+</button>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" id="submit-vote-btn">Soumettre mon Vote</button>
+                    </div>
+                </form>
+        </div>
+        </main>
+    </div>
+
+    <!-- VIEW 2: USER WAITING (CLOSED) -->
+    <div id="view-waiting-closed"
+        style="display: none; position: relative; min-height: 70vh; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+        <div class="marquee-bg">
+            <div class="marquee-track" id="waiting-marquee"></div>
+        </div>
+        <div class="waiting-content luxury-panel"
+            style="position: relative; z-index: 10; text-align: center; padding: 60px; max-width: 600px; animation: etherealFadeInUp 1s ease forwards;">
+            <h2 style="font-size: 2.5em; margin-top: 0; margin-bottom: 20px;">Les votes sont fermés</h2>
+            <div class="pulsing-indicator"
+                style="width: 50px; height: 2px; background: var(--accent-color); margin: 0 auto 30px auto; box-shadow: 0 0 10px var(--accent-color);">
             </div>
-            <div class="waiting-content luxury-panel"
-                style="position: relative; z-index: 10; text-align: center; padding: 60px; max-width: 600px; animation: etherealFadeInUp 1s ease forwards;">
-                <h2 style="font-size: 2.5em; margin-top: 0; margin-bottom: 20px;">Les votes sont fermés</h2>
-                <div class="pulsing-indicator"
-                    style="width: 50px; height: 2px; background: var(--accent-color); margin: 0 auto 30px auto; box-shadow: 0 0 10px var(--accent-color);">
+            <p style="font-size: 1.25em; margin: 0;">L'administrateur prépare la suite de la LAN...</p>
+        </div>
+    </div>
+
+    <!-- VIEW 3: ADMIN DASHBOARD (CLOSED) -->
+    <div id="view-admin-dashboard" class="container" style="display: none; padding-top: 40px;">
+        <div class="admin-dashboard-card luxury-panel"
+            style="max-width: 800px; margin: 0 auto; padding: 50px; animation: etherealFadeInUp 0.8s ease forwards;">
+            <h2
+                style="font-size: 2.2em; border-bottom: none; margin-bottom: 40px; text-shadow: 0 0 15px var(--accent-glow);">
+                ⚙️ Console d'Administration</h2>
+
+            <div class="admin-controls-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
+                <div class="admin-control-item"
+                    style="background: rgba(255,255,255,0.02); padding: 25px; border: 1px solid rgba(255,255,255,0.05); border-radius: 2px;">
+                    <h3
+                        style="margin-top: 0; font-size: 1.2em; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; margin-bottom: 20px; color: var(--primary-text);">
+                        Statut de la LAN</h3>
+                    <p style="margin-bottom: 20px; font-size: 0.9em;">Les votes sont actuellement clos. Appuyez
+                        ci-dessous pour relancer les votes.</p>
+                    <button id="toggle-voting-btn-dashboard" class="gold-btn"
+                        style="width: 100%; background: var(--accent-color); color: var(--dark-bg); border: none; padding: 15px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: bold; font-size: 1.1em; letter-spacing: 1px; transition: all 0.3s; border-radius: 2px;">Ouvrir
+                        le Vote</button>
                 </div>
-                <p style="font-size: 1.25em; margin: 0;">L'administrateur prépare la suite de la LAN...</p>
-            </div>
-        </div>
 
-        <!-- VIEW 3: ADMIN DASHBOARD (CLOSED) -->
-        <div id="view-admin-dashboard" class="container" style="display: none; padding-top: 40px;">
-            <div class="admin-dashboard-card luxury-panel"
-                style="max-width: 800px; margin: 0 auto; padding: 50px; animation: etherealFadeInUp 0.8s ease forwards;">
-                <h2
-                    style="font-size: 2.2em; border-bottom: none; margin-bottom: 40px; text-shadow: 0 0 15px var(--accent-glow);">
-                    ⚙️ Console d'Administration</h2>
+                <div class="admin-control-item"
+                    style="background: rgba(255,255,255,0.02); padding: 25px; border: 1px solid rgba(255,255,255,0.05); border-radius: 2px;">
+                    <h3
+                        style="margin-top: 0; font-size: 1.2em; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; margin-bottom: 20px; color: var(--primary-text);">
+                        Configuration</h3>
+                    <label
+                        style="display: block; margin-bottom: 10px; font-family: 'Playfair Display', serif; font-size: 1.1em; color: var(--accent-color);">Top
+                        Jeux à Télécharger :</label>
+                    <input type="number" id="dashboard-top-games-count" value="10" min="1" max="50"
+                        style="width: 100%; padding: 15px; background: rgba(0,0,0,0.5); border: 1px solid var(--border-color); color: var(--primary-text); font-family: 'Outfit'; font-size: 1.2em; text-align: center; border-radius: 2px;"
+                        title="Nombre de jeux à afficher à la clôture">
+                    <button id="save-config-btn"
+                        style="width: 100%; margin-top: 15px; background: transparent; border: 1px solid var(--border-color); color: var(--primary-text); padding: 10px; cursor: pointer; font-family: 'Outfit'; transition: all 0.3s;">Sauvegarder
+                        Configuration</button>
+                </div>
 
-                <div class="admin-controls-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
-                    <div class="admin-control-item"
-                        style="background: rgba(255,255,255,0.02); padding: 25px; border: 1px solid rgba(255,255,255,0.05); border-radius: 2px;">
-                        <h3
-                            style="margin-top: 0; font-size: 1.2em; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; margin-bottom: 20px; color: var(--primary-text);">
-                            Statut de la LAN</h3>
-                        <p style="margin-bottom: 20px; font-size: 0.9em;">Les votes sont actuellement clos. Appuyez
-                            ci-dessous pour relancer les votes.</p>
-                        <button id="toggle-voting-btn-dashboard" class="gold-btn"
-                            style="width: 100%; background: var(--accent-color); color: var(--dark-bg); border: none; padding: 15px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: bold; font-size: 1.1em; letter-spacing: 1px; transition: all 0.3s; border-radius: 2px;">Ouvrir
-                            le Vote</button>
-                    </div>
-
-                    <div class="admin-control-item"
-                        style="background: rgba(255,255,255,0.02); padding: 25px; border: 1px solid rgba(255,255,255,0.05); border-radius: 2px;">
-                        <h3
-                            style="margin-top: 0; font-size: 1.2em; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; margin-bottom: 20px; color: var(--primary-text);">
-                            Configuration</h3>
-                        <label
-                            style="display: block; margin-bottom: 10px; font-family: 'Playfair Display', serif; font-size: 1.1em; color: var(--accent-color);">Top
-                            Jeux à Télécharger :</label>
-                        <input type="number" id="dashboard-top-games-count" value="10" min="1" max="50"
-                            style="width: 100%; padding: 15px; background: rgba(0,0,0,0.5); border: 1px solid var(--border-color); color: var(--primary-text); font-family: 'Outfit'; font-size: 1.2em; text-align: center; border-radius: 2px;"
-                            title="Nombre de jeux à afficher à la clôture">
-                        <button id="save-config-btn"
-                            style="width: 100%; margin-top: 15px; background: transparent; border: 1px solid var(--border-color); color: var(--primary-text); padding: 10px; cursor: pointer; font-family: 'Outfit'; transition: all 0.3s;">Sauvegarder
-                            Configuration</button>
-                    </div>
-
-                    <div class="admin-control-item danger-zone"
-                        style="grid-column: 1 / -1; background: rgba(158,54,54,0.05); padding: 25px; border: 1px solid rgba(158,54,54,0.2); border-radius: 2px; margin-top: 20px;">
-                        <h3
-                            style="margin-top: 0; font-size: 1.2em; text-align: left; border-bottom: 1px solid rgba(158,54,54,0.2); padding-bottom: 15px; margin-bottom: 20px; color: var(--danger-color);">
-                            Zone Dangereuse</h3>
-                        <p style="margin-bottom: 20px; font-size: 0.9em;">Attention: réinitialiser les votes supprime de
-                            manière permanente toutes les données de vote actuelles de la base de données.</p>
-                        <button id="reset-all-votes-btn-dashboard"
-                            style="width: 100%; background: transparent; color: var(--danger-color); border: 1px solid var(--danger-color); padding: 15px; cursor: pointer; font-family: 'Outfit', sans-serif; font-size: 1.1em; letter-spacing: 1px; transition: all 0.3s; border-radius: 2px;"
-                            onmouseover="this.style.background='rgba(158,54,54,0.1)'"
-                            onmouseout="this.style.background='transparent'">⚡ Réinitialiser TOUS les votes ⚡</button>
-                    </div>
+                <div class="admin-control-item danger-zone"
+                    style="grid-column: 1 / -1; background: rgba(158,54,54,0.05); padding: 25px; border: 1px solid rgba(158,54,54,0.2); border-radius: 2px; margin-top: 20px;">
+                    <h3
+                        style="margin-top: 0; font-size: 1.2em; text-align: left; border-bottom: 1px solid rgba(158,54,54,0.2); padding-bottom: 15px; margin-bottom: 20px; color: var(--danger-color);">
+                        Zone Dangereuse</h3>
+                    <p style="margin-bottom: 20px; font-size: 0.9em;">Attention: réinitialiser les votes supprime de
+                        manière permanente toutes les données de vote actuelles de la base de données.</p>
+                    <button id="reset-all-votes-btn-dashboard"
+                        style="width: 100%; background: transparent; color: var(--danger-color); border: 1px solid var(--danger-color); padding: 15px; cursor: pointer; font-family: 'Outfit', sans-serif; font-size: 1.1em; letter-spacing: 1px; transition: all 0.3s; border-radius: 2px;"
+                        onmouseover="this.style.background='rgba(158,54,54,0.1)'"
+                        onmouseout="this.style.background='transparent'">⚡ Réinitialiser TOUS les votes ⚡</button>
                 </div>
             </div>
         </div>
+    </div>
     </div>
 
     <div id="correction-modal" class="modal-overlay">
@@ -324,15 +300,8 @@
                         loginSpinner.style.display = 'none';
                     });
             });
-<<<<<<< HEAD
 
-            logoutBtn.addEventListener('click', () => {
-                const user = auth.currentUser;
-                if (user) {
-                    db.ref('/status/' + user.uid).remove();
-                }
-                auth.signOut();
-            });
+
 
             // --- CŒUR DE L'APPLICATION ---
 
@@ -773,830 +742,663 @@
                     } else {
                         imageCache.set(normalizedName, DEFAULT_GAME_ICON);
                         return DEFAULT_GAME_ICON;
-=======
 
-            logoutBtn.addEventListener('click', () => {
-                const user = auth.currentUser;
-                if (user) {
-                    db.ref('/status/' + user.uid).remove();
-                }
-                auth.signOut();
-            });
 
-            // --- CŒUR DE L'APPLICATION ---
+                        logoutBtn.addEventListener('click', () => {
+                            const user = auth.currentUser;
+                            if (user) {
+                                db.ref('/status/' + user.uid).remove();
+                            }
+                            auth.signOut();
+                        });
 
-            function renderActiveUsers(users) {
-                const sidebar = document.getElementById('active-users-sidebar');
-                const body = document.body;
-                if (!sidebar) return;
+                        // --- CŒUR DE L'APPLICATION ---
 
-                sidebar.innerHTML = '';
-                const userCount = users ? Object.keys(users).length : 0;
+                        function renderActiveUsers(users) {
+                            const sidebar = document.getElementById('active-users-sidebar');
+                            const body = document.body;
+                            if (!sidebar) return;
 
-                if (userCount > 0) {
-                    sidebar.classList.add('visible');
-                    body.classList.add('sidebar-visible');
-                } else {
-                    sidebar.classList.remove('visible');
-                    body.classList.remove('sidebar-visible');
-                }
+                            sidebar.innerHTML = '';
+                            const userCount = users ? Object.keys(users).length : 0;
 
-                for (const uid in users) {
-                    const user = users[uid];
-                    const img = document.createElement('img');
-                    img.src = user.avatar;
-                    img.title = user.name;
-                    img.className = 'user-avatar-icon';
-                    sidebar.appendChild(img);
-                }
-            }
+                            if (userCount > 0) {
+                                sidebar.classList.add('visible');
+                                body.classList.add('sidebar-visible');
+                            } else {
+                                sidebar.classList.remove('visible');
+                                body.classList.remove('sidebar-visible');
+                            }
 
-            function initializeApp(user) {
-                if (user.uid === ADMIN_UID) {
-                    document.getElementById('admin-panel').style.display = 'block';
-                }
+                            for (const uid in users) {
+                                const user = users[uid];
+                                const img = document.createElement('img');
+                                img.src = user.avatar;
+                                img.title = user.name;
+                                img.className = 'user-avatar-icon';
+                                sidebar.appendChild(img);
+                            }
+                        }
 
-                const userStatusRef = db.ref('/status/' + user.uid);
-                const connectedRef = db.ref('.info/connected');
+                        function initializeApp(user) {
+                            if (user.uid === ADMIN_UID) {
+                                document.getElementById('admin-panel').style.display = 'block';
+                            }
 
-                connectedRef.on('value', (snap) => {
-                    if (snap.val() === true) {
-                        const userData = { name: user.displayName, avatar: user.photoURL };
-                        userStatusRef.set(userData);
-                        userStatusRef.onDisconnect().remove();
-                    }
-                });
+                            const userStatusRef = db.ref('/status/' + user.uid);
+                            const connectedRef = db.ref('.info/connected');
 
-                db.ref('/status').on('value', snapshot => renderActiveUsers(snapshot.val()));
-
-                const voteForm = document.getElementById('vote-form');
-                const voterSelectMenu = document.getElementById('voter-select-menu');
-                const correctionModal = document.getElementById('correction-modal');
-                const DEFAULT_GAME_ICON = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23666'%3E%3Cpath d='M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-2.5 14H6.5v-1.5h11V18zm0-2.5H6.5v-1.5h11V15.5zm0-2.5H6.5v-1.5h11V13zm-5-3.25L10.25 8h1.5l2.25 1.75V8h1.5v6h-1.5v-1.75L13.25 14h-1.5L9.5 12.25V14H8V8h1.5v1.75z'/%3E%3C/svg%3E`;
-                let isEditing = false;
-
-                // Cache pour les images Steam afin d'éviter les appels API redondants
-                const imageCache = new Map();
-
-                if (votesRef) votesRef.off();
-                if (settingsRef) settingsRef.off();
-
-                votesRef = db.ref('lan/votes');
-                settingsRef = db.ref('lan/settings');
-
-                settingsRef.on('value', (snapshot) => {
-                    const newSettings = snapshot.val() || { isVotingOpen: true, topGamesCount: 10 };
-
-                    // Notification lors de la fermeture (seulement si l'app est déjà initialisée)
-                    if (appInitialized && globalSettings.isVotingOpen === true && newSettings.isVotingOpen === false) {
-                        showToast("Les votes sont terminés ! Voici les résultats...", "success");
-                        showFinalResults();
-                    }
-
-                    globalSettings = newSettings;
-                    updateVotingUIState();
-
-                    if (user.uid === ADMIN_UID) {
-                        document.getElementById('toggle-voting-btn').textContent = globalSettings.isVotingOpen ? "Clôturer le Vote" : "Ouvrir le Vote";
-                        document.getElementById('top-games-count').value = globalSettings.topGamesCount || 10;
-                    }
-                });
-
-                votesRef.on('value', (snapshot) => {
-                    globalVotes = snapshot.val() || {};
-                    renderDashboard(globalVotes, user);
-
-                    const selectedUserId = voterSelectMenu.value || user.uid;
-                    if (!isEditing || selectedUserId !== user.uid) {
-                        loadVoteIntoForm(selectedUserId, globalVotes, user);
-                    }
-                    appInitialized = true;
-                });
-
-                function updateVotingUIState() {
-                    const form = document.getElementById('vote-form');
-                    const message = document.getElementById('voting-closed-message');
-
-                    if (globalSettings.isVotingOpen) {
-                        form.style.display = 'flex';
-                        message.style.display = 'none';
-                    } else {
-                        form.style.display = 'none';
-                        message.style.display = 'block';
-                    }
-                }
-
-                // Admin Actions
-                document.getElementById('toggle-voting-btn')?.addEventListener('click', () => {
-                    const newIsOpen = !globalSettings.isVotingOpen;
-                    const newCount = parseInt(document.getElementById('top-games-count').value) || 10;
-                    db.ref('lan/settings').set({
-                        isVotingOpen: newIsOpen,
-                        topGamesCount: newCount
-                    });
-                });
-
-                document.getElementById('close-results-btn').addEventListener('click', () => {
-                    document.getElementById('final-results-modal').style.display = 'none';
-                });
-
-                voteForm.addEventListener('input', () => {
-                    if (voterSelectMenu.value === '' || voterSelectMenu.value === user.uid) {
-                        isEditing = true;
-                    }
-                });
-
-                document.getElementById('reset-all-votes-btn')?.addEventListener('click', () => {
-                    const confirmation = prompt("Cette action est irréversible et supprimera TOUS les votes. Pour confirmer, tapez 'RESET'.");
-                    if (confirmation === 'RESET') {
-                        db.ref('lan/votes').remove()
-                            .then(() => {
-                                showToast("Tous les votes ont été réinitialisés.", "success");
-                            })
-                            .catch((err) => {
-                                showToast("Erreur lors de la réinitialisation: " + err.message, "error");
+                            connectedRef.on('value', (snap) => {
+                                if (snap.val() === true) {
+                                    const userData = { name: user.displayName, avatar: user.photoURL };
+                                    userStatusRef.set(userData);
+                                    userStatusRef.onDisconnect().remove();
+                                }
                             });
-                    } else {
-                        if (confirmation !== null) {
-                            showToast("Action annulée.");
-                        }
-                    }
-                });
 
-                voteForm.addEventListener('click', (e) => {
-                    if (e.target.classList.contains('add-game-btn')) {
-                        const list = e.target.previousElementSibling;
-                        createInput('', false, list);
-                    }
-                    if (e.target.classList.contains('remove-game-btn')) {
-                        e.target.closest('.game-input-wrapper').remove();
-                    }
-                    const searchButton = e.target.closest('.steam-search-btn');
-                    if (searchButton) {
-                        handleSteamSearch(searchButton);
-                    }
-                });
+                            db.ref('/status').on('value', snapshot => renderActiveUsers(snapshot.val()));
 
-                voterSelectMenu.addEventListener('change', (e) => {
-                    isEditing = false;
-                    loadVoteIntoForm(e.target.value || user.uid, globalVotes, user);
-                });
+                            const voteForm = document.getElementById('vote-form');
+                            const voterSelectMenu = document.getElementById('voter-select-menu');
+                            const correctionModal = document.getElementById('correction-modal');
+                            const DEFAULT_GAME_ICON = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23666'%3E%3Cpath d='M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-2.5 14H6.5v-1.5h11V18zm0-2.5H6.5v-1.5h11V15.5zm0-2.5H6.5v-1.5h11V13zm-5-3.25L10.25 8h1.5l2.25 1.75V8h1.5v6h-1.5v-1.75L13.25 14h-1.5L9.5 12.25V14H8V8h1.5v1.75z'/%3E%3C/svg%3E`;
+                            let isEditing = false;
 
-                voteForm.addEventListener('submit', (e) => {
-                    e.preventDefault();
-                    const userIdToSave = voterSelectMenu.value || user.uid;
-                    const userNameToSave = (globalVotes[userIdToSave]) ? globalVotes[userIdToSave].name : user.displayName;
-                    const playerVotes = { p1: [], p2: [], p3: [], p_other: [] };
-                    const allNewGames = new Set();
+                            // Cache pour les images Steam afin d'éviter les appels API redondants
+                            const imageCache = new Map();
 
-                    document.querySelectorAll('.priority-group').forEach(group => {
-                        const priority = group.dataset.priority;
-                        group.querySelectorAll('.game-input-list input').forEach(input => {
-                            const game = normalizeGameName(input.value);
-                            if (game) {
-                                playerVotes[priority].push(game);
-                                allNewGames.add(game);
+                            if (votesRef) votesRef.off();
+                            if (settingsRef) settingsRef.off();
+
+                            votesRef = db.ref('lan/votes');
+                            settingsRef = db.ref('lan/settings');
+
+                            settingsRef.on('value', (snapshot) => {
+                                const newSettings = snapshot.val() || { isVotingOpen: true, topGamesCount: 10 };
+
+                                // Notification lors de la fermeture (seulement si l'app est déjà initialisée)
+                                if (appInitialized && globalSettings.isVotingOpen === true && newSettings.isVotingOpen === false) {
+                                    showToast("Les votes sont terminés ! Voici les résultats...", "success");
+                                    showFinalResults();
+                                }
+
+                                globalSettings = newSettings;
+                                updateVotingUIState();
+
+                                if (user.uid === ADMIN_UID) {
+                                    document.getElementById('toggle-voting-btn').textContent = globalSettings.isVotingOpen ? "Clôturer le Vote" : "Ouvrir le Vote";
+                                    document.getElementById('top-games-count').value = globalSettings.topGamesCount || 10;
+                                }
+                            });
+
+                            votesRef.on('value', (snapshot) => {
+                                globalVotes = snapshot.val() || {};
+                                renderDashboard(globalVotes, user);
+
+                                const selectedUserId = voterSelectMenu.value || user.uid;
+                                if (!isEditing || selectedUserId !== user.uid) {
+                                    loadVoteIntoForm(selectedUserId, globalVotes, user);
+                                }
+                                appInitialized = true;
+                            });
+
+                            function updateVotingUIState() {
+                                const form = document.getElementById('vote-form');
+                                const message = document.getElementById('voting-closed-message');
+
+                                if (globalSettings.isVotingOpen) {
+                                    form.style.display = 'flex';
+                                    message.style.display = 'none';
+                                } else {
+                                    form.style.display = 'none';
+                                    message.style.display = 'block';
+                                }
                             }
-                        });
-                    });
 
-                    const suggestions = checkTypos(Array.from(allNewGames), globalVotes);
-                    if (suggestions.length > 0) {
-                        showCorrectionModal(suggestions, { userIdToSave, userNameToSave, playerVotes });
-                    } else {
-                        saveVote(userIdToSave, userNameToSave, playerVotes, user);
->>>>>>> 491e61d85176c6b298e9c6ed8d6c9d39474cff14
-                    }
-                } catch (error) {
-                    console.error("API Error:", error);
-                }
-                imageCache.set(normalizedName, DEFAULT_GAME_ICON);
-                return DEFAULT_GAME_ICON;
-            }
+                            // Admin Actions
+                            document.getElementById('toggle-voting-btn')?.addEventListener('click', () => {
+                                const newIsOpen = !globalSettings.isVotingOpen;
+                                const newCount = parseInt(document.getElementById('top-games-count').value) || 10;
+                                db.ref('lan/settings').set({
+                                    isVotingOpen: newIsOpen,
+                                    topGamesCount: newCount
+                                });
+                            });
 
-            function renderKPIs(gamesData, votes) {
-                const winnerName = gamesData.length > 0 ? gamesData[0].name : '--';
-                document.getElementById('kpi-winner-value').textContent = winnerName;
-                const winnerImage = document.getElementById('winner-image');
+                            document.getElementById('close-results-btn').addEventListener('click', () => {
+                                document.getElementById('final-results-modal').style.display = 'none';
+                            });
 
-                winnerImage.classList.remove('loaded');
-                winnerImage.src = '';
+                            voteForm.addEventListener('input', () => {
+                                if (voterSelectMenu.value === '' || voterSelectMenu.value === user.uid) {
+                                    isEditing = true;
+                                }
+                            });
 
-                if (winnerName !== '--') {
-                    getGameImage(winnerName).then(imageUrl => {
-                        winnerImage.src = imageUrl;
-                        if (imageUrl.startsWith('https')) {
-                            winnerImage.classList.add('loaded');
-                        }
-                    });
-                }
-                animateCounter(document.getElementById('kpi-voters-value'), Object.keys(votes).length);
-                animateCounter(document.getElementById('kpi-games-value'), gamesData.length);
-            }
+                            document.getElementById('reset-all-votes-btn')?.addEventListener('click', () => {
+                                const confirmation = prompt("Cette action est irréversible et supprimera TOUS les votes. Pour confirmer, tapez 'RESET'.");
+                                if (confirmation === 'RESET') {
+                                    db.ref('lan/votes').remove()
+                                        .then(() => {
+                                            showToast("Tous les votes ont été réinitialisés.", "success");
+                                        })
+                                        .catch((err) => {
+                                            showToast("Erreur lors de la réinitialisation: " + err.message, "error");
+                                        });
+                                } else {
+                                    if (confirmation !== null) {
+                                        showToast("Action annulée.");
+                                    }
+                                }
+                            });
 
-            function renderTable(gamesData) {
-                const tableBody = document.getElementById('results-table-body');
-                tableBody.innerHTML = '';
-                if (gamesData.length === 0) {
-                    tableBody.innerHTML = `<tr><td colspan="2" style="text-align: center;">Aucun vote pour le moment...</td></tr>`;
-                    return;
-                }
-                gamesData.forEach((game, index) => {
-                    const row = document.createElement('tr');
-                    const rank = index + 1;
-                    if (rank === 1) row.classList.add('gold');
-                    else if (rank === 2) row.classList.add('silver');
-                    else if (rank === 3) row.classList.add('bronze');
+                            voteForm.addEventListener('click', (e) => {
+                                if (e.target.classList.contains('add-game-btn')) {
+                                    const list = e.target.previousElementSibling;
+                                    createInput('', false, list);
+                                }
+                                if (e.target.classList.contains('remove-game-btn')) {
+                                    e.target.closest('.game-input-wrapper').remove();
+                                }
+                                const searchButton = e.target.closest('.steam-search-btn');
+                                if (searchButton) {
+                                    handleSteamSearch(searchButton);
+                                }
+                            });
 
-                    const gameCell = document.createElement('td');
-                    const scoreCell = document.createElement('td');
-
-                    const gameIcon = document.createElement('img');
-                    gameIcon.src = DEFAULT_GAME_ICON;
-                    gameIcon.alt = 'Icone';
-                    gameIcon.className = 'game-icon';
-
-                    getGameImage(game.name).then(imageUrl => {
-                        gameIcon.src = imageUrl;
-                    });
-
-                    gameCell.appendChild(gameIcon);
-                    gameCell.append(`${rank}. ${game.name}`);
-                    scoreCell.textContent = game.score;
-
-                    row.appendChild(gameCell);
-                    row.appendChild(scoreCell);
-                    tableBody.appendChild(row);
-                });
-
-                async function handleSteamSearch(searchButton) {
-                    const inputField = searchButton.closest('.game-input-wrapper').querySelector('input');
-                    const searchTerm = inputField.value.trim();
-                    if (searchTerm === '') return;
-
-                    const originalIcon = searchButton.innerHTML;
-                    searchButton.innerHTML = '⏳';
-                    searchButton.disabled = true;
-
-                    try {
-                        const response = await fetch(`/api/get-game-image?name=${encodeURIComponent(searchTerm)}`);
-                        if (response.ok) {
-                            const data = await response.json();
-                            inputField.value = data.name;
-                        } else {
-                            showToast('Jeu non trouvé sur Steam.', 'error');
-                        }
-                    } catch (error) {
-                        console.error("Erreur Steam:", error);
-                        showToast('Erreur de l\'API Steam.', 'error');
-                    } finally {
-                        searchButton.textContent = 'Vérifier';
-                        searchButton.disabled = false;
-                    }
-                }
-
-                function saveVote(userId, userName, playerVotes, user) {
-                    db.ref(`lan/votes/${userId}`).set({ name: userName, votes: playerVotes })
-                        .then(() => {
-                            if (userId === user.uid) {
+                            voterSelectMenu.addEventListener('change', (e) => {
                                 isEditing = false;
-                            }
-                            if (!correctionModal.style.display.includes('flex')) {
-                                showToast(`Vote pour ${userName} enregistré !`, 'success');
-                            }
-                        })
-                        .catch(error => {
-                            console.error("Erreur:", error);
-                            showToast(`Erreur : ${error.message}`, 'error');
-                        });
-                }
+                                loadVoteIntoForm(e.target.value || user.uid, globalVotes, user);
+                            });
 
-                function createInput(value, isFirst, list) {
-                    const wrapper = document.createElement('div');
-                    wrapper.className = 'game-input-wrapper';
+                            voteForm.addEventListener('submit', (e) => {
+                                e.preventDefault();
+                                const userIdToSave = voterSelectMenu.value || user.uid;
+                                const userNameToSave = (globalVotes[userIdToSave]) ? globalVotes[userIdToSave].name : user.displayName;
+                                const playerVotes = { p1: [], p2: [], p3: [], p_other: [] };
+                                const allNewGames = new Set();
 
-                    const input = document.createElement('input');
-                    input.type = 'text';
-                    input.value = value;
-                    input.placeholder = 'Jeu...';
-                    if (list.closest('.priority-group').dataset.priority === 'p1') {
-                        input.placeholder = 'Le jeu que vous voulez absolument...';
-                    }
-                    wrapper.appendChild(input);
+                                document.querySelectorAll('.priority-group').forEach(group => {
+                                    const priority = group.dataset.priority;
+                                    group.querySelectorAll('.game-input-list input').forEach(input => {
+                                        const game = normalizeGameName(input.value);
+                                        if (game) {
+                                            playerVotes[priority].push(game);
+                                            allNewGames.add(game);
+                                        }
+                                    });
+                                });
 
-                    const searchButton = document.createElement('button');
-                    searchButton.type = 'button';
-                    searchButton.className = 'steam-search-btn';
-                    searchButton.title = 'Vérifier le nom sur Steam';
-                    searchButton.textContent = 'Vérifier'; // Bouton texte
-                    wrapper.appendChild(searchButton);
-
-                    if (list.closest('.priority-group').dataset.priority !== 'p1') {
-                        const removeButton = document.createElement('button');
-                        removeButton.type = 'button';
-                        removeButton.className = 'remove-game-btn';
-                        removeButton.textContent = '-';
-                        if (isFirst) {
-                            removeButton.style.visibility = 'hidden';
+                                const suggestions = checkTypos(Array.from(allNewGames), globalVotes);
+                                if (suggestions.length > 0) {
+                                    showCorrectionModal(suggestions, { userIdToSave, userNameToSave, playerVotes });
+                                } else {
+                                    saveVote(userIdToSave, userNameToSave, playerVotes, user);
+                                }
+                            });
                         }
-                        wrapper.appendChild(removeButton);
-                    }
-                    list.appendChild(wrapper);
-                }
 
-                function loadVoteIntoForm(userId, allVotes, currentUser) {
-                    const voteData = allVotes[userId];
-                    const playerVotes = voteData ? voteData.votes : {};
-                    const submitBtn = document.getElementById('submit-vote-btn');
+                        function renderKPIs(gamesData, votes) {
+                            const winnerName = gamesData.length > 0 ? gamesData[0].name : '--';
+                            document.getElementById('kpi-winner-value').textContent = winnerName;
+                            const winnerImage = document.getElementById('winner-image');
 
-                    if (userId === currentUser.uid && voteData && Object.values(playerVotes).some(p => p.length > 0)) {
-                        submitBtn.textContent = 'Mettre à jour mon Vote';
-                    } else {
-                        submitBtn.textContent = 'Soumettre mon Vote';
-                    }
+                            winnerImage.classList.remove('loaded');
+                            winnerImage.src = '';
 
-                    document.querySelectorAll('.priority-group').forEach(group => {
-                        const priority = group.dataset.priority;
-                        const games = playerVotes[priority] || [];
-                        const list = group.querySelector('.game-input-list');
-                        list.innerHTML = '';
-
-                        if (games.length > 0) {
-                            games.forEach((game, index) => createInput(game, index === 0, list));
-                        } else {
-                            createInput('', true, list);
-                        }
-                    });
-                }
-
-                function levenshtein(s1, s2) { s1 = s1.toLowerCase(); s2 = s2.toLowerCase(); const costs = []; for (let i = 0; i <= s1.length; i++) { let lastValue = i; for (let j = 0; j <= s2.length; j++) { if (i === 0) costs[j] = j; else if (j > 0) { let newValue = costs[j - 1]; if (s1.charAt(i - 1) !== s2.charAt(j - 1)) newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1; costs[j - 1] = lastValue; lastValue = newValue; } } if (i > 0) costs[s2.length] = lastValue; } return costs[s2.length]; }
-
-                function checkTypos(newGames, currentVotes) {
-                    const suggestions = [];
-                    const masterGameList = new Set();
-                    Object.values(currentVotes).forEach(voteData => {
-                        if (voteData.votes) Object.values(voteData.votes).forEach(games => games.forEach(game => masterGameList.add(normalizeGameName(game))));
-                    });
-                    const masterArray = Array.from(masterGameList);
-                    newGames.forEach(newGame => {
-                        if (masterGameList.has(newGame)) return;
-                        for (const masterGame of masterArray) {
-                            const distance = levenshtein(newGame, masterGame);
-                            if (distance > 0 && distance <= 2) {
-                                suggestions.push({ original: newGame, suggestion: masterGame });
-                                return;
-                            }
-                        }
-                    });
-                    return suggestions;
-                }
-
-                function showCorrectionModal(suggestions, voteData) {
-                    const listElement = document.getElementById('suggestions-list');
-                    listElement.innerHTML = '';
-                    suggestions.forEach(sugg => {
-                        const li = document.createElement('li');
-                        li.innerHTML = `Remplacer votre saisie <em>${sugg.original}</em> par le jeu déjà existant <strong>${sugg.suggestion}</strong> ?`;
-                        listElement.appendChild(li);
-                    });
-
-                    // On s'assure de ne pas avoir de vieux écouteurs d'événements
-                    const newAcceptBtn = document.getElementById('modal-accept').cloneNode(true);
-                    document.getElementById('modal-accept').replaceWith(newAcceptBtn);
-                    const newIgnoreBtn = document.getElementById('modal-ignore').cloneNode(true);
-                    document.getElementById('modal-ignore').replaceWith(newIgnoreBtn);
-                    const newCancelBtn = document.getElementById('modal-cancel').cloneNode(true);
-                    document.getElementById('modal-cancel').replaceWith(newCancelBtn);
-
-                    const handler = () => { correctionModal.style.display = 'none'; };
-                    const acceptHandler = () => {
-                        const correctedVotes = JSON.parse(JSON.stringify(voteData.playerVotes));
-                        suggestions.forEach(sugg => {
-                            for (const priority in correctedVotes) {
-                                correctedVotes[priority] = correctedVotes[priority].map(game => normalizeGameName(game) === sugg.original ? sugg.suggestion : game);
-                            }
-                        });
-                        saveVote(voteData.userIdToSave, voteData.userNameToSave, correctedVotes, user);
-                        handler();
-                    };
-                    const ignoreHandler = () => {
-                        saveVote(voteData.userIdToSave, voteData.userNameToSave, voteData.playerVotes, user);
-                        handler();
-                    };
-
-                    newAcceptBtn.addEventListener('click', acceptHandler);
-                    newIgnoreBtn.addEventListener('click', ignoreHandler);
-                    newCancelBtn.addEventListener('click', handler);
-
-                    correctionModal.style.display = 'flex';
-                }
-
-                function calculateScores(votes) {
-                    const gameScores = {};
-                    const pointsMapping = { p1: 5, p2: 3, p3: 2, p_other: 1 };
-                    for (const userId in votes) {
-                        const voteData = votes[userId];
-                        if (voteData && voteData.votes) {
-                            for (const priority in voteData.votes) {
-                                voteData.votes[priority].forEach(game => {
-                                    const normalizedGame = normalizeGameName(game);
-                                    if (normalizedGame) {
-                                        gameScores[normalizedGame] = (gameScores[normalizedGame] || 0) + pointsMapping[priority];
+                            if (winnerName !== '--') {
+                                getGameImage(winnerName).then(imageUrl => {
+                                    winnerImage.src = imageUrl;
+                                    if (imageUrl.startsWith('https')) {
+                                        winnerImage.classList.add('loaded');
                                     }
                                 });
                             }
+                            animateCounter(document.getElementById('kpi-voters-value'), Object.keys(votes).length);
+                            animateCounter(document.getElementById('kpi-games-value'), gamesData.length);
                         }
-                    }
 
-                    const finalScores = {};
-                    Object.keys(gameScores).forEach(name => {
-                        const capitalizedName = name.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-                        finalScores[capitalizedName] = gameScores[name];
-                    });
+                        function renderTable(gamesData) {
+                            const tableBody = document.getElementById('results-table-body');
+                            tableBody.innerHTML = '';
+                            if (gamesData.length === 0) {
+                                tableBody.innerHTML = `<tr><td colspan="2" style="text-align: center;">Aucun vote pour le moment...</td></tr>`;
+                                return;
+                            }
+                            gamesData.forEach((game, index) => {
+                                const row = document.createElement('tr');
+                                const rank = index + 1;
+                                if (rank === 1) row.classList.add('gold');
+                                else if (rank === 2) row.classList.add('silver');
+                                else if (rank === 3) row.classList.add('bronze');
 
-                    return Object.entries(finalScores).map(([name, score]) => ({ name, score })).sort((a, b) => b.score - a.score);
-                }
+                                const gameCell = document.createElement('td');
+                                const scoreCell = document.createElement('td');
 
-                function animateCounter(element, target) {
-                    if (element.animationFrameId) cancelAnimationFrame(element.animationFrameId);
-                    const startValue = parseInt(element.textContent) || 0;
-                    if (startValue === target) {
-                        element.textContent = target;
-                        return;
-                    }
-                    const duration = 1000;
-                    let startTime = null;
-                    function animationStep(timestamp) {
-                        if (!startTime) startTime = timestamp;
-                        const progress = timestamp - startTime;
-                        const currentVal = progress < duration ? startValue + Math.floor(progress / duration * (target - startValue)) : target;
-                        element.textContent = currentVal;
-                        if (progress < duration) element.animationFrameId = requestAnimationFrame(animationStep);
-                    }
-                    element.animationFrameId = requestAnimationFrame(animationStep);
-                }
+                                const gameIcon = document.createElement('img');
+                                gameIcon.src = DEFAULT_GAME_ICON;
+                                gameIcon.alt = 'Icone';
+                                gameIcon.className = 'game-icon';
 
-                async function getGameImage(gameName) {
-                    const normalizedName = gameName.toLowerCase().trim();
-                    if (imageCache.has(normalizedName)) {
-                        return imageCache.get(normalizedName);
-                    }
+                                getGameImage(game.name).then(imageUrl => {
+                                    gameIcon.src = imageUrl;
+                                });
 
-                    try {
-                        const response = await fetch(`/api/get-game-image?name=${encodeURIComponent(normalizedName)}`);
-                        if (response.ok) {
-                            const data = await response.json();
-                            imageCache.set(normalizedName, data.imageUrl);
-                            return data.imageUrl;
-                        } else {
-                            imageCache.set(normalizedName, DEFAULT_GAME_ICON);
-                            return DEFAULT_GAME_ICON;
-                        }
-                    } catch (error) {
-                        console.error("API Error:", error);
-                    }
-                    imageCache.set(normalizedName, DEFAULT_GAME_ICON);
-                    return DEFAULT_GAME_ICON;
-                }
+                                gameCell.appendChild(gameIcon);
+                                gameCell.append(`${rank}. ${game.name}`);
+                                scoreCell.textContent = game.score;
 
-                function renderKPIs(gamesData, votes) {
-                    const winnerName = gamesData.length > 0 ? gamesData[0].name : '--';
-                    document.getElementById('kpi-winner-value').textContent = winnerName;
-                    const winnerImage = document.getElementById('winner-image');
+                                row.appendChild(gameCell);
+                                row.appendChild(scoreCell);
+                                tableBody.appendChild(row);
+                            });
 
-                    winnerImage.classList.remove('loaded');
-                    winnerImage.src = '';
+                            async function handleSteamSearch(searchButton) {
+                                const inputField = searchButton.closest('.game-input-wrapper').querySelector('input');
+                                const searchTerm = inputField.value.trim();
+                                if (searchTerm === '') return;
 
-                    if (winnerName !== '--') {
-                        getGameImage(winnerName).then(imageUrl => {
-                            winnerImage.src = imageUrl;
-                            if (imageUrl.startsWith('https')) {
-                                winnerImage.classList.add('loaded');
+                                const originalIcon = searchButton.innerHTML;
+                                searchButton.innerHTML = '⏳';
+                                searchButton.disabled = true;
+
+                                try {
+                                    const response = await fetch(`/api/get-game-image?name=${encodeURIComponent(searchTerm)}`);
+                                    if (response.ok) {
+                                        const data = await response.json();
+                                        inputField.value = data.name;
+                                    } else {
+                                        showToast('Jeu non trouvé sur Steam.', 'error');
+                                    }
+                                } catch (error) {
+                                    console.error("Erreur Steam:", error);
+                                    showToast('Erreur de l\'API Steam.', 'error');
+                                } finally {
+                                    searchButton.textContent = 'Vérifier';
+                                    searchButton.disabled = false;
+                                }
+                            }
+
+                            function saveVote(userId, userName, playerVotes, user) {
+                                db.ref(`lan/votes/${userId}`).set({ name: userName, votes: playerVotes })
+                                    .then(() => {
+                                        if (userId === user.uid) {
+                                            isEditing = false;
+                                        }
+                                        if (!correctionModal.style.display.includes('flex')) {
+                                            showToast(`Vote pour ${userName} enregistré !`, 'success');
+                                        }
+                                    })
+                                    .catch(error => {
+                                        console.error("Erreur:", error);
+                                        showToast(`Erreur : ${error.message}`, 'error');
+                                    });
+                            }
+
+                            function createInput(value, isFirst, list) {
+                                const wrapper = document.createElement('div');
+                                wrapper.className = 'game-input-wrapper';
+
+                                const input = document.createElement('input');
+                                input.type = 'text';
+                                input.value = value;
+                                input.placeholder = 'Jeu...';
+                                if (list.closest('.priority-group').dataset.priority === 'p1') {
+                                    input.placeholder = 'Le jeu que vous voulez absolument...';
+                                }
+                                wrapper.appendChild(input);
+
+                                const searchButton = document.createElement('button');
+                                searchButton.type = 'button';
+                                searchButton.className = 'steam-search-btn';
+                                searchButton.title = 'Vérifier le nom sur Steam';
+                                searchButton.textContent = 'Vérifier'; // Bouton texte
+                                wrapper.appendChild(searchButton);
+
+                                if (list.closest('.priority-group').dataset.priority !== 'p1') {
+                                    const removeButton = document.createElement('button');
+                                    removeButton.type = 'button';
+                                    removeButton.className = 'remove-game-btn';
+                                    removeButton.textContent = '-';
+                                    if (isFirst) {
+                                        removeButton.style.visibility = 'hidden';
+                                    }
+                                    wrapper.appendChild(removeButton);
+                                }
+                                list.appendChild(wrapper);
+                            }
+
+                            function loadVoteIntoForm(userId, allVotes, currentUser) {
+                                const voteData = allVotes[userId];
+                                const playerVotes = voteData ? voteData.votes : {};
+                                const submitBtn = document.getElementById('submit-vote-btn');
+
+                                if (userId === currentUser.uid && voteData && Object.values(playerVotes).some(p => p.length > 0)) {
+                                    submitBtn.textContent = 'Mettre à jour mon Vote';
+                                } else {
+                                    submitBtn.textContent = 'Soumettre mon Vote';
+                                }
+
+                                document.querySelectorAll('.priority-group').forEach(group => {
+                                    const priority = group.dataset.priority;
+                                    const games = playerVotes[priority] || [];
+                                    const list = group.querySelector('.game-input-list');
+                                    list.innerHTML = '';
+
+                                    if (games.length > 0) {
+                                        games.forEach((game, index) => createInput(game, index === 0, list));
+                                    } else {
+                                        createInput('', true, list);
+                                    }
+                                });
+                            }
+
+                            function levenshtein(s1, s2) { s1 = s1.toLowerCase(); s2 = s2.toLowerCase(); const costs = []; for (let i = 0; i <= s1.length; i++) { let lastValue = i; for (let j = 0; j <= s2.length; j++) { if (i === 0) costs[j] = j; else if (j > 0) { let newValue = costs[j - 1]; if (s1.charAt(i - 1) !== s2.charAt(j - 1)) newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1; costs[j - 1] = lastValue; lastValue = newValue; } } if (i > 0) costs[s2.length] = lastValue; } return costs[s2.length]; }
+
+                            function checkTypos(newGames, currentVotes) {
+                                const suggestions = [];
+                                const masterGameList = new Set();
+                                Object.values(currentVotes).forEach(voteData => {
+                                    if (voteData.votes) Object.values(voteData.votes).forEach(games => games.forEach(game => masterGameList.add(normalizeGameName(game))));
+                                });
+                                const masterArray = Array.from(masterGameList);
+                                newGames.forEach(newGame => {
+                                    if (masterGameList.has(newGame)) return;
+                                    for (const masterGame of masterArray) {
+                                        const distance = levenshtein(newGame, masterGame);
+                                        if (distance > 0 && distance <= 2) {
+                                            suggestions.push({ original: newGame, suggestion: masterGame });
+                                            return;
+                                        }
+                                    }
+                                });
+                                return suggestions;
+                            }
+
+                            function showCorrectionModal(suggestions, voteData) {
+                                const listElement = document.getElementById('suggestions-list');
+                                listElement.innerHTML = '';
+                                suggestions.forEach(sugg => {
+                                    const li = document.createElement('li');
+                                    li.innerHTML = `Remplacer votre saisie <em>${sugg.original}</em> par le jeu déjà existant <strong>${sugg.suggestion}</strong> ?`;
+                                    listElement.appendChild(li);
+                                });
+
+                                // On s'assure de ne pas avoir de vieux écouteurs d'événements
+                                const newAcceptBtn = document.getElementById('modal-accept').cloneNode(true);
+                                document.getElementById('modal-accept').replaceWith(newAcceptBtn);
+                                const newIgnoreBtn = document.getElementById('modal-ignore').cloneNode(true);
+                                document.getElementById('modal-ignore').replaceWith(newIgnoreBtn);
+                                const newCancelBtn = document.getElementById('modal-cancel').cloneNode(true);
+                                document.getElementById('modal-cancel').replaceWith(newCancelBtn);
+
+                                const handler = () => { correctionModal.style.display = 'none'; };
+                                const acceptHandler = () => {
+                                    const correctedVotes = JSON.parse(JSON.stringify(voteData.playerVotes));
+                                    suggestions.forEach(sugg => {
+                                        for (const priority in correctedVotes) {
+                                            correctedVotes[priority] = correctedVotes[priority].map(game => normalizeGameName(game) === sugg.original ? sugg.suggestion : game);
+                                        }
+                                    });
+                                    saveVote(voteData.userIdToSave, voteData.userNameToSave, correctedVotes, user);
+                                    handler();
+                                };
+                                const ignoreHandler = () => {
+                                    saveVote(voteData.userIdToSave, voteData.userNameToSave, voteData.playerVotes, user);
+                                    handler();
+                                };
+
+                                newAcceptBtn.addEventListener('click', acceptHandler);
+                                newIgnoreBtn.addEventListener('click', ignoreHandler);
+                                newCancelBtn.addEventListener('click', handler);
+
+                                correctionModal.style.display = 'flex';
+                            }
+
+                            function calculateScores(votes) {
+                                const gameScores = {};
+                                const pointsMapping = { p1: 5, p2: 3, p3: 2, p_other: 1 };
+                                for (const userId in votes) {
+                                    const voteData = votes[userId];
+                                    if (voteData && voteData.votes) {
+                                        for (const priority in voteData.votes) {
+                                            voteData.votes[priority].forEach(game => {
+                                                const normalizedGame = normalizeGameName(game);
+                                                if (normalizedGame) {
+                                                    gameScores[normalizedGame] = (gameScores[normalizedGame] || 0) + pointsMapping[priority];
+                                                }
+                                            });
+                                        }
+                                    }
+                                }
+
+                                const finalScores = {};
+                                Object.keys(gameScores).forEach(name => {
+                                    const capitalizedName = name.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+                                    finalScores[capitalizedName] = gameScores[name];
+                                });
+
+                                return Object.entries(finalScores).map(([name, score]) => ({ name, score })).sort((a, b) => b.score - a.score);
+                            }
+
+                            function animateCounter(element, target) {
+                                if (element.animationFrameId) cancelAnimationFrame(element.animationFrameId);
+                                const startValue = parseInt(element.textContent) || 0;
+                                if (startValue === target) {
+                                    element.textContent = target;
+                                    return;
+                                }
+                                const duration = 1000;
+                                let startTime = null;
+                                function animationStep(timestamp) {
+                                    if (!startTime) startTime = timestamp;
+                                    const progress = timestamp - startTime;
+                                    const currentVal = progress < duration ? startValue + Math.floor(progress / duration * (target - startValue)) : target;
+                                    element.textContent = currentVal;
+                                    if (progress < duration) element.animationFrameId = requestAnimationFrame(animationStep);
+                                }
+                                element.animationFrameId = requestAnimationFrame(animationStep);
+                            }
+
+                            async function getGameImage(gameName) {
+                                const normalizedName = gameName.toLowerCase().trim();
+                                if (imageCache.has(normalizedName)) {
+                                    return imageCache.get(normalizedName);
+                                }
+
+                                try {
+                                    const response = await fetch(`/api/get-game-image?name=${encodeURIComponent(normalizedName)}`);
+                                    if (response.ok) {
+                                        const data = await response.json();
+                                        imageCache.set(normalizedName, data.imageUrl);
+                                        return data.imageUrl;
+                                    } else {
+                                        imageCache.set(normalizedName, DEFAULT_GAME_ICON);
+                                        return DEFAULT_GAME_ICON;
+                                    }
+                                } catch (error) {
+                                    console.error("API Error:", error);
+                                }
+                                imageCache.set(normalizedName, DEFAULT_GAME_ICON);
+                                return DEFAULT_GAME_ICON;
+                            }
+
+                            function populateVoterMenu(votes, currentUser) {
+                                const currentSelection = voterSelectMenu.value;
+                                voterSelectMenu.innerHTML = '<option value="">-- Mon Vote --</option>';
+                                const sortedVoters = Object.entries(votes).sort((a, b) => a[1].name.localeCompare(b[1].name));
+                                sortedVoters.forEach(([uid, voteData]) => {
+                                    if (uid === currentUser.uid) return;
+                                    const option = document.createElement('option');
+                                    option.value = uid;
+                                    option.textContent = voteData.name;
+                                    voterSelectMenu.appendChild(option);
+                                });
+                                voterSelectMenu.value = currentSelection;
+                            }
+
+                            function renderDashboard(votes, user) {
+                                const sortedGames = calculateScores(votes);
+                                populateVoterMenu(votes, user);
+                                renderKPIs(sortedGames, votes);
+                                renderTable(sortedGames);
+                                renderChart(sortedGames);
+                            }
+
+                            function renderChart(gamesData) {
+                                const chartContainer = document.getElementById('chart-container');
+                                chartContainer.innerHTML = '';
+                                const topGames = gamesData.slice(0, 8);
+                                if (topGames.length === 0) return;
+
+                                const maxScore = topGames.length > 0 ? topGames[0].score : 0;
+
+                                topGames.forEach((game, index) => {
+                                    const barHeight = maxScore > 0 ? Math.max((game.score / maxScore) * 100, 15) : 0;
+
+                                    const barGroup = document.createElement('div');
+                                    barGroup.className = 'chart-bar-group';
+
+                                    const bar = document.createElement('div');
+                                    bar.className = 'chart-bar';
+                                    bar.style.height = `${barHeight}%`;
+
+                                    const barLabel = document.createElement('div');
+                                    barLabel.className = 'bar-label';
+                                    const crown = index === 0 ? '👑' : '';
+                                    barLabel.textContent = `${game.score} ${crown}`;
+
+                                    const gameNameLabel = document.createElement('div');
+                                    gameNameLabel.className = 'chart-game-name';
+                                    gameNameLabel.textContent = game.name;
+
+                                    if (index === 0) barGroup.classList.add('gold');
+                                    else if (index === 1) barGroup.classList.add('silver');
+                                    else if (index === 2) barGroup.classList.add('bronze');
+
+                                    bar.appendChild(barLabel);
+                                    barGroup.appendChild(bar);
+                                    barGroup.appendChild(gameNameLabel);
+                                    chartContainer.appendChild(barGroup);
+                                });
+                            }
+
+                            function showFinalResults() {
+                                const sortedGames = calculateScores(globalVotes);
+                                const count = globalSettings.topGamesCount || 10;
+                                const topGames = sortedGames.slice(0, count);
+                                const listContainer = document.getElementById('download-list');
+                                listContainer.innerHTML = '';
+
+                                topGames.forEach((game, index) => {
+                                    const item = document.createElement('div');
+                                    item.style.cssText = `display: flex; align-items: center; background: rgba(20,20,20,0.8); border: 1px solid var(--border-color); padding: 15px; border-radius: 4px; gap: 20px; opacity: 0; animation: etherealFadeInUp 0.5s forwards ${index * 0.1}s;`;
+
+                                    const img = document.createElement('img');
+                                    img.src = DEFAULT_GAME_ICON;
+                                    img.style.cssText = "width: 120px; height: 56px; object-fit: cover; border-radius: 2px; box-shadow: 0 2px 10px rgba(0,0,0,0.5);";
+                                    getGameImage(game.name).then(url => img.src = url);
+
+                                    const rank = document.createElement('div');
+                                    rank.style.cssText = "font-family: 'Playfair Display'; font-size: 2em; color: var(--accent-color); min-width: 40px;";
+                                    rank.textContent = `#${index + 1}`;
+
+                                    const details = document.createElement('div');
+                                    details.style.flex = "1";
+                                    const title = document.createElement('div');
+                                    title.style.cssText = "font-family: 'Playfair Display'; font-size: 1.3em; color: var(--primary-text); margin-bottom: 5px;";
+                                    title.textContent = game.name;
+                                    const scoreDesc = document.createElement('div');
+                                    scoreDesc.style.cssText = "font-size: 0.9em; color: var(--secondary-text);";
+                                    scoreDesc.textContent = `${game.score} points`;
+
+                                    details.appendChild(title);
+                                    details.appendChild(scoreDesc);
+
+                                    item.appendChild(rank);
+                                    item.appendChild(img);
+                                    item.appendChild(details);
+
+                                    listContainer.appendChild(item);
+                                });
+
+                                document.getElementById('final-results-modal').style.display = 'flex';
+                            }
+
+                            async function renderMarquee() {
+                                const track = document.getElementById('waiting-marquee');
+                                if (track.childElementCount > 0) return; // Déjà rendu
+
+                                // On récupère les meilleurs jeux actuels pour populater le marquee
+                                const sortedGames = calculateScores(globalVotes);
+
+                                // Base list from current votes plus top steam games to ensure variety
+                                let gamesForMarquee = sortedGames.slice(0, 5).map(g => g.name);
+
+                                const topSteamGames = [
+                                    "Counter-Strike 2", "Dota 2", "PUBG: BATTLEGROUNDS",
+                                    "Apex Legends", "Helldivers 2", "Palworld", "Grand Theft Auto V",
+                                    "Team Fortress 2", "Rust", "Baldur's Gate 3", "Cyberpunk 2077",
+                                    "ELDEN RING", "War Thunder", "Left 4 Left 2", "Terraria",
+                                    "Stardew Valley", "Rainbow Six Siege", "ARK: Survival Evolved",
+                                    "The Witcher 3", "Path of Exile", "Rocket League", "Destiny 2",
+                                    "Garry's Mod", "Fallout 4", "Dead by Daylight", "Red Dead Redemption 2",
+                                    "Age of Empires II", "Phasmophobia", "Hollow Knight", "Lethal Company",
+                                    "Among Us", "Halo Infinite", "Borderlands 3"
+                                ];
+
+                                // Add Steam games to marquee list avoiding duplicates
+                                for (let game of topSteamGames) {
+                                    if (!gamesForMarquee.includes(game)) {
+                                        gamesForMarquee.push(game);
+                                    }
+                                }
+
+                                // Shuffle the array for randomness
+                                gamesForMarquee = gamesForMarquee.sort(() => 0.5 - Math.random()).slice(0, 25);
+
+                                const createCard = async (gameName) => {
+                                    const imgUrl = await getGameImage(gameName);
+                                    if (imgUrl === DEFAULT_GAME_ICON) return null; // Ignore if not a real Steam image
+
+                                    const card = document.createElement('div');
+                                    card.className = 'marquee-card';
+                                    card.style.backgroundImage = `url(${imgUrl})`;
+                                    return card;
+                                };
+
+                                const cards = [];
+                                for (const name of gamesForMarquee) {
+                                    const c = await createCard(name);
+                                    if (c) cards.push(c);
+                                }
+
+                                if (cards.length === 0) return; // Fallback if Steam API fails totally
+
+                                // On duplique les cartes pour l'effet infini (x3)
+                                const allCards = [...cards, ...cards.map(c => c.cloneNode(true)), ...cards.map(c => c.cloneNode(true))];
+                                allCards.forEach(c => track.appendChild(c));
+                            }
+
+                            function showToast(message, type = 'success') {
+                                const container = document.getElementById('toast-container');
+                                if (!container) return;
+                                const toast = document.createElement('div');
+                                toast.className = `toast ${type}`;
+                                toast.textContent = message;
+
+                                container.appendChild(toast);
+
+                                setTimeout(() => {
+                                    toast.classList.add('show');
+                                }, 10);
+
+                                setTimeout(() => {
+                                    toast.classList.remove('show');
+                                    toast.addEventListener('transitionend', () => toast.remove());
+                                }, 4000);
                             }
                         });
-                    }
-                    animateCounter(document.getElementById('kpi-voters-value'), Object.keys(votes).length);
-                    animateCounter(document.getElementById('kpi-games-value'), gamesData.length);
-                }
-
-                function renderTable(gamesData) {
-                    const tableBody = document.getElementById('results-table-body');
-                    tableBody.innerHTML = '';
-                    if (gamesData.length === 0) {
-                        tableBody.innerHTML = `<tr><td colspan="2" style="text-align: center;">Aucun vote pour le moment...</td></tr>`;
-                        return;
-                    }
-                    gamesData.forEach((game, index) => {
-                        const row = document.createElement('tr');
-                        const rank = index + 1;
-                        if (rank === 1) row.classList.add('gold');
-                        else if (rank === 2) row.classList.add('silver');
-                        else if (rank === 3) row.classList.add('bronze');
-
-                        const gameCell = document.createElement('td');
-                        const scoreCell = document.createElement('td');
-
-                        const gameIcon = document.createElement('img');
-                        gameIcon.src = DEFAULT_GAME_ICON;
-                        gameIcon.alt = 'Icone';
-                        gameIcon.className = 'game-icon';
-
-                        getGameImage(game.name).then(imageUrl => {
-                            gameIcon.src = imageUrl;
-                        });
-
-                        gameCell.appendChild(gameIcon);
-                        gameCell.append(`${rank}. ${game.name}`);
-                        scoreCell.textContent = game.score;
-
-                        row.appendChild(gameCell);
-                        row.appendChild(scoreCell);
-                        tableBody.appendChild(row);
-                    });
-                }
-
-                function renderChart(gamesData) {
-                    const chartContainer = document.getElementById('chart-container');
-                    chartContainer.innerHTML = '';
-                    const topGames = gamesData.slice(0, 8);
-                    if (topGames.length === 0) return;
-
-                    const maxScore = topGames.length > 0 ? topGames[0].score : 0;
-
-                    topGames.forEach((game, index) => {
-                        const barHeight = maxScore > 0 ? Math.max((game.score / maxScore) * 100, 15) : 0;
-
-                        const barGroup = document.createElement('div');
-                        barGroup.className = 'chart-bar-group';
-
-                        const bar = document.createElement('div');
-                        bar.className = 'chart-bar';
-                        bar.style.height = `${barHeight}%`;
-
-                        const barLabel = document.createElement('div');
-                        barLabel.className = 'bar-label';
-                        const crown = index === 0 ? '👑' : '';
-                        barLabel.textContent = `${game.score} ${crown}`;
-
-                        const gameNameLabel = document.createElement('div');
-                        gameNameLabel.className = 'chart-game-name';
-                        gameNameLabel.textContent = game.name;
-
-                        if (index === 0) barGroup.classList.add('gold');
-                        else if (index === 1) barGroup.classList.add('silver');
-                        else if (index === 2) barGroup.classList.add('bronze');
-
-                        bar.appendChild(barLabel);
-                        barGroup.appendChild(bar);
-                        barGroup.appendChild(gameNameLabel);
-                        chartContainer.appendChild(barGroup);
-                    });
-                }
-
-                function showFinalResults() {
-                    const sortedGames = calculateScores(globalVotes);
-                    const count = globalSettings.topGamesCount || 10;
-                    const topGames = sortedGames.slice(0, count);
-                    const listContainer = document.getElementById('download-list');
-                    listContainer.innerHTML = '';
-
-                    topGames.forEach((game, index) => {
-                        const item = document.createElement('div');
-                        item.style.cssText = `display: flex; align-items: center; background: rgba(20,20,20,0.8); border: 1px solid var(--border-color); padding: 15px; border-radius: 4px; gap: 20px; opacity: 0; animation: etherealFadeInUp 0.5s forwards ${index * 0.1}s;`;
-
-                        const img = document.createElement('img');
-                        img.src = DEFAULT_GAME_ICON;
-                        img.style.cssText = "width: 120px; height: 56px; object-fit: cover; border-radius: 2px; box-shadow: 0 2px 10px rgba(0,0,0,0.5);";
-                        getGameImage(game.name).then(url => img.src = url);
-
-                        const rank = document.createElement('div');
-                        rank.style.cssText = "font-family: 'Playfair Display'; font-size: 2em; color: var(--accent-color); min-width: 40px;";
-                        rank.textContent = `#${index + 1}`;
-
-                        const details = document.createElement('div');
-                        details.style.flex = "1";
-                        const title = document.createElement('div');
-                        title.style.cssText = "font-family: 'Playfair Display'; font-size: 1.3em; color: var(--primary-text); margin-bottom: 5px;";
-                        title.textContent = game.name;
-                        const scoreDesc = document.createElement('div');
-                        scoreDesc.style.cssText = "font-size: 0.9em; color: var(--secondary-text);";
-                        scoreDesc.textContent = `${game.score} points`;
-
-                        details.appendChild(title);
-                        details.appendChild(scoreDesc);
-
-                        item.appendChild(rank);
-                        item.appendChild(img);
-                        item.appendChild(details);
-
-                        listContainer.appendChild(item);
-                    });
-
-                    document.getElementById('final-results-modal').style.display = 'flex';
-                }
-
-                function populateVoterMenu(votes, currentUser) {
-                    const currentSelection = voterSelectMenu.value;
-                    voterSelectMenu.innerHTML = '<option value="">-- Mon Vote --</option>';
-                    const sortedVoters = Object.entries(votes).sort((a, b) => a[1].name.localeCompare(b[1].name));
-                    sortedVoters.forEach(([uid, voteData]) => {
-                        if (uid === currentUser.uid) return;
-                        const option = document.createElement('option');
-                        option.value = uid;
-                        option.textContent = voteData.name;
-                        voterSelectMenu.appendChild(option);
-                    });
-                    voterSelectMenu.value = currentSelection;
-                }
-
-                function renderDashboard(votes, user) {
-                    const sortedGames = calculateScores(votes);
-                    populateVoterMenu(votes, user);
-                    renderKPIs(sortedGames, votes);
-                    renderTable(sortedGames);
-                    renderChart(sortedGames);
-                }
-            }
-
-<<<<<<< HEAD
-            function renderChart(gamesData) {
-                const chartContainer = document.getElementById('chart-container');
-                chartContainer.innerHTML = '';
-                const topGames = gamesData.slice(0, 8);
-                if (topGames.length === 0) return;
-
-                const maxScore = topGames.length > 0 ? topGames[0].score : 0;
-
-                topGames.forEach((game, index) => {
-                    const barHeight = maxScore > 0 ? Math.max((game.score / maxScore) * 100, 15) : 0;
-
-                    const barGroup = document.createElement('div');
-                    barGroup.className = 'chart-bar-group';
-
-                    const bar = document.createElement('div');
-                    bar.className = 'chart-bar';
-                    bar.style.height = `${barHeight}%`;
-
-                    const barLabel = document.createElement('div');
-                    barLabel.className = 'bar-label';
-                    const crown = index === 0 ? '👑' : '';
-                    barLabel.textContent = `${game.score} ${crown}`;
-
-                    const gameNameLabel = document.createElement('div');
-                    gameNameLabel.className = 'chart-game-name';
-                    gameNameLabel.textContent = game.name;
-
-                    if (index === 0) barGroup.classList.add('gold');
-                    else if (index === 1) barGroup.classList.add('silver');
-                    else if (index === 2) barGroup.classList.add('bronze');
-
-                    bar.appendChild(barLabel);
-                    barGroup.appendChild(bar);
-                    barGroup.appendChild(gameNameLabel);
-                    chartContainer.appendChild(barGroup);
-                });
-            }
-
-            function showFinalResults() {
-                const sortedGames = calculateScores(globalVotes);
-                const count = globalSettings.topGamesCount || 10;
-                const topGames = sortedGames.slice(0, count);
-                const listContainer = document.getElementById('download-list');
-                listContainer.innerHTML = '';
-
-                topGames.forEach((game, index) => {
-                    const item = document.createElement('div');
-                    item.style.cssText = `display: flex; align-items: center; background: rgba(20,20,20,0.8); border: 1px solid var(--border-color); padding: 15px; border-radius: 4px; gap: 20px; opacity: 0; animation: etherealFadeInUp 0.5s forwards ${index * 0.1}s;`;
-
-                    const img = document.createElement('img');
-                    img.src = DEFAULT_GAME_ICON;
-                    img.style.cssText = "width: 120px; height: 56px; object-fit: cover; border-radius: 2px; box-shadow: 0 2px 10px rgba(0,0,0,0.5);";
-                    getGameImage(game.name).then(url => img.src = url);
-
-                    const rank = document.createElement('div');
-                    rank.style.cssText = "font-family: 'Playfair Display'; font-size: 2em; color: var(--accent-color); min-width: 40px;";
-                    rank.textContent = `#${index + 1}`;
-
-                    const details = document.createElement('div');
-                    details.style.flex = "1";
-                    const title = document.createElement('div');
-                    title.style.cssText = "font-family: 'Playfair Display'; font-size: 1.3em; color: var(--primary-text); margin-bottom: 5px;";
-                    title.textContent = game.name;
-                    const scoreDesc = document.createElement('div');
-                    scoreDesc.style.cssText = "font-size: 0.9em; color: var(--secondary-text);";
-                    scoreDesc.textContent = `${game.score} points`;
-
-                    details.appendChild(title);
-                    details.appendChild(scoreDesc);
-
-                    item.appendChild(rank);
-                    item.appendChild(img);
-                    item.appendChild(details);
-
-                    listContainer.appendChild(item);
-                });
-
-                document.getElementById('final-results-modal').style.display = 'flex';
-            }
-
-            function populateVoterMenu(votes, currentUser) {
-                const currentSelection = voterSelectMenu.value;
-                voterSelectMenu.innerHTML = '<option value="">-- Mon Vote --</option>';
-                const sortedVoters = Object.entries(votes).sort((a, b) => a[1].name.localeCompare(b[1].name));
-                sortedVoters.forEach(([uid, voteData]) => {
-                    if (uid === currentUser.uid) return;
-                    const option = document.createElement('option');
-                    option.value = uid;
-                    option.textContent = voteData.name;
-                    voterSelectMenu.appendChild(option);
-                });
-                voterSelectMenu.value = currentSelection;
-            }
-
-            function renderDashboard(votes, user) {
-                const sortedGames = calculateScores(votes);
-                populateVoterMenu(votes, user);
-                renderKPIs(sortedGames, votes);
-                renderTable(sortedGames);
-                renderChart(sortedGames);
-            }
-
-            async function renderMarquee() {
-                const track = document.getElementById('waiting-marquee');
-                if (track.childElementCount > 0) return; // Déjà rendu
-
-                // On récupère les meilleurs jeux actuels pour populater le marquee
-                const sortedGames = calculateScores(globalVotes);
-
-                // Base list from current votes plus top steam games to ensure variety
-                let gamesForMarquee = sortedGames.slice(0, 5).map(g => g.name);
-
-                const topSteamGames = [
-                    "Counter-Strike 2", "Dota 2", "PUBG: BATTLEGROUNDS",
-                    "Apex Legends", "Helldivers 2", "Palworld", "Grand Theft Auto V",
-                    "Team Fortress 2", "Rust", "Baldur's Gate 3", "Cyberpunk 2077",
-                    "ELDEN RING", "War Thunder", "Left 4 Left 2", "Terraria",
-                    "Stardew Valley", "Rainbow Six Siege", "ARK: Survival Evolved",
-                    "The Witcher 3", "Path of Exile", "Rocket League", "Destiny 2",
-                    "Garry's Mod", "Fallout 4", "Dead by Daylight", "Red Dead Redemption 2",
-                    "Age of Empires II", "Phasmophobia", "Hollow Knight", "Lethal Company",
-                    "Among Us", "Halo Infinite", "Borderlands 3"
-                ];
-
-                // Add Steam games to marquee list avoiding duplicates
-                for (let game of topSteamGames) {
-                    if (!gamesForMarquee.includes(game)) {
-                        gamesForMarquee.push(game);
-                    }
-                }
-
-                // Shuffle the array for randomness
-                gamesForMarquee = gamesForMarquee.sort(() => 0.5 - Math.random()).slice(0, 25);
-
-                const createCard = async (gameName) => {
-                    const imgUrl = await getGameImage(gameName);
-                    if (imgUrl === DEFAULT_GAME_ICON) return null; // Ignore if not a real Steam image
-
-                    const card = document.createElement('div');
-                    card.className = 'marquee-card';
-                    card.style.backgroundImage = `url(${imgUrl})`;
-                    return card;
-                };
-
-                const cards = [];
-                for (const name of gamesForMarquee) {
-                    const c = await createCard(name);
-                    if (c) cards.push(c);
-                }
-
-                if (cards.length === 0) return; // Fallback if Steam API fails totally
-
-                // On duplique les cartes pour l'effet infini (x3)
-                const allCards = [...cards, ...cards.map(c => c.cloneNode(true)), ...cards.map(c => c.cloneNode(true))];
-                allCards.forEach(c => track.appendChild(c));
-            }
-
-=======
->>>>>>> 491e61d85176c6b298e9c6ed8d6c9d39474cff14
-            function showToast(message, type = 'success') {
-                const container = document.getElementById('toast-container');
-                if (!container) return;
-                const toast = document.createElement('div');
-                toast.className = `toast ${type}`;
-                toast.textContent = message;
-
-                container.appendChild(toast);
-
-                setTimeout(() => {
-                    toast.classList.add('show');
-                }, 10);
-
-                setTimeout(() => {
-                    toast.classList.remove('show');
-                    toast.addEventListener('transitionend', () => toast.remove());
-                }, 4000);
-            }
-        });
     </script>
 </body>
 
