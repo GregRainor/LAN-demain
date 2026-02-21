@@ -80,7 +80,7 @@ h1 {
     font-size: 3em;
     text-shadow: 0 0 20px var(--accent-glow);
     animation: etherealFadeInDown 1.5s cubic-bezier(0.2, 0.8, 0.2, 1);
-    margin-bottom: 40px;
+    margin: 0;
 }
 
 h2 {
@@ -851,17 +851,20 @@ h2::after {
     opacity: 1;
 }
 
+#global-header {
+    text-align: center;
+    position: relative;
+    margin-bottom: 40px;
+}
+
 #user-info {
     display: flex;
     align-items: center;
     position: absolute;
-    top: 25px;
+    top: 50%;
     right: 25px;
-    background: rgba(20, 20, 20, 0.8);
-    padding: 10px 20px;
-    border-radius: 4px;
-    border: 1px solid var(--border-color);
-    backdrop-filter: blur(10px);
+    transform: translateY(-50%);
+    z-index: 20;
 }
 
 #user-name {
