@@ -83,6 +83,11 @@ h1 {
     margin: 0;
 }
 
+#main-title {
+    text-align: left;
+    margin: 0;
+}
+
 h2 {
     font-size: 2em;
     border-bottom: 1px solid var(--border-color);
@@ -852,19 +857,20 @@ h2::after {
 }
 
 #global-header {
-    text-align: center;
-    position: relative;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: 40px;
 }
 
 #user-info {
     display: flex;
     align-items: center;
-    position: absolute;
-    top: 50%;
-    right: 25px;
-    transform: translateY(-50%);
-    z-index: 20;
+    background: rgba(20, 20, 20, 0.8);
+    padding: 10px 20px;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    backdrop-filter: blur(10px);
 }
 
 #user-name {

@@ -1127,9 +1127,13 @@
                 renderKPIs(sortedGames, votes);
                 renderTable(sortedGames);
                 renderChart(sortedGames);
+
+                if (globalSettings && !globalSettings.isVotingOpen) {
+                    showFinalResults(false);
+                }
             }
 
-            function showFinalResults() {
+            function showFinalResults(showModalDialog = true) {
                 const sortedGames = calculateScores(globalVotes);
                 const count = globalSettings.topGamesCount || 10;
                 const topGames = sortedGames.slice(0, count);
@@ -1179,7 +1183,7 @@
                 renderGamesToList(closedUserList, topGames);
                 renderGamesToList(closedAdminList, topGames);
 
-                if (finalModal && document.getElementById('view-voting-open').style.display === 'block') {
+                if (showModalDialog && finalModal && document.getElementById('view-voting-open').style.display === 'block') {
                     // Only show modal if votes were just closed while someone was viewing the open voting page
                     finalModal.style.display = 'flex';
                 }
