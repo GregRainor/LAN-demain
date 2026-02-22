@@ -24,8 +24,9 @@
         </div>
     </div>
 
+    <h1 style="position: absolute; top: 15vh; left: 50%; transform: translateX(-50%); z-index: 100;">LAN Demain</h1>
+
     <div id="auth-container" class="luxury-panel">
-        <h1>LAN Demain</h1>
         <p>Connecte-toi pour organiser la meilleure LAN !</p>
         <button id="google-login-btn">
             <svg id="google-icon" viewBox="0 0 24 24" fill="white">
@@ -54,16 +55,16 @@
         </div>
 
         <div id="top-right-actions">
-            <button id="btn-lan-history" class="gold-link-btn" title="Historique">📖 Historique</button>
+            <button id="btn-lan-history" class="gold-link-btn" title="Historique">Historique des LAN</button>
             <div id="user-info-menu">
                 <span id="user-name"></span>
                 <img id="user-avatar" src="" alt="Avatar">
             </div>
-            <button id="logout-btn" class="danger-link-btn" title="Déconnexion">🚪</button>
+            <button id="logout-btn" class="danger-link-btn" title="Déconnexion">Déconnexion</button>
         </div>
 
         <header id="global-header" class="container">
-            <div class="luxury-panel title-box">
+            <div class="title-box">
                 <h1 id="main-title">LAN Demain</h1>
             </div>
         </header>
@@ -236,9 +237,10 @@
                 </div>
 
                 <div id="admin-closed-results-display" class="results-container"
-                    style="width: 100%; margin-top: 40px; padding-top: 40px; border-top: 1px solid var(--border-color);">
+                    style="width: 100%; margin-top: 40px; padding-top: 40px; border-top: 1px solid var(--border-color); text-align: center;">
                     <h2>Top Jeux Actuels</h2>
-                    <div id="admin-closed-download-list" style="display: flex; flex-direction: column; gap: 15px;">
+                    <div id="admin-closed-download-list"
+                        style="display: flex; flex-direction: column; gap: 15px; align-items: center;">
                     </div>
                 </div>
 
@@ -573,9 +575,11 @@
 
                     globalSettings = newSettings;
 
-                    const lanName = newSettings.lanName || "LAN Demain";
-                    const mainTitle = document.getElementById('main-title');
-                    if (mainTitle) mainTitle.textContent = lanName;
+                    if (!globalSettings.isVotingOpen || window.location.hash === '#auth') {
+                        if (mainTitle) mainTitle.textContent = "LAN-Demain";
+                    } else {
+                        if (mainTitle) mainTitle.textContent = lanName;
+                    }
 
                     const dashboardInput = document.getElementById('dashboard-lan-name');
                     if (dashboardInput && document.activeElement !== dashboardInput) {
@@ -631,6 +635,8 @@
                     if (window.currentUserIsAdmin && adminPanelOpen) {
                         adminPanelOpen.style.display = 'block';
                     }
+                    const mainTitle = document.getElementById('main-title');
+                    if (mainTitle) mainTitle.textContent = globalSettings.lanName || "LAN-Demain";
                 } else {
                     if (form) form.style.display = 'none';
                     if (message) message.style.display = 'block';
@@ -640,6 +646,8 @@
                     } else {
                         if (viewWaitingClosed) viewWaitingClosed.style.display = 'flex';
                     }
+                    const mainTitle = document.getElementById('main-title');
+                    if (mainTitle) mainTitle.textContent = "LAN-Demain";
                 }
             }
 
