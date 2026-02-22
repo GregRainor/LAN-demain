@@ -50,7 +50,14 @@
 
     <div id="app-container" style="display: none;">
         <header id="global-header" class="container" style="position: relative; z-index: 10; padding-top: 40px;">
-            <h1 id="main-title">LAN Demain</h1>
+            <div id="active-users-sidebar" class="gnome-band">
+                <!-- Javascript will insert users here directly -->
+            </div>
+
+            <div class="luxury-panel title-box">
+                <h1 id="main-title">LAN Demain</h1>
+            </div>
+
             <div id="user-info">
                 <span id="user-name"></span>
                 <img id="user-avatar" src="" alt="Avatar">
@@ -66,11 +73,6 @@
             <div class="two-column-layout">
                 <!-- LEFT SIDEBAR -->
                 <aside id="left-sidebar" class="animated-section">
-                    <div id="active-users-sidebar" class="luxury-panel sidebar-module">
-                        <h3 class="sidebar-title">Joueurs</h3>
-                        <div id="users-list-container"></div>
-                    </div>
-
                     <div id="admin-panel-open" class="luxury-panel sidebar-module"
                         style="display: none; border-color: var(--danger-color);">
                         <h3
@@ -212,17 +214,17 @@
                         <label
                             style="display: block; margin-bottom: 10px; font-family: 'Playfair Display', serif; font-size: 1.1em; color: var(--accent-color);">Top
                             Jeux à Télécharger :</label>
-                        <input type="number" id="dashboard-top-games-count" value="10" min="1" max="50"
-                            style="width: 100%; padding: 15px; background: rgba(0,0,0,0.5); border: 1px solid var(--border-color); color: var(--primary-text); font-family: 'Outfit'; font-size: 1.2em; text-align: center; border-radius: 2px; margin-bottom: 20px;"
-                            title="Nombre de jeux à afficher à la clôture">
+                        <input type="number" id="dashboard-top-games-count" class="luxury-input" value="10" min="1"
+                            max="50" title="Nombre de jeux à afficher à la clôture">
+
                         <label
-                            style="display: block; margin-bottom: 10px; font-family: 'Playfair Display', serif; font-size: 1.1em; color: var(--accent-color);">Nom
+                            style="display: block; margin-bottom: 10px; margin-top: 20px; font-family: 'Playfair Display', serif; font-size: 1.1em; color: var(--accent-color);">Nom
                             de la LAN :</label>
-                        <input type="text" id="dashboard-lan-name" value="LAN Demain"
-                            style="width: 100%; padding: 15px; background: rgba(0,0,0,0.5); border: 1px solid var(--border-color); color: var(--primary-text); font-family: 'Outfit'; font-size: 1.2em; text-align: center; border-radius: 2px;"
+                        <input type="text" id="dashboard-lan-name" class="luxury-input" value="LAN Demain"
                             placeholder="Nom de l'événement">
-                        <button id="save-config-btn"
-                            style="width: 100%; margin-top: 15px; background: transparent; border: 1px solid var(--border-color); color: var(--primary-text); padding: 10px; cursor: pointer; font-family: 'Outfit'; transition: all 0.3s;">Sauvegarder
+
+                        <button id="save-config-btn" class="gold-btn"
+                            style="width:100%; margin-top: 20px; padding: 15px; background: transparent; transition: 0.3s; color: var(--accent-color); border: 1px solid var(--accent-color);">Sauvegarder
                             Configuration</button>
                     </div>
 
