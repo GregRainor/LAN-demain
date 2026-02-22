@@ -574,6 +574,8 @@
 
                 settingsRef.on('value', (snapshot) => {
                     const newSettings = snapshot.val() || { isVotingOpen: true, topGamesCount: 10 };
+                    const wasVotingOpen = globalSettings ? globalSettings.isVotingOpen : true;
+
                     globalSettings = newSettings;
 
                     const lanName = newSettings.lanName || "LAN Demain";
@@ -585,7 +587,7 @@
                         dashboardInput.value = lanName;
                     }
 
-                    if (appInitialized && globalSettings.isVotingOpen === true && newSettings.isVotingOpen === false) {
+                    if (appInitialized && wasVotingOpen === true && newSettings.isVotingOpen === false) {
                         showToast("Les votes sont terminés ! Voici les résultats...", "success");
                         showFinalResults();
                     }

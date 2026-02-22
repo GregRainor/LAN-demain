@@ -84,7 +84,8 @@ h1 {
 }
 
 #main-title {
-    text-align: left;
+    grid-column: 2;
+    text-align: center;
     margin: 0;
 }
 
@@ -857,13 +858,15 @@ h2::after {
 }
 
 #global-header {
-    display: flex;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
     margin-bottom: 40px;
 }
 
 #user-info {
+    grid-column: 3;
+    justify-self: end;
     display: flex;
     align-items: center;
     background: rgba(20, 20, 20, 0.8);
@@ -1094,6 +1097,12 @@ body.sidebar-visible {
 
     .main-content {
         grid-template-columns: 1fr;
+    }
+
+    #global-header {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
     }
 }
 
