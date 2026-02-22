@@ -724,17 +724,53 @@
                         return;
                     }
 
-                    // Sort by newest first
-                    const historyArray = Object.values(historyData).sort((a, b) => b.date - a.date);
+                    // Map keys to objects and sort by newest first
+                    const historyArray = Object.entries(historyData).map(([key, data]) => ({ key, ...data })).sort((a, b) => b.date - a.date);
 
                     historyArray.forEach(lanEvent => {
                         const eventDate = new Date(lanEvent.date).toLocaleDateString();
                         const card = document.createElement('div');
-                        card.style.cssText = 'background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 25px; border-radius: 4px; border-left: 3px solid var(--accent-color);';
+                        card.style.cssText = 'background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 25px; border-radius: 4px; border-left: 3px solid var(--accent-color); transition: background 0.3s;';
 
-                        let gamesHtml = '';
+                        // Header (Clickable for accordion)
+                        const header = document.createElement('div');
+                        header.style.cssText = 'display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none;';
+
+                        const titleAndDate = document.createElement('div');
+                        titleAndDate.innerHTML = `<h3 style="margin: 0; color: var(--accent-color); font-size: 1.4em; text-align: left;">${lanEvent.name}</h3><span style="color: var(--secondary-text); font-size: 0.9em;">${eventDate}</span>`;
+
+                        const actionsRow = document.createElement('div');
+                        actionsRow.style.cssText = 'display: flex; gap: 15px; align-items: center;';
+
+                        const expandIcon = document.createElement('span');
+                        expandIcon.innerHTML = '&#9660;'; // Down arrow
+                        expandIcon.style.cssText = 'color: var(--secondary-text); transition: transform 0.3s;';
+
+                        if (window.currentUserIsAdmin) {
+                            const deleteBtn = document.createElement('button');
+                            deleteBtn.textContent = 'Supprimer';
+                            deleteBtn.style.cssText = 'background: transparent; border: 1px solid rgba(158, 54, 54, 0.5); color: var(--danger-color); padding: 4px 10px; border-radius: 2px; cursor: pointer; font-size: 0.8em; z-index: 10;';
+                            deleteBtn.onclick = (e) => {
+                                e.stopPropagation(); // Prevents accordion toggle
+                                if (confirm("Supprimer cet historique définitivement ?")) {
+                                    db.ref('lan/history/' + lanEvent.key).remove().then(() => {
+                                        renderHistoryModal();
+                                    });
+                                }
+                            };
+                            actionsRow.appendChild(deleteBtn);
+                        }
+
+                        actionsRow.appendChild(expandIcon);
+                        header.appendChild(titleAndDate);
+                        header.appendChild(actionsRow);
+
+                        // Content (Games List)
+                        const gamesContainer = document.createElement('div');
+                        gamesContainer.style.cssText = 'display: none; margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;';
+
                         if (lanEvent.games && lanEvent.games.length > 0) {
-                            gamesHtml = '<ul style="list-style: none; padding: 0; margin: 15px 0 0 0; display: flex; flex-direction: column; gap: 10px;">';
+                            let gamesHtml = '<ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px;">';
                             lanEvent.games.forEach((game, idx) => {
                                 const crown = idx === 0 ? '👑' : '';
                                 gamesHtml += `
@@ -745,17 +781,21 @@
                                 `;
                             });
                             gamesHtml += '</ul>';
+                            gamesContainer.innerHTML = gamesHtml;
                         } else {
-                            gamesHtml = '<p style="font-style: italic; color: var(--secondary-text); font-size: 0.9em; margin-top: 10px;">Aucun jeu enregistré pour cet événement.</p>';
+                            gamesContainer.innerHTML = '<p style="font-style: italic; color: var(--secondary-text); font-size: 0.9em; margin: 0;">Aucun jeu enregistré pour cet événement.</p>';
                         }
 
-                        card.innerHTML = `
-                            <div style="display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px;">
-                                <h3 style="margin: 0; color: var(--accent-color); font-size: 1.4em; text-align: left;">${lanEvent.name}</h3>
-                                <span style="color: var(--secondary-text); font-size: 0.9em;">${eventDate}</span>
-                            </div>
-                            ${gamesHtml}
-                        `;
+                        // Accordion Logic
+                        header.addEventListener('click', () => {
+                            const isExpanded = gamesContainer.style.display === 'block';
+                            gamesContainer.style.display = isExpanded ? 'none' : 'block';
+                            expandIcon.style.transform = isExpanded ? 'rotate(0deg)' : 'rotate(180deg)';
+                            card.style.background = isExpanded ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.05)';
+                        });
+
+                        card.appendChild(header);
+                        card.appendChild(gamesContainer);
                         container.appendChild(card);
                     });
                 }).catch(e => {
@@ -1183,8 +1223,7 @@
                 renderGamesToList(closedUserList, topGames);
                 renderGamesToList(closedAdminList, topGames);
 
-                if (showModalDialog && finalModal && document.getElementById('view-voting-open').style.display === 'block') {
-                    // Only show modal if votes were just closed while someone was viewing the open voting page
+                if (showModalDialog && finalModal) {
                     finalModal.style.display = 'flex';
                 }
             }
