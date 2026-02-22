@@ -49,22 +49,22 @@
     </div>
 
     <div id="app-container" style="display: none;">
-        <header id="global-header" class="container" style="position: relative; z-index: 10; padding-top: 40px;">
-            <div id="active-users-sidebar" class="gnome-band">
-                <!-- Javascript will insert users here directly -->
-            </div>
+        <div id="active-users-sidebar" class="gnome-band">
+            <!-- Javascript will insert users here directly -->
+        </div>
 
-            <div class="luxury-panel title-box">
-                <h1 id="main-title">LAN Demain</h1>
-            </div>
-
-            <div id="user-info">
+        <div id="top-right-actions">
+            <button id="btn-lan-history" class="gold-link-btn" title="Historique">📖 Historique</button>
+            <div id="user-info-menu">
                 <span id="user-name"></span>
                 <img id="user-avatar" src="" alt="Avatar">
-                <div class="header-actions" style="display: flex; gap: 15px; align-items: center;">
-                    <button id="btn-lan-history" class="gold-link-btn">Historique des LANs</button>
-                    <button id="logout-btn" class="danger-link-btn">Déconnexion</button>
-                </div>
+            </div>
+            <button id="logout-btn" class="danger-link-btn" title="Déconnexion">🚪</button>
+        </div>
+
+        <header id="global-header" class="container">
+            <div class="luxury-panel title-box">
+                <h1 id="main-title">LAN Demain</h1>
             </div>
         </header>
 
@@ -73,23 +73,19 @@
             <div class="two-column-layout">
                 <!-- LEFT SIDEBAR -->
                 <aside id="left-sidebar" class="animated-section">
-                    <div id="admin-panel-open" class="luxury-panel sidebar-module"
-                        style="display: none; border-color: var(--danger-color);">
-                        <h3
-                            style="margin: 0 0 15px 0; color: var(--danger-color); font-size: 1.1em; text-align: center;">
-                            Mode Admin</h3>
-                        <div style="display: flex; flex-direction: column; gap: 15px;">
-                            <button id="toggle-voting-btn-open" class="gold-btn"
-                                style="background: var(--accent-color); color: var(--dark-bg); border: none; padding: 12px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: bold; border-radius: 4px; width: 100%;">Clôturer
-                                le Vote</button>
+                    <div id="admin-panel-open" class="luxury-panel sidebar-module admin-sidebar-card"
+                        style="display: none;">
+                        <h3 class="admin-sidebar-title">Mode Admin</h3>
+                        <div class="admin-sidebar-actions">
+                            <button id="toggle-voting-btn-open" class="gold-btn admin-sidebar-btn">Clôturer le
+                                Vote</button>
 
-                            <label
-                                style="font-family: 'Playfair Display', serif; font-size: 0.9em; color: var(--accent-color); margin-bottom: -10px;">Éditer
-                                le vote de :</label>
-                            <select id="voter-select-menu"
-                                style="width: 100%; padding: 10px; background: rgba(0,0,0,0.5); border: 1px solid var(--border-color); color: var(--primary-text); font-family: 'Outfit'; border-radius: 2px;">
-                                <option value="">-- Mon Vote --</option>
-                            </select>
+                            <div class="admin-select-group">
+                                <label>Éditer le vote de :</label>
+                                <select id="voter-select-menu" class="luxury-select">
+                                    <option value="">-- Mon Vote --</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                 </aside>
@@ -224,8 +220,7 @@
                             placeholder="Nom de l'événement">
 
                         <button id="save-config-btn" class="gold-btn"
-                            style="width:100%; margin-top: 20px; padding: 15px; background: transparent; transition: 0.3s; color: var(--accent-color); border: 1px solid var(--accent-color);">Sauvegarder
-                            Configuration</button>
+                            style="width:100%; margin-top: 20px; padding: 15px;">Sauvegarder Configuration</button>
                     </div>
 
                     <div class="admin-control-item danger-zone"
@@ -235,10 +230,8 @@
                             Zone Dangereuse</h3>
                         <p style="margin-bottom: 20px; font-size: 0.9em;">Attention: réinitialiser les votes supprime de
                             manière permanente toutes les données de vote actuelles de la base de données.</p>
-                        <button id="reset-all-votes-btn-dashboard"
-                            style="width: 100%; background: transparent; color: var(--danger-color); border: 1px solid var(--danger-color); padding: 15px; cursor: pointer; font-family: 'Outfit', sans-serif; font-size: 1.1em; letter-spacing: 1px; transition: all 0.3s; border-radius: 2px;"
-                            onmouseover="this.style.background='rgba(158,54,54,0.1)'"
-                            onmouseout="this.style.background='transparent'">Réinitialiser TOUS les votes</button>
+                        <button id="reset-all-votes-btn-dashboard" class="danger-btn"
+                            style="width: 100%; padding: 15px;">Réinitialiser TOUS les votes</button>
                     </div>
                 </div>
 
