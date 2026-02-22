@@ -24,7 +24,8 @@
         </div>
     </div>
 
-    <h1 style="position: absolute; top: 15vh; left: 50%; transform: translateX(-50%); z-index: 100;">LAN Demain</h1>
+    <h1 id="main-title" style="position: absolute; top: 15vh; left: 50%; transform: translateX(-50%); z-index: 100;">LAN
+        Demain</h1>
 
     <div id="auth-container" class="luxury-panel">
         <p>Connecte-toi pour organiser la meilleure LAN !</p>
@@ -62,12 +63,6 @@
             </div>
             <button id="logout-btn" class="danger-link-btn" title="Déconnexion">Déconnexion</button>
         </div>
-
-        <header id="global-header" class="container">
-            <div class="title-box">
-                <h1 id="main-title">LAN Demain</h1>
-            </div>
-        </header>
 
         <div id="view-voting-open" class="container wide-container" style="display: none;">
 
@@ -573,12 +568,15 @@
                     const newSettings = snapshot.val() || { isVotingOpen: true, topGamesCount: 10 };
                     const wasVotingOpen = globalSettings ? globalSettings.isVotingOpen : true;
 
+                    const lanName = newSettings.lanName || "LAN Demain";
+
                     globalSettings = newSettings;
 
+                    const titleEl = document.getElementById('main-title');
                     if (!globalSettings.isVotingOpen || window.location.hash === '#auth') {
-                        if (mainTitle) mainTitle.textContent = "LAN-Demain";
+                        if (titleEl) titleEl.textContent = "LAN Demain";
                     } else {
-                        if (mainTitle) mainTitle.textContent = lanName;
+                        if (titleEl) titleEl.textContent = lanName;
                     }
 
                     const dashboardInput = document.getElementById('dashboard-lan-name');
@@ -635,8 +633,8 @@
                     if (window.currentUserIsAdmin && adminPanelOpen) {
                         adminPanelOpen.style.display = 'block';
                     }
-                    const mainTitle = document.getElementById('main-title');
-                    if (mainTitle) mainTitle.textContent = globalSettings.lanName || "LAN-Demain";
+                    const mainTitleElement = document.getElementById('main-title'); // Changed to avoid collision and grab the outer one
+                    if (mainTitleElement) mainTitleElement.textContent = globalSettings.lanName || "LAN Demain";
                 } else {
                     if (form) form.style.display = 'none';
                     if (message) message.style.display = 'block';
@@ -646,8 +644,8 @@
                     } else {
                         if (viewWaitingClosed) viewWaitingClosed.style.display = 'flex';
                     }
-                    const mainTitle = document.getElementById('main-title');
-                    if (mainTitle) mainTitle.textContent = "LAN-Demain";
+                    const mainTitleElement = document.getElementById('main-title');
+                    if (mainTitleElement) mainTitleElement.textContent = "LAN Demain";
                 }
             }
 
