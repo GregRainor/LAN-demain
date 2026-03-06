@@ -756,7 +756,8 @@ document.addEventListener('DOMContentLoaded', () => {
         window.currentUserIsAdmin = isAdmin;
 
         if (isAdmin) {
-            document.getElementById('admin-panel').style.display = 'block';
+            const adminPanel = document.getElementById('admin-panel');
+            if (adminPanel) adminPanel.style.display = 'block';
         }
 
         const userStatusRef = db.ref('/status/' + user.uid);
