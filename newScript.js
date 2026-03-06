@@ -191,10 +191,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderActiveUsers(users) {
         const sidebar = document.getElementById('active-users-sidebar');
+        const roleSelect = document.getElementById('role-user-select');
         const body = document.body;
         if (!sidebar) return;
 
         sidebar.innerHTML = '';
+        if (roleSelect) {
+            roleSelect.innerHTML = '<option value="">Sélectionner un joueur...</option>';
+        }
+
         const userCount = users ? Object.keys(users).length : 0;
 
         if (userCount > 0) {
@@ -217,6 +222,14 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             sidebar.appendChild(img);
+
+            // Populate role select
+            if (roleSelect) {
+                const opt = document.createElement('option');
+                opt.value = uid;
+                opt.textContent = user.name;
+                roleSelect.appendChild(opt);
+            }
         }
     }
 
@@ -260,13 +273,35 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function initializeApp(user) {
-        const isAdmin = user.uid === ADMIN_UID;
+        // Initial check based on config, but roles from DB will overwrite
+        let isAdmin = user.uid === ADMIN_UID;
         window.currentUserIsAdmin = isAdmin;
+        window.currentUserIsMixologist = false;
 
-        if (isAdmin) {
-            const adminPanel = document.getElementById('admin-panel');
-            if (adminPanel) adminPanel.style.display = 'block';
-        }
+        // Listen for user roles
+        db.ref('lan/roles').on('value', snapshot => {
+            const roles = snapshot.val() || {};
+            const myRole = roles[user.uid];
+
+            if (myRole === 'admin') {
+                window.currentUserIsAdmin = true;
+            } else if (user.uid === ADMIN_UID) {
+                // Keep hardcoded admin even if not in DB, to prevent lockout
+                window.currentUserIsAdmin = true;
+            } else {
+                window.currentUserIsAdmin = false;
+            }
+
+            window.currentUserIsMixologist = (myRole === 'mixologist');
+
+            // Update UI based on roles
+            const adminPanel = document.getElementById('admin-dashboard');
+            if (window.currentUserIsAdmin) {
+                const adminPanelEl = document.getElementById('admin-panel');
+                if (adminPanelEl) adminPanelEl.style.display = 'block';
+            }
+            updateVotingUIState();
+        });
 
         const userStatusRef = db.ref('/status/' + user.uid);
         const connectedRef = db.ref('.info/connected');
@@ -319,15 +354,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 const countInputs = document.querySelectorAll('#top-games-count, #dashboard-top-games-count');
                 countInputs.forEach(input => input && (input.value = globalSettings.topGamesCount || 10));
 
-                const openLanBtn = document.getElementById('start-active-lan-btn');
+                // Show/hide the Ouvrir La LAN button
+                const openLanBtn = document.getElementById('btn-open-lan-dashboard');
                 if (openLanBtn) {
-                    if (globalSettings.isLanActive) {
-                        openLanBtn.style.display = 'none';
-                    } else if (!globalSettings.isVotingOpen) {
-                        openLanBtn.style.display = 'block';
-                    } else {
-                        openLanBtn.style.display = 'none';
-                    }
+                    openLanBtn.style.display = (!globalSettings.isVotingOpen && !globalSettings.isLanActive) ? 'block' : 'none';
+                }
+                // Legacy final-results-modal button
+                const oldOpenLanBtn = document.getElementById('start-active-lan-btn');
+                if (oldOpenLanBtn) {
+                    oldOpenLanBtn.style.display = (!globalSettings.isLanActive && !globalSettings.isVotingOpen) ? 'block' : 'none';
                 }
             }
         });
@@ -353,7 +388,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const viewLanActive = document.getElementById('view-lan-active');
         const adminPanelOpen = document.getElementById('admin-panel-open');
         const form = document.getElementById('vote-form');
-        const message = document.getElementById('voting-closed-message');
 
         if (viewVotingOpen) viewVotingOpen.style.display = 'none';
         if (viewWaitingClosed) viewWaitingClosed.style.display = 'none';
@@ -366,25 +400,41 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (globalSettings.isLanActive) {
             if (viewLanActive) viewLanActive.style.display = 'block';
-            // Stop the marquee if it was running.
-            const track = document.getElementById('waiting-marquee');
-            if (track) track.innerHTML = '';
+            // Clear all marquee tracks when LAN goes active
+            ['waiting-marquee-1', 'waiting-marquee-2', 'waiting-marquee-3', 'waiting-marquee-4'].forEach(id => {
+                const t = document.getElementById(id);
+                if (t) t.innerHTML = '';
+            });
+            // Show notification bell in LAN active phase
+            const btnNotif = document.getElementById('btn-notifications');
+            if (btnNotif) btnNotif.style.display = 'inline-flex';
+            // Show admin/mixologist buttons
+            if (window.currentUserIsAdmin || window.currentUserIsMixologist) {
+                const addMasterBtn = document.getElementById('btn-add-master-kocktail');
+                if (addMasterBtn) addMasterBtn.style.display = 'inline-block';
+            }
             return;
         }
+
+        // Show notification bell always (not just in LAN active)
+        const btnNotif = document.getElementById('btn-notifications');
+        if (btnNotif) btnNotif.style.display = 'inline-flex';
 
         if (globalSettings.isVotingOpen) {
             if (viewVotingOpen) viewVotingOpen.style.display = 'block';
             if (form) form.style.display = 'flex';
-            if (message) message.style.display = 'none';
             if (window.currentUserIsAdmin && adminPanelOpen) {
                 adminPanelOpen.style.display = 'block';
             }
         } else {
             if (form) form.style.display = 'none';
-            if (message) message.style.display = 'block';
+
+            // Show btn-open-lan-dashboard only when votes are closed and LAN not active
+            const openLanBtn = document.getElementById('btn-open-lan-dashboard');
 
             if (window.currentUserIsAdmin) {
                 if (viewAdminDashboard) viewAdminDashboard.style.display = 'block';
+                if (openLanBtn && !globalSettings.isLanActive) openLanBtn.style.display = 'block';
             } else {
                 if (viewWaitingClosed) viewWaitingClosed.style.display = 'flex';
                 renderMarquee();
@@ -397,9 +447,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const countInput = document.getElementById('dashboard-top-games-count');
         const newCount = countInput ? (parseInt(countInput.value) || globalSettings.topGamesCount || 10) : 10;
 
-        db.ref('lan/settings').set({
+        // IMPORTANT: Use .update() not .set() to preserve isLanActive and other fields
+        db.ref('lan/settings').update({
             isVotingOpen: newIsOpen,
             topGamesCount: newCount
+        }).then(() => {
+            if (!newIsOpen) {
+                // Archive votes when closing
+                archiveVotesOnClose();
+            }
         }).catch(error => {
             showToast("Erreur de permission. Vérifiez les règles Firebase.", "error");
             console.error("Firebase Rule Error:", error);
@@ -424,10 +480,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('save-config-btn')?.addEventListener('click', () => {
         const countEl = document.getElementById('dashboard-top-games-count');
+        const nameEl = document.getElementById('dashboard-lan-name');
         const newCount = countEl ? (parseInt(countEl.value) || 10) : 10;
-        db.ref('lan/settings').set({
-            isVotingOpen: globalSettings.isVotingOpen,
-            topGamesCount: newCount
+        const newName = nameEl ? (nameEl.value.trim() || 'LAN Demain') : 'LAN Demain';
+        // Use .update() to preserve isLanActive and other settings fields
+        db.ref('lan/settings').update({
+            topGamesCount: newCount,
+            lanName: newName
         }).then(() => showToast("Configuration sauvegardée", "success"))
             .catch(e => showToast("Erreur: " + e.message, "error"));
     });
@@ -786,6 +845,144 @@ document.addEventListener('DOMContentLoaded', () => {
         renderKPIs(sortedGames, votes);
         renderTable(sortedGames);
         renderChart(sortedGames);
+        renderClosedResults(sortedGames);
+        renderActiveLanGames(sortedGames);
+        renderActiveLanAllGames(sortedGames);
+    }
+
+    // Archive votes snapshot to lan/history when admin closes voting
+    function archiveVotesOnClose() {
+        const sortedGames = calculateScores(globalVotes);
+        const count = globalSettings.topGamesCount || 10;
+        const topGames = sortedGames.slice(0, count);
+        const lanName = globalSettings.lanName || 'LAN Demain';
+        const historyEntry = {
+            name: lanName,
+            date: new Date().toLocaleDateString('fr-FR'),
+            timestamp: firebase.database.ServerValue.TIMESTAMP,
+            topGames: topGames,
+            votes: globalVotes  // Archive the full vote snapshot for player-votes feature
+        };
+        db.ref('lan/history').push(historyEntry)
+            .then(() => showToast('Résultats archivés dans l\'historique !', 'success'))
+            .catch(err => console.error('Archive error:', err));
+    }
+
+    // Populate closed-voting game lists (both user and admin views)
+    function renderClosedResults(sortedGames) {
+        const count = globalSettings.topGamesCount || 10;
+        const topGames = sortedGames.slice(0, count);
+
+        const renderList = async (containerId) => {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            container.innerHTML = '';
+
+            for (let i = 0; i < topGames.length; i++) {
+                const game = topGames[i];
+                const item = document.createElement('div');
+                item.style.cssText = `display: flex; align-items: center; background: rgba(20,20,20,0.8); border: 1px solid var(--border-color); padding: 12px 15px; border-radius: 4px; gap: 15px;`;
+
+                const img = document.createElement('img');
+                img.src = DEFAULT_GAME_ICON;
+                img.style.cssText = "width: 80px; height: 37px; object-fit: cover; border-radius: 2px;";
+                getGameImage(game.name).then(url => img.src = url);
+
+                const rank = document.createElement('div');
+                rank.style.cssText = "font-family: 'Playfair Display'; font-size: 1.5em; color: var(--accent-color); min-width: 35px;";
+                rank.textContent = `#${i + 1}`;
+
+                const info = document.createElement('div');
+                info.style.flex = '1';
+                info.innerHTML = `<div style="font-weight:500; color:var(--primary-text);">${game.name}</div><div style="font-size:0.85em; color:var(--secondary-text);">${game.score} points</div>`;
+
+                item.appendChild(rank);
+                item.appendChild(img);
+                item.appendChild(info);
+                container.appendChild(item);
+            }
+        };
+
+        renderList('closed-download-list');
+        renderList('admin-closed-download-list');
+    }
+
+    // Populate the LAN Active dashboard official games list
+    function renderActiveLanGames(sortedGames) {
+        const container = document.getElementById('active-lan-games-list');
+        if (!container) return;
+        container.innerHTML = '';
+        const count = globalSettings.topGamesCount || 10;
+        const topGames = sortedGames.slice(0, count);
+
+        topGames.forEach((game, index) => {
+            const row = document.createElement('div');
+            row.style.cssText = "display: flex; align-items: center; gap: 15px; padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.05);";
+
+            const img = document.createElement('img');
+            img.src = DEFAULT_GAME_ICON;
+            img.style.cssText = "width: 60px; height: 28px; object-fit: cover; border-radius: 2px;";
+            getGameImage(game.name).then(url => img.src = url);
+
+            const rank = document.createElement('span');
+            rank.style.cssText = "color: var(--accent-color); font-weight: bold; min-width: 30px;";
+            rank.textContent = `#${index + 1}`;
+
+            const name = document.createElement('span');
+            name.style.cssText = "flex: 1; color: var(--primary-text);";
+            name.textContent = game.name;
+
+            const score = document.createElement('span');
+            score.style.cssText = "color: var(--secondary-text); font-size: 0.9em;";
+            score.textContent = `${game.score} pts`;
+
+            row.appendChild(rank);
+            row.appendChild(img);
+            row.appendChild(name);
+            row.appendChild(score);
+            container.appendChild(row);
+        });
+    }
+
+    // Populate the voting history in the Active LAN phase
+    function renderActiveLanAllGames(sortedGames) {
+        const container = document.getElementById('active-lan-all-games');
+        if (!container) return;
+        container.innerHTML = '';
+
+        if (sortedGames.length === 0) {
+            container.innerHTML = '<p style="color:var(--secondary-text); font-style:italic;">Aucun vote enregistré.</p>';
+            return;
+        }
+
+        const table = document.createElement('table');
+        table.className = 'results-table';
+        table.style.width = '100%';
+        table.innerHTML = `
+            <thead>
+                <tr>
+                    <th style="text-align:left; padding: 12px; border-bottom: 2px solid rgba(255,255,255,0.1);">Jeu</th>
+                    <th style="text-align:right; padding: 12px; border-bottom: 2px solid rgba(255,255,255,0.1); width: 100px;">Points</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        `;
+
+        const tbody = table.querySelector('tbody');
+        sortedGames.forEach((game, index) => {
+            const row = document.createElement('tr');
+            row.style.borderBottom = "1px solid rgba(255,255,255,0.05)";
+            row.innerHTML = `
+                <td style="padding: 12px; color: var(--primary-text); display: flex; align-items: center; gap: 10px;">
+                    <span style="color:var(--accent-color); font-weight:bold; min-width:25px;">#${index + 1}</span>
+                    ${game.name}
+                </td>
+                <td style="padding: 12px; text-align:right; color: var(--secondary-text); font-weight: bold;">${game.score}</td>
+            `;
+            tbody.appendChild(row);
+        });
+
+        container.appendChild(table);
     }
 
     function showFinalResults() {
@@ -834,7 +1031,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function renderMarquee() {
-        const track = document.getElementById('waiting-marquee');
+        // Use any of the marquee tracks defined in HTML
+        const track = document.getElementById('waiting-marquee-1');
         if (!track || track.childElementCount > 0) return;
 
         const sortedGames = calculateScores(globalVotes);
@@ -844,7 +1042,7 @@ document.addEventListener('DOMContentLoaded', () => {
             "Counter-Strike 2", "Dota 2", "PUBG: BATTLEGROUNDS",
             "Apex Legends", "Helldivers 2", "Palworld", "Grand Theft Auto V",
             "Team Fortress 2", "Rust", "Baldur's Gate 3", "Cyberpunk 2077",
-            "ELDEN RING", "War Thunder", "Left 4 Left 2", "Terraria",
+            "ELDEN RING", "War Thunder", "Left 4 Dead 2", "Terraria",
             "Stardew Valley", "Rainbow Six Siege", "ARK: Survival Evolved",
             "The Witcher 3", "Path of Exile", "Rocket League", "Destiny 2",
             "Garry's Mod", "Fallout 4", "Dead by Daylight", "Red Dead Redemption 2",
@@ -863,7 +1061,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const createCard = async (gameName) => {
             const imgUrl = await getGameImage(gameName);
             if (imgUrl === DEFAULT_GAME_ICON) return null;
-
             const card = document.createElement('div');
             card.className = 'marquee-card';
             card.style.backgroundImage = `url(${imgUrl})`;
@@ -878,8 +1075,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (cards.length === 0) return;
 
-        const allCards = [...cards, ...cards.map(c => c.cloneNode(true)), ...cards.map(c => c.cloneNode(true))];
-        allCards.forEach(c => track.appendChild(c));
+        // Populate all 4 marquee tracks with shuffled versions
+        const tracks = ['waiting-marquee-1', 'waiting-marquee-2', 'waiting-marquee-3', 'waiting-marquee-4'];
+        tracks.forEach(trackId => {
+            const t = document.getElementById(trackId);
+            if (!t) return;
+            const shuffled = [...cards].sort(() => 0.5 - Math.random());
+            const allCards = [...shuffled, ...shuffled.map(c => c.cloneNode(true)), ...shuffled.map(c => c.cloneNode(true))];
+            allCards.forEach(c => t.appendChild(c));
+        });
     }
 
     // --- PHASE 4: ACTIVE LAN LOGIC ---
@@ -926,7 +1130,95 @@ document.addEventListener('DOMContentLoaded', () => {
         if (playerModal) playerModal.style.display = 'none';
     });
 
-    // Handle Event Creation
+    // --- HISTORIQUE ---
+    document.getElementById('btn-lan-history')?.addEventListener('click', () => {
+        const modal = document.getElementById('history-modal');
+        if (!modal) return;
+        modal.style.display = 'flex';
+        const container = document.getElementById('history-list-container');
+        if (!container) return;
+        container.innerHTML = '<div style="text-align:center; color:var(--secondary-text);">Chargement...</div>';
+
+        db.ref('lan/history').orderByChild('timestamp').once('value').then(snapshot => {
+            const data = snapshot.val();
+            container.innerHTML = '';
+            if (!data) {
+                container.innerHTML = '<p style="text-align:center; color:var(--secondary-text); font-style:italic;">Aucun historique disponible.</p>';
+                return;
+            }
+            const entries = Object.entries(data).map(([id, d]) => ({ id, ...d }));
+            entries.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+            entries.forEach(entry => {
+                const card = document.createElement('div');
+                card.style.cssText = "background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 4px; padding: 20px;";
+
+                const header = document.createElement('div');
+                header.style.cssText = "display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;";
+                header.innerHTML = `<h3 style="margin:0; color: var(--accent-color);">${entry.name || 'LAN'}</h3><span style="color:var(--secondary-text); font-size:0.9em;">${entry.date || ''}</span>`;
+                card.appendChild(header);
+
+                if (entry.topGames && entry.topGames.length > 0) {
+                    const list = document.createElement('div');
+                    list.style.cssText = "display: flex; flex-direction: column; gap: 8px;";
+                    entry.topGames.slice(0, 5).forEach((game, i) => {
+                        const row = document.createElement('div');
+                        row.style.cssText = "display: flex; align-items: center; gap: 10px; font-size: 0.9em;";
+                        row.innerHTML = `<span style="color:var(--accent-color); min-width:25px; font-weight:bold;">#${i + 1}</span><span style="color:var(--primary-text);">${game.name}</span><span style="color:var(--secondary-text); margin-left:auto;">${game.score} pts</span>`;
+                        list.appendChild(row);
+                    });
+                    card.appendChild(list);
+                }
+                container.appendChild(card);
+            });
+        });
+    });
+
+    document.getElementById('close-history-modal-btn')?.addEventListener('click', () => {
+        const modal = document.getElementById('history-modal');
+        if (modal) modal.style.display = 'none';
+    });
+    document.getElementById('history-modal')?.addEventListener('click', function (e) {
+        if (e.target === this) this.style.display = 'none';
+    });
+
+    // --- OUVRIR LA LAN (from admin dashboard) ---
+    document.getElementById('btn-open-lan-dashboard')?.addEventListener('click', () => {
+        const confirmLan = confirm("Êtes-vous sûr de vouloir ouvrir la LAN en mode actif ? Tout le monde passera en mode LAN active.");
+        if (confirmLan) {
+            db.ref('lan/settings').update({ isLanActive: true })
+                .then(() => showToast("La LAN est officiellement ouverte ! 🔥", "success"));
+        }
+    });
+
+    // --- ADMIN BROADCAST NOTIFICATION ---
+    document.getElementById('btn-send-broadcast')?.addEventListener('click', () => {
+        const msgInput = document.getElementById('broadcast-message');
+        if (!msgInput) return;
+        const message = msgInput.value.trim();
+        if (!message) { showToast('Saisissez un message d\'abord.', 'error'); return; }
+
+        db.ref('/status').once('value').then(snapshot => {
+            const users = snapshot.val() || {};
+            const sends = Object.keys(users).map(uid => sendNotification(uid, `🍊 Admin: ${message}`));
+            Promise.all(sends).then(() => {
+                showToast(`Message envoyé à ${sends.length} joueur(s) !`, 'success');
+                msgInput.value = '';
+            });
+        });
+    });
+
+    document.getElementById('btn-assign-role')?.addEventListener('click', () => {
+        const uid = document.getElementById('role-user-select').value;
+        const role = document.getElementById('role-type-select').value;
+        if (!uid) { showToast('Veuillez sélectionner un joueur.', 'error'); return; }
+
+        db.ref('lan/roles/' + uid).set(role)
+            .then(() => showToast('Rôle mis à jour avec succès !', 'success'))
+            .catch(err => showToast('Erreur: ' + err.message, 'error'));
+    });
+
+    // Handle Event Creation (with description + notifications)
     const createEventForm = document.getElementById('create-event-form');
     if (createEventForm) {
         createEventForm.addEventListener('submit', (e) => {
@@ -938,27 +1230,44 @@ document.addEventListener('DOMContentLoaded', () => {
             const game = document.getElementById('event-game').value;
             const time = document.getElementById('event-time').value;
             const slots = document.getElementById('event-slots').value;
+            const desc = document.getElementById('event-desc')?.value || '';
             const isGlobal = document.getElementById('event-is-global')?.checked || false;
+            const isAlcohol = document.getElementById('event-is-alcohol')?.checked || false;
+            const alcoholRules = document.getElementById('event-alcohol-rules')?.value || '';
 
             const newEvent = {
                 title: title,
+                description: desc,
                 game: game || '',
                 time: time || '',
                 slots: slots ? parseInt(slots) : 0,
                 creatorId: user.uid,
                 creatorName: user.displayName,
                 isGlobal: isGlobal,
+                isAlcohol: isAlcohol,
+                alcoholRules: alcoholRules,
                 rsvps: {},
                 createdAt: firebase.database.ServerValue.TIMESTAMP
             };
 
-            // By default, the creator RSVPs "yes"
+            // Creator auto-accepts
             newEvent.rsvps[user.uid] = 'accepted';
 
             const newEventRef = eventsRef.push();
             newEventRef.set(newEvent)
                 .then(() => {
                     showToast("Événement créé avec succès !", "success");
+                    // Send notifications to everyone if global
+                    if (isGlobal) {
+                        db.ref('/status').once('value').then(snap => {
+                            const users = snap.val() || {};
+                            Object.keys(users).forEach(uid => {
+                                if (uid !== user.uid) {
+                                    sendNotification(uid, `🎮 ${user.displayName} a créé un événement global : "${title}" ${time ? 'à ' + time : ''}`);
+                                }
+                            });
+                        });
+                    }
                     const createModal = document.getElementById('create-event-modal');
                     if (createModal) createModal.style.display = 'none';
                     createEventForm.reset();
@@ -970,7 +1279,66 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 3. Dummy Notifications toggle
+    // --- KOCKTAILS: ONE-SHOT CREATION ---
+    document.getElementById('btn-create-kocktail')?.addEventListener('click', () => {
+        const modal = document.getElementById('create-kocktail-modal');
+        if (modal) modal.style.display = 'flex';
+    });
+    document.getElementById('cancel-kocktail-btn')?.addEventListener('click', () => {
+        const modal = document.getElementById('create-kocktail-modal');
+        if (modal) modal.style.display = 'none';
+    });
+    document.getElementById('create-kocktail-form')?.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const user = auth.currentUser;
+        if (!user) return;
+        const name = document.getElementById('kocktail-name').value.trim();
+        const recipe = document.getElementById('kocktail-recipe').value.trim();
+        if (!name) { showToast('Donnez un nom à votre création !', 'error'); return; }
+
+        db.ref('lan/cocktails/oneShot').push({
+            name: name,
+            recipe: recipe,
+            creatorId: user.uid,
+            creatorName: user.displayName,
+            createdAt: firebase.database.ServerValue.TIMESTAMP
+        }).then(() => {
+            showToast(`"${name}" ajouté aux One-Shots !`, 'success');
+            const modal = document.getElementById('create-kocktail-modal');
+            if (modal) modal.style.display = 'none';
+            e.target.reset();
+        }).catch(err => showToast('Erreur: ' + err.message, 'error'));
+    });
+
+    // --- KOCKTAILS: ADMIN MASTER LIST MANAGEMENT ---
+    document.getElementById('btn-add-master-kocktail')?.addEventListener('click', () => {
+        const modal = document.getElementById('add-master-kocktail-modal');
+        if (modal) modal.style.display = 'flex';
+    });
+    document.getElementById('cancel-master-kocktail-btn')?.addEventListener('click', () => {
+        const modal = document.getElementById('add-master-kocktail-modal');
+        if (modal) modal.style.display = 'none';
+    });
+    document.getElementById('add-master-kocktail-form')?.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const user = auth.currentUser;
+        if (!user) return;
+        const name = document.getElementById('master-kocktail-name').value.trim();
+        const ingredients = document.getElementById('master-kocktail-ingredients').value.trim();
+        if (!name) { showToast('Donnez un nom au cocktail !', 'error'); return; }
+
+        db.ref('lan/cocktails/masterList').push({
+            name: name,
+            ingredients: ingredients
+        }).then(() => {
+            showToast(`"${name}" ajouté à la carte !`, 'success');
+            const modal = document.getElementById('add-master-kocktail-modal');
+            if (modal) modal.style.display = 'none';
+            e.target.reset();
+        }).catch(err => showToast('Erreur (vérifiez les règles Firebase): ' + err.message, 'error'));
+    });
+
+    // 3. Notifications bell  toggle
     const btnNotifications = document.getElementById('btn-notifications');
     const notifPanel = document.getElementById('notifications-panel');
     btnNotifications?.addEventListener('click', () => {
@@ -1022,7 +1390,20 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 meta.innerHTML += `<span>👥 ${rsvpCount} participant(s)</span>`;
             }
+            if (evt.isAlcohol) {
+                meta.innerHTML += `<span style="color: #ff9800; font-weight: bold;">🥃 Jeu à boire</span>`;
+            }
             card.appendChild(meta);
+
+            if (evt.description || (evt.isAlcohol && evt.alcoholRules)) {
+                const descBox = document.createElement('div');
+                descBox.style.cssText = "font-size: 0.9em; color: var(--secondary-text); background: rgba(255,255,255,0.03); padding: 10px; border-radius: 4px; margin-top: 10px; border-left: 2px solid var(--border-color);";
+                if (evt.description) descBox.innerHTML += `<div>${evt.description}</div>`;
+                if (evt.isAlcohol && evt.alcoholRules) {
+                    descBox.innerHTML += `<div style="margin-top: 5px; color: #ff9800; font-size: 0.85em;"><strong>Règles:</strong> ${evt.alcoholRules}</div>`;
+                }
+                card.appendChild(descBox);
+            }
 
             // Action buttons (RSVP)
             const actions = document.createElement('div');
@@ -1072,6 +1453,29 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
                 actions.appendChild(delBtn);
+            }
+
+            // Distribute shot if alcohol game
+            if (evt.isAlcohol && (window.currentUserIsAdmin || isCreator)) {
+                const shotBtn = document.createElement('button');
+                shotBtn.className = 'gold-btn';
+                shotBtn.style.padding = '8px 15px';
+                shotBtn.style.fontSize = '0.9em';
+                shotBtn.style.background = '#ff9800';
+                shotBtn.style.color = '#fff';
+                shotBtn.innerHTML = '🥃 Shot !';
+                shotBtn.addEventListener('click', () => {
+                    if (evt.rsvps) {
+                        const rsvpUids = Object.entries(evt.rsvps).filter(([uid, status]) => status === 'accepted').map(([uid]) => uid);
+                        rsvpUids.forEach(uid => {
+                            sendNotification(uid, `🥃 SHOT ! L'organisateur de "${evt.title}" vient de lancer un shot ! SANTÉ !`);
+                        });
+                        showToast(`Shot lancé à ${rsvpUids.length} participants !`, "success");
+                    } else {
+                        showToast("Personne n'a encore rejoint l'événement.", "error");
+                    }
+                });
+                actions.appendChild(shotBtn);
             }
 
             card.appendChild(actions);
