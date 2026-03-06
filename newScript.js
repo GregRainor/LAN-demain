@@ -114,8 +114,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let globalVotes = {};
     let globalSettings = { isVotingOpen: true, topGamesCount: 10, isLanActive: false };
-    let globalUsers = {}; // Store all users for the event creation UI & avatars
+    let globalUsers = {};
     let appInitialized = false;
+    let isEditing = false;
+    const imageCache = new Map();
     const DEFAULT_GAME_ICON = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23666'%3E%3Cpath d='M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-2.5 14H6.5v-1.5h11V18zm0-2.5H6.5v-1.5h11V15.5zm0-2.5H6.5v-1.5h11V13zm-5-3.25L10.25 8h1.5l2.25 1.75V8h1.5v6h-1.5v-1.75L13.25 14h-1.5L9.5 12.25V14H8V8h1.5v1.75z'/%3E%3C/svg%3E`;
 
     const voteForm = document.getElementById('vote-form');
@@ -221,7 +223,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function showPlayerVotesModal(uid, userName, votesData) {
         const modal = document.getElementById('player-votes-modal');
         const nameEl = document.getElementById('player-votes-name');
-        const listEl = document.getElementById('player-votes-list');
+        const listEl = document.getElementById('player-votes-content');
 
         if (!modal || !nameEl || !listEl) return;
 
@@ -972,11 +974,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnNotifications = document.getElementById('btn-notifications');
     const notifPanel = document.getElementById('notifications-panel');
     btnNotifications?.addEventListener('click', () => {
-        if (notifPanel.style.display === 'none' || !notifPanel.style.display) {
-            notifPanel.style.display = 'block';
-        } else {
-            notifPanel.style.display = 'none';
-        }
+        if (!notifPanel) return;
+        notifPanel.style.display = (notifPanel.style.display === 'none' || !notifPanel.style.display) ? 'block' : 'none';
     });
 
     // --- RENDER EVENTS ---
