@@ -57,7 +57,14 @@
         </div>
 
         <div id="top-right-actions">
-            <button id="btn-lan-history" class="gold-link-btn" title="Historique">Historique des LAN</button>
+            <!-- Notification Bell -->
+            <button id="btn-notifications" class="gold-link-btn" title="Notifications"
+                style="position: relative; display: none; margin-right: 10px;">
+                🔔
+                <span id="notif-badge"
+                    style="display:none; position:absolute; top:-5px; right:-5px; background:var(--danger-color); color:white; border-radius:50%; width:16px; height:16px; font-size:0.7em; align-items:center; justify-content:center;">0</span>
+            </button>
+            <button id="btn-lan-history" class="gold-link-btn" title="Historique">Historique</button>
             <div id="user-info-menu">
                 <span id="user-name"></span>
                 <img id="user-avatar" src="" alt="Avatar">
@@ -244,6 +251,115 @@
 
             </div>
         </div>
+
+        <!-- VIEW 4: ACTIVE LAN PHASE -->
+        <div id="view-lan-active" style="display: none; padding-top: 20px;">
+            <div class="active-lan-layout two-column-layout">
+                <!-- Left Sidebar: Nav -->
+                <aside class="animated-section">
+                    <div class="luxury-panel sidebar-module">
+                        <ul class="lan-nav-list"
+                            style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px;">
+                            <li class="nav-item active" data-target="lan-dashboard"
+                                style="padding: 15px; cursor: pointer; border-radius: 4px; transition: background 0.3s; color: var(--accent-color); font-weight: bold; background: rgba(212, 175, 55, 0.1);">
+                                Dashboard</li>
+                            <li class="nav-item" data-target="lan-events"
+                                style="padding: 15px; cursor: pointer; border-radius: 4px; transition: background 0.3s;">
+                                Événements</li>
+                            <li class="nav-item" data-target="lan-kocktails"
+                                style="padding: 15px; cursor: pointer; border-radius: 4px; transition: background 0.3s;">
+                                Kocktails</li>
+                            <li class="nav-item" data-target="lan-games"
+                                style="padding: 15px; cursor: pointer; border-radius: 4px; transition: background 0.3s;">
+                                Historique des Votes</li>
+                        </ul>
+                    </div>
+                </aside>
+
+                <!-- Center Feed -->
+                <main class="animated-section" style="animation-delay: 0.2s;">
+                    <!-- Subview: Dashboard -->
+                    <div id="lan-dashboard" class="lan-subview active">
+                        <h2 class="subview-title">Ressources & Tableau de Bord</h2>
+                        <div class="luxury-panel results-container" style="margin-bottom: 30px; padding: 25px;">
+                            <h3
+                                style="margin-top: 0; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px;">
+                                Jeux Officiels de la LAN</h3>
+                            <div id="active-lan-games-list" style="display: flex; flex-direction: column; gap: 15px;">
+                            </div>
+                        </div>
+                        <div class="luxury-panel" style="padding: 25px;">
+                            <h3
+                                style="margin-top: 0; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px;">
+                                Prochains Événements</h3>
+                            <div id="upcoming-events-preview" style="display: flex; flex-direction: column; gap: 10px;">
+                                <p style="font-style:italic; color:var(--secondary-text);">Aucun événement prévu.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Subview: Events -->
+                    <div id="lan-events" class="lan-subview" style="display: none;">
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); margin-bottom: 20px; padding-bottom: 10px;">
+                            <h2 class="subview-title" style="border: none; margin: 0;">Événements</h2>
+                            <button id="btn-create-event" class="gold-link-btn">+ Créer</button>
+                        </div>
+                        <div id="events-list" style="display: flex; flex-direction: column; gap: 15px;">
+                            <!-- Event cards go here -->
+                        </div>
+                    </div>
+
+                    <!-- Subview: Kocktails -->
+                    <div id="lan-kocktails" class="lan-subview" style="display: none;">
+                        <h2 class="subview-title" style="margin-bottom: 30px;">Menu Kocktails</h2>
+                        <div class="luxury-panel" style="padding: 25px; margin-bottom: 30px;">
+                            <h3
+                                style="margin-top: 0; border-bottom: 1px solid rgba(212,175,55,0.2); padding-bottom: 15px; color: var(--accent-color);">
+                                La Carte Officielle</h3>
+                            <div id="kocktail-master-list"
+                                style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px;">
+                                <!-- Standard cocktails -->
+                            </div>
+                        </div>
+
+                        <div class="luxury-panel" style="padding: 25px;">
+                            <div
+                                style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; margin-bottom: 20px;">
+                                <h3 style="margin: 0;">Les Créations "One-Shot"</h3>
+                                <button id="btn-create-kocktail" class="gold-link-btn" style="font-size: 0.8em;">+
+                                    Proposer un Kocktail</button>
+                            </div>
+                            <div id="kocktail-one-shot-list"
+                                style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px;">
+                                <!-- User cocktails -->
+                            </div>
+                        </div>
+
+                        <!-- Mixologist Queue (Visible only to Mixologist/Admin) -->
+                        <div id="kocktail-queue-panel" class="luxury-panel"
+                            style="padding: 25px; margin-top: 30px; display: none; border-color: #bb86fc;">
+                            <h3
+                                style="color: #bb86fc; margin-top: 0; border-bottom: 1px solid rgba(187,134,252,0.2); padding-bottom: 15px;">
+                                Commandes en cours (Barman)</h3>
+                            <div id="kocktail-orders-list" style="display: flex; flex-direction: column; gap: 10px;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Subview: Jeux / Votes Archived -->
+                    <div id="lan-games" class="lan-subview" style="display: none;">
+                        <h2 class="subview-title">Historique des Votes</h2>
+                        <div class="luxury-panel" style="padding: 25px;">
+                            <p style="margin-bottom: 20px; font-size: 1.1em; color: var(--primary-text);">Vous pouvez
+                                voir ici qui voulait jouer à quoi ! Cliquez sur le profil d'un joueur dans le menu
+                                latéral pour voir le détail de ses votes.</p>
+                            <div id="active-lan-all-games"></div>
+                        </div>
+                    </div>
+                </main>
+            </div>
+        </div>
     </div>
 
     <div id="correction-modal" class="modal-overlay">
@@ -271,6 +387,11 @@
             <p style="text-align: center; margin-bottom: 30px; font-size: 1.2em;">La liste des jeux à Télécharger pour
                 la LAN !</p>
             <div id="download-list" style="display: flex; flex-direction: column; gap: 20px;"></div>
+
+            <!-- ADMIN ONLY: Transition LAN to ACTIVE -->
+            <button id="start-active-lan-btn" class="gold-btn"
+                style="display:none; width: 100%; margin-top: 30px; padding: 20px; font-size: 1.2em;">🔥 OUVRIR LA LAN
+                🔥</button>
         </div>
     </div>
 
@@ -291,6 +412,74 @@
                 <div style="text-align: center; color: var(--secondary-text); font-style: italic;">Chargement de
                     l'historique...</div>
             </div>
+        </div>
+    </div>
+
+    <!-- MODALS FOR ACTIVE LAN -->
+
+    <!-- View Player Votes Modal -->
+    <div id="player-votes-modal" class="modal-overlay">
+        <div class="luxury-panel modal-content" style="max-width: 500px;">
+            <h3 id="player-votes-name" style="text-align: center; font-size: 1.8em; margin-bottom: 10px;">Votes</h3>
+            <div id="player-votes-content" style="display: flex; flex-direction: column; gap: 15px;"></div>
+            <div class="modal-actions" style="margin-top: 25px;">
+                <button id="close-player-votes-btn" class="gold-link-btn" style="width: 100%;">Fermer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Event Modal -->
+    <div id="create-event-modal" class="modal-overlay">
+        <div class="luxury-panel modal-content" style="max-width: 600px;">
+            <h3>Créer un Événement</h3>
+            <form id="create-event-form" style="display: flex; flex-direction: column; gap: 15px;">
+                <div class="admin-select-group">
+                    <label>Titre de l'événement</label>
+                    <input type="text" id="event-title" class="luxury-input" required placeholder="Ex: Tournoi LoL...">
+                </div>
+                <div class="admin-select-group">
+                    <label>Jeu (Optionnel)</label>
+                    <input type="text" id="event-game" class="luxury-input" placeholder="Ex: League of Legends">
+                </div>
+                <div style="display: flex; gap: 15px;">
+                    <div class="admin-select-group" style="flex: 1;">
+                        <label>Heure (Optionnel)</label>
+                        <input type="time" id="event-time" class="luxury-input">
+                    </div>
+                    <div class="admin-select-group" style="flex: 1;">
+                        <label>Places limitées (Optionnel)</label>
+                        <input type="number" id="event-slots" class="luxury-input" min="1" placeholder="Ex: 5">
+                    </div>
+                </div>
+                <div id="event-global-toggle-container" class="admin-select-group"
+                    style="display: none; margin-top: 10px;">
+                    <label
+                        style="display: flex; align-items: center; gap: 10px; cursor: pointer; color: var(--accent-color);">
+                        <input type="checkbox" id="event-is-global" style="width: 20px; height: 20px;">
+                        Annonce Globale (Admin)
+                    </label>
+                </div>
+                <div class="modal-actions" style="margin-top: 15px; flex-direction: row;">
+                    <button type="button" id="cancel-event-btn" style="flex: 1;">Annuler</button>
+                    <button type="submit" id="submit-event-btn"
+                        style="flex: 1; border-color: var(--accent-color); color: var(--accent-color);">Créer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Notifications Panel (Top Right Dropdown, absolute position) -->
+    <div id="notifications-panel" class="luxury-panel"
+        style="display: none; position: fixed; top: 70px; right: 80px; width: 320px; max-height: 400px; overflow-y: auto; z-index: 2000; padding: 15px;">
+        <div
+            style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 10px;">
+            <h3 style="margin: 0; font-size: 1.2em;">Notifications</h3>
+            <button id="clear-notifications-btn"
+                style="background: none; border: none; color: var(--secondary-text); cursor: pointer; font-size: 0.8em; text-decoration: underline;">Tout
+                effacer</button>
+        </div>
+        <div id="notifications-list" style="display: flex; flex-direction: column; gap: 10px;">
+            <!-- Notifs -->
         </div>
     </div>
 

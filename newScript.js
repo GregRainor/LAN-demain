@@ -108,11 +108,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let votesRef = null;
     let settingsRef = null;
+    let eventsRef = null;
+    let cocktailsRef = null;
+    let notificationsRef = null;
+
     let globalVotes = {};
-    let globalSettings = { isVotingOpen: true, topGamesCount: 10 };
+    let globalSettings = { isVotingOpen: true, topGamesCount: 10, isLanActive: false };
+    let globalUsers = {}; // Store all users for the event creation UI & avatars
     let appInitialized = false;
-    let isEditing = false;
-    const imageCache = new Map();
     const DEFAULT_GAME_ICON = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23666'%3E%3Cpath d='M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-2.5 14H6.5v-1.5h11V18zm0-2.5H6.5v-1.5h11V15.5zm0-2.5H6.5v-1.5h11V13zm-5-3.25L10.25 8h1.5l2.25 1.75V8h1.5v6h-1.5v-1.75L13.25 14h-1.5L9.5 12.25V14H8V8h1.5v1.75z'/%3E%3C/svg%3E`;
 
     const voteForm = document.getElementById('vote-form');
@@ -206,8 +209,52 @@ document.addEventListener('DOMContentLoaded', () => {
             img.src = user.avatar;
             img.title = user.name;
             img.className = 'user-avatar-icon';
+
+            img.addEventListener('click', () => {
+                showPlayerVotesModal(uid, user.name, globalVotes);
+            });
+
             sidebar.appendChild(img);
         }
+    }
+
+    function showPlayerVotesModal(uid, userName, votesData) {
+        const modal = document.getElementById('player-votes-modal');
+        const nameEl = document.getElementById('player-votes-name');
+        const listEl = document.getElementById('player-votes-list');
+
+        if (!modal || !nameEl || !listEl) return;
+
+        nameEl.textContent = `Voeux de ${userName}`;
+        listEl.innerHTML = '';
+
+        const userVoteData = votesData[uid];
+        if (!userVoteData || !userVoteData.votes) {
+            listEl.innerHTML = '<p style="color:var(--secondary-text); font-style:italic;">Aucun vote enregistré.</p>';
+        } else {
+            const p = userVoteData.votes;
+
+            const createSection = (title, gamesArray, color) => {
+                if (!gamesArray || gamesArray.length === 0) return;
+                const sec = document.createElement('div');
+                sec.style.marginBottom = '15px';
+                sec.innerHTML = `<h5 style="color: ${color}; margin-bottom: 5px; font-family: 'Outfit'; font-size: 0.9em;">${title}</h5>`;
+                gamesArray.forEach(g => {
+                    const row = document.createElement('div');
+                    row.style.cssText = "display: flex; align-items: center; gap: 10px; margin-bottom: 5px; font-size: 0.9em;";
+                    row.innerHTML = `<span style="color: var(--primary-text);">${g}</span>`;
+                    sec.appendChild(row);
+                });
+                listEl.appendChild(sec);
+            };
+
+            createSection('P1 (5 pts)', p.p1, 'var(--accent-color)');
+            createSection('P2 (3 pts)', p.p2, 'silver');
+            createSection('P3 (2 pts)', p.p3, '#cd7f32'); // bronze
+            createSection('Autres (1 pt)', p.p_other, 'var(--secondary-text)');
+        }
+
+        modal.style.display = 'flex';
     }
 
     function initializeApp(user) {
@@ -229,13 +276,31 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        db.ref('/status').on('value', snapshot => renderActiveUsers(snapshot.val()));
-
         votesRef = db.ref('lan/votes');
         settingsRef = db.ref('lan/settings');
+        eventsRef = db.ref('lan/events');
+        cocktailsRef = db.ref('lan/cocktails');
+        notificationsRef = db.ref('lan/notifications/' + user.uid);
+
+        db.ref('/status').on('value', snapshot => {
+            globalUsers = snapshot.val() || {};
+            renderActiveUsers(globalUsers);
+        });
+
+        eventsRef.on('value', (snapshot) => {
+            renderEvents(snapshot.val() || {}, user);
+        });
+
+        cocktailsRef.on('value', (snapshot) => {
+            renderCocktails(snapshot.val() || {}, user);
+        });
+
+        notificationsRef.on('value', (snapshot) => {
+            renderNotifications(snapshot.val() || {}, user);
+        });
 
         settingsRef.on('value', (snapshot) => {
-            const newSettings = snapshot.val() || { isVotingOpen: true, topGamesCount: 10 };
+            const newSettings = snapshot.val() || { isVotingOpen: true, topGamesCount: 10, isLanActive: false };
 
             if (appInitialized && globalSettings.isVotingOpen === true && newSettings.isVotingOpen === false) {
                 showToast("Les votes sont terminés ! Voici les résultats...", "success");
@@ -250,6 +315,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 toggleBtns.forEach(btn => btn && (btn.textContent = globalSettings.isVotingOpen ? "Clôturer le Vote" : "Ouvrir le Vote"));
                 const countInputs = document.querySelectorAll('#top-games-count, #dashboard-top-games-count');
                 countInputs.forEach(input => input && (input.value = globalSettings.topGamesCount || 10));
+
+                const openLanBtn = document.getElementById('start-active-lan-btn');
+                if (openLanBtn) {
+                    if (globalSettings.isLanActive) {
+                        openLanBtn.style.display = 'none';
+                    } else if (!globalSettings.isVotingOpen) {
+                        openLanBtn.style.display = 'block';
+                    } else {
+                        openLanBtn.style.display = 'none';
+                    }
+                }
             }
         });
 
@@ -271,6 +347,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const viewVotingOpen = document.getElementById('view-voting-open');
         const viewWaitingClosed = document.getElementById('view-waiting-closed');
         const viewAdminDashboard = document.getElementById('view-admin-dashboard');
+        const viewLanActive = document.getElementById('view-lan-active');
         const adminPanelOpen = document.getElementById('admin-panel-open');
         const form = document.getElementById('vote-form');
         const message = document.getElementById('voting-closed-message');
@@ -278,7 +355,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if (viewVotingOpen) viewVotingOpen.style.display = 'none';
         if (viewWaitingClosed) viewWaitingClosed.style.display = 'none';
         if (viewAdminDashboard) viewAdminDashboard.style.display = 'none';
+        if (viewLanActive) viewLanActive.style.display = 'none';
         if (adminPanelOpen) adminPanelOpen.style.display = 'none';
+
+        document.getElementById('final-results-modal').style.display = 'none';
+
+        if (globalSettings.isLanActive) {
+            if (viewLanActive) viewLanActive.style.display = 'block';
+            // Stop the marquee if it was running.
+            const track = document.getElementById('waiting-marquee');
+            if (track) track.innerHTML = '';
+            return;
+        }
 
         if (globalSettings.isVotingOpen) {
             if (viewVotingOpen) viewVotingOpen.style.display = 'block';
@@ -317,6 +405,17 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('toggle-voting-btn')?.addEventListener('click', handleToggleVoting);
     document.getElementById('toggle-voting-btn-open')?.addEventListener('click', handleToggleVoting);
     document.getElementById('toggle-voting-btn-dashboard')?.addEventListener('click', handleToggleVoting);
+
+    document.getElementById('start-active-lan-btn')?.addEventListener('click', () => {
+        const confirmLan = confirm("Êtes-vous sûr de vouloir démarrer la LAN en mode actif ? Cela fermera le mode attente pour tout le monde.");
+        if (confirmLan) {
+            db.ref('lan/settings').update({ isLanActive: true })
+                .then(() => {
+                    document.getElementById('final-results-modal').style.display = 'none';
+                    showToast("La LAN est officiellement ouverte !", "success");
+                });
+        }
+    });
 
     document.getElementById('save-config-btn')?.addEventListener('click', () => {
         const countEl = document.getElementById('dashboard-top-games-count');
@@ -776,4 +875,403 @@ document.addEventListener('DOMContentLoaded', () => {
         const allCards = [...cards, ...cards.map(c => c.cloneNode(true)), ...cards.map(c => c.cloneNode(true))];
         allCards.forEach(c => track.appendChild(c));
     }
+
+    // --- PHASE 4: ACTIVE LAN LOGIC ---
+
+    // 1. Navigation
+    document.querySelectorAll('.lan-nav-list .nav-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+            // Deactivate all
+            document.querySelectorAll('.lan-nav-list .nav-item').forEach(nav => nav.classList.remove('active'));
+            document.querySelectorAll('.lan-subview').forEach(view => {
+                view.style.display = 'none';
+                view.classList.remove('active');
+            });
+
+            // Activate target
+            e.target.classList.add('active');
+            const targetId = e.target.getAttribute('data-target');
+            const targetView = document.getElementById(targetId);
+            if (targetView) {
+                targetView.style.display = 'block';
+                targetView.classList.add('active');
+            }
+        });
+    });
+
+    // 2. Modals (Events & Kocktails)
+    document.getElementById('btn-create-event')?.addEventListener('click', () => {
+        document.getElementById('create-event-modal').style.display = 'flex';
+        if (window.currentUserIsAdmin) {
+            document.getElementById('event-global-toggle-container').style.display = 'flex';
+        }
+    });
+
+    document.getElementById('cancel-event-btn')?.addEventListener('click', () => {
+        document.getElementById('create-event-modal').style.display = 'none';
+    });
+
+    document.getElementById('close-player-votes-btn')?.addEventListener('click', () => {
+        document.getElementById('player-votes-modal').style.display = 'none';
+    });
+
+    // Handle Event Creation
+    const createEventForm = document.getElementById('create-event-form');
+    if (createEventForm) {
+        createEventForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const user = auth.currentUser;
+            if (!user) return;
+
+            const title = document.getElementById('event-title').value;
+            const game = document.getElementById('event-game').value;
+            const time = document.getElementById('event-time').value;
+            const slots = document.getElementById('event-slots').value;
+            const isGlobal = document.getElementById('event-is-global')?.checked || false;
+
+            const newEvent = {
+                title: title,
+                game: game || '',
+                time: time || '',
+                slots: slots ? parseInt(slots) : 0,
+                creatorId: user.uid,
+                creatorName: user.displayName,
+                isGlobal: isGlobal,
+                rsvps: {},
+                createdAt: firebase.database.ServerValue.TIMESTAMP
+            };
+
+            // By default, the creator RSVPs "yes"
+            newEvent.rsvps[user.uid] = 'accepted';
+
+            const newEventRef = eventsRef.push();
+            newEventRef.set(newEvent)
+                .then(() => {
+                    showToast("Événement créé avec succès !", "success");
+                    document.getElementById('create-event-modal').style.display = 'none';
+                    createEventForm.reset();
+                })
+                .catch(err => {
+                    showToast("Erreur lors de la création de l'événement.", "error");
+                    console.error(err);
+                });
+        });
+    }
+
+    // 3. Dummy Notifications toggle
+    const btnNotifications = document.getElementById('btn-notifications');
+    const notifPanel = document.getElementById('notifications-panel');
+    btnNotifications?.addEventListener('click', () => {
+        if (notifPanel.style.display === 'none' || !notifPanel.style.display) {
+            notifPanel.style.display = 'block';
+        } else {
+            notifPanel.style.display = 'none';
+        }
+    });
+
+    // --- RENDER EVENTS ---
+    function renderEvents(eventsData, currentUser) {
+        const eventsList = document.getElementById('events-list');
+        const previewList = document.getElementById('upcoming-events-preview');
+        if (!eventsList || !previewList) return;
+
+        eventsList.innerHTML = '';
+        previewList.innerHTML = '';
+
+        const eventsArray = Object.entries(eventsData).map(([id, data]) => ({ id, ...data }));
+        // Sort by creation time descending for now
+        eventsArray.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+        if (eventsArray.length === 0) {
+            eventsList.innerHTML = '<p style="color:var(--secondary-text); font-style:italic;">Aucun événement actuellement.</p>';
+            previewList.innerHTML = '<p style="color:var(--secondary-text); font-style:italic;">Rien de prévu pour le moment.</p>';
+            return;
+        }
+
+        let previewCount = 0;
+
+        eventsArray.forEach(evt => {
+            // Create the card
+            const card = document.createElement('div');
+            card.className = `event-card ${evt.isGlobal ? 'global' : ''}`;
+
+            const titleContainer = document.createElement('div');
+            titleContainer.className = 'event-header';
+            const title = document.createElement('h3');
+            title.innerHTML = `${evt.isGlobal ? '🌍 ' : ''}${evt.title} <span style="font-size: 0.6em; color: var(--secondary-text); font-family: 'Outfit'; font-weight: normal; margin-left: 10px;">par ${evt.creatorName || 'Inconnu'}</span>`;
+            titleContainer.appendChild(title);
+            card.appendChild(titleContainer);
+
+            const meta = document.createElement('div');
+            meta.className = 'event-meta';
+            if (evt.game) meta.innerHTML += `<span>🎮 ${evt.game}</span>`;
+            if (evt.time) meta.innerHTML += `<span>🕒 ${evt.time}</span>`;
+
+            const rsvpCount = evt.rsvps ? Object.values(evt.rsvps).filter(v => v === 'accepted').length : 0;
+            if (evt.slots > 0) {
+                meta.innerHTML += `<span>👥 ${rsvpCount} / ${evt.slots}</span>`;
+            } else {
+                meta.innerHTML += `<span>👥 ${rsvpCount} participant(s)</span>`;
+            }
+            card.appendChild(meta);
+
+            // Action buttons (RSVP)
+            const actions = document.createElement('div');
+            actions.style.display = 'flex';
+            actions.style.gap = '10px';
+            actions.style.marginTop = '15px';
+
+            const hasAccepted = evt.rsvps && evt.rsvps[currentUser.uid] === 'accepted';
+            const isCreator = evt.creatorId === currentUser.uid;
+
+            if (hasAccepted) {
+                const acceptedBtn = document.createElement('button');
+                acceptedBtn.className = 'gold-btn';
+                acceptedBtn.style.padding = '8px 15px';
+                acceptedBtn.style.fontSize = '0.9em';
+                acceptedBtn.textContent = '✓ Accepté';
+                acceptedBtn.dataset.eventId = evt.id;
+
+                // Allow un-accepting if not creator
+                if (!isCreator) {
+                    acceptedBtn.addEventListener('click', () => {
+                        db.ref(`lan/events/${evt.id}/rsvps/${currentUser.uid}`).remove();
+                    });
+                } else {
+                    acceptedBtn.style.cursor = 'default';
+                    acceptedBtn.title = "Vous êtes le créateur.";
+                }
+                actions.appendChild(acceptedBtn);
+            } else {
+                const rsvpBtn = document.createElement('button');
+                rsvpBtn.className = 'gold-link-btn';
+                rsvpBtn.textContent = 'Participer';
+                rsvpBtn.addEventListener('click', () => {
+                    db.ref(`lan/events/${evt.id}/rsvps/${currentUser.uid}`).set('accepted');
+                });
+                actions.appendChild(rsvpBtn);
+            }
+
+            // Admin or Creator can delete
+            if (window.currentUserIsAdmin || isCreator) {
+                const delBtn = document.createElement('button');
+                delBtn.className = 'danger-link-btn';
+                delBtn.textContent = 'Supprimer';
+                delBtn.addEventListener('click', () => {
+                    if (confirm("Supprimer cet événement ?")) {
+                        db.ref(`lan/events/${evt.id}`).remove();
+                    }
+                });
+                actions.appendChild(delBtn);
+            }
+
+            card.appendChild(actions);
+            eventsList.appendChild(card);
+
+            // Add to preview up to 3
+            if (previewCount < 3) {
+                const previewItem = document.createElement('div');
+                previewItem.style.cssText = "display: flex; justify-content: space-between; align-items: center; padding: 10px; background: rgba(255,255,255,0.02); border-left: 2px solid var(--accent-color); border-radius: 2px;";
+                previewItem.innerHTML = `
+                       <div>
+                           <div style="color: var(--primary-text); font-weight: 500;">${evt.isGlobal ? '🌍 ' : ''}${evt.title}</div>
+                           <div style="font-size: 0.85em; color: var(--secondary-text);">${evt.game || ''} ${evt.time ? 'à ' + evt.time : ''}</div>
+                       </div>
+                       <div style="font-size: 0.85em; color: var(--accent-color);">👥 ${rsvpCount}</div>
+                   `;
+                previewList.appendChild(previewItem);
+                previewCount++;
+            }
+        });
+
+        if (previewCount === 0 && eventsArray.length > 0) {
+            previewList.innerHTML = '<p style="color:var(--secondary-text); font-style:italic;">Consultez l\'onglet Événements.</p>';
+        }
+    }
+
+    // --- RENDER KOCKTAILS ---
+    function renderCocktails(cocktailsData, currentUser) {
+        const masterList = document.getElementById('kocktail-master-list');
+        const oneShotList = document.getElementById('kocktail-one-shot-list');
+        const queuePanel = document.getElementById('kocktail-queue-panel');
+        const ordersList = document.getElementById('kocktail-orders-list');
+
+        if (!masterList || !oneShotList) return;
+
+        masterList.innerHTML = '';
+        oneShotList.innerHTML = '';
+        if (ordersList) ordersList.innerHTML = '';
+
+        const master = cocktailsData.masterList || {};
+        const oneShots = cocktailsData.oneShot || {};
+        const orders = cocktailsData.orders || {};
+
+        // Master List render
+        const masterArray = Object.entries(master).map(([id, data]) => ({ id, ...data }));
+        if (masterArray.length === 0) {
+            masterList.innerHTML = '<p style="color:var(--secondary-text); font-style:italic;">La carte est en cours de création...</p>';
+        } else {
+            masterArray.forEach(kocktail => {
+                const card = document.createElement('div');
+                card.className = 'kocktail-card';
+                card.innerHTML = `
+                        <h4>${kocktail.name}</h4>
+                        <p style="font-size: 0.8em; color: var(--secondary-text); margin-bottom: 15px;">${kocktail.ingredients || 'Secret du barman'}</p>
+                   `;
+                const orderBtn = document.createElement('button');
+                orderBtn.className = 'gold-link-btn';
+                orderBtn.textContent = 'Commander';
+                orderBtn.addEventListener('click', () => orderCocktail(kocktail.name, currentUser));
+                card.appendChild(orderBtn);
+                masterList.appendChild(card);
+            });
+        }
+
+        // One Shots render
+        const oneShotsArray = Object.entries(oneShots).map(([id, data]) => ({ id, ...data }));
+        if (oneShotsArray.length === 0) {
+            oneShotList.innerHTML = '<p style="color:var(--secondary-text); font-style:italic;">Soyez le premier à proposer une création !</p>';
+        } else {
+            oneShotsArray.forEach(kocktail => {
+                const card = document.createElement('div');
+                card.className = 'kocktail-card';
+                card.innerHTML = `
+                        <h4>${kocktail.name}</h4>
+                        <p style="font-size: 0.8em; color: var(--secondary-text); margin-bottom: 5px;">Proposé par: ${kocktail.creatorName}</p>
+                        <p style="font-size: 0.8em; color: var(--accent-color); margin-bottom: 15px;">${kocktail.recipe || ''}</p>
+                   `;
+                const orderBtn = document.createElement('button');
+                orderBtn.className = 'gold-link-btn';
+                orderBtn.textContent = 'Commander';
+                orderBtn.addEventListener('click', () => orderCocktail(kocktail.name, currentUser));
+                card.appendChild(orderBtn);
+                oneShotList.appendChild(card);
+            });
+        }
+
+        // Mixologist Queue
+        // Note: For now, if the user is Admin they see the queue. 
+        // Realistically, you check if root.child('lan/roles/' + auth.uid) === 'mixologist'
+        if (window.currentUserIsAdmin && queuePanel) {
+            queuePanel.style.display = 'block';
+            const ordersArray = Object.entries(orders).map(([id, data]) => ({ id, ...data }));
+            // Sort oldest first
+            ordersArray.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+
+            if (ordersArray.length === 0) {
+                ordersList.innerHTML = '<p style="color:var(--secondary-text); font-style:italic;">Aucune commande en attente.</p>';
+            } else {
+                ordersArray.forEach(order => {
+                    const item = document.createElement('div');
+                    item.style.cssText = "display: flex; justify-content: space-between; align-items: center; padding: 10px; background: rgba(187,134,252,0.1); border: 1px solid rgba(187,134,252,0.3); border-radius: 4px;";
+                    item.innerHTML = `
+                             <div>
+                                  <strong>${order.cocktailName}</strong> pour <span style="color: var(--primary-text);">${order.userName}</span>
+                                  <div style="font-size: 0.8em; color: var(--secondary-text);">${new Date(order.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                             </div>
+                        `;
+                    const doneBtn = document.createElement('button');
+                    doneBtn.className = 'gold-link-btn';
+                    doneBtn.style.borderColor = '#bb86fc';
+                    doneBtn.style.color = '#bb86fc';
+                    doneBtn.textContent = 'Servi';
+                    doneBtn.addEventListener('click', () => {
+                        db.ref(`lan/cocktails/orders/${order.id}`).remove();
+                        // Send Notif back to user
+                        sendNotification(order.userId, `Votre cocktail "${order.cocktailName}" est prêt au bar ! 🍹`);
+                    });
+                    item.appendChild(doneBtn);
+                    ordersList.appendChild(item);
+                });
+            }
+        }
+    }
+
+    function orderCocktail(cocktailName, user) {
+        if (!confirm(`Commander un ${cocktailName} ?`)) return;
+        const newOrderRef = db.ref('lan/cocktails/orders').push();
+        newOrderRef.set({
+            cocktailName: cocktailName,
+            userId: user.uid,
+            userName: user.displayName,
+            timestamp: firebase.database.ServerValue.TIMESTAMP
+        }).then(() => {
+            showToast("Commande envoyée au bar !", "success");
+        }).catch(err => {
+            showToast("Erreur lors de la commande.", "error");
+        });
+    }
+
+    function sendNotification(targetUid, message) {
+        const notifRef = db.ref(`lan/notifications/${targetUid}`).push();
+        notifRef.set({
+            message: message,
+            timestamp: firebase.database.ServerValue.TIMESTAMP,
+            read: false
+        });
+    }
+
+    // --- RENDER NOTIFICATIONS ---
+    function renderNotifications(notifsData, currentUser) {
+        const notifList = document.getElementById('notifications-list');
+        const badge = document.getElementById('notif-badge');
+        const btnNotif = document.getElementById('btn-notifications');
+
+        if (!notifList || !badge || !btnNotif) return;
+
+        // Show the bell icon since LAN is active and we have the listener running
+        if (globalSettings.isLanActive) btnNotif.style.display = 'inline-flex';
+
+        const notifsArray = Object.entries(notifsData).map(([id, data]) => ({ id, ...data }));
+        notifsArray.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+        const unreadCount = notifsArray.filter(n => !n.read).length;
+
+        if (unreadCount > 0) {
+            badge.style.display = 'flex';
+            badge.textContent = unreadCount > 9 ? '9+' : unreadCount;
+        } else {
+            badge.style.display = 'none';
+        }
+
+        notifList.innerHTML = '';
+
+        if (notifsArray.length === 0) {
+            notifList.innerHTML = '<p style="color:var(--secondary-text); font-style:italic;">Aucune notification.</p>';
+            return;
+        }
+
+        notifsArray.forEach(notif => {
+            const item = document.createElement('div');
+            item.className = `notif-item ${!notif.read ? 'unread' : ''}`;
+
+            const text = document.createElement('div');
+            text.innerHTML = notif.message;
+            text.style.color = "var(--primary-text)";
+
+            const time = document.createElement('span');
+            time.className = 'notif-time';
+            time.textContent = new Date(notif.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+            item.appendChild(text);
+            item.appendChild(time);
+
+            // Mark as read when clicked
+            item.addEventListener('click', () => {
+                if (!notif.read) {
+                    db.ref(`lan/notifications/${currentUser.uid}/${notif.id}`).update({ read: true });
+                }
+            });
+
+            notifList.appendChild(item);
+        });
+    }
+
+    document.getElementById('clear-notifications-btn')?.addEventListener('click', () => {
+        const user = auth.currentUser;
+        if (user) {
+            db.ref(`lan/notifications/${user.uid}`).remove();
+        }
+    });
+
 });
