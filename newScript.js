@@ -359,7 +359,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (viewLanActive) viewLanActive.style.display = 'none';
         if (adminPanelOpen) adminPanelOpen.style.display = 'none';
 
-        document.getElementById('final-results-modal').style.display = 'none';
+        const finalResultsModal = document.getElementById('final-results-modal');
+        if (finalResultsModal) finalResultsModal.style.display = 'none';
 
         if (globalSettings.isLanActive) {
             if (viewLanActive) viewLanActive.style.display = 'block';
@@ -412,7 +413,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (confirmLan) {
             db.ref('lan/settings').update({ isLanActive: true })
                 .then(() => {
-                    document.getElementById('final-results-modal').style.display = 'none';
+                    const finalModal = document.getElementById('final-results-modal');
+                    if (finalModal) finalModal.style.display = 'none';
                     showToast("La LAN est officiellement ouverte !", "success");
                 });
         }
@@ -429,7 +431,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     document.getElementById('close-results-btn')?.addEventListener('click', () => {
-        document.getElementById('final-results-modal').style.display = 'none';
+        const frModal = document.getElementById('final-results-modal');
+        if (frModal) frModal.style.display = 'none';
     });
 
     document.getElementById('reset-all-votes-btn')?.addEventListener('click', () => {
@@ -902,18 +905,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 2. Modals (Events & Kocktails)
     document.getElementById('btn-create-event')?.addEventListener('click', () => {
-        document.getElementById('create-event-modal').style.display = 'flex';
+        const createModal = document.getElementById('create-event-modal');
+        if (createModal) createModal.style.display = 'flex';
+
         if (window.currentUserIsAdmin) {
-            document.getElementById('event-global-toggle-container').style.display = 'flex';
+            const toggleContainer = document.getElementById('event-global-toggle-container');
+            if (toggleContainer) toggleContainer.style.display = 'flex';
         }
     });
 
     document.getElementById('cancel-event-btn')?.addEventListener('click', () => {
-        document.getElementById('create-event-modal').style.display = 'none';
+        const createModal = document.getElementById('create-event-modal');
+        if (createModal) createModal.style.display = 'none';
     });
 
     document.getElementById('close-player-votes-btn')?.addEventListener('click', () => {
-        document.getElementById('player-votes-modal').style.display = 'none';
+        const playerModal = document.getElementById('player-votes-modal');
+        if (playerModal) playerModal.style.display = 'none';
     });
 
     // Handle Event Creation
@@ -949,7 +957,8 @@ document.addEventListener('DOMContentLoaded', () => {
             newEventRef.set(newEvent)
                 .then(() => {
                     showToast("Événement créé avec succès !", "success");
-                    document.getElementById('create-event-modal').style.display = 'none';
+                    const createModal = document.getElementById('create-event-modal');
+                    if (createModal) createModal.style.display = 'none';
                     createEventForm.reset();
                 })
                 .catch(err => {
