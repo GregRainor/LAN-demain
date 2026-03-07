@@ -314,6 +314,10 @@
                             <li class="nav-item" data-target="lan-games"
                                 style="padding: 15px; cursor: pointer; border-radius: 4px; transition: background 0.3s;">
                                 Historique des Votes</li>
+                            <!-- Admin-only nav item, shown via JS -->
+                            <li id="lan-nav-admin" class="nav-item" data-target="lan-admin"
+                                style="display: none; padding: 15px; cursor: pointer; border-radius: 4px; transition: background 0.3s; color: var(--danger-color); border-top: 1px solid rgba(255,255,255,0.05); margin-top: 5px;">
+                                ⚙️ Admin</li>
                         </ul>
                     </div>
                 </aside>
@@ -401,6 +405,47 @@
                                 voir ici qui voulait jouer à quoi ! Cliquez sur le profil d'un joueur dans le menu
                                 latéral pour voir le détail de ses votes.</p>
                             <div id="active-lan-all-games"></div>
+                        </div>
+                    </div>
+
+                    <!-- Subview: Admin (admin only) -->
+                    <div id="lan-admin" class="lan-subview" style="display: none;">
+                        <h2 class="subview-title">⚙️ Panneau Administrateur</h2>
+
+                        <!-- Broadcast Notification -->
+                        <div class="luxury-panel" style="padding: 25px; margin-bottom: 25px;">
+                            <h3 style="margin-top: 0; color: var(--accent-color); border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px;">📣 Envoyer un message</h3>
+                            <p style="color: var(--secondary-text); font-size: 0.9em; margin-bottom: 15px;">Un toast s'affichera immédiatement pour tous les joueurs connectés.</p>
+                            <div style="display: flex; gap: 10px;">
+                                <input type="text" id="broadcast-message" class="luxury-input"
+                                    placeholder="Ex: RDV au salon dans 5 min !" style="flex: 1;">
+                                <button id="btn-send-broadcast" class="gold-btn" style="padding: 12px 20px; white-space: nowrap;">📣 Envoyer</button>
+                            </div>
+                        </div>
+
+                        <!-- Role Management -->
+                        <div class="luxury-panel" style="padding: 25px; margin-bottom: 25px;">
+                            <h3 style="margin-top: 0; color: var(--accent-color); border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px;">🛡️ Gestion des Rôles</h3>
+                            <div class="admin-select-group" style="gap: 12px;">
+                                <label>Joueur</label>
+                                <select id="role-user-select-lan" class="luxury-input" style="width: 100%;">
+                                    <option value="">Sélectionner un joueur...</option>
+                                </select>
+                                <div style="display: flex; gap: 10px;">
+                                    <select id="role-type-select-lan" class="luxury-input" style="flex: 1;">
+                                        <option value="player">Joueur (défaut)</option>
+                                        <option value="mixologist">Mixologue</option>
+                                        <option value="admin">Admin</option>
+                                    </select>
+                                    <button id="btn-assign-role-lan" class="gold-btn" style="padding: 10px 20px;">Attribuer</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Voting Controls -->
+                        <div class="luxury-panel" style="padding: 25px;">
+                            <h3 style="margin-top: 0; color: var(--danger-color); border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px;">⚠️ Contrôles Avancés</h3>
+                            <button id="toggle-voting-btn-dashboard-lan" class="danger-btn" style="padding: 12px 25px; width: 100%; margin-bottom: 10px;">Clore le Vote</button>
                         </div>
                     </div>
                 </main>

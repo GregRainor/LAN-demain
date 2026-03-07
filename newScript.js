@@ -196,9 +196,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!sidebar) return;
 
         sidebar.innerHTML = '';
-        if (roleSelect) {
-            roleSelect.innerHTML = '<option value="">Sélectionner un joueur...</option>';
-        }
+        ['role-user-select', 'role-user-select-lan'].forEach(id => {
+            const sel = document.getElementById(id);
+            if (sel) sel.innerHTML = '<option value="">Sélectionner un joueur...</option>';
+        });
 
         const userCount = users ? Object.keys(users).length : 0;
 
@@ -223,13 +224,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
             sidebar.appendChild(img);
 
-            // Populate role select
-            if (roleSelect) {
-                const opt = document.createElement('option');
-                opt.value = uid;
-                opt.textContent = user.name;
-                roleSelect.appendChild(opt);
-            }
+            // Populate both role selects (View 3 admin panel + Active LAN admin panel)
+            ['role-user-select', 'role-user-select-lan'].forEach(selectId => {
+                const sel = document.getElementById(selectId);
+                if (sel) {
+                    const opt = document.createElement('option');
+                    opt.value = uid;
+                    opt.textContent = user.name;
+                    sel.appendChild(opt);
+                }
+            });
         }
     }
 
@@ -296,9 +300,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Update UI based on roles
             const adminPanel = document.getElementById('admin-dashboard');
+            const lanAdminNav = document.getElementById('lan-nav-admin');
             if (window.currentUserIsAdmin) {
                 const adminPanelEl = document.getElementById('admin-panel');
                 if (adminPanelEl) adminPanelEl.style.display = 'block';
+                if (lanAdminNav) lanAdminNav.style.display = 'block';
+            } else {
+                if (lanAdminNav) lanAdminNav.style.display = 'none';
             }
             updateVotingUIState();
         });
@@ -1260,6 +1268,20 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(() => showToast('Rôle mis à jour avec succès !', 'success'))
             .catch(err => showToast('Erreur: ' + err.message, 'error'));
     });
+
+    // Active LAN admin panel — role assignment
+    document.getElementById('btn-assign-role-lan')?.addEventListener('click', () => {
+        const uid = document.getElementById('role-user-select-lan').value;
+        const role = document.getElementById('role-type-select-lan').value;
+        if (!uid) { showToast('Veuillez sélectionner un joueur.', 'error'); return; }
+
+        db.ref('lan/roles/' + uid).set(role)
+            .then(() => showToast('Rôle mis à jour avec succès !', 'success'))
+            .catch(err => showToast('Erreur: ' + err.message, 'error'));
+    });
+
+    // Active LAN admin panel — toggle voting button
+    document.getElementById('toggle-voting-btn-dashboard-lan')?.addEventListener('click', handleToggleVoting);
 
     // Handle Event Creation (with description + notifications)
     const createEventForm = document.getElementById('create-event-form');
