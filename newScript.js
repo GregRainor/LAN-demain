@@ -326,11 +326,23 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         eventsRef.on('value', (snapshot) => {
-            renderEvents(snapshot.val() || {}, user);
+            const eventsData = snapshot.val() || {};
+            window._latestEventsData = eventsData;
+            renderEvents(eventsData, user);
+            checkEventReminders(eventsData, user);
         });
 
+        // Check reminders every 60 seconds
+        setInterval(() => {
+            if (window._latestEventsData && auth.currentUser) {
+                checkEventReminders(window._latestEventsData, auth.currentUser);
+            }
+        }, 60000);
+
         cocktailsRef.on('value', (snapshot) => {
-            renderCocktails(snapshot.val() || {}, user);
+            const cocktailsData = snapshot.val() || {};
+            window._latestCocktailsData = cocktailsData;
+            renderCocktails(cocktailsData, user);
         });
 
         notificationsRef.on('value', (snapshot) => {
@@ -1088,9 +1100,41 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- PHASE 4: ACTIVE LAN LOGIC ---
 
-    // 1. Navigation
+    // Event Reminders — toast when a registered event is coming up within 15 minutes
+    const remindedEventIds = new Set();
+
+    function checkEventReminders(eventsData, currentUser) {
+        if (!eventsData || !currentUser) return;
+        const now = new Date();
+        const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+        Object.entries(eventsData).forEach(([id, evt]) => {
+            if (!evt.time || remindedEventIds.has(id)) return;
+            // Only remind if the user has accepted this event
+            if (!evt.rsvps || evt.rsvps[currentUser.uid] !== 'accepted') return;
+            // Parse time "HH:MM"
+            const [h, m] = evt.time.split(':').map(Number);
+            if (isNaN(h) || isNaN(m)) return;
+            const eventMinutes = h * 60 + m;
+            const diff = eventMinutes - currentMinutes;
+            // Remind if event is between 1 and 15 minutes away
+            if (diff > 0 && diff <= 15) {
+                remindedEventIds.add(id);
+                showToast(`⏰ Rappel : "${evt.title}" commence à ${evt.time} !`, 'success');
+            }
+        });
+    }
+
+    // 4. Navigation — re-render data on tab switch
     document.querySelectorAll('.lan-nav-list .nav-item').forEach(item => {
         item.addEventListener('click', (e) => {
+            const targetId = e.currentTarget.dataset.target;
+            if (targetId === 'lan-kocktails' && window._latestCocktailsData) {
+                renderCocktails(window._latestCocktailsData, auth.currentUser);
+            }
+            if (targetId === 'lan-events' && window._latestEventsData) {
+                renderEvents(window._latestEventsData, auth.currentUser);
+            }
             // Deactivate all
             document.querySelectorAll('.lan-nav-list .nav-item').forEach(nav => nav.classList.remove('active'));
             document.querySelectorAll('.lan-subview').forEach(view => {
@@ -1098,9 +1142,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 view.classList.remove('active');
             });
 
-            // Activate target
-            e.target.classList.add('active');
-            const targetId = e.target.getAttribute('data-target');
+            // Activate target — reuse targetId already declared above
+            e.currentTarget.classList.add('active');
             const targetView = document.getElementById(targetId);
             if (targetView) {
                 targetView.style.display = 'block';
@@ -1257,17 +1300,20 @@ document.addEventListener('DOMContentLoaded', () => {
             newEventRef.set(newEvent)
                 .then(() => {
                     showToast("Événement créé avec succès !", "success");
-                    // Send notifications to everyone if global
-                    if (isGlobal) {
-                        db.ref('/status').once('value').then(snap => {
-                            const users = snap.val() || {};
-                            Object.keys(users).forEach(uid => {
-                                if (uid !== user.uid) {
-                                    sendNotification(uid, `🎮 ${user.displayName} a créé un événement global : "${title}" ${time ? 'à ' + time : ''}`);
-                                }
-                            });
+                    // Send notifications to everyone for all events (invasive if global)
+                    db.ref('/status').once('value').then(snap => {
+                        const users = snap.val() || {};
+                        const notifType = isGlobal ? 'alert' : 'info';
+                        const emoji = isGlobal ? '🌍' : '🎮';
+                        Object.keys(users).forEach(uid => {
+                            if (uid !== user.uid) {
+                                sendNotification(uid,
+                                    `${emoji} ${user.displayName} a créé un événement : "${title}" ${time ? 'à ' + time : ''}`,
+                                    notifType
+                                );
+                            }
                         });
-                    }
+                    });
                     const createModal = document.getElementById('create-event-modal');
                     if (createModal) createModal.style.display = 'none';
                     createEventForm.reset();
@@ -1296,7 +1342,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const recipe = document.getElementById('kocktail-recipe').value.trim();
         if (!name) { showToast('Donnez un nom à votre création !', 'error'); return; }
 
-        db.ref('lan/cocktails/oneShot').push({
+        db.ref('lan/cocktails/oneshot').push({
             name: name,
             recipe: recipe,
             creatorId: user.uid,
@@ -1415,23 +1461,29 @@ document.addEventListener('DOMContentLoaded', () => {
             const isCreator = evt.creatorId === currentUser.uid;
 
             if (hasAccepted) {
-                const acceptedBtn = document.createElement('button');
-                acceptedBtn.className = 'gold-btn';
-                acceptedBtn.style.padding = '8px 15px';
-                acceptedBtn.style.fontSize = '0.9em';
-                acceptedBtn.textContent = '✓ Accepté';
-                acceptedBtn.dataset.eventId = evt.id;
+                const acceptedBadge = document.createElement('span');
+                acceptedBadge.style.cssText = 'padding: 6px 14px; font-size: 0.9em; border-radius: 15px; display: inline-flex; align-items: center; gap: 5px;';
 
-                // Allow un-accepting if not creator
-                if (!isCreator) {
-                    acceptedBtn.addEventListener('click', () => {
+                if (isCreator) {
+                    // Static non-interactive badge for creator
+                    acceptedBadge.style.background = 'rgba(212,175,55,0.12)';
+                    acceptedBadge.style.color = 'var(--accent-color)';
+                    acceptedBadge.style.border = '1px solid rgba(212,175,55,0.3)';
+                    acceptedBadge.textContent = '✓ Organisateur';
+                    acceptedBadge.title = "Vous êtes le créateur.";
+                } else {
+                    // Muted green badge — clickable to un-register
+                    acceptedBadge.style.background = 'rgba(76,175,80,0.12)';
+                    acceptedBadge.style.color = '#81c784';
+                    acceptedBadge.style.border = '1px solid rgba(76,175,80,0.3)';
+                    acceptedBadge.style.cursor = 'pointer';
+                    acceptedBadge.textContent = '✓ Inscrit';
+                    acceptedBadge.title = "Cliquer pour annuler votre participation";
+                    acceptedBadge.addEventListener('click', () => {
                         db.ref(`lan/events/${evt.id}/rsvps/${currentUser.uid}`).remove();
                     });
-                } else {
-                    acceptedBtn.style.cursor = 'default';
-                    acceptedBtn.title = "Vous êtes le créateur.";
                 }
-                actions.appendChild(acceptedBtn);
+                actions.appendChild(acceptedBadge);
             } else {
                 const rsvpBtn = document.createElement('button');
                 rsvpBtn.className = 'gold-link-btn';
@@ -1468,7 +1520,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (evt.rsvps) {
                         const rsvpUids = Object.entries(evt.rsvps).filter(([uid, status]) => status === 'accepted').map(([uid]) => uid);
                         rsvpUids.forEach(uid => {
-                            sendNotification(uid, `🥃 SHOT ! L'organisateur de "${evt.title}" vient de lancer un shot ! SANTÉ !`);
+                            sendNotification(uid, `🥃 SHOT ! L'organisateur de "${evt.title}" vient de lancer un shot ! SANTÉ !`, 'alert');
                         });
                         showToast(`Shot lancé à ${rsvpUids.length} participants !`, "success");
                     } else {
@@ -1509,14 +1561,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const queuePanel = document.getElementById('kocktail-queue-panel');
         const ordersList = document.getElementById('kocktail-orders-list');
 
-        if (!masterList || !oneShotList) return;
+        if (!masterList) return;
 
         masterList.innerHTML = '';
-        oneShotList.innerHTML = '';
+        if (oneShotList) oneShotList.innerHTML = '';
         if (ordersList) ordersList.innerHTML = '';
 
         const master = cocktailsData.masterList || {};
-        const oneShots = cocktailsData.oneShot || {};
+        const oneShots = cocktailsData.oneshot || {};
         const orders = cocktailsData.orders || {};
 
         // Master List render
@@ -1565,7 +1617,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Mixologist Queue
         // Note: For now, if the user is Admin they see the queue. 
         // Realistically, you check if root.child('lan/roles/' + auth.uid) === 'mixologist'
-        if (window.currentUserIsAdmin && queuePanel) {
+        if ((window.currentUserIsAdmin || window.currentUserIsMixologist) && queuePanel) {
             queuePanel.style.display = 'block';
             const ordersArray = Object.entries(orders).map(([id, data]) => ({ id, ...data }));
             // Sort oldest first
@@ -1591,7 +1643,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     doneBtn.addEventListener('click', () => {
                         db.ref(`lan/cocktails/orders/${order.id}`).remove();
                         // Send Notif back to user
-                        sendNotification(order.userId, `Votre cocktail "${order.cocktailName}" est prêt au bar ! 🍹`);
+                        sendNotification(order.userId, `Votre cocktail "${order.cocktailName}" est prêt au bar ! 🍹`, 'alert');
                     });
                     item.appendChild(doneBtn);
                     ordersList.appendChild(item);
@@ -1615,16 +1667,19 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function sendNotification(targetUid, message) {
+    function sendNotification(targetUid, message, type = 'info') {
         const notifRef = db.ref(`lan/notifications/${targetUid}`).push();
-        notifRef.set({
+        return notifRef.set({
             message: message,
             timestamp: firebase.database.ServerValue.TIMESTAMP,
-            read: false
+            read: false,
+            type: type
         });
     }
 
     // --- RENDER NOTIFICATIONS ---
+    const seenNotifIds = new Set();
+
     function renderNotifications(notifsData, currentUser) {
         const notifList = document.getElementById('notifications-list');
         const badge = document.getElementById('notif-badge');
@@ -1632,8 +1687,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!notifList || !badge || !btnNotif) return;
 
-        // Show the bell icon since LAN is active and we have the listener running
-        if (globalSettings.isLanActive) btnNotif.style.display = 'inline-flex';
+        // Bell is always visible once authenticated
+        btnNotif.style.display = 'inline-flex';
 
         const notifsArray = Object.entries(notifsData).map(([id, data]) => ({ id, ...data }));
         notifsArray.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
@@ -1655,8 +1710,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         notifsArray.forEach(notif => {
+            // Show invasive toast for new alert-type notifications
+            if (!notif.read && notif.type === 'alert' && !seenNotifIds.has(notif.id)) {
+                showToast(notif.message, 'success');
+            }
+            seenNotifIds.add(notif.id);
+
             const item = document.createElement('div');
             item.className = `notif-item ${!notif.read ? 'unread' : ''}`;
+            // Visually distinguish alert-type notifications
+            if (notif.type === 'alert') {
+                item.style.borderLeftColor = 'var(--danger-color)';
+            }
 
             const text = document.createElement('div');
             text.innerHTML = notif.message;
