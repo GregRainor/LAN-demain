@@ -1762,6 +1762,165 @@ body.sidebar-visible {
 
 
 /* =====================================================================
+   BLOCS DE SECTION
+   Remplace le motif « carte interne » répété en inline dans index.html.
+   ===================================================================== */
+
+.panel-section {
+    background: rgba(255, 255, 255, 0.02);
+    padding: var(--space-5);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: var(--radius-sharp);
+}
+
+.panel-section--danger {
+    background: rgba(158, 54, 54, 0.05);
+    border-color: rgba(158, 54, 54, 0.2);
+}
+
+/* Titre interne : aligné à gauche, contrairement aux h2/h3 centrés du thème */
+.section-title {
+    margin-top: 0;
+    margin-bottom: var(--space-5);
+    padding-bottom: var(--space-4);
+    font-size: var(--text-lg);
+    text-align: left;
+    letter-spacing: 0.5px;
+    color: var(--primary-text);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.section-title--accent {
+    color: var(--accent-color);
+}
+
+.section-title--danger {
+    color: var(--danger-color);
+    border-bottom-color: rgba(158, 54, 54, 0.2);
+}
+
+/* Empilement vertical régulier — remplace les flex-column + gap inline */
+.stack {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.stack--sm {
+    gap: var(--space-3);
+}
+
+.stack--start {
+    align-items: flex-start;
+}
+
+.field-label {
+    display: block;
+    margin-bottom: var(--space-3);
+    font-family: var(--font-display);
+    font-size: var(--text-lg);
+    color: var(--accent-color);
+}
+
+/* Bouton pleine largeur — mise en forme seulement.
+   La couleur reste portée par .danger-btn / .btn-block--gold pour éviter
+   qu'un bouton rouge ne devienne or selon l'ordre des règles. */
+.btn-block {
+    width: 100%;
+    padding: var(--space-4);
+    border: none;
+    border-radius: var(--radius-sharp);
+    font-family: var(--font-body);
+    font-size: var(--text-lg);
+    font-weight: 700;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: filter var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.btn-block:not(.danger-btn):not(.btn-block--alt) {
+    background: var(--accent-color);
+    color: var(--dark-bg);
+}
+
+.btn-block--alt {
+    background: #bb86fc;
+    color: var(--dark-bg);
+}
+
+.btn-block:hover {
+    filter: brightness(1.1);
+    transform: translateY(-2px);
+}
+
+.btn-block:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+/* Espacement entre boutons empilés dans un même bloc */
+.btn-block+.btn-block {
+    margin-top: var(--space-4);
+}
+
+/* Ligne champ + bouton (message broadcast) */
+.field-row {
+    display: flex;
+    gap: var(--space-4);
+}
+
+.btn-inline {
+    padding: var(--space-3) var(--space-5);
+    white-space: nowrap;
+}
+
+.panel-section__text {
+    margin-bottom: var(--space-5);
+    font-size: var(--text-sm);
+}
+
+.panel-section__hint {
+    margin-bottom: var(--space-4);
+    font-size: var(--text-xs);
+    color: var(--secondary-text);
+}
+
+/* Grille de la console d'administration */
+.admin-controls-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-6);
+}
+
+.admin-controls-grid>.danger-zone {
+    grid-column: 1 / -1;
+}
+
+#admin-closed-results-display {
+    margin-top: var(--space-7);
+    text-align: left;
+}
+
+/* Les blocs qui suivent la grille gardent le même rythme vertical */
+.admin-dashboard-card>.panel-section {
+    margin-top: var(--space-5);
+}
+
+@media (max-width: 768px) {
+    .admin-controls-grid {
+        grid-template-columns: 1fr;
+        gap: var(--space-4);
+    }
+
+    .field-row {
+        flex-direction: column;
+    }
+}
+
+
+/* =====================================================================
    CLASSEMENT DES JEUX
    Remplace les styles inline qui étaient générés depuis newScript.js.
    ===================================================================== */

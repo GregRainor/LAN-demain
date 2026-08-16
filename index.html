@@ -193,90 +193,65 @@
                     style="font-size: 2.2em; border-bottom: none; margin-bottom: 40px; text-shadow: 0 0 15px var(--accent-glow);">
                     Console d'Administration</h2>
 
-                <div class="admin-controls-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
-                    <div class="admin-control-item"
-                        style="background: rgba(255,255,255,0.02); padding: 25px; border: 1px solid rgba(255,255,255,0.05); border-radius: 2px;">
-                        <h3
-                            style="margin-top: 0; font-size: 1.2em; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; margin-bottom: 20px; color: var(--primary-text);">
-                            Statut de la LAN</h3>
-                        <p style="margin-bottom: 20px; font-size: 0.9em;">Les votes sont actuellement clos. Appuyez
+                <div class="admin-controls-grid">
+                    <div class="admin-control-item panel-section">
+                        <h3 class="section-title">Statut de la LAN</h3>
+                        <p class="panel-section__text">Les votes sont actuellement clos. Appuyez
                             ci-dessous pour relancer les votes.</p>
-                        <button id="toggle-voting-btn-dashboard" class="gold-btn"
-                            style="width: 100%; background: var(--accent-color); color: var(--dark-bg); border: none; padding: 15px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: bold; font-size: 1.1em; letter-spacing: 1px; transition: all 0.3s; border-radius: 2px;">Ouvrir
+                        <button id="toggle-voting-btn-dashboard" class="btn-block">Ouvrir
                             le Vote</button>
 
                         <!-- Admin: Open LAN Active (only visible when voting is closed and LAN not yet active) -->
-                        <button id="btn-open-lan-dashboard" class="gold-btn"
-                            style="display:none; width: 100%; background: #bb86fc; color: var(--dark-bg); border: none; padding: 15px; cursor: pointer; font-family: 'Outfit', sans-serif; font-weight: bold; font-size: 1.1em; letter-spacing: 1px; transition: all 0.3s; border-radius: 2px; margin-top: 15px;">🔥
+                        <button id="btn-open-lan-dashboard" class="btn-block btn-block--alt" style="display:none;">🔥
                             Ouvrir la LAN Active</button>
                     </div>
 
-                    <div class="admin-control-item"
-                        style="background: rgba(255,255,255,0.02); padding: 25px; border: 1px solid rgba(255,255,255,0.05); border-radius: 2px;">
-                        <h3
-                            style="margin-top: 0; font-size: 1.2em; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; margin-bottom: 20px; color: var(--primary-text);">
-                            Configuration</h3>
-                        <label
-                            style="display: block; margin-bottom: 10px; font-family: 'Playfair Display', serif; font-size: 1.1em; color: var(--accent-color);">Top
+                    <div class="admin-control-item panel-section">
+                        <h3 class="section-title">Configuration</h3>
+                        <label class="field-label" for="dashboard-top-games-count">Top
                             Jeux à Télécharger :</label>
                         <input type="number" id="dashboard-top-games-count" class="luxury-input" value="10" min="1"
                             max="50" title="Nombre de jeux à afficher à la clôture">
 
-                        <label
-                            style="display: block; margin-bottom: 10px; margin-top: 20px; font-family: 'Playfair Display', serif; font-size: 1.1em; color: var(--accent-color);">Nom
+                        <label class="field-label" for="dashboard-lan-name">Nom
                             de la LAN :</label>
                         <input type="text" id="dashboard-lan-name" class="luxury-input" value="LAN Demain"
                             placeholder="Nom de l'événement">
 
-                        <button id="save-config-btn" class="gold-btn"
-                            style="width:100%; margin-top: 20px; padding: 15px;">Sauvegarder Configuration</button>
+                        <button id="save-config-btn" class="btn-block">Sauvegarder Configuration</button>
                     </div>
 
-                    <div class="admin-control-item danger-zone"
-                        style="grid-column: 1 / -1; background: rgba(158,54,54,0.05); padding: 25px; border: 1px solid rgba(158,54,54,0.2); border-radius: 2px; margin-top: 20px;">
-                        <h3
-                            style="margin-top: 0; font-size: 1.2em; text-align: left; border-bottom: 1px solid rgba(158,54,54,0.2); padding-bottom: 15px; margin-bottom: 20px; color: var(--danger-color);">
-                            Zone Dangereuse</h3>
-                        <p style="margin-bottom: 20px; font-size: 0.9em;">Attention: réinitialiser les votes supprime de
+                    <div class="admin-control-item danger-zone panel-section panel-section--danger">
+                        <h3 class="section-title section-title--danger">Zone Dangereuse</h3>
+                        <p class="panel-section__text">Attention: réinitialiser les votes supprime de
                             manière permanente toutes les données de vote actuelles de la base de données.</p>
-                        <button id="reset-all-votes-btn-dashboard" class="danger-btn"
-                            style="width: 100%; padding: 15px;">Réinitialiser TOUS les votes</button>
+                        <button id="reset-all-votes-btn-dashboard" class="danger-btn btn-block">Réinitialiser TOUS les
+                            votes</button>
                     </div>
                 </div>
 
-                <div id="admin-closed-results-display" class="admin-control-item results-container"
-                    style="background: rgba(255,255,255,0.02); padding: 25px; border: 1px solid rgba(255,255,255,0.05); border-radius: 2px; margin-top: 40px; text-align: left;">
-                    <h3
-                        style="margin-top: 0; font-size: 1.2em; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; margin-bottom: 20px; color: var(--primary-text);">
-                        Top Jeux Actuels</h3>
-                    <div id="admin-closed-download-list"
-                        style="display: flex; flex-direction: column; gap: 15px; align-items: flex-start;">
+                <div id="admin-closed-results-display" class="admin-control-item results-container panel-section">
+                    <h3 class="section-title">Top Jeux Actuels</h3>
+                    <div id="admin-closed-download-list" class="stack stack--start">
                     </div>
                 </div>
 
                 <!-- Admin Broadcast Notification -->
-                <div
-                    style="background: rgba(255,255,255,0.02); padding: 25px; border: 1px solid rgba(255,255,255,0.05); border-radius: 2px; margin-top: 20px;">
-                    <h3
-                        style="margin-top: 0; font-size: 1.2em; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; margin-bottom: 20px; color: var(--accent-color);">
-                        📢 Message à tous</h3>
-                    <div style="display: flex; gap: 15px;">
+                <div class="panel-section">
+                    <h3 class="section-title section-title--accent">📢 Message à tous</h3>
+                    <div class="field-row">
                         <input type="text" id="broadcast-message" class="luxury-input"
                             placeholder="Ex: Le tournoi commence dans 5 minutes !" style="flex: 1;">
-                        <button id="btn-send-broadcast" class="gold-btn"
-                            style="padding: 10px 20px; white-space: nowrap;">Envoyer 🔔</button>
+                        <button id="btn-send-broadcast" class="gold-btn btn-inline">Envoyer 🔔</button>
                     </div>
                 </div>
 
                 <!-- Role Management -->
-                <div
-                    style="background: rgba(255,255,255,0.02); padding: 25px; border: 1px solid rgba(255,255,255,0.05); border-radius: 2px; margin-top: 20px;">
-                    <h3
-                        style="margin-top: 0; font-size: 1.2em; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; margin-bottom: 10px; color: var(--accent-color);">
-                        👥 Gestion des Rôles</h3>
-                    <p style="font-size: 0.85em; color: var(--secondary-text); margin-bottom: 15px;">Sélectionnez un
+                <div class="panel-section">
+                    <h3 class="section-title section-title--accent">👥 Gestion des Rôles</h3>
+                    <p class="panel-section__hint">Sélectionnez un
                         joueur pour lui attribuer un rôle.</p>
-                    <div style="display: flex; gap: 10px; flex-direction: column;">
+                    <div class="stack stack--sm">
                         <select id="role-user-select" class="luxury-input" style="width: 100%;">
                             <option value="">Sélectionner un joueur...</option>
                         </select>
