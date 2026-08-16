@@ -180,6 +180,17 @@ document.addEventListener('DOMContentLoaded', () => {
         auth.signOut();
     });
 
+    // Vérifie qu'une URL d'image se charge vraiment : le CDN Steam renvoie parfois
+    // une URL valide en apparence mais introuvable (404), d'où la vignette cassée.
+    function imageLoads(url) {
+        return new Promise(resolve => {
+            const probe = new Image();
+            probe.onload = () => resolve(true);
+            probe.onerror = () => resolve(false);
+            probe.src = url;
+        });
+    }
+
     async function getGameImage(gameName) {
         const normalizedName = gameName.toLowerCase().trim();
         if (imageCache.has(normalizedName)) {
@@ -190,11 +201,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch(`/api/get-game-image?name=${encodeURIComponent(normalizedName)}`);
             if (response.ok) {
                 const data = await response.json();
-                imageCache.set(normalizedName, data.imageUrl);
-                return data.imageUrl;
-            } else {
-                imageCache.set(normalizedName, DEFAULT_GAME_ICON);
-                return DEFAULT_GAME_ICON;
+                if (data.imageUrl && data.imageUrl !== DEFAULT_GAME_ICON && await imageLoads(data.imageUrl)) {
+                    imageCache.set(normalizedName, data.imageUrl);
+                    return data.imageUrl;
+                }
             }
         } catch (error) {
             console.error("API Error:", error);
