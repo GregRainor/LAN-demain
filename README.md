@@ -42,21 +42,7 @@ Voici les étapes pour déployer votre propre instance de "LAN Demain".
 1.  Créez un nouveau projet sur la [console Firebase](https://console.firebase.google.com/).
 2.  Ajoutez une application web à votre projet (allez dans les paramètres du projet ⚙️ > "Mes applications"). Copiez l'objet de configuration `firebaseConfig` qui vous est fourni.
 3.  Dans le menu **Authentication**, allez dans l'onglet "Sign-in method" et activez le fournisseur **Google**.
-4.  Dans le menu **Realtime Database**, créez une base de données. Une fois créée, allez dans l'onglet **"Rules"** et collez les règles suivantes pour sécuriser l'accès :
-    ```json
-    {
-      "rules": {
-        "lan": {
-          "votes": {
-            ".read": "auth != null",
-            "$user_id": {
-              ".write": "auth != null && auth.uid == $user_id"
-            }
-          }
-        }
-      }
-    }
-    ```
+4.  Dans le menu **Realtime Database**, créez une base de données. Une fois créée, allez dans l'onglet **"Rules"** et collez le contenu du fichier [`database.rules.json`](./database.rules.json) (voir [`SECURITY.md`](./SECURITY.md) pour le détail de ce que chaque règle protège).
 5.  Publiez les règles.
 
 ### Étape 3 : Configuration de Google Cloud & reCAPTCHA

@@ -3,6 +3,12 @@ const normalizeGameName = (name) => {
     return name.trim().toLowerCase().replace(/\s+/g, ' ');
 };
 
+// Échappe le HTML pour éviter les injections (XSS) dans les contenus saisis par les joueurs
+const escapeHtml = (str) => {
+    if (typeof str !== 'string') return '';
+    return str.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+};
+
 function levenshtein(s1, s2) { s1 = s1.toLowerCase(); s2 = s2.toLowerCase(); const costs = []; for (let i = 0; i <= s1.length; i++) { let lastValue = i; for (let j = 0; j <= s2.length; j++) { if (i === 0) costs[j] = j; else if (j > 0) { let newValue = costs[j - 1]; if (s1.charAt(i - 1) !== s2.charAt(j - 1)) newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1; costs[j - 1] = lastValue; lastValue = newValue; } } if (i > 0) costs[s2.length] = lastValue; } return costs[s2.length]; }
 
 function checkTypos(newGames, currentVotes) {
@@ -27,6 +33,8 @@ function checkTypos(newGames, currentVotes) {
 
 function calculateScores(votes) {
     const gameScores = {};
+    const displayNames = {}; // garde la "vraie" casse du nom (ex: "PUBG" et pas "Pubg")
+    const upperCount = (s) => (s.match(/[A-Z]/g) || []).length;
     const pointsMapping = { p1: 5, p2: 3, p3: 2, p_other: 1 };
     for (const userId in votes) {
         const voteData = votes[userId];
@@ -36,19 +44,25 @@ function calculateScores(votes) {
                     const normalizedGame = normalizeGameName(game);
                     if (normalizedGame) {
                         gameScores[normalizedGame] = (gameScores[normalizedGame] || 0) + pointsMapping[priority];
+                        const candidate = String(game).trim().replace(/\s+/g, ' ');
+                        const current = displayNames[normalizedGame];
+                        if (!current || upperCount(candidate) > upperCount(current)) {
+                            displayNames[normalizedGame] = candidate;
+                        }
                     }
                 });
             }
         }
     }
 
-    const finalScores = {};
-    Object.keys(gameScores).forEach(name => {
-        const capitalizedName = name.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-        finalScores[capitalizedName] = gameScores[name];
-    });
-
-    return Object.entries(finalScores).map(([name, score]) => ({ name, score })).sort((a, b) => b.score - a.score);
+    return Object.keys(gameScores).map(name => {
+        // Si aucune casse d'origine n'est connue (anciens votes en minuscules), on capitalise chaque mot
+        const stored = displayNames[name];
+        const displayName = (stored && /[A-Z]/.test(stored))
+            ? stored
+            : name.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+        return { name: displayName, score: gameScores[name] };
+    }).sort((a, b) => b.score - a.score);
 }
 
 function animateCounter(element, target) {
@@ -261,7 +275,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 gamesArray.forEach(g => {
                     const row = document.createElement('div');
                     row.style.cssText = "display: flex; align-items: center; gap: 10px; margin-bottom: 5px; font-size: 0.9em;";
-                    row.innerHTML = `<span style="color: var(--primary-text);">${g}</span>`;
+                    row.innerHTML = `<span style="color: var(--primary-text);">${escapeHtml(g)}</span>`;
                     sec.appendChild(row);
                 });
                 listEl.appendChild(sec);
@@ -299,15 +313,8 @@ document.addEventListener('DOMContentLoaded', () => {
             window.currentUserIsMixologist = (myRole === 'mixologist');
 
             // Update UI based on roles
-            const adminPanel = document.getElementById('admin-dashboard');
             const lanAdminNav = document.getElementById('lan-nav-admin');
-            if (window.currentUserIsAdmin) {
-                const adminPanelEl = document.getElementById('admin-panel');
-                if (adminPanelEl) adminPanelEl.style.display = 'block';
-                if (lanAdminNav) lanAdminNav.style.display = 'block';
-            } else {
-                if (lanAdminNav) lanAdminNav.style.display = 'none';
-            }
+            if (lanAdminNav) lanAdminNav.style.display = window.currentUserIsAdmin ? 'block' : 'none';
             updateVotingUIState();
         });
 
@@ -368,10 +375,12 @@ document.addEventListener('DOMContentLoaded', () => {
             globalSettings = newSettings;
             updateVotingUIState();
 
-            if (isAdmin) {
-                const toggleBtns = document.querySelectorAll('#toggle-voting-btn, #toggle-voting-btn-open, #toggle-voting-btn-dashboard');
+            // On utilise window.currentUserIsAdmin (mis à jour par les rôles en DB) et non
+            // une variable figée à la connexion, sinon un admin promu en cours de LAN a une UI incohérente
+            if (window.currentUserIsAdmin) {
+                const toggleBtns = document.querySelectorAll('#toggle-voting-btn-open, #toggle-voting-btn-dashboard');
                 toggleBtns.forEach(btn => btn && (btn.textContent = globalSettings.isVotingOpen ? "Clôturer le Vote" : "Ouvrir le Vote"));
-                const countInputs = document.querySelectorAll('#top-games-count, #dashboard-top-games-count');
+                const countInputs = document.querySelectorAll('#dashboard-top-games-count');
                 countInputs.forEach(input => input && (input.value = globalSettings.topGamesCount || 10));
 
                 // Show/hide the Ouvrir La LAN button
@@ -516,17 +525,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (frModal) frModal.style.display = 'none';
     });
 
-    document.getElementById('reset-all-votes-btn')?.addEventListener('click', () => {
-        const confirmation = prompt("Cette action est irréversible et supprimera TOUS les votes. Pour confirmer, tapez 'RESET'.");
-        if (confirmation === 'RESET') {
-            db.ref('lan/votes').remove()
-                .then(() => showToast("Tous les votes ont été réinitialisés.", "success"))
-                .catch((err) => showToast("Erreur lors de la réinitialisation: " + err.message, "error"));
-        } else if (confirmation !== null) {
-            showToast("Action annulée.");
-        }
-    });
-
     document.getElementById('reset-all-votes-btn-dashboard')?.addEventListener('click', () => {
         const confirmation = prompt("Cette action est irréversible et supprimera TOUS les votes. Pour confirmer, tapez 'RESET'.");
         if (confirmation === 'RESET') {
@@ -571,9 +569,11 @@ document.addEventListener('DOMContentLoaded', () => {
             document.querySelectorAll('.priority-group').forEach(group => {
                 const priority = group.dataset.priority;
                 group.querySelectorAll('.game-input-list input').forEach(input => {
-                    const game = normalizeGameName(input.value);
+                    // On stocke le nom avec sa casse d'origine ; la normalisation ne sert qu'aux comparaisons
+                    const rawGame = input.value.trim().replace(/\s+/g, ' ');
+                    const game = normalizeGameName(rawGame);
                     if (game) {
-                        playerVotes[priority].push(game);
+                        playerVotes[priority].push(rawGame);
                         allNewGames.add(game);
                     }
                 });
@@ -644,7 +644,7 @@ document.addEventListener('DOMContentLoaded', () => {
         listElement.innerHTML = '';
         suggestions.forEach(sugg => {
             const li = document.createElement('li');
-            li.innerHTML = `Remplacer votre saisie <em>${sugg.original}</em> par le jeu déjà existant <strong>${sugg.suggestion}</strong> ?`;
+            li.innerHTML = `Remplacer votre saisie <em>${escapeHtml(sugg.original)}</em> par le jeu déjà existant <strong>${escapeHtml(sugg.suggestion)}</strong> ?`;
             listElement.appendChild(li);
         });
 
@@ -873,6 +873,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Archive votes snapshot to lan/history when admin closes voting
     function archiveVotesOnClose() {
         const sortedGames = calculateScores(globalVotes);
+        if (sortedGames.length === 0) return; // rien à archiver
         const count = globalSettings.topGamesCount || 10;
         const topGames = sortedGames.slice(0, count);
         const lanName = globalSettings.lanName || 'LAN Demain';
@@ -883,7 +884,21 @@ document.addEventListener('DOMContentLoaded', () => {
             topGames: topGames,
             votes: globalVotes  // Archive the full vote snapshot for player-votes feature
         };
-        db.ref('lan/history').push(historyEntry)
+        // Anti-doublon : si la dernière archive concerne la même LAN et date de moins de 6h
+        // (ex: vote fermé/rouvert/refermé), on la remplace au lieu d'en empiler une nouvelle
+        const SIX_HOURS = 6 * 60 * 60 * 1000;
+        db.ref('lan/history').orderByChild('timestamp').limitToLast(1).once('value')
+            .then(snap => {
+                const data = snap.val() || {};
+                const lastEntry = Object.entries(data)[0];
+                const isRecentSameLan = lastEntry
+                    && lastEntry[1].name === lanName
+                    && (Date.now() - (lastEntry[1].timestamp || 0)) < SIX_HOURS;
+                const targetRef = isRecentSameLan
+                    ? db.ref('lan/history/' + lastEntry[0])
+                    : db.ref('lan/history').push();
+                return targetRef.set(historyEntry);
+            })
             .then(() => showToast('Résultats archivés dans l\'historique !', 'success'))
             .catch(err => console.error('Archive error:', err));
     }
@@ -914,7 +929,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const info = document.createElement('div');
                 info.style.flex = '1';
-                info.innerHTML = `<div style="font-weight:500; color:var(--primary-text);">${game.name}</div><div style="font-size:0.85em; color:var(--secondary-text);">${game.score} points</div>`;
+                info.innerHTML = `<div style="font-weight:500; color:var(--primary-text);">${escapeHtml(game.name)}</div><div style="font-size:0.85em; color:var(--secondary-text);">${game.score} points</div>`;
 
                 item.appendChild(rank);
                 item.appendChild(img);
@@ -995,7 +1010,7 @@ document.addEventListener('DOMContentLoaded', () => {
             row.innerHTML = `
                 <td style="padding: 12px; color: var(--primary-text); display: flex; align-items: center; gap: 10px;">
                     <span style="color:var(--accent-color); font-weight:bold; min-width:25px;">#${index + 1}</span>
-                    ${game.name}
+                    ${escapeHtml(game.name)}
                 </td>
                 <td style="padding: 12px; text-align:right; color: var(--secondary-text); font-weight: bold;">${game.score}</td>
             `;
@@ -1206,7 +1221,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const header = document.createElement('div');
                 header.style.cssText = "display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;";
-                header.innerHTML = `<h3 style="margin:0; color: var(--accent-color);">${entry.name || 'LAN'}</h3><span style="color:var(--secondary-text); font-size:0.9em;">${entry.date || ''}</span>`;
+                header.innerHTML = `<h3 style="margin:0; color: var(--accent-color);">${escapeHtml(entry.name || 'LAN')}</h3><span style="color:var(--secondary-text); font-size:0.9em;">${escapeHtml(entry.date || '')}</span>`;
                 card.appendChild(header);
 
                 if (entry.topGames && entry.topGames.length > 0) {
@@ -1215,7 +1230,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     entry.topGames.slice(0, 5).forEach((game, i) => {
                         const row = document.createElement('div');
                         row.style.cssText = "display: flex; align-items: center; gap: 10px; font-size: 0.9em;";
-                        row.innerHTML = `<span style="color:var(--accent-color); min-width:25px; font-weight:bold;">#${i + 1}</span><span style="color:var(--primary-text);">${game.name}</span><span style="color:var(--secondary-text); margin-left:auto;">${game.score} pts</span>`;
+                        row.innerHTML = `<span style="color:var(--accent-color); min-width:25px; font-weight:bold;">#${i + 1}</span><span style="color:var(--primary-text);">${escapeHtml(game.name)}</span><span style="color:var(--secondary-text); margin-left:auto;">${game.score} pts</span>`;
                         list.appendChild(row);
                     });
                     card.appendChild(list);
@@ -1243,21 +1258,30 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- ADMIN BROADCAST NOTIFICATION ---
-    document.getElementById('btn-send-broadcast')?.addEventListener('click', () => {
-        const msgInput = document.getElementById('broadcast-message');
+    // Une seule fonction pour les deux panneaux admin (console + onglet Admin de la LAN active).
+    // Type 'alert' pour que le toast s'affiche immédiatement chez les joueurs, comme promis par l'UI.
+    const handleBroadcast = (inputId) => {
+        const msgInput = document.getElementById(inputId);
         if (!msgInput) return;
         const message = msgInput.value.trim();
         if (!message) { showToast('Saisissez un message d\'abord.', 'error'); return; }
 
-        db.ref('/status').once('value').then(snapshot => {
-            const users = snapshot.val() || {};
-            const sends = Object.keys(users).map(uid => sendNotification(uid, `🍊 Admin: ${message}`));
-            Promise.all(sends).then(() => {
-                showToast(`Message envoyé à ${sends.length} joueur(s) !`, 'success');
-                msgInput.value = '';
+        // On touche les joueurs connectés ET tous les votants (au cas où quelqu'un est déconnecté)
+        Promise.all([db.ref('/status').once('value'), db.ref('lan/votes').once('value')])
+            .then(([statusSnap, votesSnap]) => {
+                const uids = new Set([
+                    ...Object.keys(statusSnap.val() || {}),
+                    ...Object.keys(votesSnap.val() || {})
+                ]);
+                const sends = [...uids].map(uid => sendNotification(uid, `🍊 Admin: ${message}`, 'alert'));
+                Promise.all(sends).then(() => {
+                    showToast(`Message envoyé à ${sends.length} joueur(s) !`, 'success');
+                    msgInput.value = '';
+                });
             });
-        });
-    });
+    };
+    document.getElementById('btn-send-broadcast')?.addEventListener('click', () => handleBroadcast('broadcast-message'));
+    document.getElementById('btn-send-broadcast-lan')?.addEventListener('click', () => handleBroadcast('broadcast-message-lan'));
 
     document.getElementById('btn-assign-role')?.addEventListener('click', () => {
         const uid = document.getElementById('role-user-select').value;
@@ -1443,18 +1467,18 @@ document.addEventListener('DOMContentLoaded', () => {
             const titleContainer = document.createElement('div');
             titleContainer.className = 'event-header';
             const title = document.createElement('h3');
-            title.innerHTML = `${evt.isGlobal ? '🌍 ' : ''}${evt.title} <span style="font-size: 0.6em; color: var(--secondary-text); font-family: 'Outfit'; font-weight: normal; margin-left: 10px;">par ${evt.creatorName || 'Inconnu'}</span>`;
+            title.innerHTML = `${evt.isGlobal ? '🌍 ' : ''}${escapeHtml(evt.title)} <span style="font-size: 0.6em; color: var(--secondary-text); font-family: 'Outfit'; font-weight: normal; margin-left: 10px;">par ${escapeHtml(evt.creatorName || 'Inconnu')}</span>`;
             titleContainer.appendChild(title);
             card.appendChild(titleContainer);
 
             const meta = document.createElement('div');
             meta.className = 'event-meta';
-            if (evt.game) meta.innerHTML += `<span>🎮 ${evt.game}</span>`;
-            if (evt.time) meta.innerHTML += `<span>🕒 ${evt.time}</span>`;
+            if (evt.game) meta.innerHTML += `<span>🎮 ${escapeHtml(evt.game)}</span>`;
+            if (evt.time) meta.innerHTML += `<span>🕒 ${escapeHtml(evt.time)}</span>`;
 
             const rsvpCount = evt.rsvps ? Object.values(evt.rsvps).filter(v => v === 'accepted').length : 0;
             if (evt.slots > 0) {
-                meta.innerHTML += `<span>👥 ${rsvpCount} / ${evt.slots}</span>`;
+                meta.innerHTML += `<span>👥 ${rsvpCount} / ${escapeHtml(String(evt.slots))}</span>`;
             } else {
                 meta.innerHTML += `<span>👥 ${rsvpCount} participant(s)</span>`;
             }
@@ -1466,9 +1490,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (evt.description || (evt.isAlcohol && evt.alcoholRules)) {
                 const descBox = document.createElement('div');
                 descBox.style.cssText = "font-size: 0.9em; color: var(--secondary-text); background: rgba(255,255,255,0.03); padding: 10px; border-radius: 4px; margin-top: 10px; border-left: 2px solid var(--border-color);";
-                if (evt.description) descBox.innerHTML += `<div>${evt.description}</div>`;
+                if (evt.description) descBox.innerHTML += `<div>${escapeHtml(evt.description)}</div>`;
                 if (evt.isAlcohol && evt.alcoholRules) {
-                    descBox.innerHTML += `<div style="margin-top: 5px; color: #ff9800; font-size: 0.85em;"><strong>Règles:</strong> ${evt.alcoholRules}</div>`;
+                    descBox.innerHTML += `<div style="margin-top: 5px; color: #ff9800; font-size: 0.85em;"><strong>Règles:</strong> ${escapeHtml(evt.alcoholRules)}</div>`;
                 }
                 card.appendChild(descBox);
             }
@@ -1561,8 +1585,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 previewItem.style.cssText = "display: flex; justify-content: space-between; align-items: center; padding: 10px; background: rgba(255,255,255,0.02); border-left: 2px solid var(--accent-color); border-radius: 2px;";
                 previewItem.innerHTML = `
                        <div>
-                           <div style="color: var(--primary-text); font-weight: 500;">${evt.isGlobal ? '🌍 ' : ''}${evt.title}</div>
-                           <div style="font-size: 0.85em; color: var(--secondary-text);">${evt.game || ''} ${evt.time ? 'à ' + evt.time : ''}</div>
+                           <div style="color: var(--primary-text); font-weight: 500;">${evt.isGlobal ? '🌍 ' : ''}${escapeHtml(evt.title)}</div>
+                           <div style="font-size: 0.85em; color: var(--secondary-text);">${escapeHtml(evt.game || '')} ${evt.time ? 'à ' + escapeHtml(evt.time) : ''}</div>
                        </div>
                        <div style="font-size: 0.85em; color: var(--accent-color);">👥 ${rsvpCount}</div>
                    `;
@@ -1602,8 +1626,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const card = document.createElement('div');
                 card.className = 'kocktail-card';
                 card.innerHTML = `
-                        <h4>${kocktail.name}</h4>
-                        <p style="font-size: 0.8em; color: var(--secondary-text); margin-bottom: 15px;">${kocktail.ingredients || 'Secret du barman'}</p>
+                        <h4>${escapeHtml(kocktail.name)}</h4>
+                        <p style="font-size: 0.8em; color: var(--secondary-text); margin-bottom: 15px;">${escapeHtml(kocktail.ingredients || 'Secret du barman')}</p>
                    `;
                 const orderBtn = document.createElement('button');
                 orderBtn.className = 'gold-link-btn';
@@ -1623,9 +1647,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const card = document.createElement('div');
                 card.className = 'kocktail-card';
                 card.innerHTML = `
-                        <h4>${kocktail.name}</h4>
-                        <p style="font-size: 0.8em; color: var(--secondary-text); margin-bottom: 5px;">Proposé par: ${kocktail.creatorName}</p>
-                        <p style="font-size: 0.8em; color: var(--accent-color); margin-bottom: 15px;">${kocktail.recipe || ''}</p>
+                        <h4>${escapeHtml(kocktail.name)}</h4>
+                        <p style="font-size: 0.8em; color: var(--secondary-text); margin-bottom: 5px;">Proposé par: ${escapeHtml(kocktail.creatorName)}</p>
+                        <p style="font-size: 0.8em; color: var(--accent-color); margin-bottom: 15px;">${escapeHtml(kocktail.recipe || '')}</p>
                    `;
                 const orderBtn = document.createElement('button');
                 orderBtn.className = 'gold-link-btn';
@@ -1653,7 +1677,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     item.style.cssText = "display: flex; justify-content: space-between; align-items: center; padding: 10px; background: rgba(187,134,252,0.1); border: 1px solid rgba(187,134,252,0.3); border-radius: 4px;";
                     item.innerHTML = `
                              <div>
-                                  <strong>${order.cocktailName}</strong> pour <span style="color: var(--primary-text);">${order.userName}</span>
+                                  <strong>${escapeHtml(order.cocktailName)}</strong> pour <span style="color: var(--primary-text);">${escapeHtml(order.userName)}</span>
                                   <div style="font-size: 0.8em; color: var(--secondary-text);">${new Date(order.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                              </div>
                         `;
@@ -1746,7 +1770,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const text = document.createElement('div');
-            text.innerHTML = notif.message;
+            text.textContent = notif.message; // textContent : un message ne doit jamais injecter du HTML
             text.style.color = "var(--primary-text)";
 
             const time = document.createElement('span');
