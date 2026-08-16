@@ -950,25 +950,30 @@ document.addEventListener('DOMContentLoaded', () => {
         const count = globalSettings.topGamesCount || 10;
         const topGames = sortedGames.slice(0, count);
 
-        topGames.forEach((game, index) => {
-            const row = document.createElement('div');
-            row.style.cssText = "display: flex; align-items: center; gap: 15px; padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.05);";
+        container.classList.add('rank-list');
 
-            const img = document.createElement('img');
-            img.src = DEFAULT_GAME_ICON;
-            img.style.cssText = "width: 60px; height: 28px; object-fit: cover; border-radius: 2px;";
-            getGameImage(game.name).then(url => img.src = url);
+        topGames.forEach((game, index) => {
+            const position = index + 1;
+            const row = document.createElement('div');
+            row.className = position <= 3 ? `rank-row rank-row--${position}` : 'rank-row';
 
             const rank = document.createElement('span');
-            rank.style.cssText = "color: var(--accent-color); font-weight: bold; min-width: 30px;";
-            rank.textContent = `#${index + 1}`;
+            rank.className = 'rank-row__position';
+            rank.textContent = position;
+
+            const img = document.createElement('img');
+            img.className = 'rank-row__thumb';
+            img.src = DEFAULT_GAME_ICON;
+            img.alt = '';
+            getGameImage(game.name).then(url => img.src = url);
 
             const name = document.createElement('span');
-            name.style.cssText = "flex: 1; color: var(--primary-text);";
+            name.className = 'rank-row__name';
             name.textContent = game.name;
+            name.title = game.name;
 
             const score = document.createElement('span');
-            score.style.cssText = "color: var(--secondary-text); font-size: 0.9em;";
+            score.className = 'rank-row__score';
             score.textContent = `${game.score} pts`;
 
             row.appendChild(rank);
