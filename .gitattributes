@@ -1,0 +1,18 @@
+# Normalise les fins de ligne : LF dans le dépôt, natif dans la copie de travail
+* text=auto
+
+# Fichiers texte du projet — toujours LF dans le dépôt
+*.js    text
+*.json  text
+*.html  text
+*.css   text
+*.md    text
+
+# Binaires — jamais touchés
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.woff  binary
+*.woff2 binary
