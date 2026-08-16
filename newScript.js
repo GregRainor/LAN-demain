@@ -913,6 +913,35 @@ document.addEventListener('DOMContentLoaded', () => {
             .catch(err => console.error('Archive error:', err));
     }
 
+    // Construit une ligne de classement. Utilisé partout où l'on affiche
+    // un jeu avec son rang, sa jaquette et son score (dashboard, résultats, admin).
+    function buildRankRow(game, position) {
+        const row = document.createElement('div');
+        row.className = position <= 3 ? `rank-row rank-row--${position}` : 'rank-row';
+
+        const rank = document.createElement('span');
+        rank.className = 'rank-row__position';
+        rank.textContent = position;
+
+        const img = document.createElement('img');
+        img.className = 'rank-row__thumb';
+        img.src = DEFAULT_GAME_ICON;
+        img.alt = '';
+        getGameImage(game.name).then(url => img.src = url);
+
+        const name = document.createElement('span');
+        name.className = 'rank-row__name';
+        name.textContent = game.name;
+        name.title = game.name;
+
+        const score = document.createElement('span');
+        score.className = 'rank-row__score';
+        score.textContent = `${game.score} pts`;
+
+        row.append(rank, img, name, score);
+        return row;
+    }
+
     // Populate closed-voting game lists (both user and admin views)
     function renderClosedResults(sortedGames) {
         const count = globalSettings.topGamesCount || 10;
@@ -923,28 +952,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!container) return;
             container.innerHTML = '';
 
+            container.classList.add('rank-list');
+
             for (let i = 0; i < topGames.length; i++) {
                 const game = topGames[i];
-                const item = document.createElement('div');
-                item.style.cssText = `display: flex; align-items: center; background: rgba(20,20,20,0.8); border: 1px solid var(--border-color); padding: 12px 15px; border-radius: 4px; gap: 15px;`;
-
-                const img = document.createElement('img');
-                img.src = DEFAULT_GAME_ICON;
-                img.style.cssText = "width: 80px; height: 37px; object-fit: cover; border-radius: 2px;";
-                getGameImage(game.name).then(url => img.src = url);
-
-                const rank = document.createElement('div');
-                rank.style.cssText = "font-family: 'Playfair Display'; font-size: 1.5em; color: var(--accent-color); min-width: 35px;";
-                rank.textContent = `#${i + 1}`;
-
-                const info = document.createElement('div');
-                info.style.flex = '1';
-                info.innerHTML = `<div style="font-weight:500; color:var(--primary-text);">${escapeHtml(game.name)}</div><div style="font-size:0.85em; color:var(--secondary-text);">${game.score} points</div>`;
-
-                item.appendChild(rank);
-                item.appendChild(img);
-                item.appendChild(info);
-                container.appendChild(item);
+                container.appendChild(buildRankRow(game, i + 1));
             }
         };
 
@@ -963,34 +975,7 @@ document.addEventListener('DOMContentLoaded', () => {
         container.classList.add('rank-list');
 
         topGames.forEach((game, index) => {
-            const position = index + 1;
-            const row = document.createElement('div');
-            row.className = position <= 3 ? `rank-row rank-row--${position}` : 'rank-row';
-
-            const rank = document.createElement('span');
-            rank.className = 'rank-row__position';
-            rank.textContent = position;
-
-            const img = document.createElement('img');
-            img.className = 'rank-row__thumb';
-            img.src = DEFAULT_GAME_ICON;
-            img.alt = '';
-            getGameImage(game.name).then(url => img.src = url);
-
-            const name = document.createElement('span');
-            name.className = 'rank-row__name';
-            name.textContent = game.name;
-            name.title = game.name;
-
-            const score = document.createElement('span');
-            score.className = 'rank-row__score';
-            score.textContent = `${game.score} pts`;
-
-            row.appendChild(rank);
-            row.appendChild(img);
-            row.appendChild(name);
-            row.appendChild(score);
-            container.appendChild(row);
+            container.appendChild(buildRankRow(game, index + 1));
         });
     }
 
@@ -1044,36 +1029,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (listContainer) {
             listContainer.innerHTML = '';
+            listContainer.classList.add('rank-list');
             topGames.forEach((game, index) => {
-                const item = document.createElement('div');
-                item.style.cssText = `display: flex; align-items: center; background: rgba(20,20,20,0.8); border: 1px solid var(--border-color); padding: 15px; border-radius: 4px; gap: 20px; opacity: 0; animation: etherealFadeInUp 0.5s forwards ${index * 0.1}s;`;
-
-                const img = document.createElement('img');
-                img.src = DEFAULT_GAME_ICON;
-                img.style.cssText = "width: 120px; height: 56px; object-fit: cover; border-radius: 2px; box-shadow: 0 2px 10px rgba(0,0,0,0.5);";
-                getGameImage(game.name).then(url => img.src = url);
-
-                const rank = document.createElement('div');
-                rank.style.cssText = "font-family: 'Playfair Display'; font-size: 2em; color: var(--accent-color); min-width: 40px;";
-                rank.textContent = `#${index + 1}`;
-
-                const details = document.createElement('div');
-                details.style.flex = "1";
-                const title = document.createElement('div');
-                title.style.cssText = "font-family: 'Playfair Display'; font-size: 1.3em; color: var(--primary-text); margin-bottom: 5px;";
-                title.textContent = game.name;
-                const scoreDesc = document.createElement('div');
-                scoreDesc.style.cssText = "font-size: 0.9em; color: var(--secondary-text);";
-                scoreDesc.textContent = `${game.score} points`;
-
-                details.appendChild(title);
-                details.appendChild(scoreDesc);
-
-                item.appendChild(rank);
-                item.appendChild(img);
-                item.appendChild(details);
-
-                listContainer.appendChild(item);
+                const row = buildRankRow(game, index + 1);
+                row.classList.add('rank-row--lg');
+                // décalage d'apparition en cascade, piloté par le CSS
+                row.style.setProperty('--stagger', `${index * 0.1}s`);
+                listContainer.appendChild(row);
             });
         }
 

@@ -1993,6 +1993,39 @@ body.sidebar-visible {
     white-space: nowrap;
 }
 
+/* Variante large : écran de résultats finaux, apparition en cascade */
+.rank-row--lg {
+    grid-template-columns: 56px 120px 1fr auto;
+    padding: var(--space-4) var(--space-5);
+    background: rgba(20, 20, 20, 0.8);
+    border-color: var(--border-color);
+    opacity: 0;
+    animation: etherealFadeInUp 0.5s forwards var(--stagger, 0s);
+}
+
+.rank-row--lg .rank-row__thumb {
+    width: 120px;
+    height: 68px;
+}
+
+.rank-row--lg .rank-row__position {
+    font-size: var(--text-2xl);
+}
+
+.rank-row--lg .rank-row__name {
+    font-family: var(--font-display);
+    font-size: var(--text-xl);
+}
+
+/* Sans animation, l'opacité 0 laisserait la liste invisible */
+@media (prefers-reduced-motion: reduce) {
+
+    .rank-row--lg {
+        opacity: 1;
+        animation: none;
+    }
+}
+
 /* --- Podium : les 3 premiers se distinguent au premier coup d'œil --- */
 .rank-row--1,
 .rank-row--2,
