@@ -21,7 +21,8 @@ réglages de la LAN, vider l'historique, etc.
 | `lan/cocktails/oneshot/$id` | tout utilisateur connecté | création par soi-même, suppression par le créateur ou un admin |
 | `lan/cocktails/orders/$id` | tout utilisateur connecté | commande par soi-même, "Servi" (suppression) par admin/mixologue ou l'auteur |
 | `lan/notifications/$uid` | uniquement le destinataire | tout utilisateur connecté (nécessaire : les notifs — RSVP, shots, broadcasts — sont écrites côté client par l'expéditeur) |
-| `lan/users/$uid` (bibliothèque Steam) | tout utilisateur connecté | uniquement soi-même |
+| `lan/users/$uid` | tout utilisateur connecté | uniquement soi-même |
+| `lan/steamLibraries/$steamId` | tout utilisateur connecté | tout utilisateur connecté (chacun peut ajouter la bibliothèque d'un ami, et la retirer en cas d'erreur) |
 
 **Limite connue** : n'importe quel joueur connecté peut écrire une notification à n'importe qui
 (c'est le fonctionnement actuel de l'app : broadcasts, shots et rappels sont envoyés côté client).
@@ -32,10 +33,12 @@ une fonction serverless. À traiter dans un futur audit.
 garde-fou anti-lockout (même valeur que la variable d'environnement `ADMIN_UID` sur Vercel).
 Si l'UID admin change, mettre à jour les deux.
 
-> ⚠️ **Mise à jour requise (Phase 3)** : la règle `lan/users` a été ajoutée pour les
-> bibliothèques Steam. Tant que les règles ne sont pas **republiées** avec la procédure
-> ci-dessous, le panneau « Jeux possédés par le groupe » restera vide et la console
-> affichera `permission_denied at /lan/users`.
+> ⚠️ **Mise à jour requise** : la règle `lan/steamLibraries` a été ajoutée. Les
+> bibliothèques Steam sont désormais indexées par compte Steam (et non par joueur
+> connecté), pour qu'on puisse ajouter celle d'un ami sans écraser la sienne.
+> Tant que les règles ne sont pas **republiées** avec la procédure ci-dessous, le
+> panneau « Bibliothèques Steam » restera vide et la console affichera
+> `permission_denied at /lan/steamLibraries`.
 
 ### Comment les appliquer
 
