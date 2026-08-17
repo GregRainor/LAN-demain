@@ -3364,7 +3364,7 @@ select.luxury-input option:disabled {
     border-color: var(--accent-a40);
 }
 
-.lib-sub-toggle:has(input:checked) {
+.lib-sub-toggle.is-selected {
     color: var(--accent-color);
     border-color: var(--accent-color);
     background: var(--accent-a08);
@@ -3466,19 +3466,22 @@ select.luxury-input option:disabled {
     border-color: var(--accent-a40);
 }
 
-.poll-audience__choice:has(input:checked) {
+/* L'état vient d'une classe posée en JS, pas de :has(input:checked) :
+   l'invalidation de :has() ne suivait pas les changements de sélection et
+   la pastille restait allumée sur le mauvais choix. */
+.poll-audience__choice.is-selected {
     color: var(--accent-color);
     background: var(--accent-a08);
     border-color: var(--accent-color);
 }
 
-.poll-audience__choice:has(input:checked)::before {
+.poll-audience__choice.is-selected::before {
     background: var(--accent-color);
     box-shadow: 0 0 8px var(--accent-glow);
 }
 
 /* Le focus clavier reste visible malgré l'input masqué */
-.poll-audience__choice:has(input:focus-visible) {
+.poll-audience__choice:focus-within {
     outline: 2px solid var(--accent-a40);
     outline-offset: 2px;
 }

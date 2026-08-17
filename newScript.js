@@ -1226,17 +1226,33 @@ document.addEventListener('DOMContentLoaded', () => {
         if (box.children.length === 0) {
             box.innerHTML = '<span class="tag-menu__empty">Aucun autre joueur connecté.</span>';
         }
+        syncCheckedLabels(box);
     }
 
-    document.querySelectorAll('input[name="poll-audience"]').forEach(radio => {
-        radio.addEventListener('change', () => {
+    // Reflète l'état coché sur le label parent. Une classe, plutôt que
+    // :has(input:checked), dont l'invalidation ne suivait pas les changements.
+    function syncCheckedLabels(root = document) {
+        root.querySelectorAll('.poll-audience__choice, .lib-sub-toggle').forEach(label => {
+            const input = label.querySelector('input');
+            label.classList.toggle('is-selected', !!(input && input.checked));
+        });
+    }
+
+    document.addEventListener('change', (e) => {
+        if (!e.target.matches('.poll-audience__choice input, .lib-sub-toggle input')) return;
+        syncCheckedLabels();
+
+        // Les radios "pour qui" pilotent aussi l'affichage de la liste
+        if (e.target.name === 'poll-audience') {
             const box = document.getElementById('poll-audience-list');
             if (!box) return;
-            const some = radio.value === 'some' && radio.checked;
+            const some = e.target.value === 'some' && e.target.checked;
             box.style.display = some ? 'flex' : 'none';
             if (some) renderAudiencePicker();
-        });
+        }
     });
+
+    syncCheckedLabels();
 
     function buildPollOptionInputs(count = 2) {
         const box = document.getElementById('poll-options');
@@ -3375,6 +3391,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
                 toggle.append(cb, document.createTextNode(' Game Pass'));
+                toggle.classList.toggle('is-selected', cb.checked);
                 row.appendChild(toggle);
             }
 
