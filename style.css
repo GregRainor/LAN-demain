@@ -1906,8 +1906,24 @@ select.luxury-input option:disabled {
 }
 
 .danger-btn:hover {
-    filter: brightness(1.2);
-    box-shadow: 0 5px 15px rgba(158, 54, 54, 0.3);
+    filter: brightness(1.15);
+    box-shadow: 0 4px 14px rgba(158, 54, 54, 0.35);
+}
+
+/* Bouton de confirmation destructive : rouge franc, texte lisible, sans halo */
+#confirm-accept.danger-btn {
+    padding: var(--space-3) var(--space-6);
+    color: #fff;
+    background: var(--danger-color);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: var(--radius-sharp);
+    letter-spacing: 0.5px;
+}
+
+#confirm-accept.danger-btn:hover {
+    background: #b34141;
+    border-color: rgba(255, 255, 255, 0.3);
+    box-shadow: 0 4px 14px rgba(158, 54, 54, 0.4);
 }
 
 .danger-link-btn {
@@ -3272,6 +3288,32 @@ select.luxury-input option:disabled {
     width: auto;
     font-size: var(--text-sm);
     padding: var(--space-2) var(--space-3);
+}
+
+.lib-sub-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    margin-left: auto;
+    padding: var(--space-1) var(--space-2);
+    font-size: var(--text-xs);
+    color: var(--secondary-text);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-pill);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.lib-sub-toggle:hover {
+    color: var(--accent-color);
+    border-color: var(--accent-a40);
+}
+
+.lib-sub-toggle:has(input:checked) {
+    color: var(--accent-color);
+    border-color: var(--accent-color);
+    background: var(--accent-a08);
 }
 
 /* --- Commandes groupées --- */

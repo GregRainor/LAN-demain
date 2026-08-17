@@ -533,16 +533,12 @@ document.addEventListener('DOMContentLoaded', () => {
             renderNotifications(snapshot.val() || {}, user);
         });
 
-        // Bibliothèques Steam, indexées par compte Steam
+        // Bibliothèques Steam, indexées par compte Steam. Le catalogue Game Pass
+        // n'est téléchargé que si au moins une personne est marquée abonnée.
         db.ref('lan/steamLibraries').on('value', (snapshot) => {
             groupLibraries = snapshot.val() || {};
-            renderGroupLibrary();
-        });
-
-        // Abonnements (Game Pass) : le catalogue n'est chargé que s'il en existe
-        db.ref('lan/subscriptions').on('value', (snapshot) => {
-            globalSubscriptions = snapshot.val() || {};
-            if (Object.keys(globalSubscriptions).length) {
+            const needsGamepass = Object.values(groupLibraries).some(l => l.gamepass);
+            if (needsGamepass && !gamepassCatalog) {
                 loadGamepassCatalog().then(renderGroupLibrary);
             } else {
                 renderGroupLibrary();
@@ -1659,11 +1655,30 @@ document.addEventListener('DOMContentLoaded', () => {
         if (visible) renderPolls();
     }, 1000);
 
-    // Les commandes ont aussi un compte à rebours
+    // Le compte à rebours des commandes se met à jour sans reconstruire les
+    // cartes : elles contiennent des champs de saisie, et les redessiner
+    // effaçait ce qu'on était en train de taper.
     setInterval(() => {
         if (!Object.keys(globalFoodRuns).length) return;
         const view = document.getElementById('lan-food');
-        if (view && view.style.display !== 'none' && view.offsetParent !== null) renderFoodRuns();
+        if (!view || view.style.display === 'none' || view.offsetParent === null) return;
+
+        let needsRebuild = false;
+        document.querySelectorAll('#food-runs .poll-card[data-run-id]').forEach(card => {
+            const run = globalFoodRuns[card.dataset.runId];
+            if (!run) return;
+            const closed = isRunClosed(run);
+
+            // Passage à l'état clos : là, il faut vraiment redessiner
+            if (closed !== (card.dataset.closed === '1')) { needsRebuild = true; return; }
+
+            const meta = card.querySelector('.poll-card__meta');
+            if (meta && !closed) {
+                meta.textContent = `par ${run.createdByName} · ${pollTimeLeft(run)}`;
+            }
+        });
+
+        if (needsRebuild) renderFoodRuns();
     }, 1000);
 
     // --- COMMANDES GROUPEES (BOUFFE) -----------------------------------------
@@ -1730,6 +1745,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const card = document.createElement('div');
         card.className = closed ? 'poll-card poll-card--closed' : 'poll-card';
+        // Repères pour la mise à jour ciblée du compte à rebours
+        card.dataset.runId = runId;
+        card.dataset.closed = closed ? '1' : '0';
 
         const header = document.createElement('div');
         header.className = 'poll-card__header';
@@ -1811,13 +1829,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const label = document.createElement('input');
             label.type = 'text';
-            label.className = 'luxury-input';
+            label.className = 'luxury-input js-food-label';
             label.placeholder = 'Ce que je prends';
             label.maxLength = 80;
 
             const price = document.createElement('input');
             price.type = 'number';
-            price.className = 'luxury-input food-add__price';
+            price.className = 'luxury-input food-add__price js-food-price';
             price.placeholder = '€';
             price.step = '0.5';
             price.min = '0';
@@ -1889,12 +1907,44 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const open = runs.filter(r => !isRunClosed(r));
 
+        // Quand quelqu'un d'autre ajoute une ligne, la carte est reconstruite :
+        // on rend d'abord ce qui était en cours de saisie, puis on le restaure.
+        const drafts = {};
+        let focusedRun = null;
+        let focusedField = null;
+        box.querySelectorAll('.poll-card[data-run-id]').forEach(card => {
+            const id = card.dataset.runId;
+            const label = card.querySelector('.js-food-label');
+            const price = card.querySelector('.js-food-price');
+            if (!label && !price) return;
+            drafts[id] = { label: label ? label.value : '', price: price ? price.value : '' };
+            if (document.activeElement === label) { focusedRun = id; focusedField = 'label'; }
+            if (document.activeElement === price) { focusedRun = id; focusedField = 'price'; }
+        });
+
         box.innerHTML = '';
         if (runs.length === 0) {
             box.innerHTML = '<p style="font-style:italic; color:var(--secondary-text);">Aucune commande pour l\'instant.</p>';
         } else {
             runs.slice(0, 10).forEach(r => box.appendChild(buildFoodRunCard(r, r.id)));
         }
+
+        Object.entries(drafts).forEach(([id, draft]) => {
+            const card = box.querySelector(`.poll-card[data-run-id="${id}"]`);
+            if (!card) return;
+            const label = card.querySelector('.js-food-label');
+            const price = card.querySelector('.js-food-price');
+            if (label) label.value = draft.label;
+            if (price) price.value = draft.price;
+            if (id === focusedRun) {
+                const field = focusedField === 'price' ? price : label;
+                if (field) {
+                    field.focus();
+                    // selectionStart n'existe pas sur un <input type="number">
+                    try { field.selectionStart = field.selectionEnd = field.value.length; } catch (e) { /* ignoré */ }
+                }
+            }
+        });
 
         if (badge) {
             badge.textContent = open.length;
@@ -2129,6 +2179,9 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('confirm-message').textContent = message;
 
         const accept = document.getElementById('confirm-accept');
+        // .gold-btn impose son dégradé en !important : le garder en même temps
+        // que .danger-btn donnait un bouton doré délavé au texte rouge illisible.
+        accept.classList.toggle('gold-btn', !danger);
         accept.classList.toggle('danger-btn', danger);
         // « Supprimer » par défaut sur une action destructive, mais certaines
         // (démarrer une nouvelle LAN) méritent un libellé propre
@@ -2534,7 +2587,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // pourcentage de possession. On ignore les jeux possédés par une seule
     // personne : l'intérêt est de trouver ce que le groupe a en commun.
     let libraryMode = 'common';
-    let globalSubscriptions = {};
 
     // Une ligne de jeu issue d'une bibliothèque Steam (pas du classement de votes)
     function buildLibraryRow(game, index, playerCount) {
@@ -2747,18 +2799,49 @@ document.addEventListener('DOMContentLoaded', () => {
         return [...games.values()];
     }
 
-    // Catalogue Game Pass, chargé une seule fois par session
+    // Catalogue Game Pass. Il est identique pour tout le monde et bouge peu :
+    // on le garde une journée dans localStorage plutôt que de le retélécharger
+    // à chaque ouverture de page.
+    const GAMEPASS_STORE_KEY = 'lan-demain:gamepass:v1';
+    const GAMEPASS_TTL_MS = 24 * 60 * 60 * 1000;
+
     let gamepassCatalog = null;
     let gamepassPromise = null;
 
+    function readGamepassCache() {
+        try {
+            const raw = localStorage.getItem(GAMEPASS_STORE_KEY);
+            if (!raw) return null;
+            const data = JSON.parse(raw);
+            if (!data || !Array.isArray(data.games)) return null;
+            if (Date.now() - data.ts > GAMEPASS_TTL_MS) return null;
+            return data.games;
+        } catch (error) {
+            return null;
+        }
+    }
+
     function loadGamepassCatalog() {
         if (gamepassCatalog) return Promise.resolve(gamepassCatalog);
+
+        const cached = readGamepassCache();
+        if (cached) {
+            gamepassCatalog = cached;
+            return Promise.resolve(gamepassCatalog);
+        }
+
         if (gamepassPromise) return gamepassPromise;
 
         gamepassPromise = fetch('/api/gamepass-catalog')
             .then(r => r.ok ? r.json() : null)
             .then(data => {
                 gamepassCatalog = (data && data.games) ? data.games : [];
+                try {
+                    localStorage.setItem(GAMEPASS_STORE_KEY,
+                        JSON.stringify({ ts: Date.now(), games: gamepassCatalog }));
+                } catch (error) {
+                    console.debug('Catalogue Game Pass non mis en cache:', error);
+                }
                 return gamepassCatalog;
             })
             .catch(error => {
@@ -2775,25 +2858,23 @@ document.addEventListener('DOMContentLoaded', () => {
     function collectLibraryOwners() {
         const owners = [];
 
-        Object.values(groupLibraries).forEach(lib => {
-            if (Array.isArray(lib.games) && lib.games.length) {
-                owners.push({
-                    id: lib.steamId,
-                    name: lib.personaName || 'Joueur',
-                    source: 'steam',
-                    games: lib.games
-                });
-            }
-        });
-
         const catalogue = gamepassCatalog || [];
-        Object.entries(globalSubscriptions).forEach(([id, sub]) => {
-            if (sub.service !== 'gamepass' || catalogue.length === 0) return;
+
+        Object.values(groupLibraries).forEach(lib => {
+            if (!Array.isArray(lib.games) || lib.games.length === 0) return;
+
+            // Un abonné possède sa bibliothèque Steam ET le catalogue Game Pass :
+            // les deux comptent pour la même personne, donc une seule entrée.
+            const games = lib.gamepass && catalogue.length
+                ? lib.games.concat(catalogue.map(g => ({ name: g.name, appId: null, playtimeMinutes: 0 })))
+                : lib.games;
+
             owners.push({
-                id,
-                name: `${sub.personaName} (Game Pass)`,
-                source: 'gamepass',
-                games: catalogue.map(g => ({ name: g.name, appId: null, playtimeMinutes: 0 }))
+                id: lib.steamId,
+                name: lib.gamepass ? `${lib.personaName || 'Joueur'} + Game Pass` : (lib.personaName || 'Joueur'),
+                source: 'steam',
+                gamepass: !!lib.gamepass,
+                games
             });
         });
 
@@ -2821,13 +2902,9 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
             <div class="stack stack--xs js-linked-libraries" style="margin-top: 12px;"></div>
 
-            <p class="panel-section__hint" style="margin-top: 14px;">Abonnement : compte tout le catalogue PC Game Pass
-                comme possédé. (Ubisoft+ n'expose aucun catalogue public, donc pas encore supporté.)</p>
-            <div class="field-row">
-                <input type="text" class="luxury-input js-sub-name" placeholder="Nom du joueur abonné Game Pass"
-                    style="flex: 1;">
-                <button class="gold-btn btn-inline js-sub-add">Ajouter</button>
-            </div>
+            <p class="panel-section__hint" style="margin-top: 14px;">Cochez « Game Pass » sur une bibliothèque pour
+                compter tout le catalogue PC comme possédé. (Ubisoft+ n'expose aucun catalogue public, donc pas encore
+                supporté.)</p>
         </details>`;
 
     function ensureLibraryPanels() {
@@ -2956,9 +3033,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const row = document.createElement('div');
             row.className = 'player-row';
 
-            const source = lib.source === 'steam'
-                ? groupLibraries[lib.id]
-                : globalSubscriptions[lib.id];
+            const source = groupLibraries[lib.id];
 
             const name = document.createElement('span');
             name.className = 'player-row__name';
@@ -2967,60 +3042,51 @@ document.addEventListener('DOMContentLoaded', () => {
             name.textContent = `${lib.name} : ${lib.games.length} jeux · ${formatAge(source && source.updatedAt)}`;
             name.title = source && source.addedByName ? `Ajoutée par ${source.addedByName}` : '';
 
+            row.appendChild(name);
+
+            // L'abonnement est une propriété de la personne, donc de sa
+            // bibliothèque : une case à cocher plutôt qu'une saisie séparée.
+            if (lib.source === 'steam') {
+                const toggle = document.createElement('label');
+                toggle.className = 'lib-sub-toggle';
+                toggle.title = 'Compter tout le catalogue PC Game Pass comme possédé';
+                const cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.checked = !!(source && source.gamepass);
+                cb.addEventListener('change', async () => {
+                    try {
+                        if (cb.checked) await loadGamepassCatalog();
+                        await db.ref(`lan/steamLibraries/${lib.id}/gamepass`).set(cb.checked);
+                        showToast(cb.checked
+                            ? `${lib.name} compte aussi le Game Pass.`
+                            : `Game Pass retiré pour ${lib.name}.`, 'success');
+                    } catch (error) {
+                        cb.checked = !cb.checked;
+                        showToast('Erreur : ' + error.message, 'error');
+                    }
+                });
+                toggle.append(cb, document.createTextNode(' Game Pass'));
+                row.appendChild(toggle);
+            }
+
             const del = document.createElement('button');
             del.className = 'danger-link-btn';
             del.textContent = 'Retirer';
-            del.style.marginLeft = 'auto';
+            del.style.marginLeft = 'var(--space-3)';
             del.addEventListener('click', () => {
                 askConfirm(`Retirer ${lib.name} ?`, { danger: true }).then(ok => {
                     if (!ok) return;
-                    const path = lib.source === 'steam'
-                        ? `lan/steamLibraries/${lib.id}`
-                        : `lan/subscriptions/${lib.id}`;
-                    db.ref(path).remove()
+                    db.ref(`lan/steamLibraries/${lib.id}`).remove()
                         .then(() => showToast(`${lib.name} retiré.`, 'success'))
                         .catch(err => showToast('Erreur : ' + err.message, 'error'));
                 });
             });
 
-            row.append(name, del);
+            row.appendChild(del);
             box.appendChild(row);
         });
     }
 
-    // Ajout d'un abonnement : on ne stocke pas les 500 jeux du catalogue par
-    // personne, seulement le fait qu'elle est abonnée.
-    document.addEventListener('click', async (e) => {
-        const btn = e.target.closest('.js-sub-add');
-        if (!btn) return;
-
-        const user = auth.currentUser;
-        const panel = btn.closest('.library-panel-mount');
-        const input = panel?.querySelector('.js-sub-name');
-        if (!user || !input) return;
-
-        const personaName = input.value.trim();
-        if (!personaName) { showToast('Indiquez le nom du joueur abonné.', 'error'); return; }
-
-        try {
-            const catalogue = await loadGamepassCatalog();
-            if (catalogue.length === 0) {
-                showToast('Catalogue Game Pass indisponible pour le moment.', 'error');
-                return;
-            }
-            await db.ref('lan/subscriptions').push().set({
-                service: 'gamepass',
-                personaName,
-                addedBy: user.uid,
-                addedByName: user.displayName || null,
-                updatedAt: firebase.database.ServerValue.TIMESTAMP
-            });
-            input.value = '';
-            showToast(`${personaName} ajouté comme abonné Game Pass (${catalogue.length} jeux).`, 'success');
-        } catch (error) {
-            showToast('Ajout refusé : ' + error.message, 'error');
-        }
-    });
 
     // Délégation : les panneaux sont construits à la volée, donc on écoute le
     // document plutôt que des éléments qui n'existent pas encore.
