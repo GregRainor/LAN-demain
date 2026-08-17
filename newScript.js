@@ -196,6 +196,58 @@ document.addEventListener('DOMContentLoaded', () => {
     // (Ruined King pour LoL) resteraient servies jusqu'à 24 h.
     const IMAGE_API_VERSION = '2';
 
+    // Le cache mémoire disparaît à chaque rechargement : sans persistance, la
+    // page refait un aller-retour API par jeu et les vignettes clignotent.
+    // On garde donc les URL résolues dans localStorage.
+    const IMAGE_STORE_KEY = 'lan-demain:thumbs:v2';
+    const IMAGE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+    function loadImageStore() {
+        try {
+            const raw = localStorage.getItem(IMAGE_STORE_KEY);
+            if (!raw) return;
+            const data = JSON.parse(raw);
+            const now = Date.now();
+            Object.entries(data).forEach(([name, entry]) => {
+                if (entry && entry.url && (now - entry.ts) < IMAGE_TTL_MS) {
+                    imageCache.set(name, entry.url);
+                }
+            });
+        } catch (error) {
+            // localStorage indisponible (navigation privée, quota) : on continue sans
+            console.debug('Cache vignettes illisible:', error);
+        }
+    }
+
+    let imageStoreTimer = null;
+    function persistImageStore() {
+        // Regroupé : 20 vignettes résolues ne doivent pas écrire 20 fois
+        clearTimeout(imageStoreTimer);
+        imageStoreTimer = setTimeout(() => {
+            try {
+                const now = Date.now();
+                const data = {};
+                imageCache.forEach((url, name) => {
+                    if (typeof url === 'string' && url !== DEFAULT_GAME_ICON) {
+                        data[name] = { url, ts: now };
+                    }
+                });
+                localStorage.setItem(IMAGE_STORE_KEY, JSON.stringify(data));
+            } catch (error) {
+                console.debug('Cache vignettes non enregistré:', error);
+            }
+        }, 500);
+    }
+
+    loadImageStore();
+
+    // Version synchrone : permet d'afficher la bonne vignette dès la création
+    // de la ligne, au lieu de partir du placeholder puis de le remplacer.
+    function getCachedGameImage(gameName) {
+        const cached = imageCache.get(gameName.toLowerCase().trim());
+        return typeof cached === 'string' ? cached : null;
+    }
+
     async function getGameImage(gameName) {
         const normalizedName = gameName.toLowerCase().trim();
         if (imageCache.has(normalizedName)) {
@@ -208,6 +260,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const data = await response.json();
                 if (data.imageUrl && data.imageUrl !== DEFAULT_GAME_ICON && await imageLoads(data.imageUrl)) {
                     imageCache.set(normalizedName, data.imageUrl);
+                    persistImageStore();
                     return data.imageUrl;
                 }
             }
@@ -220,12 +273,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const wiki = await getWikiInfo(gameName);
             if (wiki && wiki.image && await imageLoads(wiki.image)) {
                 imageCache.set(normalizedName, wiki.image);
+                persistImageStore();
                 return wiki.image;
             }
         } catch (error) {
             console.error("Wiki image error:", error);
         }
 
+        // Le placeholder n'est pas persisté : un jeu renommé ou une API
+        // momentanément indisponible doit pouvoir être retenté au prochain chargement.
         imageCache.set(normalizedName, DEFAULT_GAME_ICON);
         return DEFAULT_GAME_ICON;
     }
@@ -1218,10 +1274,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 showToast('Aucun vote ne correspondait à ce jeu.', 'error');
             } else {
                 showToast(`« ${newName} » corrigé dans ${count} vote(s).`, 'success');
-                // la vignette et la fiche dépendent du nom : on vide les caches
+                // la vignette et la fiche dépendent du nom : on vide les caches,
+                // y compris la copie persistée dans localStorage
                 imageCache.delete(previous.toLowerCase().trim());
                 detailsCache.delete(previous.toLowerCase().trim());
                 wikiCache.delete(previous.toLowerCase().trim());
+                persistImageStore();
             }
         } catch (error) {
             console.error('Rename error:', error);
@@ -1851,9 +1909,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const img = document.createElement('img');
         img.className = 'rank-row__thumb';
-        img.src = DEFAULT_GAME_ICON;
+        // Vignette connue : on l'affiche directement, sans passer par le placeholder
+        img.src = getCachedGameImage(game.name) || DEFAULT_GAME_ICON;
         img.alt = '';
-        getGameImage(game.name).then(url => img.src = url);
+        getGameImage(game.name).then(url => { if (url !== img.src) img.src = url; });
 
         // Le nom et ses étiquettes partagent la même colonne de la grille
         const nameCell = document.createElement('div');
