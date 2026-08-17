@@ -1045,11 +1045,31 @@ document.addEventListener('DOMContentLoaded', () => {
                 loadHls().then(Hls => {
                     if (!Hls || !Hls.isSupported()) { showStill(); return; }
                     const hls = new Hls();
+
+                    // Hls.isSupported() ne vérifie que la présence de MediaSource.
+                    // Certains environnements l'exposent sans que « sourceopen » ne
+                    // se déclenche jamais : aucune erreur n'est émise et le lecteur
+                    // reste noir. Ce délai garantit qu'on retombe sur l'image.
+                    const giveUp = setTimeout(() => {
+                        if (video.readyState === 0) {
+                            hls.destroy();
+                            if (currentHls === hls) currentHls = null;
+                            showStill();
+                        }
+                    }, 8000);
+
+                    hls.on(Hls.Events.FRAG_BUFFERED, () => clearTimeout(giveUp));
+                    hls.on(Hls.Events.ERROR, (_evt, data) => {
+                        if (data && data.fatal) {
+                            clearTimeout(giveUp);
+                            hls.destroy();
+                            if (currentHls === hls) currentHls = null;
+                            showStill();
+                        }
+                    });
+
                     hls.loadSource(trailer.hls);
                     hls.attachMedia(video);
-                    hls.on(Hls.Events.ERROR, (_evt, data) => {
-                        if (data && data.fatal) { hls.destroy(); showStill(); }
-                    });
                     // libère le flux quand on ferme la fiche
                     currentHls = hls;
                 }).catch(showStill);
