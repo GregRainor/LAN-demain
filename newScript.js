@@ -314,7 +314,71 @@ document.addEventListener('DOMContentLoaded', () => {
             createSection('Autres (1 pt)', p.p_other, 'var(--secondary-text)');
         }
 
+        renderPlayerLibrarySection(uid, userName, listEl);
+
         modal.style.display = 'flex';
+    }
+
+    // Bibliothèque Steam du joueur, et ce qu'on a en commun avec lui
+    function renderPlayerLibrarySection(uid, userName, listEl) {
+        const player = groupLibraries[uid];
+        const me = auth.currentUser ? groupLibraries[auth.currentUser.uid] : null;
+
+        const section = document.createElement('div');
+        section.style.marginTop = '20px';
+
+        if (!player || !Array.isArray(player.games) || player.games.length === 0) {
+            section.innerHTML = `<h5 class="player-lib__title">Bibliothèque Steam</h5>
+                <p style="color:var(--secondary-text); font-style:italic; font-size:0.85em;">${escapeHtml(userName)} n'a pas encore lié sa bibliothèque.</p>`;
+            listEl.appendChild(section);
+            return;
+        }
+
+        // Jeux communs avec le joueur consulté (si j'ai lié la mienne)
+        let commonGames = [];
+        if (me && Array.isArray(me.games) && auth.currentUser.uid !== uid) {
+            const mine = new Set(me.games.map(g => g.appId));
+            commonGames = player.games
+                .filter(g => mine.has(g.appId))
+                .sort((a, b) => (b.playtimeMinutes || 0) - (a.playtimeMinutes || 0));
+        }
+
+        const heading = document.createElement('h5');
+        heading.className = 'player-lib__title';
+        heading.textContent = `Bibliothèque Steam — ${player.games.length} jeux`;
+        section.appendChild(heading);
+
+        if (auth.currentUser && auth.currentUser.uid !== uid) {
+            const note = document.createElement('p');
+            note.className = 'player-lib__note';
+            note.textContent = me
+                ? `${commonGames.length} jeu(x) en commun avec vous.`
+                : 'Liez votre bibliothèque pour voir vos jeux en commun.';
+            section.appendChild(note);
+        }
+
+        // On liste en priorité les jeux communs, sinon les plus joués
+        const toShow = (commonGames.length ? commonGames : [...player.games]
+            .sort((a, b) => (b.playtimeMinutes || 0) - (a.playtimeMinutes || 0))).slice(0, 20);
+
+        const list = document.createElement('div');
+        list.className = 'stack stack--xs';
+        toShow.forEach(g => {
+            const row = document.createElement('div');
+            row.className = 'player-row';
+            const name = document.createElement('span');
+            name.className = 'player-row__name';
+            name.textContent = g.name;
+            const time = document.createElement('span');
+            time.className = 'player-row__score';
+            const mins = g.playtimeMinutes || 0;
+            time.textContent = mins >= 60 ? `${Math.round(mins / 60)} h` : `${mins} min`;
+            row.append(name, time);
+            list.appendChild(row);
+        });
+        section.appendChild(list);
+
+        listEl.appendChild(section);
     }
 
     function initializeApp(user) {
@@ -1376,25 +1440,53 @@ document.addEventListener('DOMContentLoaded', () => {
     // Agrège les bibliothèques de tous les joueurs liés et classe par
     // pourcentage de possession. On ignore les jeux possédés par une seule
     // personne : l'intérêt est de trouver ce que le groupe a en commun.
-    function renderGroupLibrary() {
-        const container = document.getElementById('group-library-list');
-        if (!container) return;
+    let libraryMode = 'common';
 
-        const players = Object.values(groupLibraries).filter(p => Array.isArray(p.games) && p.games.length);
-        const playerCount = players.length;
+    // Une ligne de jeu issue d'une bibliothèque Steam (pas du classement de votes)
+    function buildLibraryRow(game, index, playerCount) {
+        const row = document.createElement('div');
+        row.className = 'rank-row rank-row--clickable';
 
-        container.innerHTML = '';
+        const rank = document.createElement('span');
+        rank.className = 'rank-row__position';
+        rank.textContent = index + 1;
 
-        if (playerCount === 0) {
-            container.innerHTML = '<p style="font-style:italic; color:var(--secondary-text);">Aucune bibliothèque liée pour l\'instant.</p>';
-            return;
-        }
+        const img = document.createElement('img');
+        img.className = 'rank-row__thumb';
+        img.src = `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.appId}/header.jpg`;
+        img.alt = '';
+        img.addEventListener('error', () => { img.src = DEFAULT_GAME_ICON; });
 
+        const cell = document.createElement('div');
+        cell.className = 'rank-row__namecell';
+        const name = document.createElement('span');
+        name.className = 'rank-row__name';
+        name.textContent = game.name;
+        name.title = game.name;
+        cell.appendChild(name);
+
+        const badge = document.createElement('span');
+        badge.className = game.count === playerCount && playerCount > 1
+            ? 'owner-badge owner-badge--all'
+            : 'owner-badge';
+        // Avec une seule bibliothèque, « 1/1 joueur » n'apprend rien : on
+        // affiche le temps de jeu, plus parlant pour trier ses propres jeux.
+        badge.textContent = playerCount > 1
+            ? `${game.count}/${playerCount}`
+            : (game.minutes >= 60 ? `${Math.round(game.minutes / 60)} h` : `${game.minutes} min`);
+
+        row.append(rank, img, cell, badge);
+        row.addEventListener('click', () => openGameDetails(game.name));
+        return row;
+    }
+
+    // Agrège les bibliothèques liées et compte les propriétaires de chaque jeu
+    function aggregateLibraries(players) {
         const owners = new Map();
         players.forEach(player => {
             // Set : un même jeu ne doit compter qu'une fois par joueur
             const seen = new Set();
-            player.games.forEach(g => {
+            (player.games || []).forEach(g => {
                 if (seen.has(g.appId)) return;
                 seen.add(g.appId);
                 const entry = owners.get(g.appId) || { name: g.name, count: 0, minutes: 0 };
@@ -1403,49 +1495,66 @@ document.addEventListener('DOMContentLoaded', () => {
                 owners.set(g.appId, entry);
             });
         });
+        return [...owners.entries()].map(([appId, e]) => ({ appId, ...e }));
+    }
 
-        const ranked = [...owners.entries()]
-            .map(([appId, e]) => ({ appId, ...e, ratio: e.count / playerCount }))
-            .filter(g => g.count > 1)
-            .sort((a, b) => b.count - a.count || b.minutes - a.minutes)
-            .slice(0, 15);
+    function renderGroupLibrary() {
+        const container = document.getElementById('group-library-list');
+        const summary = document.getElementById('library-summary');
+        const filterBar = document.getElementById('library-filter-bar');
+        if (!container) return;
 
-        if (ranked.length === 0) {
-            container.innerHTML = `<p style="font-style:italic; color:var(--secondary-text);">Aucun jeu commun trouvé pour l'instant (${playerCount} bibliothèque(s) liée(s)).</p>`;
+        const players = Object.values(groupLibraries).filter(p => Array.isArray(p.games) && p.games.length);
+        const playerCount = players.length;
+        const names = players.map(p => p.displayName).filter(Boolean);
+
+        container.innerHTML = '';
+
+        if (playerCount === 0) {
+            if (summary) summary.textContent = 'Personne n\'a encore lié sa bibliothèque Steam.';
+            if (filterBar) filterBar.style.display = 'none';
+            container.innerHTML = '<p style="font-style:italic; color:var(--secondary-text);">Liez votre profil ci-dessous pour commencer.</p>';
             return;
         }
 
-        ranked.forEach((game, index) => {
-            const row = document.createElement('div');
-            row.className = 'rank-row rank-row--clickable';
+        if (filterBar) filterBar.style.display = playerCount > 1 ? 'flex' : 'none';
 
-            const rank = document.createElement('span');
-            rank.className = 'rank-row__position';
-            rank.textContent = index + 1;
+        const all = aggregateLibraries(players);
+        const shared = all.filter(g => g.count > 1);
 
-            const img = document.createElement('img');
-            img.className = 'rank-row__thumb';
-            img.src = `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.appId}/header.jpg`;
-            img.alt = '';
-            img.addEventListener('error', () => { img.src = DEFAULT_GAME_ICON; });
+        // Message d'état : dire clairement pourquoi il n'y a rien à comparer
+        if (summary) {
+            if (playerCount === 1) {
+                summary.textContent = `Seul ${names[0] || 'un joueur'} a lié sa bibliothèque (${all.length} jeux). Les autres doivent lier la leur pour voir les jeux en commun.`;
+            } else {
+                summary.textContent = `${playerCount} bibliothèques liées (${names.join(', ')}) — ${shared.length} jeux en commun sur ${all.length}.`;
+            }
+        }
 
-            const cell = document.createElement('div');
-            cell.className = 'rank-row__namecell';
-            const name = document.createElement('span');
-            name.className = 'rank-row__name';
-            name.textContent = game.name;
-            name.title = game.name;
-            cell.appendChild(name);
+        // Une seule bibliothèque : rien n'est « commun », on montre la sienne
+        const useCommon = playerCount > 1 && libraryMode === 'common';
+        const list = (useCommon ? shared : all)
+            .sort((a, b) => b.count - a.count || b.minutes - a.minutes)
+            .slice(0, 40);
 
-            const score = document.createElement('span');
-            score.className = 'rank-row__score';
-            score.textContent = `${game.count}/${playerCount} joueurs`;
+        if (list.length === 0) {
+            container.innerHTML = '<p style="font-style:italic; color:var(--secondary-text);">Aucun jeu en commun pour l\'instant.</p>';
+            return;
+        }
 
-            row.append(rank, img, cell, score);
-            row.addEventListener('click', () => openGameDetails(game.name));
-            container.appendChild(row);
+        list.forEach((game, index) => {
+            container.appendChild(buildLibraryRow(game, index, playerCount));
         });
     }
+
+    document.getElementById('library-filter-bar')?.addEventListener('click', (e) => {
+        const chip = e.target.closest('.filter-chip');
+        if (!chip) return;
+        document.querySelectorAll('#library-filter-bar .filter-chip')
+            .forEach(c => c.classList.toggle('active', c === chip));
+        libraryMode = chip.dataset.libmode;
+        renderGroupLibrary();
+    });
 
     document.getElementById('btn-link-steam')?.addEventListener('click', async () => {
         const input = document.getElementById('steam-profile-input');

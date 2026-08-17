@@ -295,46 +295,56 @@
                     <!-- Subview: Dashboard -->
                     <div id="lan-dashboard" class="lan-subview active">
                         <h2 class="subview-title">Ressources & Tableau de Bord</h2>
-                        <div class="luxury-panel results-container" style="margin-bottom: 30px; padding: 25px;">
-                            <h3 class="section-title">Jeux Officiels de la LAN</h3>
-                            <div id="games-filter-bar" class="filter-bar">
-                                <span class="filter-bar__label">Filtrer</span>
-                                <button class="filter-chip active" data-filter="all">Tous</button>
-                                <button class="filter-chip" data-filter="multijoueur">Multijoueur</button>
-                                <button class="filter-chip" data-filter="coopération">Coop</button>
-                                <button class="filter-chip" data-filter="pvp">PvP</button>
-                                <button class="filter-chip" data-filter="free">Gratuit</button>
-                            </div>
-                            <div id="active-lan-games-list" class="rank-list">
-                            </div>
-                        </div>
-                        <div class="luxury-panel" style="padding: 25px; margin-bottom: 30px;">
-                            <h3 class="section-title">Prochains Événements</h3>
-                            <div id="upcoming-events-preview" class="stack stack--sm">
-                                <p style="font-style:italic; color:var(--secondary-text);">Aucun événement prévu.</p>
-                            </div>
-                        </div>
 
-                        <!-- Bibliothèques Steam : jeux possédés par la majorité -->
-                        <div class="luxury-panel" style="padding: 25px;">
-                            <h3 class="section-title">🎮 Jeux possédés par le groupe</h3>
-
-                            <div id="steam-link-box" class="panel-section" style="margin-bottom: 20px;">
-                                <p class="panel-section__hint" id="steam-link-status">Liez votre profil Steam pour
-                                    découvrir les jeux que la majorité du groupe possède déjà.</p>
-                                <div class="field-row">
-                                    <input type="text" id="steam-profile-input" class="luxury-input"
-                                        placeholder="URL de profil Steam ou pseudo (ex: gabelogannewell)"
-                                        style="flex: 1;">
-                                    <button id="btn-link-steam" class="gold-btn btn-inline">Lier</button>
+                        <div class="dashboard-grid">
+                            <div class="luxury-panel results-container dashboard-main" style="padding: 25px;">
+                                <h3 class="section-title">Jeux Officiels de la LAN</h3>
+                                <div id="games-filter-bar" class="filter-bar">
+                                    <span class="filter-bar__label">Filtrer</span>
+                                    <button class="filter-chip active" data-filter="all">Tous</button>
+                                    <button class="filter-chip" data-filter="multijoueur">Multijoueur</button>
+                                    <button class="filter-chip" data-filter="coopération">Coop</button>
+                                    <button class="filter-chip" data-filter="pvp">PvP</button>
+                                    <button class="filter-chip" data-filter="free">Gratuit</button>
                                 </div>
-                                <p class="panel-section__hint" style="margin-top: 10px;">Votre profil doit avoir
-                                    « Détails du jeu » en Public dans les paramètres de confidentialité Steam.</p>
+                                <div id="active-lan-games-list" class="rank-list scroll-area">
+                                </div>
                             </div>
 
-                            <div id="group-library-list" class="rank-list">
-                                <p style="font-style:italic; color:var(--secondary-text);">Aucune bibliothèque liée pour
-                                    l'instant.</p>
+                            <div class="dashboard-side">
+                                <div class="luxury-panel" style="padding: 25px;">
+                                    <h3 class="section-title">Prochains Événements</h3>
+                                    <div id="upcoming-events-preview" class="stack stack--sm scroll-area scroll-area--sm">
+                                        <p style="font-style:italic; color:var(--secondary-text);">Aucun événement prévu.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <!-- Bibliothèques Steam -->
+                                <div class="luxury-panel" style="padding: 25px;">
+                                    <h3 class="section-title">🎮 Bibliothèques Steam</h3>
+
+                                    <p class="panel-section__hint" id="library-summary">Aucune bibliothèque liée.</p>
+
+                                    <div id="library-filter-bar" class="filter-bar">
+                                        <button class="filter-chip active" data-libmode="common">En commun</button>
+                                        <button class="filter-chip" data-libmode="all">Tous les jeux</button>
+                                    </div>
+
+                                    <div id="group-library-list" class="rank-list scroll-area">
+                                    </div>
+
+                                    <details id="steam-link-box" class="link-steam">
+                                        <summary>Lier / mettre à jour mon profil Steam</summary>
+                                        <p class="panel-section__hint" id="steam-link-status">Votre profil doit avoir
+                                            « Détails du jeu » en Public dans Steam.</p>
+                                        <div class="field-row">
+                                            <input type="text" id="steam-profile-input" class="luxury-input"
+                                                placeholder="URL de profil ou pseudo Steam" style="flex: 1;">
+                                            <button id="btn-link-steam" class="gold-btn btn-inline">Lier</button>
+                                        </div>
+                                    </details>
+                                </div>
                             </div>
                         </div>
                     </div>
