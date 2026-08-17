@@ -1617,9 +1617,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const FREE_TAG = '__free__';
     const TOP_TAG_COUNT = 6;
 
+    // Tags utiles pour choisir un jeu en LAN. Les catégories Steam contiennent
+    // surtout des fonctionnalités de plateforme (Succès, Cartes à échanger,
+    // Remote Play, options d'accessibilité…) : pertinentes dans le menu complet,
+    // mais elles n'ont rien à faire en tête de liste.
+    const GAMEPLAY_CATEGORY = /multijoueur|solo|coop|pvp|jcj|écran partagé|lan|mmo|crossplay|multiplateforme|joueur/i;
+    const gameplayTags = new Set([FREE_TAG]);
+
     function registerTags(details) {
-        [...(details.genres || []), ...(details.categories || [])].forEach(label => {
+        (details.genres || []).forEach(label => {
             tagLabels.set(label.toLowerCase(), label);
+            // Un genre (Action, RPG, Stratégie…) est toujours pertinent
+            gameplayTags.add(label.toLowerCase());
+        });
+        (details.categories || []).forEach(label => {
+            tagLabels.set(label.toLowerCase(), label);
+            if (GAMEPLAY_CATEGORY.test(label)) gameplayTags.add(label.toLowerCase());
         });
     }
 
@@ -1694,8 +1707,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const sorted = [...counts.entries()]
             .sort((a, b) => b[1] - a[1] || tagLabel(a[0]).localeCompare(tagLabel(b[0])));
 
-        // Un tag sélectionné reste visible même s'il sort du top
-        const top = sorted.slice(0, TOP_TAG_COUNT).map(([k]) => k);
+        // En tête : uniquement les tags de gameplay, les plus fréquents d'abord.
+        // Un tag sélectionné y reste même s'il en sort.
+        const top = sorted
+            .filter(([k]) => gameplayTags.has(k))
+            .slice(0, TOP_TAG_COUNT)
+            .map(([k]) => k);
         selectedTags.forEach(t => { if (!top.includes(t)) top.push(t); });
 
         topBox.innerHTML = '';
