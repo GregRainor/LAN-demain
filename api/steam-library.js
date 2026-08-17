@@ -82,13 +82,15 @@ export default async function handler(request, response) {
 
         const libData = await libRes.json();
         const games = libData?.response?.games;
-        const profile = await fetchProfile(steamId, apiKey);
+        // Surtout pas « profile » : c'est déjà le paramètre de la requête, et
+        // le redéclarer ici le rendrait inaccessible plus haut dans ce bloc.
+        const steamProfile = await fetchProfile(steamId, apiKey);
 
         // GetOwnedGames renvoie un objet vide quand le profil est privé
         if (!Array.isArray(games)) {
             return response.status(200).json({
                 steamId,
-                personaName: profile?.personaName || null,
+                personaName: steamProfile?.personaName || null,
                 privateProfile: true,
                 games: []
             });
@@ -98,9 +100,9 @@ export default async function handler(request, response) {
 
         return response.status(200).json({
             steamId,
-            personaName: profile?.personaName || null,
-            avatar: profile?.avatar || null,
-            profileUrl: profile?.profileUrl || null,
+            personaName: steamProfile?.personaName || null,
+            avatar: steamProfile?.avatar || null,
+            profileUrl: steamProfile?.profileUrl || null,
             privateProfile: false,
             gameCount: games.length,
             games: games.map(g => ({
