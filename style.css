@@ -1490,22 +1490,35 @@ body.sidebar-visible {
 /* Luxury Inputs */
 .luxury-input {
     width: 100%;
-    padding: 12px 15px;
-    background: rgba(0, 0, 0, 0.6);
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    padding: var(--space-3) var(--space-4);
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     color: var(--primary-text);
-    font-family: 'Outfit', sans-serif;
+    font-family: inherit;
     font-size: 1.1em;
-    border-radius: 4px;
+    border-radius: var(--radius-sharp);
     outline: none;
-    transition: all 0.3s ease;
+    transition: border-color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast);
     box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
 }
 
 .luxury-input:focus {
     border-color: var(--accent-color);
+    background: var(--accent-a05);
     box-shadow: 0 0 15px rgba(212, 175, 55, 0.1), inset 0 2px 4px rgba(0, 0, 0, 0.5);
-    background: rgba(0, 0, 0, 0.8);
+}
+
+/* Les <option> d'un <select> sont rendues par l'OS et ignorent le style du
+   parent : sans ces couleurs explicites, la liste déroulante s'ouvre en
+   blanc sur blanc et devient illisible sur le thème sombre. */
+select.luxury-input option,
+select.luxury-input optgroup {
+    background-color: #141414;
+    color: var(--primary-text);
+}
+
+select.luxury-input option:disabled {
+    color: var(--muted-text);
 }
 
 /* --- PHASE 4: ACTIVE LAN --- */
@@ -1717,23 +1730,6 @@ body.sidebar-visible {
 }
 
 /* --- Utility Classes --- */
-.luxury-input {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    color: var(--primary-text);
-    padding: 12px 15px;
-    border-radius: 2px;
-    font-family: inherit;
-    transition: all 0.3s;
-}
-
-.luxury-input:focus {
-    outline: none;
-    border-color: var(--accent-color);
-    background: rgba(212, 175, 55, 0.05);
-    box-shadow: 0 0 15px rgba(212, 175, 55, 0.1);
-}
-
 .gold-btn {
     background: linear-gradient(135deg, #d4af37, #b8860b);
     color: #000;
@@ -2179,6 +2175,12 @@ body.sidebar-visible {
     border-top: 1px solid var(--border-subtle);
 }
 
+.game-modal__stores {
+    display: flex;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+}
+
 .game-modal__price {
     font-size: var(--text-lg);
     font-weight: 600;
@@ -2237,6 +2239,14 @@ body.sidebar-visible {
 .rank-row__tags .tag {
     padding: 1px var(--space-2);
     font-size: 0.68rem;
+}
+
+.kocktail-card__actions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-3);
+    flex-wrap: wrap;
 }
 
 /* --- Barre de filtres du classement --- */

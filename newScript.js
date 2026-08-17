@@ -943,6 +943,23 @@ document.addEventListener('DOMContentLoaded', () => {
         return promise;
     }
 
+    // hls.js n'est chargé qu'à l'ouverture d'une première bande-annonce :
+    // inutile de le faire payer à tous les visiteurs au chargement de la page.
+    let hlsLoader = null;
+    function loadHls() {
+        if (window.Hls) return Promise.resolve(window.Hls);
+        if (hlsLoader) return hlsLoader;
+
+        hlsLoader = new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js';
+            script.onload = () => resolve(window.Hls);
+            script.onerror = () => reject(new Error('hls.js indisponible'));
+            document.head.appendChild(script);
+        });
+        return hlsLoader;
+    }
+
     function renderTags(container, details, limit = 4) {
         container.innerHTML = '';
         if (!details) return;
@@ -954,6 +971,8 @@ document.addEventListener('DOMContentLoaded', () => {
             container.appendChild(chip);
         });
     }
+
+    let currentHls = null;
 
     async function openGameDetails(gameName) {
         const modal = document.getElementById('game-details-modal');
@@ -1010,15 +1029,31 @@ document.addEventListener('DOMContentLoaded', () => {
         const nativeHls = document.createElement('video')
             .canPlayType('application/vnd.apple.mpegurl') === 'probably';
 
-        if (trailer && trailer.hls && nativeHls) {
+        if (trailer && trailer.hls) {
             const video = document.createElement('video');
-            video.src = trailer.hls;
             video.controls = true;
             video.preload = 'metadata';
             if (trailer.thumbnail) video.poster = trailer.thumbnail;
-            // Filet de sécurité si la lecture échoue malgré le test
             video.addEventListener('error', showStill);
             media.appendChild(video);
+
+            if (nativeHls) {
+                video.src = trailer.hls;
+            } else {
+                // Chrome et Firefox ne lisent pas le HLS nativement : hls.js
+                // rattache le flux au <video>. En cas d'échec, on retombe sur l'image.
+                loadHls().then(Hls => {
+                    if (!Hls || !Hls.isSupported()) { showStill(); return; }
+                    const hls = new Hls();
+                    hls.loadSource(trailer.hls);
+                    hls.attachMedia(video);
+                    hls.on(Hls.Events.ERROR, (_evt, data) => {
+                        if (data && data.fatal) { hls.destroy(); showStill(); }
+                    });
+                    // libère le flux quand on ferme la fiche
+                    currentHls = hls;
+                }).catch(showStill);
+            }
         } else {
             showStill();
         }
@@ -1042,8 +1077,14 @@ document.addEventListener('DOMContentLoaded', () => {
             priceEl.textContent = 'Prix indisponible';
         }
 
-        const link = document.getElementById('game-details-link');
-        link.href = details.steamUrl || '#';
+        // Liens boutiques. Instant Gaming et IsThereAnyDeal n'ont pas d'API
+        // publique sans clé : on ouvre donc leur recherche sur le nom du jeu.
+        const storeQuery = encodeURIComponent(details.name || gameName);
+        document.getElementById('game-details-link').href = details.steamUrl || '#';
+        document.getElementById('game-details-ig').href =
+            `https://www.instant-gaming.com/fr/rechercher/?q=${storeQuery}`;
+        document.getElementById('game-details-itad').href =
+            `https://isthereanydeal.com/search/?q=${storeQuery}`;
 
         body.style.display = 'block';
     }
@@ -1051,7 +1092,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('close-game-details-btn')?.addEventListener('click', () => {
         const modal = document.getElementById('game-details-modal');
         if (modal) modal.style.display = 'none';
-        // coupe la bande-annonce en fermant
+        // coupe la bande-annonce et libère le flux HLS en fermant
+        if (currentHls) { currentHls.destroy(); currentHls = null; }
         const media = document.getElementById('game-details-media');
         if (media) media.innerHTML = '';
     });
@@ -1897,6 +1939,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Bouton de suppression d'un kocktail. La permission est vérifiée par les
+    // règles Firebase ; ici on ne fait qu'afficher le bouton aux personnes concernées.
+    function buildDeleteKocktailBtn(refPath, kocktailName) {
+        const btn = document.createElement('button');
+        btn.className = 'danger-link-btn';
+        btn.textContent = 'Supprimer';
+        btn.title = `Supprimer "${kocktailName}"`;
+        btn.addEventListener('click', () => {
+            if (!confirm(`Supprimer "${kocktailName}" ?`)) return;
+            db.ref(refPath).remove()
+                .then(() => showToast(`"${kocktailName}" supprimé.`, 'success'))
+                .catch(err => showToast('Suppression refusée : ' + err.message, 'error'));
+        });
+        return btn;
+    }
+
     // --- RENDER KOCKTAILS ---
     function renderCocktails(cocktailsData, currentUser) {
         const masterList = document.getElementById('kocktail-master-list');
@@ -1926,11 +1984,23 @@ document.addEventListener('DOMContentLoaded', () => {
                         <h4>${escapeHtml(kocktail.name)}</h4>
                         <p style="font-size: 0.8em; color: var(--secondary-text); margin-bottom: 15px;">${escapeHtml(kocktail.ingredients || 'Secret du barman')}</p>
                    `;
+                const actions = document.createElement('div');
+                actions.className = 'kocktail-card__actions';
+
                 const orderBtn = document.createElement('button');
                 orderBtn.className = 'gold-link-btn';
                 orderBtn.textContent = 'Commander';
                 orderBtn.addEventListener('click', () => orderCocktail(kocktail.name, currentUser));
-                card.appendChild(orderBtn);
+                actions.appendChild(orderBtn);
+
+                // La carte officielle est gérée par les admins et les mixologues
+                if (window.currentUserIsAdmin || window.currentUserIsMixologist) {
+                    actions.appendChild(buildDeleteKocktailBtn(
+                        `lan/cocktails/masterList/${kocktail.id}`, kocktail.name
+                    ));
+                }
+
+                card.appendChild(actions);
                 masterList.appendChild(card);
             });
         }
@@ -1948,11 +2018,24 @@ document.addEventListener('DOMContentLoaded', () => {
                         <p style="font-size: 0.8em; color: var(--secondary-text); margin-bottom: 5px;">Proposé par: ${escapeHtml(kocktail.creatorName)}</p>
                         <p style="font-size: 0.8em; color: var(--accent-color); margin-bottom: 15px;">${escapeHtml(kocktail.recipe || '')}</p>
                    `;
+                const actions = document.createElement('div');
+                actions.className = 'kocktail-card__actions';
+
                 const orderBtn = document.createElement('button');
                 orderBtn.className = 'gold-link-btn';
                 orderBtn.textContent = 'Commander';
                 orderBtn.addEventListener('click', () => orderCocktail(kocktail.name, currentUser));
-                card.appendChild(orderBtn);
+                actions.appendChild(orderBtn);
+
+                // Les règles autorisent la suppression au créateur et aux admins
+                const canDelete = window.currentUserIsAdmin || kocktail.creatorId === currentUser.uid;
+                if (canDelete) {
+                    actions.appendChild(buildDeleteKocktailBtn(
+                        `lan/cocktails/oneshot/${kocktail.id}`, kocktail.name
+                    ));
+                }
+
+                card.appendChild(actions);
                 oneShotList.appendChild(card);
             });
         }
