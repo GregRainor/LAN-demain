@@ -182,6 +182,40 @@
             </div> <!-- End Two Column Layout -->
         </div> <!-- End View Voting Open -->
 
+        <!-- VIEW: LAN TERMINEE (bilan de la soirée) -->
+        <div id="view-lan-finished" class="container" style="display: none;">
+            <div class="luxury-panel recap-hero">
+                <p class="recap-hero__kicker">C'est fini</p>
+                <h2 id="recap-title" class="recap-hero__title">LAN Demain</h2>
+                <p id="recap-subtitle" class="recap-hero__subtitle"></p>
+            </div>
+
+            <div class="recap-grid">
+                <div class="luxury-panel" style="padding: 25px;">
+                    <h3 class="section-title">Le podium</h3>
+                    <div id="recap-podium" class="rank-list"></div>
+                </div>
+
+                <div class="luxury-panel" style="padding: 25px;">
+                    <h3 class="section-title">La soirée en chiffres</h3>
+                    <div id="recap-stats" class="stack stack--xs"></div>
+                </div>
+            </div>
+
+            <!-- Bloc admin : relancer une soirée quand on a fini de regarder -->
+            <div id="recap-admin" class="luxury-panel" style="padding: 25px; margin-top: 25px; display: none;">
+                <h3 class="section-title">Et maintenant ?</h3>
+                <p class="panel-section__text">Vous pouvez laisser ce bilan affiché aussi longtemps que vous voulez.
+                    Quand vous lancez une nouvelle soirée, tout est archivé puis remis à zéro.</p>
+                <div class="field-row">
+                    <input type="text" id="recap-new-lan-name" class="luxury-input" placeholder="Nom de la prochaine LAN"
+                        style="flex: 1;">
+                    <button id="recap-new-lan" class="gold-btn btn-inline">Nouvelle LAN</button>
+                </div>
+                <button id="recap-reopen-lan" class="gold-link-btn" style="margin-top: 12px;">Rouvrir cette LAN</button>
+            </div>
+        </div>
+
         <!-- VIEW 2: USER WAITING (CLOSED) -->
         <div id="view-waiting-closed"
             style="display: none; position: relative; min-height: 70vh; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 50px;">
@@ -551,6 +585,14 @@
                             <h3 class="section-title section-title--danger">⚠️ Contrôles Avancés</h3>
                             <button id="toggle-voting-btn-dashboard-lan" class="danger-btn btn-block">Clore le
                                 Vote</button>
+
+                            <div class="panel-section" style="margin-top: 20px;">
+                                <h4 class="section-title">🏁 Terminer la soirée</h4>
+                                <p class="panel-section__text">Affiche le bilan de la LAN à tout le monde. Rien n'est
+                                    effacé : vous pourrez relire les résultats, puis lancer une nouvelle LAN quand vous
+                                    voudrez.</p>
+                                <button id="btn-finish-lan" class="btn-block">Clôturer la LAN</button>
+                            </div>
 
                             <div class="panel-section" style="margin-top: 20px;">
                                 <h4 class="section-title">🎉 Nouvelle LAN</h4>

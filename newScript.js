@@ -551,12 +551,14 @@ document.addEventListener('DOMContentLoaded', () => {
             announceNewPolls();
             handlePollClosures();
             renderPolls();
+            refreshRecapIfVisible();
         });
 
         // Commandes groupées
         db.ref('lan/foodRuns').on('value', (snapshot) => {
             globalFoodRuns = snapshot.val() || {};
             renderFoodRuns();
+            refreshRecapIfVisible();
         });
         buildPollOptionInputs(2);
 
@@ -617,14 +619,27 @@ document.addEventListener('DOMContentLoaded', () => {
         const adminPanelOpen = document.getElementById('admin-panel-open');
         const form = document.getElementById('vote-form');
 
+        const viewLanFinished = document.getElementById('view-lan-finished');
+
         if (viewVotingOpen) viewVotingOpen.style.display = 'none';
         if (viewWaitingClosed) viewWaitingClosed.style.display = 'none';
         if (viewAdminDashboard) viewAdminDashboard.style.display = 'none';
         if (viewLanActive) viewLanActive.style.display = 'none';
+        if (viewLanFinished) viewLanFinished.style.display = 'none';
         if (adminPanelOpen) adminPanelOpen.style.display = 'none';
 
         const finalResultsModal = document.getElementById('final-results-modal');
         if (finalResultsModal) finalResultsModal.style.display = 'none';
+
+        // La soirée terminée prime : c'est un état volontaire de l'admin, qui
+        // ne doit pas être confondu avec l'attente d'avant-LAN.
+        if (globalSettings.lanFinished && !globalSettings.isLanActive) {
+            if (viewLanFinished) viewLanFinished.style.display = 'block';
+            const btnNotifRecap = document.getElementById('btn-notifications');
+            if (btnNotifRecap) btnNotifRecap.style.display = 'inline-flex';
+            renderLanRecap();
+            return;
+        }
 
         if (globalSettings.isLanActive) {
             if (viewLanActive) viewLanActive.style.display = 'block';
@@ -1952,6 +1967,133 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // --- FIN DE LA LAN (bilan) -----------------------------------------------
+
+    // Clôturer n'efface rien : on bascule seulement dans un état "terminée",
+    // pour pouvoir relire la soirée avant de décider d'en lancer une autre.
+    document.getElementById('btn-finish-lan')?.addEventListener('click', async () => {
+        const ok = await askConfirm(
+            "Terminer la soirée et afficher le bilan à tout le monde ? Aucune donnée n'est effacée.",
+            { title: '🏁 Clôturer la LAN', confirmLabel: 'Clôturer' }
+        );
+        if (!ok) return;
+
+        try {
+            await db.ref('lan/settings').update({
+                isLanActive: false,
+                lanFinished: true,
+                lanClosedAt: firebase.database.ServerValue.TIMESTAMP
+            });
+            showToast('La LAN est terminée. Bilan affiché pour tout le monde.', 'success');
+
+            knownPlayers()
+                .filter(p => p.uid !== auth.currentUser?.uid)
+                .forEach(p => sendNotification(p.uid, '🏁 La LAN est terminée, le bilan est affiché !', 'alert'));
+        } catch (error) {
+            showToast('Impossible de clôturer : ' + error.message, 'error');
+        }
+    });
+
+    document.getElementById('recap-reopen-lan')?.addEventListener('click', async () => {
+        const ok = await askConfirm("Rouvrir cette LAN ? Tout le monde repasse en mode soirée.",
+            { title: 'Rouvrir la LAN', confirmLabel: 'Rouvrir' });
+        if (!ok) return;
+        await db.ref('lan/settings').update({ isLanActive: true, lanFinished: false });
+        showToast('LAN rouverte.', 'success');
+    });
+
+    document.getElementById('recap-new-lan')?.addEventListener('click', async () => {
+        const input = document.getElementById('recap-new-lan-name');
+        const newName = (input?.value || '').trim();
+
+        const ok = await askConfirm(
+            "Archiver cette soirée et repartir de zéro ? Les votes, événements, kocktails, sondages, commandes et bibliothèques seront effacés.",
+            { title: '🎉 Nouvelle LAN', danger: true, confirmLabel: 'Démarrer' }
+        );
+        if (!ok) return;
+
+        try {
+            const archived = await startNewLan(newName);
+            await db.ref('lan/settings').update({ lanFinished: false });
+            if (input) input.value = '';
+            showToast(archived > 0
+                ? `Nouvelle LAN lancée ! ${archived} jeux archivés.`
+                : 'Nouvelle LAN lancée !', 'success');
+        } catch (error) {
+            showToast('Impossible de démarrer : ' + error.message, 'error');
+        }
+    });
+
+    // Les données du bilan arrivent par listeners séparés : on rafraîchit
+    // tant que l'écran est affiché.
+    function refreshRecapIfVisible() {
+        const view = document.getElementById('view-lan-finished');
+        if (view && view.style.display !== 'none') renderLanRecap();
+    }
+
+    function statLine(label, value) {
+        const row = document.createElement('div');
+        row.className = 'player-row';
+        const l = document.createElement('span');
+        l.className = 'player-row__name';
+        l.textContent = label;
+        const v = document.createElement('span');
+        v.className = 'player-row__score';
+        v.textContent = value;
+        row.append(l, v);
+        return row;
+    }
+
+    // Le bilan est calculé à la volée : rien n'ayant été effacé à la clôture,
+    // toutes les données de la soirée sont encore en base.
+    function renderLanRecap() {
+        const view = document.getElementById('view-lan-finished');
+        if (!view) return;
+
+        const lanName = globalSettings.lanName || 'LAN Demain';
+        document.getElementById('recap-title').textContent = lanName;
+
+        const sorted = calculateScores(globalVotes);
+        const voterCount = Object.keys(globalVotes || {}).length;
+
+        const subtitle = document.getElementById('recap-subtitle');
+        subtitle.textContent = sorted.length
+            ? `${voterCount} joueur(s), ${sorted.length} jeux proposés. Le grand gagnant : ${sorted[0].name}.`
+            : `${voterCount} joueur(s). Aucun vote enregistré.`;
+
+        const podium = document.getElementById('recap-podium');
+        podium.innerHTML = '';
+        if (sorted.length === 0) {
+            podium.innerHTML = '<p style="font-style:italic; color:var(--secondary-text);">Aucun vote pour cette soirée.</p>';
+        } else {
+            sorted.slice(0, 5).forEach((game, i) => podium.appendChild(buildRankRow(game, i + 1)));
+        }
+
+        const cocktails = window._latestCocktailsData || {};
+        const events = window._latestEventsData || {};
+        const foodItems = Object.values(globalFoodRuns)
+            .flatMap(run => Object.values(run.items || {}));
+        const foodTotal = foodItems.reduce((sum, it) => sum + (Number(it.price) || 0), 0);
+
+        const stats = document.getElementById('recap-stats');
+        stats.innerHTML = '';
+        stats.appendChild(statLine('Votants', String(voterCount)));
+        stats.appendChild(statLine('Jeux proposés', String(sorted.length)));
+        stats.appendChild(statLine('Événements organisés', String(Object.keys(events).length)));
+        stats.appendChild(statLine('Créations kocktails', String(Object.keys(cocktails.oneshot || {}).length)));
+        stats.appendChild(statLine('Sondages lancés', String(Object.keys(globalPolls).length)));
+        stats.appendChild(statLine('Commandes groupées', String(Object.keys(globalFoodRuns).length)));
+        if (foodItems.length) {
+            stats.appendChild(statLine('Total bouffe', `${foodTotal.toFixed(2).replace('.', ',')} €`));
+        }
+        if (globalSettings.lanClosedAt) {
+            stats.appendChild(statLine('Terminée', new Date(globalSettings.lanClosedAt).toLocaleString('fr-FR')));
+        }
+
+        const adminBox = document.getElementById('recap-admin');
+        if (adminBox) adminBox.style.display = window.currentUserIsAdmin ? 'block' : 'none';
+    }
+
     // --- NOUVELLE LAN --------------------------------------------------------
 
     // Archive le classement en cours puis remet le cycle à zéro : votes effacés,
@@ -1997,7 +2139,9 @@ document.addEventListener('DOMContentLoaded', () => {
             db.ref('lan/subscriptions').remove()
         ]);
 
-        const settings = { isVotingOpen: true, isLanActive: false };
+        // lanFinished doit retomber ici : sinon la nouvelle soirée s'ouvrirait
+        // directement sur le bilan de la précédente.
+        const settings = { isVotingOpen: true, isLanActive: false, lanFinished: false };
         if (newName) settings.lanName = newName;
         await db.ref('lan/settings').update(settings);
 
