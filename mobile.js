@@ -24,6 +24,8 @@ const state = {
     events: {},
     cocktails: {},
     notifs: {},
+    libraries: {},
+    history: {},
     scores: [],
     ready: false
 };
@@ -232,6 +234,8 @@ function goto(screen) {
     if (content) content.scrollTop = 0;
     if (screen === 'jeux') renderGames();
     if (screen === 'vote') renderVote();
+    if (screen === 'biblio') renderLibraries();
+    if (screen === 'admin') renderAdmin();
 }
 
 /* ==========================================================================
@@ -351,6 +355,8 @@ function boot(user) {
     watch('lan/foodRuns', value => { state.foodRuns = value || {}; });
     watch('lan/events', value => { state.events = value || {}; });
     watch('lan/cocktails', value => { state.cocktails = value || {}; });
+    watch('lan/steamLibraries', value => { state.libraries = value || {}; });
+    watch('lan/history', value => { state.history = value || {}; });
     watch(`lan/notifications/${user.uid}`, value => { state.notifs = value || {}; });
 
     state.ready = true;
@@ -375,6 +381,9 @@ function renderAll() {
     renderFood();
     renderEvents();
     renderKocktails();
+    renderLibraries();
+    renderHistory();
+    renderAdmin();
     renderPlus();
     renderBadges();
     if (currentScreen === 'jeux') renderGames();
@@ -1575,6 +1584,474 @@ function renderPlus() {
     $('m-plus-kocktails').textContent = orders ? `${orders} en attente` : '';
     const total = draftTotal();
     $('m-plus-vote').textContent = total ? `${total} jeu${total > 1 ? 'x' : ''}` : '';
+    const libs = Object.keys(state.libraries).length;
+    $('m-plus-biblio').textContent = libs ? `${libs} liée${libs > 1 ? 's' : ''}` : '';
+    const lans = Object.keys(state.history).length;
+    $('m-plus-historique').textContent = lans ? String(lans) : '';
+    $('m-plus-admin-row').style.display = state.isAdmin ? 'flex' : 'none';
+}
+
+/* ==========================================================================
+   Écran Bibliothèques Steam
+   ========================================================================== */
+
+/* Catalogue Game Pass : API non officielle, donc une panne ne doit rien
+   casser. Même clé de cache que l'interface bureau, valable 24 h. */
+const GAMEPASS_STORE = 'lan-demain:gamepass:v1';
+const GAMEPASS_TTL = 24 * 60 * 60 * 1000;
+let gamepassCatalog = null;
+let gamepassPromise = null;
+
+function loadGamepass() {
+    if (gamepassCatalog) return Promise.resolve(gamepassCatalog);
+    if (gamepassPromise) return gamepassPromise;
+    try {
+        const raw = localStorage.getItem(GAMEPASS_STORE);
+        if (raw) {
+            const data = JSON.parse(raw);
+            if (data && Date.now() - data.ts < GAMEPASS_TTL && Array.isArray(data.games)) {
+                gamepassCatalog = data.games.map(normalizeGameName);
+                return Promise.resolve(gamepassCatalog);
+            }
+        }
+    } catch (error) {
+        console.debug('Cache Game Pass illisible:', error);
+    }
+    gamepassPromise = fetch('/api/gamepass-catalog')
+        .then(res => (res.ok ? res.json() : null))
+        .then(data => {
+            const games = (data && data.games) ? data.games : [];
+            try {
+                localStorage.setItem(GAMEPASS_STORE, JSON.stringify({ ts: Date.now(), games }));
+            } catch (error) {
+                console.debug('Catalogue Game Pass non mis en cache:', error);
+            }
+            gamepassCatalog = games.map(normalizeGameName);
+            return gamepassCatalog;
+        })
+        .catch(error => {
+            console.debug('Catalogue Game Pass indisponible:', error);
+            gamepassCatalog = [];
+            return gamepassCatalog;
+        });
+    return gamepassPromise;
+}
+
+let biblioQuery = '';
+
+function renderLibraries() {
+    const libs = Object.entries(state.libraries).filter(([, lib]) => !!lib);
+
+    /* Comptes liés */
+    const linked = $('m-steam-libs');
+    linked.innerHTML = '';
+    if (!libs.length) {
+        linked.appendChild(emptyState('Aucun compte lié. Colle une URL de profil Steam ci-dessus.'));
+    } else {
+        libs.forEach(([id, lib]) => {
+            const card = el('article', 'm-card');
+            const top = el('div', 'm-card__top');
+            const avatar = el('img', 'm-tally__av');
+            avatar.src = lib.avatar || fallbackAvatar(lib.personaName);
+            avatar.alt = '';
+            top.appendChild(avatar);
+            top.appendChild(el('h3', 'm-card__title', lib.personaName || `Steam ${id}`));
+            card.appendChild(top);
+            const count = Array.isArray(lib.games) ? lib.games.length : 0;
+            card.appendChild(el('p', 'm-card__meta', `${count} jeu${count > 1 ? 'x' : ''}${lib.addedByName ? ` · ajouté par ${lib.addedByName}` : ''}`));
+
+            const gpWrap = el('label', 'm-check');
+            const gp = document.createElement('input');
+            gp.type = 'checkbox';
+            gp.checked = !!lib.gamepass;
+            gp.addEventListener('change', () => {
+                db.ref(`lan/steamLibraries/${id}/gamepass`).set(gp.checked)
+                    .catch(e => showToast('Erreur : ' + e.message, 'error'));
+            });
+            gpWrap.appendChild(gp);
+            gpWrap.appendChild(el('span', null, 'Abonné au PC Game Pass'));
+            card.appendChild(gpWrap);
+
+            const del = el('button', 'm-btn m-btn--quiet m-btn--sm', 'Retirer cette bibliothèque');
+            del.addEventListener('click', () => {
+                db.ref(`lan/steamLibraries/${id}`).remove()
+                    .then(() => showToast('Bibliothèque retirée.', 'success'))
+                    .catch(e => showToast('Erreur : ' + e.message, 'error'));
+            });
+            card.appendChild(del);
+            linked.appendChild(card);
+        });
+    }
+
+    /* Bibliothèque commune : un jeu, et qui le possède */
+    const owners = libs.map(([, lib]) => ({
+        name: lib.personaName || 'Steam',
+        gamepass: !!lib.gamepass,
+        games: Array.isArray(lib.games) ? lib.games : []
+    }));
+
+    const byGame = new Map();
+    owners.forEach(owner => {
+        owner.games.forEach(game => {
+            const label = typeof game === 'string' ? game : game.name;
+            if (!label) return;
+            const key = normalizeGameName(label);
+            if (!byGame.has(key)) byGame.set(key, { name: label, owners: [] });
+            byGame.get(key).owners.push(owner.name);
+        });
+    });
+
+    const anyGamepass = owners.some(o => o.gamepass);
+    const catalog = gamepassCatalog || [];
+
+    let list = [...byGame.values()].sort((a, b) => {
+        if (b.owners.length !== a.owners.length) return b.owners.length - a.owners.length;
+        return a.name.localeCompare(b.name);
+    });
+
+    if (biblioQuery) {
+        const q = normalizeGameName(biblioQuery);
+        list = list.filter(g => normalizeGameName(g.name).includes(q));
+    }
+
+    $('m-biblio-count').textContent = byGame.size ? `${byGame.size} jeu${byGame.size > 1 ? 'x' : ''}` : '';
+
+    const mount = $('m-biblio-list');
+    mount.innerHTML = '';
+    if (!list.length) {
+        mount.appendChild(emptyState(byGame.size ? 'Aucun jeu ne correspond.' : 'Lie un compte Steam pour voir ce que vous avez en commun.'));
+        loadGamepass().then(() => { if (currentScreen === 'biblio') renderLibraries(); });
+        return;
+    }
+
+    const card = el('div', 'm-card m-card--flush');
+    const rank = el('div', 'm-rank');
+    list.slice(0, 60).forEach(game => {
+        const row = el('button', 'm-rank__row');
+        const bar = el('span', 'm-rank__bar');
+        bar.style.width = owners.length ? `${Math.round((game.owners.length / owners.length) * 100)}%` : '0%';
+        row.appendChild(bar);
+        const thumb = el('img', 'm-rank__thumb');
+        thumb.alt = '';
+        thumbFor(game.name, thumb);
+        row.appendChild(thumb);
+        const main = el('span', 'm-rank__main');
+        main.appendChild(el('span', 'm-rank__name', game.name));
+        const inGamepass = anyGamepass && catalog.includes(normalizeGameName(game.name));
+        const sub = `${game.owners.length}/${owners.length} · ${game.owners.join(', ')}${inGamepass ? ' · Game Pass' : ''}`;
+        main.appendChild(el('span', 'm-rank__sub', sub));
+        row.appendChild(main);
+        row.appendChild(el('span', 'm-rank__score', String(game.owners.length)));
+        row.addEventListener('click', () => openGameSheet(game.name));
+        rank.appendChild(row);
+    });
+    card.appendChild(rank);
+    mount.appendChild(card);
+
+    loadGamepass().then(cat => {
+        /* Le catalogue arrive après coup : on redessine une fois pour poser
+           les pastilles Game Pass, sans boucler. */
+        if (cat && cat.length && currentScreen === 'biblio' && !renderLibraries.gamepassDone) {
+            renderLibraries.gamepassDone = true;
+            renderLibraries();
+        }
+    });
+}
+
+$('m-biblio-search').addEventListener('input', (e) => {
+    biblioQuery = e.target.value;
+    renderLibraries();
+});
+
+$('m-steam-link').addEventListener('click', async () => {
+    const input = $('m-steam-input');
+    const status = $('m-steam-status');
+    const user = auth.currentUser;
+    if (!user) return;
+    const profile = input.value.trim();
+    if (!profile) { showToast('Colle une URL de profil Steam.', 'error'); return; }
+
+    status.textContent = 'Récupération de la bibliothèque…';
+    try {
+        const res = await fetch(`/api/steam-library?profile=${encodeURIComponent(profile)}`);
+        const data = await res.json();
+
+        if (data.missingKey) {
+            status.textContent = 'La clé API Steam n\'est pas configurée côté serveur.';
+            showToast('STEAM_API_KEY manquante sur Vercel.', 'error');
+            return;
+        }
+        if (!res.ok) {
+            status.textContent = 'Profil introuvable. Vérifie l\'URL ou le pseudo.';
+            showToast('Profil Steam introuvable.', 'error');
+            return;
+        }
+        if (data.privateProfile) {
+            status.textContent = 'Profil trouvé, mais ses détails de jeu sont privés. Passe « Détails du jeu » en Public dans Steam puis réessaie.';
+            showToast('Bibliothèque Steam privée.', 'error');
+            return;
+        }
+
+        const label = data.personaName || `Steam ${data.steamId}`;
+        await db.ref(`lan/steamLibraries/${data.steamId}`).set({
+            steamId: data.steamId,
+            personaName: label,
+            avatar: data.avatar || null,
+            profileUrl: data.profileUrl || null,
+            games: (data.games || []).slice(0, 500),
+            addedBy: user.uid,
+            addedByName: user.displayName || null,
+            updatedAt: firebase.database.ServerValue.TIMESTAMP
+        });
+
+        status.textContent = `${data.gameCount} jeux importés pour ${label}.`;
+        showToast(`${data.gameCount} jeux importés pour ${label} !`, 'success');
+        input.value = '';
+    } catch (error) {
+        status.textContent = 'Impossible de récupérer la bibliothèque.';
+        showToast('Erreur : ' + error.message, 'error');
+    }
+});
+
+/* ==========================================================================
+   Écran Historique
+   ========================================================================== */
+
+function renderHistory() {
+    const mount = $('m-history');
+    mount.innerHTML = '';
+    const entries = Object.entries(state.history)
+        .filter(([, entry]) => !!entry)
+        .sort((a, b) => (b[1].timestamp || 0) - (a[1].timestamp || 0));
+
+    if (!entries.length) {
+        mount.appendChild(emptyState('Aucune LAN archivée pour le moment.'));
+        return;
+    }
+
+    entries.forEach(([id, entry]) => {
+        const card = el('article', 'm-card');
+        const top = el('div', 'm-card__top');
+        top.appendChild(el('h3', 'm-card__title', entry.name || 'LAN'));
+        if (entry.date) top.appendChild(el('span', 'm-chip', entry.date));
+        card.appendChild(top);
+
+        const games = Array.isArray(entry.topGames) ? entry.topGames : [];
+        const players = entry.votes ? Object.keys(entry.votes).length : 0;
+        const meta = [];
+        if (players) meta.push(`${players} joueur${players > 1 ? 's' : ''}`);
+        if (games.length) meta.push(`${games.length} jeu${games.length > 1 ? 'x' : ''}`);
+        if (meta.length) card.appendChild(el('p', 'm-card__meta', meta.join(' · ')));
+
+        if (games.length) {
+            const winner = el('div', 'm-winner');
+            winner.appendChild(el('span', 'm-winner__label', 'Vainqueur'));
+            winner.appendChild(el('span', 'm-winner__value', games[0].name));
+            winner.appendChild(el('span', 'm-opt__n', String(games[0].score)));
+            card.appendChild(winner);
+
+            if (games.length > 1) {
+                const rest = el('div', 'm-myitems');
+                games.slice(1, 6).forEach((game, index) => {
+                    const row = el('div', 'm-myitem');
+                    row.appendChild(el('span', 'm-myitem__label', `${index + 2}. ${game.name}`));
+                    row.appendChild(el('span', 'm-myitem__price', String(game.score)));
+                    rest.appendChild(row);
+                });
+                card.appendChild(rest);
+            }
+        }
+
+        if (state.isAdmin) {
+            const del = el('button', 'm-btn m-btn--quiet m-btn--sm', 'Supprimer de l\'historique');
+            del.addEventListener('click', () => {
+                confirmSheet('Supprimer cette LAN de l\'historique ?', 'Supprimer', () => {
+                    db.ref(`lan/history/${id}`).remove()
+                        .then(() => showToast('Supprimé de l\'historique.', 'success'))
+                        .catch(e => showToast('Erreur : ' + e.message, 'error'));
+                });
+            });
+            card.appendChild(del);
+        }
+
+        mount.appendChild(card);
+    });
+}
+
+/* ==========================================================================
+   Écran Administration
+   ========================================================================== */
+
+/* Confirmation en feuille glissante : window.confirm est bloqué par certains
+   navigateurs mobiles et sort complètement de l'habillage de l'application. */
+function confirmSheet(question, confirmLabel, onConfirm, danger) {
+    openSheet(null, (body) => {
+        body.appendChild(el('p', 'm-card__body', question));
+        const actions = el('div', 'm-sheet__actions');
+        const cancel = el('button', 'm-btn m-btn--quiet', 'Annuler');
+        cancel.addEventListener('click', closeSheet);
+        const ok = el('button', `m-btn ${danger ? 'm-btn--danger' : 'm-btn--solid'}`, confirmLabel);
+        ok.addEventListener('click', () => { closeSheet(); onConfirm(); });
+        actions.appendChild(cancel);
+        actions.appendChild(ok);
+        body.appendChild(actions);
+    });
+}
+
+function knownPlayers() {
+    const uids = new Set([...Object.keys(state.votes), ...Object.keys(state.status)]);
+    return [...uids].map(uid => ({ uid, name: playerName(uid) }));
+}
+
+function sendNotification(targetUid, message, type = 'info') {
+    return db.ref(`lan/notifications/${targetUid}`).push().set({
+        message,
+        timestamp: firebase.database.ServerValue.TIMESTAMP,
+        read: false,
+        type
+    });
+}
+
+function renderAdmin() {
+    if (!state.isAdmin) return;
+
+    /* Liste des joueurs : on préserve la sélection en cours, sinon chaque
+       mise à jour temps réel remettrait le menu sur le premier nom. */
+    const select = $('m-role-user');
+    const previous = select.value;
+    select.innerHTML = '';
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = 'Choisir un joueur';
+    select.appendChild(placeholder);
+    knownPlayers().forEach(player => {
+        const option = document.createElement('option');
+        option.value = player.uid;
+        const role = state.roles[player.uid];
+        option.textContent = player.name + (role ? ` (${role})` : '');
+        select.appendChild(option);
+    });
+    if (previous) select.value = previous;
+
+    $('m-toggle-voting').textContent = state.settings.isVotingOpen ? 'Clore le vote' : 'Ouvrir le vote';
+    $('m-finish-lan').style.display = state.settings.lanFinished ? 'none' : 'inline-flex';
+    $('m-reopen-lan').style.display = state.settings.lanFinished ? 'inline-flex' : 'none';
+}
+
+$('m-broadcast-send').addEventListener('click', () => {
+    const input = $('m-broadcast');
+    const message = input.value.trim();
+    if (!message) { showToast('Écris un message d\'abord.', 'error'); return; }
+    const targets = knownPlayers();
+    Promise.all(targets.map(p => sendNotification(p.uid, `🍊 Admin: ${message}`, 'alert')))
+        .then(() => {
+            showToast(`Message envoyé à ${targets.length} joueur${targets.length > 1 ? 's' : ''} !`, 'success');
+            input.value = '';
+        })
+        .catch(e => showToast('Erreur : ' + e.message, 'error'));
+});
+
+$('m-role-assign').addEventListener('click', () => {
+    const uid = $('m-role-user').value;
+    const role = $('m-role-type').value;
+    if (!uid) { showToast('Choisis un joueur.', 'error'); return; }
+    db.ref('lan/roles/' + uid).set(role)
+        .then(() => showToast('Rôle mis à jour !', 'success'))
+        .catch(e => showToast('Erreur : ' + e.message, 'error'));
+});
+
+$('m-toggle-voting').addEventListener('click', () => {
+    const opening = !state.settings.isVotingOpen;
+    db.ref('lan/settings').update({ isVotingOpen: opening })
+        .then(() => showToast(opening ? 'Le vote est ouvert.' : 'Le vote est clos.', 'success'))
+        .catch(e => showToast('Erreur : ' + e.message, 'error'));
+});
+
+$('m-finish-lan').addEventListener('click', () => {
+    confirmSheet(
+        'Terminer la soirée et afficher le bilan à tout le monde ? Aucune donnée n\'est effacée.',
+        'Clôturer',
+        () => {
+            db.ref('lan/settings').update({
+                isLanActive: false,
+                lanFinished: true,
+                lanClosedAt: firebase.database.ServerValue.TIMESTAMP
+            }).then(() => {
+                showToast('La LAN est terminée.', 'success');
+                knownPlayers()
+                    .filter(p => p.uid !== (state.user && state.user.uid))
+                    .forEach(p => sendNotification(p.uid, '🏁 La LAN est terminée, le bilan est affiché !', 'alert'));
+            }).catch(e => showToast('Erreur : ' + e.message, 'error'));
+        }
+    );
+});
+
+$('m-reopen-lan').addEventListener('click', () => {
+    confirmSheet('Rouvrir cette LAN ? Tout le monde repasse en mode soirée.', 'Rouvrir', () => {
+        recapShown = false;
+        db.ref('lan/settings').update({ isLanActive: true, lanFinished: false })
+            .then(() => { showToast('La LAN est rouverte.', 'success'); goto('soiree'); })
+            .catch(e => showToast('Erreur : ' + e.message, 'error'));
+    });
+});
+
+$('m-new-lan').addEventListener('click', () => {
+    const newName = $('m-new-lan-name').value.trim();
+    confirmSheet(
+        'Archiver la soirée en cours puis repartir de zéro ? Les votes, événements, sondages, commandes, one-shots et bibliothèques sont effacés. Seule la carte des kocktails est conservée.',
+        'Démarrer',
+        () => startNewLan(newName),
+        true
+    );
+});
+
+/* Miroir de startNewLan de l'interface bureau : la soirée est archivée
+   entière, puis tout ce qui lui appartient est effacé. */
+async function startNewLan(newName) {
+    try {
+        const previousName = state.settings.lanName || 'LAN Demain';
+        const sortedGames = calculateScores(state.votes);
+        const events = state.events;
+        const oneshot = (state.cocktails && state.cocktails.oneshot) || null;
+        const hadContent = sortedGames.length > 0 || Object.keys(events).length > 0 || (oneshot && Object.keys(oneshot).length > 0);
+
+        if (hadContent) {
+            await db.ref('lan/history').push().set({
+                name: previousName,
+                date: new Date().toLocaleDateString('fr-FR'),
+                timestamp: firebase.database.ServerValue.TIMESTAMP,
+                topGames: sortedGames.slice(0, state.settings.topGamesCount || 10),
+                votes: state.votes,
+                events: Object.keys(events).length ? events : null,
+                oneshotCocktails: oneshot
+            });
+        }
+
+        await Promise.all([
+            db.ref('lan/votes').remove(),
+            db.ref('lan/events').remove(),
+            db.ref('lan/cocktails/oneshot').remove(),
+            db.ref('lan/cocktails/orders').remove(),
+            db.ref('lan/polls').remove(),
+            db.ref('lan/foodRuns').remove(),
+            db.ref('lan/steamLibraries').remove()
+        ]);
+
+        const settings = { isVotingOpen: true, isLanActive: false, lanFinished: false };
+        if (newName) settings.lanName = newName;
+        await db.ref('lan/settings').update(settings);
+
+        /* Le brouillon de vote appartenait à la soirée précédente. */
+        voteDraft = null;
+        recapShown = false;
+        $('m-new-lan-name').value = '';
+        showToast(sortedGames.length > 0
+            ? `Nouvelle LAN lancée ! ${sortedGames.length} jeux archivés.`
+            : 'Nouvelle LAN lancée ! Les votes sont ouverts.', 'success');
+        goto('soiree');
+    } catch (error) {
+        showToast('Impossible de démarrer : ' + error.message, 'error');
+    }
 }
 
 /* ==========================================================================

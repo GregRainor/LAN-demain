@@ -167,6 +167,39 @@
                                 <path d="m9 6 6 6-6 6" />
                             </svg>
                         </button>
+                        <button class="m-list__row" data-goto="biblio">
+                            <svg class="m-list__ico" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M4 19V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v13" />
+                                <path d="M4 19h16M8 8h8M8 12h5" />
+                            </svg>
+                            <span class="m-list__label">Bibliothèques Steam</span>
+                            <span class="m-list__hint" id="m-plus-biblio"></span>
+                            <svg class="m-list__chev" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="m9 6 6 6-6 6" />
+                            </svg>
+                        </button>
+                        <button class="m-list__row" data-goto="historique">
+                            <svg class="m-list__ico" viewBox="0 0 24 24" aria-hidden="true">
+                                <circle cx="12" cy="12" r="9" />
+                                <path d="M12 8v4l3 2" />
+                            </svg>
+                            <span class="m-list__label">Historique des LAN</span>
+                            <span class="m-list__hint" id="m-plus-historique"></span>
+                            <svg class="m-list__chev" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="m9 6 6 6-6 6" />
+                            </svg>
+                        </button>
+                        <button class="m-list__row" data-goto="admin" id="m-plus-admin-row"
+                            style="display:none">
+                            <svg class="m-list__ico" viewBox="0 0 24 24" aria-hidden="true">
+                                <circle cx="12" cy="12" r="3" />
+                                <path d="M20 12a8 8 0 0 0-.2-1.8l2-1.5-2-3.4-2.3 1a8 8 0 0 0-3-1.7L14 2h-4l-.5 2.6a8 8 0 0 0-3 1.7l-2.3-1-2 3.4 2 1.5a8 8 0 0 0 0 3.6l-2 1.5 2 3.4 2.3-1a8 8 0 0 0 3 1.7L10 22h4l.5-2.6a8 8 0 0 0 3-1.7l2.3 1 2-3.4-2-1.5c.13-.58.2-1.18.2-1.8z" />
+                            </svg>
+                            <span class="m-list__label">Administration</span>
+                            <svg class="m-list__chev" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="m9 6 6 6-6 6" />
+                            </svg>
+                        </button>
                     </div>
                 </div>
 
@@ -202,9 +235,87 @@
                     </div>
                 </div>
 
-                <p class="m-card__meta" style="text-align:center">
-                    Les bibliothèques Steam, l'historique et l'administration restent sur la version bureau.
-                </p>
+            </section>
+
+            <!-- ---------- BIBLIOTHÈQUES STEAM ---------- -->
+            <section class="m-screen" data-screen="biblio">
+                <div class="m-section">
+                    <div class="m-section__head">
+                        <h2 class="m-section__title">Lier un compte</h2>
+                    </div>
+                    <div class="m-field">
+                        <input class="m-input" id="m-steam-input" placeholder="Profil Steam (URL ou pseudo)"
+                            aria-label="Profil Steam">
+                        <button class="m-btn m-btn--sm" id="m-steam-link">Lier</button>
+                    </div>
+                    <p class="m-card__meta" id="m-steam-status"></p>
+                    <div id="m-steam-libs"></div>
+                </div>
+
+                <div class="m-section">
+                    <div class="m-section__head">
+                        <h2 class="m-section__title">Ce qu'on a en commun</h2>
+                        <span class="m-section__link" id="m-biblio-count"></span>
+                    </div>
+                    <input class="m-input" type="search" id="m-biblio-search" placeholder="Chercher dans les bibliothèques"
+                        aria-label="Chercher dans les bibliothèques">
+                    <div id="m-biblio-list"></div>
+                </div>
+            </section>
+
+            <!-- ---------- HISTORIQUE ---------- -->
+            <section class="m-screen" data-screen="historique">
+                <div class="m-section__head">
+                    <h2 class="m-section__title">Historique des LAN</h2>
+                </div>
+                <div id="m-history"></div>
+            </section>
+
+            <!-- ---------- ADMINISTRATION ---------- -->
+            <section class="m-screen" data-screen="admin">
+                <div class="m-section">
+                    <div class="m-section__head">
+                        <h2 class="m-section__title">Annonce à tout le monde</h2>
+                    </div>
+                    <input class="m-input" id="m-broadcast" placeholder="Le message à envoyer"
+                        aria-label="Message à envoyer">
+                    <button class="m-btn m-btn--full" id="m-broadcast-send">Envoyer 🔔</button>
+                </div>
+
+                <div class="m-section">
+                    <div class="m-section__head">
+                        <h2 class="m-section__title">Rôles</h2>
+                    </div>
+                    <select class="m-input" id="m-role-user" aria-label="Joueur"></select>
+                    <select class="m-input" id="m-role-type" aria-label="Rôle">
+                        <option value="player">Joueur</option>
+                        <option value="mixologist">Mixologue</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                    <button class="m-btn m-btn--full" id="m-role-assign">Attribuer</button>
+                </div>
+
+                <div class="m-section">
+                    <div class="m-section__head">
+                        <h2 class="m-section__title">La soirée</h2>
+                    </div>
+                    <button class="m-btn m-btn--full" id="m-toggle-voting">Ouvrir le vote</button>
+                    <button class="m-btn m-btn--full" id="m-finish-lan">Clôturer la LAN</button>
+                    <button class="m-btn m-btn--full" id="m-reopen-lan" style="display:none">Rouvrir la LAN</button>
+                </div>
+
+                <div class="m-section">
+                    <div class="m-section__head">
+                        <h2 class="m-section__title">Nouvelle LAN</h2>
+                    </div>
+                    <input class="m-input" id="m-new-lan-name" placeholder="Nom de la prochaine LAN"
+                        aria-label="Nom de la prochaine LAN">
+                    <button class="m-btn m-btn--danger m-btn--full" id="m-new-lan">Archiver et repartir de
+                        zéro</button>
+                    <p class="m-card__meta">La soirée en cours part dans l'historique. Votes, événements,
+                        sondages, commandes, one-shots et bibliothèques sont effacés. La carte des kocktails est
+                        conservée.</p>
+                </div>
             </section>
 
             <!-- ---------- ÉVÉNEMENTS ---------- -->
