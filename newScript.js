@@ -734,10 +734,37 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        voteForm.addEventListener('submit', (e) => {
+        voteForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const user = auth.currentUser;
             if (!user) return;
+
+            clearVoteError();
+
+            // Passe de vérification Steam avant tout : deux orthographes du même
+            // jeu doivent devenir un seul nom, sinon le doublon passe inaperçu.
+            const submitBtn = document.getElementById('submit-vote-btn');
+            const originalLabel = submitBtn?.textContent;
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Vérification des noms…';
+            }
+
+            let corrections = [];
+            try {
+                corrections = await canonicalizeVoteInputs();
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = originalLabel;
+                }
+            }
+
+            if (corrections.length > 0) {
+                const list = corrections.map(c => `« ${c.from} » → « ${c.to} »`).join(', ');
+                showToast(`Noms corrigés : ${list}`, 'success');
+            }
+
             const userIdToSave = voterSelectMenu.value || user.uid;
             const userNameToSave = (globalVotes[userIdToSave]) ? globalVotes[userIdToSave].name : user.displayName;
             const playerVotes = { p1: [], p2: [], p3: [], p_other: [] };
@@ -761,7 +788,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const duplicates = findDuplicateVotes();
             if (duplicates.length > 0) {
                 const list = duplicates.map(d => `« ${d} »`).join(', ');
-                showToast(`${list} apparaît plusieurs fois dans votre vote. Gardez une seule priorité par jeu.`, 'error');
+                showVoteError(`${list} apparaît plusieurs fois dans votre vote. Gardez une seule priorité par jeu.`);
                 highlightDuplicateInputs();
                 return;
             }
@@ -1240,6 +1267,9 @@ document.addEventListener('DOMContentLoaded', () => {
         data.deals.forEach((deal, index) => {
             const row = document.createElement('a');
             row.className = index === 0 ? 'deal-row deal-row--best' : 'deal-row';
+            // Apparition en cascade : les prix se posent l'un après l'autre
+            row.classList.add('fade-in-up');
+            row.style.setProperty('--stagger', `${index * 0.05}s`);
             row.href = deal.url || '#';
             row.target = '_blank';
             row.rel = 'noopener noreferrer';
@@ -1497,10 +1527,40 @@ document.addEventListener('DOMContentLoaded', () => {
         const body = document.getElementById('game-details-body');
         const errorBox = document.getElementById('game-details-error');
 
+        // La fiche s'ouvre tout de suite avec ce qu'on sait déjà (le nom) : attendre
+        // Steam avant d'afficher quoi que ce soit donnait une impression de lenteur.
         modal.style.display = 'flex';
-        loading.style.display = 'block';
-        body.style.display = 'none';
         errorBox.style.display = 'none';
+        body.style.display = 'block';
+        loading.style.display = 'none';
+
+        document.getElementById('game-details-title').textContent = gameName;
+
+        // On retire fade-in avant de re-remplir, sinon l'animation ne rejoue
+        // pas à la deuxième ouverture (la classe est déjà présente)
+        const descBox = document.getElementById('game-details-desc');
+        const tagsBox = document.getElementById('game-details-tags');
+        descBox.classList.remove('fade-in');
+        tagsBox.classList.remove('fade-in');
+        descBox.innerHTML = '<span class="skeleton-line"></span><span class="skeleton-line"></span>';
+        tagsBox.innerHTML = '';
+        document.getElementById('game-details-notice').style.display = 'none';
+        document.getElementById('game-details-price').textContent = '';
+        renderDeals(null);
+
+        // Vignette connue : elle occupe le cadre pendant le chargement
+        const mediaBox = document.getElementById('game-details-media');
+        const known = getCachedGameImage(gameName);
+        mediaBox.innerHTML = '';
+        if (known && known !== DEFAULT_GAME_ICON) {
+            const preview = document.createElement('img');
+            preview.src = known;
+            preview.alt = '';
+            preview.className = 'fade-in';
+            mediaBox.appendChild(preview);
+        } else {
+            mediaBox.innerHTML = '<div class="skeleton-media"></div>';
+        }
 
         const details = await getGameDetails(gameName);
 
@@ -1511,6 +1571,8 @@ document.addEventListener('DOMContentLoaded', () => {
             loading.style.display = 'none';
 
             if (!wiki || !wiki.found) {
+                // la coquille affichait des squelettes : on la retire
+                body.style.display = 'none';
                 errorBox.style.display = 'block';
                 return;
             }
@@ -1521,8 +1583,15 @@ document.addEventListener('DOMContentLoaded', () => {
         loading.style.display = 'none';
 
         document.getElementById('game-details-title').textContent = details.name || gameName;
-        document.getElementById('game-details-desc').textContent = details.shortDescription || '';
-        renderTags(document.getElementById('game-details-tags'), details, 8);
+
+        const desc = document.getElementById('game-details-desc');
+        desc.textContent = details.shortDescription || '';
+        desc.classList.add('fade-in');
+
+        const tagBox = document.getElementById('game-details-tags');
+        renderTags(tagBox, details, 8);
+        tagBox.classList.add('fade-in');
+
         document.getElementById('game-details-notice').style.display = 'none';
 
         // Les prix arrivent après coup : la fiche s'affiche sans attendre
@@ -1712,6 +1781,58 @@ document.addEventListener('DOMContentLoaded', () => {
 
         row.addEventListener('click', () => openGameDetails(game.name));
         return row;
+    }
+
+    function showVoteError(message) {
+        const box = document.getElementById('vote-error');
+        if (!box) { showToast(message, 'error'); return; }
+        box.textContent = message;
+        box.style.display = 'block';
+        box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+
+    function clearVoteError() {
+        const box = document.getElementById('vote-error');
+        if (box) box.style.display = 'none';
+    }
+
+    // Normalise les noms saisis via Steam avant l'enregistrement, pour que
+    // « Crusader Kings 3 » et « Crusader Kings III » deviennent le même jeu.
+    //
+    // Prudence volontaire : la recherche floue renverrait « Riftbound Survivors »
+    // pour « Riftbound ». On n'accepte donc la correction que si le nom proposé
+    // reste proche de la saisie — le bouton « Vérifier », lui, est explicite et
+    // peut se permettre d'être plus agressif.
+    const AUTOFIX_MAX_DISTANCE_RATIO = 0.34;
+
+    async function canonicalizeVoteInputs() {
+        const form = document.getElementById('vote-form');
+        if (!form) return [];
+
+        const inputs = [...form.querySelectorAll('input[type="text"]')].filter(i => i.value.trim());
+        const changes = [];
+
+        await Promise.all(inputs.map(async (input) => {
+            const raw = input.value.trim().replace(/\s+/g, ' ');
+            try {
+                const res = await fetch(`/api/get-game-image?name=${encodeURIComponent(raw)}&fuzzy=1`);
+                if (!res.ok) return;
+                const data = await res.json();
+                if (!data.name || data.name === raw) return;
+
+                const distance = levenshtein(normalizeGameName(raw), normalizeGameName(data.name));
+                const ratio = distance / Math.max(raw.length, data.name.length);
+                if (!data.exactMatch && ratio > AUTOFIX_MAX_DISTANCE_RATIO) return;
+
+                input.value = data.name;
+                changes.push({ from: raw, to: data.name });
+            } catch (error) {
+                // Steam indisponible : on garde la saisie telle quelle
+                console.debug('Canonicalisation ignorée:', error);
+            }
+        }));
+
+        return changes;
     }
 
     // Renvoie les noms saisis plus d'une fois, toutes priorités confondues

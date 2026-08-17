@@ -136,6 +136,10 @@
                                     <div class="game-input-list"></div>
                                     <button type="button" class="add-game-btn">+</button>
                                 </div>
+                                <!-- Les erreurs s'affichent ici, sous les yeux : un toast
+                                     en bas à droite passe inaperçu pendant la saisie -->
+                                <div id="vote-error" class="form-error" style="display: none;"></div>
+
                                 <div class="form-actions">
                                     <button type="submit" id="submit-vote-btn">Soumettre mon Vote</button>
                                 </div>
@@ -158,20 +162,18 @@
                                         </tbody>
                                     </table>
                                 </div>
+
+                                <!-- Le graphique visualise ce même classement : sa place est ici -->
+                                <details class="chart-details">
+                                    <summary>📊 Voir le Top 8 en graphique</summary>
+                                    <div id="chart-container"></div>
+                                </details>
                             </div>
 
                             <!-- Comparateur de bibliothèques : sert à décider quoi voter -->
                             <div class="luxury-panel library-panel-mount" style="padding: 25px;"></div>
                         </div>
                     </div>
-
-                    <!-- Graphique replié : agréable, mais pas prioritaire -->
-                    <details class="chart-details animated-section" style="animation-delay: 0.4s;">
-                        <summary>📊 Top 8 des Jeux</summary>
-                        <div class="chart-wrapper luxury-panel">
-                            <div id="chart-container"></div>
-                        </div>
-                    </details>
 
                 </main>
             </div> <!-- End Two Column Layout -->
