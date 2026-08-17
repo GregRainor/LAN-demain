@@ -2010,6 +2010,20 @@ select.luxury-input option:disabled {
     display: flex;
     flex-direction: column;
     gap: var(--space-5);
+    /* Un enfant de flex/grid garde min-width:auto et grossit pour contenir
+       son contenu : sans ces min-width:0, le graphique (520 px) élargissait
+       la colonne, donc la page. Même piège que l'input du formulaire. */
+    min-width: 0;
+}
+
+.vote-side>*,
+.dashboard-side>* {
+    min-width: 0;
+}
+
+.results-container .chart-details,
+.results-container #chart-container {
+    max-width: 100%;
 }
 
 .vote-layout .form-container,
@@ -2091,6 +2105,7 @@ select.luxury-input option:disabled {
     display: flex;
     flex-direction: column;
     gap: var(--space-5);
+    min-width: 0;
 }
 
 .scroll-area {
