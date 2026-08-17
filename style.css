@@ -1315,14 +1315,79 @@ body.sidebar-visible {
         padding-right: 20px;
     }
 
+    /* Le graphique vit désormais dans le panneau du classement, hors de
+       .chart-wrapper : sans conteneur défilant, ses 600 px de largeur
+       minimale étiraient toute la page. */
+    .results-container .chart-details {
+        overflow-x: auto;
+    }
+
     #chart-container {
-        min-width: 600px;
+        min-width: 520px;
     }
 
     .chart-game-name {
         white-space: normal;
         text-align: center;
         font-size: 0.75em;
+    }
+
+    /* --- En-tête et barres flottantes ---------------------------------
+       Sur téléphone, ces éléments en position fixe se superposaient au
+       titre et rognaient la largeur utile. */
+
+    /* Les actions repassent dans le flux, sous le titre */
+    #top-right-actions {
+        position: static;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: var(--space-2);
+        margin: 0 0 var(--space-5);
+    }
+
+    /* La bande de présence devient une rangée en bas d'écran */
+    .gnome-band {
+        top: auto;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        transform: none;
+        flex-direction: row;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: var(--space-2);
+        padding: var(--space-2) var(--space-3);
+        border-radius: 0;
+        border-left: none;
+        border-right: none;
+        border-bottom: none;
+        max-height: 25vh;
+        overflow-y: auto;
+    }
+
+    .gnome-band .user-avatar-icon {
+        width: 34px;
+        height: 34px;
+    }
+
+    /* L'infobulle du pseudo pointait vers la droite, hors écran */
+    .user-avatar-container::before {
+        display: none;
+    }
+
+    /* Plus de décalage latéral : la bande n'est plus sur le côté */
+    body.sidebar-visible {
+        padding-left: 15px;
+        /* la rangée du bas ne doit pas masquer la fin de page */
+        padding-bottom: 90px;
+    }
+
+    #toast-container {
+        left: 15px;
+        right: 15px;
+        bottom: 90px;
+        align-items: stretch;
     }
 }
 
