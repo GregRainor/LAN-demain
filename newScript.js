@@ -1754,6 +1754,24 @@ document.addEventListener('DOMContentLoaded', () => {
     // Event Reminders — toast when a registered event is coming up within 15 minutes
     const remindedEventIds = new Set();
 
+    // Rappels système : utiles quand l'onglet est en arrière-plan, là où un
+    // toast passerait inaperçu. Le toast est conservé dans tous les cas.
+    function requestReminderPermission() {
+        if (!('Notification' in window)) return;
+        if (Notification.permission !== 'default') return;
+        Notification.requestPermission().catch(() => { /* refus : on garde les toasts */ });
+    }
+
+    function showReminderNotification(title, body) {
+        if (!('Notification' in window) || Notification.permission !== 'granted') return;
+        try {
+            new Notification(title, { body, icon: '/favicon.ico', tag: title });
+        } catch (error) {
+            // Certains navigateurs exigent un service worker : on ignore, le toast reste
+            console.debug('Notification indisponible:', error);
+        }
+    }
+
     function checkEventReminders(eventsData, currentUser) {
         if (!eventsData || !currentUser) return;
         const now = new Date();
@@ -1772,6 +1790,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (diff > 0 && diff <= 15) {
                 remindedEventIds.add(id);
                 showToast(`⏰ Rappel : "${evt.title}" commence à ${evt.time} !`, 'success');
+                showReminderNotification(
+                    `⏰ ${evt.title}`,
+                    `Ça commence à ${evt.time} — dans ${diff} minute(s).`
+                );
             }
         });
     }
@@ -2156,6 +2178,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 rsvpBtn.textContent = 'Participer';
                 rsvpBtn.addEventListener('click', () => {
                     db.ref(`lan/events/${evt.id}/rsvps/${currentUser.uid}`).set('accepted');
+                    // On demande l'autorisation ici : c'est le moment où le rappel
+                    // devient utile, et un clic est nécessaire pour que le
+                    // navigateur accepte d'afficher la demande.
+                    requestReminderPermission();
                 });
                 actions.appendChild(rsvpBtn);
             }
