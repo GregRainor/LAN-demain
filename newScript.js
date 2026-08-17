@@ -974,22 +974,30 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('game-details-desc').textContent = details.shortDescription || '';
         renderTags(document.getElementById('game-details-tags'), details, 8);
 
-        // Bande-annonce si disponible, sinon la bannière du jeu
+        // Steam ne sert la bande-annonce qu'en HLS. On la lit quand le navigateur
+        // le sait nativement (Safari/iOS), sinon on affiche l'image de la
+        // bande-annonce — la lire ailleurs demanderait d'embarquer hls.js.
         const media = document.getElementById('game-details-media');
         media.innerHTML = '';
-        const trailerSrc = details.trailer && (details.trailer.mp4 || details.trailer.webm);
-        if (trailerSrc) {
+        const trailer = details.trailer;
+        const canPlayHls = document.createElement('video')
+            .canPlayType('application/vnd.apple.mpegurl') !== '';
+
+        if (trailer && trailer.hls && canPlayHls) {
             const video = document.createElement('video');
-            video.src = trailerSrc;
+            video.src = trailer.hls;
             video.controls = true;
             video.preload = 'metadata';
-            if (details.trailer.thumbnail) video.poster = details.trailer.thumbnail;
+            if (trailer.thumbnail) video.poster = trailer.thumbnail;
             media.appendChild(video);
-        } else if (details.headerImage) {
-            const img = document.createElement('img');
-            img.src = details.headerImage;
-            img.alt = '';
-            media.appendChild(img);
+        } else {
+            const still = (trailer && trailer.thumbnail) || details.headerImage;
+            if (still) {
+                const img = document.createElement('img');
+                img.src = still;
+                img.alt = '';
+                media.appendChild(img);
+            }
         }
 
         const priceEl = document.getElementById('game-details-price');

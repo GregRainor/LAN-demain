@@ -17,15 +17,18 @@ async function findAppId(gameName) {
     return null;
 }
 
-// Steam expose plusieurs résolutions ; on prend la 480p (légère) et on garde max en secours
+// Steam ne fournit plus de mp4/webm direct : les bandes-annonces sont servies
+// en HLS (.m3u8) et DASH (.mpd). Seul Safari lit le HLS nativement dans une
+// balise <video> ; ailleurs il faudrait hls.js. On renvoie donc aussi la
+// vignette, que le client utilise comme repli sans dépendance externe.
 function pickTrailer(movies) {
     if (!Array.isArray(movies) || movies.length === 0) return null;
     const m = movies[0];
     return {
         name: m.name || null,
         thumbnail: m.thumbnail || null,
-        mp4: (m.mp4 && (m.mp4['480'] || m.mp4.max)) || null,
-        webm: (m.webm && (m.webm['480'] || m.webm.max)) || null
+        hls: m.hls_h264 || null,
+        dash: m.dash_h264 || null
     };
 }
 
