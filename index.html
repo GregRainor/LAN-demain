@@ -299,6 +299,8 @@
                                 Événements</li>
                             <li class="nav-item" data-target="lan-kocktails">
                                 Kocktails</li>
+                            <li class="nav-item" data-target="lan-food">
+                                Bouffe <span id="food-nav-badge" class="nav-badge" style="display:none;">0</span></li>
                             <li class="nav-item" data-target="lan-polls">
                                 Sondages <span id="poll-nav-badge" class="nav-badge" style="display:none;">0</span></li>
                             <li class="nav-item" data-target="lan-library">
@@ -375,6 +377,30 @@
                         <div id="events-list" class="stack">
                             <!-- Event cards go here -->
                         </div>
+                    </div>
+
+                    <!-- Subview: Bouffe -->
+                    <div id="lan-food" class="lan-subview" style="display: none;">
+                        <h2 class="subview-title" style="margin-bottom: 30px;">Bouffe</h2>
+
+                        <div class="luxury-panel" style="padding: 25px; margin-bottom: 30px;">
+                            <h3 class="section-title">Lancer une commande groupée</h3>
+                            <p class="panel-section__hint">Chacun ajoute ce qu'il veut, avec le prix. On obtient une
+                                liste unique et le total par personne.</p>
+                            <div class="field-row">
+                                <input type="text" id="food-place" class="luxury-input"
+                                    placeholder="Où ? Ex : Pizzeria du coin" maxlength="80" style="flex: 1;">
+                                <select id="food-duration" class="luxury-input" style="width: auto;">
+                                    <option value="15">15 min</option>
+                                    <option value="30" selected>30 min</option>
+                                    <option value="60">1 h</option>
+                                    <option value="0">Pas de limite</option>
+                                </select>
+                                <button id="food-create" class="gold-btn btn-inline">Ouvrir</button>
+                            </div>
+                        </div>
+
+                        <div id="food-runs" class="stack"></div>
                     </div>
 
                     <!-- Subview: Bibliothèques Steam -->

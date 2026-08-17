@@ -3227,6 +3227,52 @@ select.luxury-input option:disabled {
     padding: var(--space-2) var(--space-3);
 }
 
+/* --- Commandes groupées --- */
+
+.food-person {
+    margin-bottom: var(--space-4);
+    padding: var(--space-3);
+    background: rgba(255, 255, 255, 0.02);
+    border-left: 2px solid var(--accent-a25);
+    border-radius: var(--radius-sharp);
+}
+
+.food-person__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: var(--space-3);
+    margin-bottom: var(--space-2);
+    padding-bottom: var(--space-2);
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.food-person__name {
+    font-weight: 600;
+    color: var(--primary-text);
+}
+
+.food-person__total {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    color: var(--accent-color);
+}
+
+.food-add {
+    margin-top: var(--space-4);
+}
+
+.food-add__price {
+    max-width: 90px;
+    flex: 0 0 90px;
+}
+
+.food-total {
+    font-variant-numeric: tabular-nums;
+    font-size: var(--text-sm);
+    color: var(--primary-text);
+}
+
 .poll-audience {
     display: flex;
     align-items: center;

@@ -94,6 +94,18 @@
             }
           }
         }
+      },
+
+      "foodRuns": {
+        ".read": "auth != null",
+        "$run_id": {
+          ".write": "auth != null && ((!data.exists() && newData.child('createdBy').val() === auth.uid) || (data.exists() && data.child('createdBy').val() === auth.uid) || root.child('lan/roles').child(auth.uid).val() === 'admin' || auth.uid === 'ITe5VPuwewMzO7JnJA5oPWMdfvt2')",
+          "items": {
+            "$item_id": {
+              ".write": "auth != null && ((!data.exists() && newData.child('userId').val() === auth.uid) || (data.exists() && data.child('userId').val() === auth.uid) || root.child('lan/foodRuns').child($run_id).child('createdBy').val() === auth.uid || root.child('lan/roles').child(auth.uid).val() === 'admin' || auth.uid === 'ITe5VPuwewMzO7JnJA5oPWMdfvt2')"
+            }
+          }
+        }
       }
     }
   }

@@ -546,6 +546,12 @@ document.addEventListener('DOMContentLoaded', () => {
             handlePollClosures();
             renderPolls();
         });
+
+        // Commandes groupées
+        db.ref('lan/foodRuns').on('value', (snapshot) => {
+            globalFoodRuns = snapshot.val() || {};
+            renderFoodRuns();
+        });
         buildPollOptionInputs(2);
 
         settingsRef.on('value', (snapshot) => {
@@ -1643,6 +1649,249 @@ document.addEventListener('DOMContentLoaded', () => {
         if (visible) renderPolls();
     }, 1000);
 
+    // Les commandes ont aussi un compte à rebours
+    setInterval(() => {
+        if (!Object.keys(globalFoodRuns).length) return;
+        const view = document.getElementById('lan-food');
+        if (view && view.style.display !== 'none' && view.offsetParent !== null) renderFoodRuns();
+    }, 1000);
+
+    // --- COMMANDES GROUPEES (BOUFFE) -----------------------------------------
+
+    let globalFoodRuns = {};
+
+    // Même logique que les sondages : l'échéance se déduit, elle ne s'écrit pas
+    function isRunClosed(run) {
+        if (run.closed) return true;
+        return !!run.closesAt && Date.now() >= run.closesAt;
+    }
+
+    function formatEuro(n) {
+        return `${n.toFixed(2).replace('.', ',')} €`;
+    }
+
+    document.getElementById('food-create')?.addEventListener('click', async () => {
+        const user = auth.currentUser;
+        if (!user) return;
+
+        const place = document.getElementById('food-place').value.trim();
+        if (!place) { showToast('Indiquez où on commande.', 'error'); return; }
+
+        const minutes = parseInt(document.getElementById('food-duration').value, 10);
+
+        try {
+            await db.ref('lan/foodRuns').push().set({
+                place,
+                createdBy: user.uid,
+                createdByName: user.displayName || 'Un joueur',
+                createdAt: firebase.database.ServerValue.TIMESTAMP,
+                closesAt: minutes > 0 ? Date.now() + minutes * 60000 : null,
+                closed: false
+            });
+            document.getElementById('food-place').value = '';
+            showToast('Commande ouverte !', 'success');
+
+            // Tout le monde doit savoir qu'on commande, sinon on oublie des gens
+            knownPlayers()
+                .filter(p => p.uid !== user.uid)
+                .forEach(p => sendNotification(p.uid,
+                    `🍕 ${user.displayName || 'Quelqu\'un'} lance une commande : ${place}`, 'alert'));
+        } catch (error) {
+            console.error('Food run error:', error);
+            showToast('Impossible d\'ouvrir la commande : ' + error.message, 'error');
+        }
+    });
+
+    async function addFoodItem(runId, label, price) {
+        const user = auth.currentUser;
+        if (!user) return;
+        await db.ref(`lan/foodRuns/${runId}/items`).push().set({
+            userId: user.uid,
+            userName: user.displayName || 'Joueur',
+            label,
+            price
+        });
+    }
+
+    function buildFoodRunCard(run, runId) {
+        const closed = isRunClosed(run);
+        const user = auth.currentUser;
+        const items = Object.entries(run.items || {}).map(([id, it]) => ({ id, ...it }));
+
+        const card = document.createElement('div');
+        card.className = closed ? 'poll-card poll-card--closed' : 'poll-card';
+
+        const header = document.createElement('div');
+        header.className = 'poll-card__header';
+        const title = document.createElement('h4');
+        title.className = 'poll-card__question';
+        title.textContent = `🍕 ${run.place}`;
+        const meta = document.createElement('span');
+        meta.className = 'poll-card__meta';
+        meta.textContent = closed
+            ? `par ${run.createdByName} · fermée`
+            : `par ${run.createdByName} · ${pollTimeLeft(run)}`;
+        header.append(title, meta);
+        card.appendChild(header);
+
+        // Regroupé par personne : c'est ce qu'on veut pour savoir qui doit quoi
+        const byPerson = new Map();
+        items.forEach(it => {
+            if (!byPerson.has(it.userId)) byPerson.set(it.userId, { name: it.userName, items: [], total: 0 });
+            const entry = byPerson.get(it.userId);
+            entry.items.push(it);
+            entry.total += Number(it.price) || 0;
+        });
+
+        if (byPerson.size === 0) {
+            const empty = document.createElement('p');
+            empty.className = 'panel-section__hint';
+            empty.textContent = 'Personne n\'a encore rien commandé.';
+            card.appendChild(empty);
+        }
+
+        byPerson.forEach((entry, uid) => {
+            const block = document.createElement('div');
+            block.className = 'food-person';
+
+            const head = document.createElement('div');
+            head.className = 'food-person__head';
+            const who = document.createElement('span');
+            who.className = 'food-person__name';
+            who.textContent = entry.name;
+            const tot = document.createElement('span');
+            tot.className = 'food-person__total';
+            tot.textContent = formatEuro(entry.total);
+            head.append(who, tot);
+            block.appendChild(head);
+
+            entry.items.forEach(it => {
+                const row = document.createElement('div');
+                row.className = 'player-row';
+                const label = document.createElement('span');
+                label.className = 'player-row__name';
+                label.textContent = it.label;
+                const price = document.createElement('span');
+                price.className = 'player-row__score';
+                price.textContent = formatEuro(Number(it.price) || 0);
+                row.append(label, price);
+
+                // On ne retire que ses propres lignes (ou celles de sa commande)
+                const canRemove = !closed && user &&
+                    (it.userId === user.uid || run.createdBy === user.uid || window.currentUserIsAdmin);
+                if (canRemove) {
+                    const del = document.createElement('button');
+                    del.className = 'danger-link-btn';
+                    del.textContent = '✕';
+                    del.style.marginLeft = 'var(--space-3)';
+                    del.addEventListener('click', () => db.ref(`lan/foodRuns/${runId}/items/${it.id}`).remove());
+                    row.appendChild(del);
+                }
+                block.appendChild(row);
+            });
+
+            card.appendChild(block);
+        });
+
+        const grandTotal = items.reduce((sum, it) => sum + (Number(it.price) || 0), 0);
+
+        if (!closed) {
+            const form = document.createElement('div');
+            form.className = 'field-row food-add';
+
+            const label = document.createElement('input');
+            label.type = 'text';
+            label.className = 'luxury-input';
+            label.placeholder = 'Ce que je prends';
+            label.maxLength = 80;
+
+            const price = document.createElement('input');
+            price.type = 'number';
+            price.className = 'luxury-input food-add__price';
+            price.placeholder = '€';
+            price.step = '0.5';
+            price.min = '0';
+
+            const add = document.createElement('button');
+            add.className = 'gold-btn btn-inline';
+            add.textContent = 'Ajouter';
+
+            const submit = async () => {
+                const text = label.value.trim();
+                if (!text) { showToast('Indiquez ce que vous prenez.', 'error'); return; }
+                try {
+                    await addFoodItem(runId, text, Number(price.value) || 0);
+                    label.value = '';
+                    price.value = '';
+                    label.focus();
+                } catch (error) {
+                    showToast('Ajout refusé : ' + error.message, 'error');
+                }
+            };
+
+            add.addEventListener('click', submit);
+            label.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+            price.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+
+            form.append(label, price, add);
+            card.appendChild(form);
+        }
+
+        const footer = document.createElement('div');
+        footer.className = 'poll-card__footer';
+        const total = document.createElement('span');
+        total.className = 'food-total';
+        total.textContent = `Total : ${formatEuro(grandTotal)} · ${items.length} article(s)`;
+        footer.appendChild(total);
+
+        const canManage = user && (run.createdBy === user.uid || window.currentUserIsAdmin);
+        if (canManage) {
+            if (!closed) {
+                const close = document.createElement('button');
+                close.className = 'gold-link-btn';
+                close.textContent = 'Clore';
+                close.addEventListener('click', () => db.ref(`lan/foodRuns/${runId}/closed`).set(true));
+                footer.appendChild(close);
+            }
+            const del = document.createElement('button');
+            del.className = 'danger-link-btn';
+            del.textContent = 'Supprimer';
+            del.addEventListener('click', () => {
+                askConfirm(`Supprimer la commande « ${run.place} » ?`, { danger: true }).then(ok => {
+                    if (ok) db.ref(`lan/foodRuns/${runId}`).remove();
+                });
+            });
+            footer.appendChild(del);
+        }
+
+        card.appendChild(footer);
+        return card;
+    }
+
+    function renderFoodRuns() {
+        const box = document.getElementById('food-runs');
+        const badge = document.getElementById('food-nav-badge');
+        if (!box) return;
+
+        const runs = Object.entries(globalFoodRuns)
+            .map(([id, r]) => ({ id, ...r }))
+            .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+        const open = runs.filter(r => !isRunClosed(r));
+
+        box.innerHTML = '';
+        if (runs.length === 0) {
+            box.innerHTML = '<p style="font-style:italic; color:var(--secondary-text);">Aucune commande pour l\'instant.</p>';
+        } else {
+            runs.slice(0, 10).forEach(r => box.appendChild(buildFoodRunCard(r, r.id)));
+        }
+
+        if (badge) {
+            badge.textContent = open.length;
+            badge.style.display = open.length ? 'inline-flex' : 'none';
+        }
+    }
+
     // --- NOUVELLE LAN --------------------------------------------------------
 
     // Archive le classement en cours puis remet le cycle à zéro : votes effacés,
@@ -1681,7 +1930,8 @@ document.addEventListener('DOMContentLoaded', () => {
             db.ref('lan/events').remove(),
             db.ref('lan/cocktails/oneshot').remove(),
             db.ref('lan/cocktails/orders').remove(),
-            db.ref('lan/polls').remove()
+            db.ref('lan/polls').remove(),
+            db.ref('lan/foodRuns').remove()
         ]);
 
         const settings = { isVotingOpen: true, isLanActive: false };
