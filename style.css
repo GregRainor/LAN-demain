@@ -3424,13 +3424,63 @@ select.luxury-input option:disabled {
     margin-top: var(--space-3);
 }
 
+/* Les radios et cases natives juraient avec le reste : on les masque
+   visuellement (sans les retirer du clavier) et on habille le label en pastille,
+   comme les filtres du classement. */
 .poll-audience__choice {
     display: inline-flex;
     align-items: center;
     gap: var(--space-2);
-    font-size: var(--text-sm);
+    padding: var(--space-2) var(--space-4);
+    font-size: var(--text-xs);
+    letter-spacing: 0.3px;
     color: var(--secondary-text);
+    background: transparent;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-pill);
     cursor: pointer;
+    user-select: none;
+    transition: color var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.poll-audience__choice input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Puce d'état à gauche du libellé, qui se remplit quand c'est coché */
+.poll-audience__choice::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    border: 1px solid var(--border-highlight);
+    transition: background var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.poll-audience__choice:hover {
+    color: var(--accent-color);
+    border-color: var(--accent-a40);
+}
+
+.poll-audience__choice:has(input:checked) {
+    color: var(--accent-color);
+    background: var(--accent-a08);
+    border-color: var(--accent-color);
+}
+
+.poll-audience__choice:has(input:checked)::before {
+    background: var(--accent-color);
+    box-shadow: 0 0 8px var(--accent-glow);
+}
+
+/* Le focus clavier reste visible malgré l'input masqué */
+.poll-audience__choice:has(input:focus-visible) {
+    outline: 2px solid var(--accent-a40);
+    outline-offset: 2px;
 }
 
 .poll-audience__list {

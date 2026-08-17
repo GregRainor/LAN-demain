@@ -2770,8 +2770,25 @@ document.addEventListener('DOMContentLoaded', () => {
         return added;
     }
 
+    function makeLibraryTagChip(key, count) {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = selectedLibraryTags.has(key) ? 'filter-chip active' : 'filter-chip';
+        chip.dataset.libtag = key;
+        chip.textContent = tagLabels.get(key) || key;
+        if (count != null) {
+            const badge = document.createElement('span');
+            badge.className = 'filter-chip__n';
+            badge.textContent = count;
+            chip.appendChild(badge);
+        }
+        return chip;
+    }
+
     function renderLibraryTagBar(mount, games) {
         const bar = mount.querySelector('.js-library-tags');
+        const menu = mount.querySelector('.js-library-tagmenu');
+        const menuList = mount.querySelector('.js-library-taglist');
         if (!bar) return;
 
         const counts = new Map();
@@ -2782,30 +2799,25 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         const sorted = [...counts.entries()]
-            .filter(([k]) => gameplayTags.has(k))
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 6);
+            .sort((a, b) => b[1] - a[1] || (tagLabels.get(a[0]) || a[0]).localeCompare(tagLabels.get(b[0]) || b[0]));
+
+        // En tête : seulement les tags de gameplay, comme pour le classement
+        const top = sorted.filter(([k]) => gameplayTags.has(k)).slice(0, 6).map(([k]) => k);
+        selectedLibraryTags.forEach(t => { if (!top.includes(t)) top.push(t); });
 
         bar.innerHTML = '';
-        if (sorted.length === 0) return;
+        if (sorted.length === 0) {
+            if (menu) menu.style.display = 'none';
+            return;
+        }
+        if (menu) menu.style.display = '';
 
         const label = document.createElement('span');
         label.className = 'filter-bar__label';
         label.textContent = 'Tags';
         bar.appendChild(label);
 
-        sorted.forEach(([key, n]) => {
-            const chip = document.createElement('button');
-            chip.type = 'button';
-            chip.className = selectedLibraryTags.has(key) ? 'filter-chip active' : 'filter-chip';
-            chip.dataset.libtag = key;
-            chip.textContent = tagLabels.get(key) || key;
-            const badge = document.createElement('span');
-            badge.className = 'filter-chip__n';
-            badge.textContent = n;
-            chip.appendChild(badge);
-            bar.appendChild(chip);
-        });
+        top.forEach(key => bar.appendChild(makeLibraryTagChip(key, counts.get(key) || 0)));
 
         if (selectedLibraryTags.size) {
             const reset = document.createElement('button');
@@ -2815,16 +2827,45 @@ document.addEventListener('DOMContentLoaded', () => {
             reset.textContent = '✕ Effacer';
             bar.appendChild(reset);
         }
+
+        // Le menu liste tout, y compris les fonctionnalités de plateforme
+        if (menuList) {
+            const search = (mount.querySelector('.js-library-tagsearch')?.value || '').toLowerCase().trim();
+            const filtered = sorted.filter(([k]) =>
+                !search || (tagLabels.get(k) || k).toLowerCase().includes(search));
+
+            menuList.innerHTML = '';
+            if (filtered.length === 0) {
+                menuList.innerHTML = '<span class="tag-menu__empty">Aucun tag correspondant.</span>';
+            } else {
+                filtered.forEach(([key, n]) => menuList.appendChild(makeLibraryTagChip(key, n)));
+            }
+        }
     }
 
+    // Les puces existent dans la barre et dans le menu déroulant
     document.addEventListener('click', (e) => {
-        const chip = e.target.closest('.js-library-tags .filter-chip');
+        const chip = e.target.closest('.js-library-tags .filter-chip, .js-library-taglist .filter-chip');
         if (!chip) return;
         const key = chip.dataset.libtag;
         if (key === '__reset__') selectedLibraryTags.clear();
         else if (selectedLibraryTags.has(key)) selectedLibraryTags.delete(key);
         else selectedLibraryTags.add(key);
         renderGroupLibrary();
+    });
+
+    document.addEventListener('input', (e) => {
+        const field = e.target.closest('.js-library-tagsearch');
+        if (!field) return;
+        const mount = field.closest('.library-panel-mount');
+        if (mount) renderLibraryPanel(mount);
+    });
+
+    // Referme le menu des tags au clic à l'extérieur
+    document.addEventListener('click', (e) => {
+        document.querySelectorAll('.js-library-tagmenu[open]').forEach(menu => {
+            if (!menu.contains(e.target)) menu.open = false;
+        });
     });
 
     // Une ligne de jeu issue d'une bibliothèque Steam (pas du classement de votes)
@@ -3129,7 +3170,17 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="filter-bar js-library-filter"></div>
         <input type="search" class="luxury-input js-library-search" placeholder="Rechercher un jeu..."
             style="margin-bottom: 10px;">
-        <div class="filter-bar js-library-tags"></div>
+        <div class="filter-bar js-library-tagbar">
+            <span class="filter-bar__chips js-library-tags"></span>
+            <details class="tag-menu js-library-tagmenu">
+                <summary class="filter-chip">Tous les tags ▾</summary>
+                <div class="tag-menu__panel">
+                    <input type="text" class="luxury-input tag-menu__search js-library-tagsearch"
+                        placeholder="Rechercher un tag...">
+                    <div class="tag-menu__list js-library-taglist"></div>
+                </div>
+            </details>
+        </div>
         <div class="rank-list scroll-area js-library-list"></div>
         <details class="link-steam">
             <summary>Ajouter une bibliothèque Steam</summary>
