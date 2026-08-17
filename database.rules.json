@@ -82,6 +82,18 @@
         "$steam_id": {
           ".write": "auth != null"
         }
+      },
+
+      "polls": {
+        ".read": "auth != null",
+        "$poll_id": {
+          ".write": "auth != null && ((!data.exists() && newData.child('createdBy').val() === auth.uid) || (data.exists() && data.child('createdBy').val() === auth.uid) || root.child('lan/roles').child(auth.uid).val() === 'admin' || auth.uid === 'ITe5VPuwewMzO7JnJA5oPWMdfvt2')",
+          "votes": {
+            "$uid": {
+              ".write": "auth != null && auth.uid === $uid"
+            }
+          }
+        }
       }
     }
   }

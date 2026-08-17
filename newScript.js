@@ -538,6 +538,14 @@ document.addEventListener('DOMContentLoaded', () => {
             renderGroupLibrary();
         });
 
+        // Sondages
+        db.ref('lan/polls').on('value', (snapshot) => {
+            globalPolls = snapshot.val() || {};
+            announceNewPolls();
+            renderPolls();
+        });
+        buildPollOptionInputs(2);
+
         settingsRef.on('value', (snapshot) => {
             const newSettings = snapshot.val() || { isVotingOpen: true, topGamesCount: 10, isLanActive: false };
 
@@ -1119,6 +1127,284 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(() => showToast('Résultats archivés dans l\'historique !', 'success'))
             .catch(err => console.error('Archive error:', err));
     }
+
+    // --- SONDAGES ------------------------------------------------------------
+
+    let globalPolls = {};
+    const POLL_MAX_OPTIONS = 6;
+    // Sondages déjà annoncés, pour ne pas re-notifier à chaque rafraîchissement
+    const announcedPolls = new Set();
+
+    // L'état « fermé » se déduit de closesAt : personne n'a besoin d'écrire en
+    // base à l'expiration, ce qui éviterait de toute façon une course entre clients.
+    function isPollClosed(poll) {
+        if (poll.closed) return true;
+        return !!poll.closesAt && Date.now() >= poll.closesAt;
+    }
+
+    function pollTimeLeft(poll) {
+        if (poll.closed) return 'clos';
+        if (!poll.closesAt) return 'sans limite';
+        const ms = poll.closesAt - Date.now();
+        if (ms <= 0) return 'terminé';
+        const mins = Math.floor(ms / 60000);
+        const secs = Math.floor((ms % 60000) / 1000);
+        return mins > 0 ? `${mins} min ${secs}s` : `${secs}s`;
+    }
+
+    function buildPollOptionInputs(count = 2) {
+        const box = document.getElementById('poll-options');
+        if (!box) return;
+        box.innerHTML = '';
+        for (let i = 0; i < count; i++) addPollOptionInput();
+    }
+
+    function addPollOptionInput(value = '') {
+        const box = document.getElementById('poll-options');
+        if (!box) return;
+        if (box.children.length >= POLL_MAX_OPTIONS) {
+            showToast(`${POLL_MAX_OPTIONS} options maximum.`, 'error');
+            return;
+        }
+
+        const row = document.createElement('div');
+        row.className = 'field-row';
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'luxury-input poll-option-input';
+        input.placeholder = `Option ${box.children.length + 1}`;
+        input.maxLength = 80;
+        input.value = value;
+        row.appendChild(input);
+
+        // Les deux premières options sont obligatoires : pas de bouton retirer
+        if (box.children.length >= 2) {
+            const del = document.createElement('button');
+            del.type = 'button';
+            del.className = 'danger-link-btn';
+            del.textContent = '✕';
+            del.addEventListener('click', () => row.remove());
+            row.appendChild(del);
+        }
+
+        box.appendChild(row);
+    }
+
+    document.getElementById('poll-add-option')?.addEventListener('click', () => addPollOptionInput());
+
+    document.getElementById('poll-create')?.addEventListener('click', async () => {
+        const user = auth.currentUser;
+        if (!user) return;
+
+        const question = document.getElementById('poll-question').value.trim();
+        const options = [...document.querySelectorAll('.poll-option-input')]
+            .map(i => i.value.trim())
+            .filter(Boolean);
+
+        if (!question) { showToast('Posez une question.', 'error'); return; }
+        if (options.length < 2) { showToast('Il faut au moins deux options.', 'error'); return; }
+
+        const minutes = parseInt(document.getElementById('poll-duration').value, 10);
+        const optionMap = {};
+        options.forEach((label, i) => { optionMap['o' + i] = { label, order: i }; });
+
+        try {
+            await db.ref('lan/polls').push().set({
+                question,
+                options: optionMap,
+                createdBy: user.uid,
+                createdByName: user.displayName || 'Un joueur',
+                createdAt: firebase.database.ServerValue.TIMESTAMP,
+                // closesAt est calculé côté client : à quelques secondes près,
+                // c'est sans importance pour un sondage entre amis
+                closesAt: minutes > 0 ? Date.now() + minutes * 60000 : null,
+                closed: false
+            });
+
+            document.getElementById('poll-question').value = '';
+            buildPollOptionInputs(2);
+            showToast('Sondage lancé !', 'success');
+        } catch (error) {
+            console.error('Poll create error:', error);
+            showToast('Impossible de lancer le sondage : ' + error.message, 'error');
+        }
+    });
+
+    async function votePoll(pollId, optionId) {
+        const user = auth.currentUser;
+        if (!user) return;
+        try {
+            await db.ref(`lan/polls/${pollId}/votes/${user.uid}`).set(optionId);
+        } catch (error) {
+            showToast('Vote refusé : ' + error.message, 'error');
+        }
+    }
+
+    function buildPollCard(poll, pollId) {
+        const closed = isPollClosed(poll);
+        const user = auth.currentUser;
+        const votes = poll.votes || {};
+        const myVote = user ? votes[user.uid] : null;
+        const totalVotes = Object.keys(votes).length;
+
+        const card = document.createElement('div');
+        card.className = closed ? 'poll-card poll-card--closed' : 'poll-card';
+
+        const header = document.createElement('div');
+        header.className = 'poll-card__header';
+        const q = document.createElement('h4');
+        q.className = 'poll-card__question';
+        q.textContent = poll.question;
+        const meta = document.createElement('span');
+        meta.className = 'poll-card__meta';
+        meta.textContent = closed
+            ? `par ${poll.createdByName} · terminé`
+            : `par ${poll.createdByName} · ${pollTimeLeft(poll)}`;
+        header.append(q, meta);
+        card.appendChild(header);
+
+        const options = Object.entries(poll.options || {})
+            .map(([id, o]) => ({ id, ...o }))
+            .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+        // Qui a voté quoi : les votes sont publics, c'est la moitié du plaisir
+        const votersByOption = {};
+        Object.entries(votes).forEach(([uid, optId]) => {
+            (votersByOption[optId] = votersByOption[optId] || []).push(uid);
+        });
+
+        const maxCount = Math.max(1, ...options.map(o => (votersByOption[o.id] || []).length));
+
+        options.forEach(opt => {
+            const voters = votersByOption[opt.id] || [];
+            const count = voters.length;
+            const pct = totalVotes ? Math.round((count / totalVotes) * 100) : 0;
+
+            const row = document.createElement('button');
+            row.type = 'button';
+            row.className = 'poll-option';
+            if (myVote === opt.id) row.classList.add('poll-option--mine');
+            if (closed && count === maxCount && count > 0) row.classList.add('poll-option--winner');
+            row.disabled = closed;
+
+            const fill = document.createElement('span');
+            fill.className = 'poll-option__fill';
+            fill.style.width = `${pct}%`;
+
+            const label = document.createElement('span');
+            label.className = 'poll-option__label';
+            label.textContent = opt.label;
+
+            const score = document.createElement('span');
+            score.className = 'poll-option__score';
+            score.textContent = count ? `${count} · ${pct}%` : '—';
+
+            row.append(fill, label, score);
+
+            if (voters.length) {
+                const who = document.createElement('span');
+                who.className = 'poll-option__voters';
+                who.textContent = voters
+                    .map(uid => (globalUsers[uid] && globalUsers[uid].name) || (globalVotes[uid] && globalVotes[uid].name) || '?')
+                    .join(', ');
+                row.appendChild(who);
+            }
+
+            if (!closed) row.addEventListener('click', () => votePoll(pollId, opt.id));
+            card.appendChild(row);
+        });
+
+        const footer = document.createElement('div');
+        footer.className = 'poll-card__footer';
+        const tally = document.createElement('span');
+        tally.className = 'poll-card__meta';
+        tally.textContent = `${totalVotes} vote(s)`;
+        footer.appendChild(tally);
+
+        // Le créateur et les admins peuvent clore ou supprimer
+        const canManage = user && (poll.createdBy === user.uid || window.currentUserIsAdmin);
+        if (canManage) {
+            if (!closed) {
+                const close = document.createElement('button');
+                close.className = 'gold-link-btn';
+                close.textContent = 'Clore';
+                close.addEventListener('click', () => db.ref(`lan/polls/${pollId}/closed`).set(true));
+                footer.appendChild(close);
+            }
+            const del = document.createElement('button');
+            del.className = 'danger-link-btn';
+            del.textContent = 'Supprimer';
+            del.addEventListener('click', () => {
+                askConfirm(`Supprimer le sondage « ${poll.question} » ?`, { danger: true }).then(ok => {
+                    if (ok) db.ref(`lan/polls/${pollId}`).remove();
+                });
+            });
+            footer.appendChild(del);
+        }
+
+        card.appendChild(footer);
+        return card;
+    }
+
+    function renderPolls() {
+        const activeBox = document.getElementById('polls-active');
+        const closedBox = document.getElementById('polls-closed');
+        const badge = document.getElementById('poll-nav-badge');
+        if (!activeBox || !closedBox) return;
+
+        const entries = Object.entries(globalPolls)
+            .map(([id, p]) => ({ id, ...p }))
+            .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+        const active = entries.filter(p => !isPollClosed(p));
+        const closed = entries.filter(p => isPollClosed(p));
+
+        activeBox.innerHTML = '';
+        closedBox.innerHTML = '';
+
+        if (active.length === 0) {
+            activeBox.innerHTML = '<p style="font-style:italic; color:var(--secondary-text);">Aucun sondage en cours.</p>';
+        } else {
+            active.forEach(p => activeBox.appendChild(buildPollCard(p, p.id)));
+        }
+
+        if (closed.length === 0) {
+            closedBox.innerHTML = '<p style="font-style:italic; color:var(--secondary-text);">Rien pour l\'instant.</p>';
+        } else {
+            closed.slice(0, 20).forEach(p => closedBox.appendChild(buildPollCard(p, p.id)));
+        }
+
+        if (badge) {
+            badge.textContent = active.length;
+            badge.style.display = active.length ? 'inline-flex' : 'none';
+        }
+    }
+
+    // Un sondage n'a d'intérêt que si on le voit arriver
+    function announceNewPolls() {
+        const user = auth.currentUser;
+        if (!user) return;
+
+        Object.entries(globalPolls).forEach(([id, poll]) => {
+            if (announcedPolls.has(id)) return;
+            announcedPolls.add(id);
+
+            // On n'annonce ni les anciens sondages au chargement, ni les siens
+            const isFresh = poll.createdAt && (Date.now() - poll.createdAt) < 60000;
+            if (!isFresh || isPollClosed(poll) || poll.createdBy === user.uid) return;
+
+            showToast(`📊 ${poll.createdByName} lance un sondage : « ${poll.question} »`, 'success');
+        });
+    }
+
+    // Le compte à rebours doit avancer même sans nouvel événement Firebase
+    setInterval(() => {
+        const view = document.getElementById('lan-polls');
+        if (view && view.style.display !== 'none' && Object.keys(globalPolls).length) {
+            renderPolls();
+        }
+    }, 1000);
 
     // --- NOUVELLE LAN --------------------------------------------------------
 
