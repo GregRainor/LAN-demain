@@ -120,6 +120,21 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
     background: rgba(8, 8, 8, .94);
 }
 .m-appbar__row { display: flex; align-items: center; gap: 9px; }
+
+/* Flèche de retour : n'apparaît que sur les écrans hors onglets, où il n'y a
+   pas d'autre chemin de sortie que la barre du bas. */
+.m-back {
+    width: var(--tap); height: var(--tap);
+    margin-left: -10px;
+    flex: 0 0 auto;
+    display: none;
+    place-items: center;
+    border-radius: var(--r-pill);
+    color: var(--gold);
+}
+.m-back.is-shown { display: grid; }
+.m-back:active { background: var(--gold-a08); }
+.m-back svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .m-appbar__name {
     font-family: var(--fd);
     font-size: 1.16rem;
@@ -506,6 +521,14 @@ textarea.m-input { resize: vertical; min-height: 84px; }
 .m-tab svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .m-tab__label { font-size: .64rem; }
 .m-tab.is-active { color: var(--gold); }
+
+/* Verrouillé : la destination existe mais pas encore à cette phase de la
+   soirée. On la grise plutôt que de la cacher, pour que le joueur comprenne
+   qu'elle arrive au lieu de la croire disparue. */
+.m-tab.is-locked { opacity: .32; }
+.m-tab.is-locked .m-tab__label { text-decoration: line-through; }
+.m-list__row.is-locked { opacity: .4; }
+.m-list__row.is-locked .m-list__hint { color: var(--gold-dim); }
 .m-tab.is-active::before {
     content: ""; position: absolute; top: 0; left: 50%;
     transform: translateX(-50%);

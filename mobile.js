@@ -218,18 +218,95 @@ function gameDetails(gameName) {
 
 const TABS = ['soiree', 'jeux', 'miam', 'sondages', 'plus'];
 
-function goto(screen) {
+const SCREEN_TITLES = {
+    vote: 'Mon vote',
+    evenements: 'Événements',
+    kocktails: 'Kocktails',
+    biblio: 'Bibliothèques',
+    historique: 'Historique',
+    admin: 'Administration',
+    bilan: 'Bilan de la soirée'
+};
+
+/* ==========================================================================
+   Phases de la soirée
+   On vote d'abord, on joue ensuite, on fait le bilan à la fin. Une
+   fonctionnalité qui n'appartient pas à la phase en cours reste visible mais
+   verrouillée : cachée, le joueur la croirait disparue.
+   ========================================================================== */
+
+function phase() {
+    if (state.settings.lanFinished) return 'finished';
+    if (state.settings.isLanActive) return 'lan';
+    if (state.settings.isVotingOpen) return 'vote';
+    return 'waiting';
+}
+
+/* Ce qui appartient à la soirée elle-même : sans LAN lancée, pas de commande
+   groupée, pas de sondage, pas d'événement, pas de bar. */
+const LAN_SCREENS = ['miam', 'sondages', 'evenements', 'kocktails'];
+
+function screenAvailable(screen) {
+    const p = phase();
+    if (LAN_SCREENS.includes(screen)) return p === 'lan';
+    if (screen === 'vote') return p === 'vote';
+    if (screen === 'bilan') return p === 'finished';
+    return true; // soiree, jeux, plus, biblio, historique, admin
+}
+
+function lockReason(screen) {
+    const p = phase();
+    if (screen === 'vote') {
+        if (p === 'lan') return 'Le vote est clos, la LAN a commencé.';
+        if (p === 'finished') return 'La LAN est terminée.';
+        return 'Le vote n\'est pas encore ouvert.';
+    }
+    if (LAN_SCREENS.includes(screen)) {
+        if (p === 'vote') return 'Ça ouvrira quand la LAN démarrera. Pour l\'instant, on vote.';
+        if (p === 'finished') return 'La LAN est terminée.';
+        return 'La LAN n\'a pas encore démarré.';
+    }
+    if (screen === 'bilan') return 'Le bilan s\'affichera à la fin de la soirée.';
+    return '';
+}
+
+function goto(screen, options) {
+    const opts = options || {};
+
+    if (!screenAvailable(screen)) {
+        const reason = lockReason(screen);
+        if (reason && !opts.silent) showToast(reason, 'error');
+        return;
+    }
+
+    const isTab = TABS.includes(screen);
+    if (!opts.fromHistory) {
+        /* Les onglets sont des racines : ils se remplacent. Les écrans
+           internes s'empilent, pour que le retour du téléphone les dépile. */
+        const entry = { screen };
+        if (isTab) history.replaceState(entry, '');
+        else if (screen !== currentScreen) history.pushState(entry, '');
+    }
+
     currentScreen = screen;
     document.querySelectorAll('.m-screen').forEach(s => {
         s.classList.toggle('is-active', s.dataset.screen === screen);
     });
     document.querySelectorAll('.m-tab').forEach(t => {
-        /* Les écrans hors onglets (vote, événements, kocktails, bilan)
-           laissent "Plus" allumé : le joueur voit d'où il vient. */
+        /* Les écrans hors onglets laissent "Plus" allumé : le joueur voit
+           d'où il vient. */
         const target = t.dataset.goto;
-        const active = target === screen || (!TABS.includes(screen) && target === 'plus');
+        const active = target === screen || (!isTab && target === 'plus');
         t.classList.toggle('is-active', active);
     });
+
+    /* En-tête : sur un écran interne, le nom de la LAN cède la place au titre
+       de l'écran et la flèche de retour apparaît. */
+    $('m-back').classList.toggle('is-shown', !isTab);
+    $('m-lan-name').textContent = isTab
+        ? (state.settings.lanName || 'LAN Demain')
+        : (SCREEN_TITLES[screen] || '');
+
     const content = $('m-content');
     if (content) content.scrollTop = 0;
     if (screen === 'jeux') renderGames();
@@ -237,6 +314,13 @@ function goto(screen) {
     if (screen === 'biblio') renderLibraries();
     if (screen === 'admin') renderAdmin();
 }
+
+$('m-back').addEventListener('click', () => history.back());
+
+window.addEventListener('popstate', (e) => {
+    const screen = (e.state && e.state.screen) || 'soiree';
+    goto(screen, { fromHistory: true, silent: true });
+});
 
 /* ==========================================================================
    Feuille glissante
@@ -360,6 +444,9 @@ function boot(user) {
     watch(`lan/notifications/${user.uid}`, value => { state.notifs = value || {}; });
 
     state.ready = true;
+    /* Racine de l'historique de navigation : sans elle, le premier retour du
+       téléphone quitterait l'application au lieu de revenir à Soirée. */
+    history.replaceState({ screen: 'soiree' }, '');
     renderAll();
 
     /* Un seul minuteur pour toute la page : les comptes à rebours des sondages
@@ -386,6 +473,7 @@ function renderAll() {
     renderAdmin();
     renderPlus();
     renderBadges();
+    renderLocks();
     if (currentScreen === 'jeux') renderGames();
     if (currentScreen === 'vote') renderVote();
     if (state.settings.lanFinished) {
@@ -398,7 +486,11 @@ function renderAll() {
 }
 
 function renderHeader() {
-    $('m-lan-name').textContent = state.settings.lanName || 'LAN Demain';
+    /* Sur un écran interne, l'en-tête porte le titre de l'écran : on ne le
+       remplace pas par le nom de la LAN à chaque mise à jour temps réel. */
+    if (TABS.includes(currentScreen)) {
+        $('m-lan-name').textContent = state.settings.lanName || 'LAN Demain';
+    }
     const pill = $('m-phase');
     const label = $('m-phase-label');
     pill.style.display = 'inline-flex';
@@ -447,15 +539,40 @@ function renderBadges() {
     badge.style.display = unread ? 'grid' : 'none';
     badge.textContent = unread;
 
-    const openRuns = Object.entries(state.foodRuns).filter(([, run]) => !isRunClosed(run)).length;
+    /* Une pastille sur un onglet verrouillé promettrait quelque chose
+       d'inaccessible : on ne compte que ce qui est ouvert. */
+    const openRuns = screenAvailable('miam')
+        ? Object.entries(state.foodRuns).filter(([, run]) => !isRunClosed(run)).length : 0;
     const foodDot = $('m-tab-food');
     foodDot.style.display = openRuns ? 'grid' : 'none';
     foodDot.textContent = openRuns;
 
-    const openPolls = visiblePolls().filter(([, poll]) => !isPollClosed(poll)).length;
+    const openPolls = screenAvailable('sondages')
+        ? visiblePolls().filter(([, poll]) => !isPollClosed(poll)).length : 0;
     const pollDot = $('m-tab-polls');
     pollDot.style.display = openPolls ? 'grid' : 'none';
     pollDot.textContent = openPolls;
+}
+
+/* Grise les destinations qui n'appartiennent pas à la phase en cours, dans
+   la barre du bas comme dans la liste "Plus". */
+function renderLocks() {
+    document.querySelectorAll('.m-tab').forEach(tab => {
+        tab.classList.toggle('is-locked', !screenAvailable(tab.dataset.goto));
+    });
+    document.querySelectorAll('.m-list__row[data-goto]').forEach(row => {
+        const target = row.dataset.goto;
+        const locked = !screenAvailable(target);
+        row.classList.toggle('is-locked', locked);
+        const hint = row.querySelector('.m-list__hint');
+        if (hint && locked) hint.textContent = 'plus tard';
+    });
+
+    /* Si la phase change pendant qu'on est sur un écran devenu interdit
+       (un admin clôt le vote), on ramène le joueur là où ça a du sens. */
+    if (!screenAvailable(currentScreen)) {
+        goto(phase() === 'finished' ? 'bilan' : 'soiree', { silent: true });
+    }
 }
 
 /* ==========================================================================
@@ -466,10 +583,16 @@ function renderSoiree() {
     const now = $('m-now');
     now.innerHTML = '';
 
-    const livePolls = visiblePolls().filter(([, poll]) => !isPollClosed(poll));
+    /* Pendant la phase de vote, la soirée n'a pas commencé : ni sondage ni
+       commande à afficher, la seule action qui compte est de voter. */
+    const evening = phase() === 'lan';
+
+    const livePolls = evening ? visiblePolls().filter(([, poll]) => !isPollClosed(poll)) : [];
     livePolls.slice(0, 2).forEach(([id, poll]) => now.appendChild(buildPollCard(id, poll, true)));
 
-    const openRuns = Object.entries(state.foodRuns).filter(([, run]) => !isRunClosed(run));
+    const openRuns = evening
+        ? Object.entries(state.foodRuns).filter(([, run]) => !isRunClosed(run))
+        : [];
     openRuns.slice(0, 2).forEach(([id, run]) => {
         const items = Object.values(run.items || {});
         const total = items.reduce((sum, it) => sum + (Number(it.price) || 0), 0);
@@ -498,8 +621,8 @@ function renderSoiree() {
 
     $('m-now-section').style.display = now.children.length ? 'flex' : 'none';
 
-    /* Prochain événement */
-    const upcoming = sortedEvents();
+    /* Prochain événement : lui aussi appartient à la soirée */
+    const upcoming = evening ? sortedEvents() : [];
     const nextBox = $('m-next-event');
     nextBox.innerHTML = '';
     if (upcoming.length) {
