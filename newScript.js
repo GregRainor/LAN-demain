@@ -278,6 +278,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Table « nom normalisé -> casse d'affichage », construite une fois par
+    // ouverture de la modale : calculateScores conserve déjà la bonne casse.
+    function buildDisplayNameMap() {
+        const map = new Map();
+        (calculateScores(globalVotes) || []).forEach(g => {
+            map.set(normalizeGameName(g.name), g.name);
+        });
+        return map;
+    }
+
     function showPlayerVotesModal(uid, userName, votesData) {
         const modal = document.getElementById('player-votes-modal');
         const nameEl = document.getElementById('player-votes-name');
@@ -293,6 +303,8 @@ document.addEventListener('DOMContentLoaded', () => {
             listEl.innerHTML = '<p style="color:var(--secondary-text); font-style:italic;">Aucun vote enregistré.</p>';
         } else {
             const p = userVoteData.votes;
+            const displayNames = buildDisplayNameMap();
+            const displayGameName = (raw) => displayNames.get(normalizeGameName(raw)) || raw;
 
             const createSection = (title, gamesArray, color) => {
                 if (!gamesArray || gamesArray.length === 0) return;
@@ -302,7 +314,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 gamesArray.forEach(g => {
                     const row = document.createElement('div');
                     row.className = 'player-row';
-                    row.innerHTML = `<span style="color: var(--primary-text);">${escapeHtml(g)}</span>`;
+                    // Les votes stockent la saisie brute, souvent en minuscules :
+                    // on réutilise la casse d'affichage calculée pour le classement
+                    row.innerHTML = `<span style="color: var(--primary-text);">${escapeHtml(displayGameName(g))}</span>`;
                     sec.appendChild(row);
                 });
                 listEl.appendChild(sec);
@@ -528,15 +542,16 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('toggle-voting-btn-dashboard')?.addEventListener('click', handleToggleVoting);
 
     document.getElementById('start-active-lan-btn')?.addEventListener('click', () => {
-        const confirmLan = confirm("Êtes-vous sûr de vouloir démarrer la LAN en mode actif ? Cela fermera le mode attente pour tout le monde.");
-        if (confirmLan) {
-            db.ref('lan/settings').update({ isLanActive: true })
-                .then(() => {
-                    const finalModal = document.getElementById('final-results-modal');
-                    if (finalModal) finalModal.style.display = 'none';
-                    showToast("La LAN est officiellement ouverte !", "success");
-                });
-        }
+        askConfirm("Démarrer la LAN en mode actif ? Cela fermera le mode attente pour tout le monde.",
+            { title: '🔥 Démarrer la LAN' }).then(ok => {
+                if (!ok) return;
+                db.ref('lan/settings').update({ isLanActive: true })
+                    .then(() => {
+                        const finalModal = document.getElementById('final-results-modal');
+                        if (finalModal) finalModal.style.display = 'none';
+                        showToast("La LAN est officiellement ouverte !", "success");
+                    });
+            });
     });
 
     document.getElementById('save-config-btn')?.addEventListener('click', () => {
@@ -1070,6 +1085,51 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- CONFIRMATION --------------------------------------------------------
+
+    // Remplace confirm() : le dialogue natif jure avec le reste de l'interface
+    // et bloque le rendu de la page tant qu'il est ouvert.
+    let confirmResolver = null;
+
+    function askConfirm(message, { title = 'Confirmer', danger = false } = {}) {
+        const modal = document.getElementById('confirm-modal');
+        // Repli si la modale manque : mieux vaut le dialogue natif que rien
+        if (!modal) return Promise.resolve(window.confirm(message));
+
+        document.getElementById('confirm-title').textContent = title;
+        document.getElementById('confirm-message').textContent = message;
+
+        const accept = document.getElementById('confirm-accept');
+        accept.classList.toggle('danger-btn', danger);
+        accept.textContent = danger ? 'Supprimer' : 'Confirmer';
+
+        modal.style.display = 'flex';
+        accept.focus();
+
+        return new Promise(resolve => { confirmResolver = resolve; });
+    }
+
+    function closeConfirm(result) {
+        const modal = document.getElementById('confirm-modal');
+        if (modal) modal.style.display = 'none';
+        if (confirmResolver) {
+            confirmResolver(result);
+            confirmResolver = null;
+        }
+    }
+
+    document.getElementById('confirm-accept')?.addEventListener('click', () => closeConfirm(true));
+    document.getElementById('confirm-cancel')?.addEventListener('click', () => closeConfirm(false));
+    document.getElementById('confirm-modal')?.addEventListener('click', (e) => {
+        if (e.target.id === 'confirm-modal') closeConfirm(false);
+    });
+    document.addEventListener('keydown', (e) => {
+        const modal = document.getElementById('confirm-modal');
+        if (!modal || modal.style.display !== 'flex') return;
+        if (e.key === 'Escape') closeConfirm(false);
+        if (e.key === 'Enter') closeConfirm(true);
+    });
+
     // --- CORRECTION DU NOM D'UN JEU (admin) --------------------------------
 
     let renameTarget = null;
@@ -1514,6 +1574,16 @@ document.addEventListener('DOMContentLoaded', () => {
         renderLinkedLibrariesAdmin(libraries);
     }
 
+    function formatAge(timestamp) {
+        if (!timestamp) return 'date inconnue';
+        const days = Math.floor((Date.now() - timestamp) / 86400000);
+        if (days <= 0) return "aujourd'hui";
+        if (days === 1) return 'hier';
+        if (days < 30) return `il y a ${days} jours`;
+        const months = Math.floor(days / 30);
+        return months === 1 ? 'il y a 1 mois' : `il y a ${months} mois`;
+    }
+
     // Liste des bibliothèques ajoutées, avec retrait (utile en cas d'erreur)
     function renderLinkedLibrariesAdmin(libraries) {
         const box = document.getElementById('linked-libraries');
@@ -1526,7 +1596,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const name = document.createElement('span');
             name.className = 'player-row__name';
-            name.textContent = `${lib.personaName} — ${(lib.games || []).length} jeux`;
+            // Une bibliothèque est un instantané : sans date, impossible de
+            // savoir si elle date d'avant les derniers achats.
+            name.textContent = `${lib.personaName} — ${(lib.games || []).length} jeux · ${formatAge(lib.updatedAt)}`;
             name.title = lib.addedByName ? `Ajoutée par ${lib.addedByName}` : '';
 
             const del = document.createElement('button');
@@ -1534,10 +1606,12 @@ document.addEventListener('DOMContentLoaded', () => {
             del.textContent = 'Retirer';
             del.style.marginLeft = 'auto';
             del.addEventListener('click', () => {
-                if (!confirm(`Retirer la bibliothèque de ${lib.personaName} ?`)) return;
-                db.ref(`lan/steamLibraries/${lib.steamId}`).remove()
-                    .then(() => showToast(`Bibliothèque de ${lib.personaName} retirée.`, 'success'))
-                    .catch(err => showToast('Erreur : ' + err.message, 'error'));
+                askConfirm(`Retirer la bibliothèque de ${lib.personaName} ?`, { danger: true }).then(ok => {
+                    if (!ok) return;
+                    db.ref(`lan/steamLibraries/${lib.steamId}`).remove()
+                        .then(() => showToast(`Bibliothèque de ${lib.personaName} retirée.`, 'success'))
+                        .catch(err => showToast('Erreur : ' + err.message, 'error'));
+                });
             });
 
             row.append(name, del);
@@ -2144,11 +2218,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- OUVRIR LA LAN (from admin dashboard) ---
     document.getElementById('btn-open-lan-dashboard')?.addEventListener('click', () => {
-        const confirmLan = confirm("Êtes-vous sûr de vouloir ouvrir la LAN en mode actif ? Tout le monde passera en mode LAN active.");
-        if (confirmLan) {
-            db.ref('lan/settings').update({ isLanActive: true })
-                .then(() => showToast("La LAN est officiellement ouverte ! 🔥", "success"));
-        }
+        askConfirm("Ouvrir la LAN en mode actif ? Tout le monde passera en mode LAN active.",
+            { title: '🔥 Ouvrir la LAN' }).then(ok => {
+                if (!ok) return;
+                db.ref('lan/settings').update({ isLanActive: true })
+                    .then(() => showToast("La LAN est officiellement ouverte ! 🔥", "success"));
+            });
     });
 
     // --- ADMIN BROADCAST NOTIFICATION ---
@@ -2436,9 +2511,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 delBtn.className = 'danger-link-btn';
                 delBtn.textContent = 'Supprimer';
                 delBtn.addEventListener('click', () => {
-                    if (confirm("Supprimer cet événement ?")) {
-                        db.ref(`lan/events/${evt.id}`).remove();
-                    }
+                    askConfirm(`Supprimer l'événement « ${evt.title} » ?`, { danger: true }).then(ok => {
+                        if (ok) db.ref(`lan/events/${evt.id}`).remove();
+                    });
                 });
                 actions.appendChild(delBtn);
             }
@@ -2498,10 +2573,12 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.textContent = 'Supprimer';
         btn.title = `Supprimer "${kocktailName}"`;
         btn.addEventListener('click', () => {
-            if (!confirm(`Supprimer "${kocktailName}" ?`)) return;
-            db.ref(refPath).remove()
-                .then(() => showToast(`"${kocktailName}" supprimé.`, 'success'))
-                .catch(err => showToast('Suppression refusée : ' + err.message, 'error'));
+            askConfirm(`Supprimer « ${kocktailName} » ?`, { danger: true }).then(ok => {
+                if (!ok) return;
+                db.ref(refPath).remove()
+                    .then(() => showToast(`"${kocktailName}" supprimé.`, 'success'))
+                    .catch(err => showToast('Suppression refusée : ' + err.message, 'error'));
+            });
         });
         return btn;
     }
@@ -2627,8 +2704,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function orderCocktail(cocktailName, user) {
-        if (!confirm(`Commander un ${cocktailName} ?`)) return;
+    async function orderCocktail(cocktailName, user) {
+        const ok = await askConfirm(`Commander un ${cocktailName} ?`, { title: '🍹 Commande au bar' });
+        if (!ok) return;
+
         const newOrderRef = db.ref('lan/cocktails/orders').push();
         newOrderRef.set({
             cocktailName: cocktailName,
