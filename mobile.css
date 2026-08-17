@@ -462,6 +462,9 @@ textarea.m-input { resize: vertical; min-height: 84px; }
 .m-prio__item:last-child { border-bottom: 0; }
 .m-prio__name { flex: 1; font-size: .9rem; color: var(--text); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .m-prio__empty { padding: 12px; font-size: .82rem; color: var(--text-3); }
+.m-prio__add { display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--line-2); }
+.m-prio__add .m-input { flex: 1; min-width: 0; }
+.m-prio__add .m-btn { flex: 0 0 auto; min-width: var(--tap); font-size: 1.1rem; }
 
 .m-del {
     width: var(--tap); height: var(--tap); flex: 0 0 auto;

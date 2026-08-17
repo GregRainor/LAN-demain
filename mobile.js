@@ -863,26 +863,48 @@ function draftTotal() {
     return PRIORITIES.reduce((sum, p) => sum + voteDraft[p.key].length, 0);
 }
 
+/* Seule P1 est limitée à un jeu, comme sur l'interface bureau où elle est la
+   seule priorité sans bouton "+". P2, P3 et les autres en acceptent autant
+   qu'on veut. */
+function isFull(priority) {
+    return priority === 'p1' && voteDraft.p1.length >= 1;
+}
+
 function addToDraft(gameName, priority) {
     if (voteDraft === null) voteDraft = readMyVote();
     const clean = String(gameName || '').trim().replace(/\s+/g, ' ');
-    if (!clean) return;
+    if (!clean) return false;
     const key = normalizeGameName(clean);
+    /* Un même jeu ne peut pas occuper deux priorités : il cumulerait les
+       points et fausserait le classement. */
     const already = PRIORITIES.some(p => voteDraft[p.key].some(g => normalizeGameName(g) === key));
     if (already) {
         showToast(`"${clean}" est déjà dans ton vote.`, 'error');
-        return;
+        return false;
     }
-    /* P1, P2 et P3 ne portent qu'un jeu : c'est ce qui donne son sens au
-       classement par priorité. Le surplus tombe dans "les autres". */
-    const target = (priority !== 'p_other' && voteDraft[priority].length >= 1) ? 'p_other' : priority;
+    const target = isFull(priority) ? 'p_other' : priority;
+    if (target !== priority) {
+        showToast('P1 ne porte qu\'un jeu. Ajouté aux autres.', 'error');
+    }
     voteDraft[target].push(clean);
     renderVote();
+    return true;
 }
 
 function renderVote() {
     if (voteDraft === null) voteDraft = readMyVote();
     const mount = $('m-vote-groups');
+    const open = !!state.settings.isVotingOpen;
+
+    /* Ce qui est en cours de frappe survit au redessin : un autre joueur qui
+       vote au même moment ne doit pas vider le champ sous les doigts. */
+    const typing = {};
+    let focused = null;
+    mount.querySelectorAll('[data-prio-input]').forEach(input => {
+        typing[input.dataset.prioInput] = input.value;
+        if (document.activeElement === input) focused = input.dataset.prioInput;
+    });
+
     mount.innerHTML = '';
 
     PRIORITIES.forEach(p => {
@@ -900,49 +922,72 @@ function renderVote() {
             voteDraft[p.key].forEach((game, index) => {
                 const item = el('div', 'm-prio__item');
                 item.appendChild(el('span', 'm-prio__name', game));
-                const del = el('button', 'm-del');
-                del.setAttribute('aria-label', `Retirer ${game}`);
-                del.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>';
-                del.addEventListener('click', () => {
-                    voteDraft[p.key].splice(index, 1);
-                    renderVote();
-                });
-                item.appendChild(del);
+                if (open) {
+                    const del = el('button', 'm-del');
+                    del.setAttribute('aria-label', `Retirer ${game}`);
+                    del.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>';
+                    del.addEventListener('click', () => {
+                        voteDraft[p.key].splice(index, 1);
+                        renderVote();
+                    });
+                    item.appendChild(del);
+                }
                 list.appendChild(item);
             });
         }
         box.appendChild(list);
+
+        /* P1 pleine : plus de champ d'ajout, comme le bureau qui ne lui donne
+           pas de bouton "+". */
+        if (open && !isFull(p.key)) {
+            const add = el('div', 'm-prio__add');
+            const input = el('input', 'm-input');
+            input.placeholder = p.key === 'p1' ? 'Le jeu que tu veux absolument' : 'Ajouter un jeu';
+            input.setAttribute('aria-label', `Ajouter un jeu en ${p.label}`);
+            input.dataset.prioInput = p.key;
+            if (typing[p.key]) input.value = typing[p.key];
+
+            const commit = () => {
+                if (!input.value.trim()) return;
+                if (addToDraft(input.value, p.key)) {
+                    /* renderVote a déjà redessiné : on rouvre la saisie du même
+                       groupe pour enchaîner plusieurs jeux d'affilée. */
+                    const next = mount.querySelector(`[data-prio-input="${p.key}"]`);
+                    if (next) { next.value = ''; next.focus(); }
+                }
+            };
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') { e.preventDefault(); commit(); }
+            });
+
+            const btn = el('button', 'm-btn m-btn--sm', '+');
+            btn.setAttribute('aria-label', `Ajouter en ${p.label}`);
+            btn.addEventListener('click', commit);
+
+            add.appendChild(input);
+            add.appendChild(btn);
+            box.appendChild(add);
+        }
+
         mount.appendChild(box);
     });
 
+    if (focused) {
+        const restore = mount.querySelector(`[data-prio-input="${focused}"]`);
+        if (restore) {
+            restore.focus();
+            restore.setSelectionRange(restore.value.length, restore.value.length);
+        }
+    }
+
     const total = draftTotal();
-    const open = !!state.settings.isVotingOpen;
     $('m-vote-count').textContent = `${total} jeu${total > 1 ? 'x' : ''}`;
     $('m-vote-submit').disabled = !open;
     $('m-vote-submit').textContent = open ? 'Enregistrer mon vote' : 'Le vote est clos';
-    /* Vote clos : on grise aussi la saisie, sinon on laisse le joueur taper
-       une liste qu'il ne pourra pas enregistrer. */
-    $('m-vote-add').disabled = !open;
-    $('m-vote-add-btn').disabled = !open;
-    $('m-vote-add').placeholder = open ? 'Ajouter un jeu' : 'Le vote est clos';
+    $('m-vote-hint').textContent = open
+        ? 'Un seul jeu en P1, autant que tu veux dans les autres.'
+        : 'Le vote est clos, voici ce que tu avais choisi.';
 }
-
-function addFromInput() {
-    const input = $('m-vote-add');
-    const value = input.value.trim();
-    if (!value) return;
-    /* On remplit d'abord P1, puis P2, puis P3, puis le reste : le joueur tape
-       ses jeux dans l'ordre de préférence sans avoir à choisir de catégorie. */
-    const slot = PRIORITIES.find(p => p.key !== 'p_other' && voteDraft[p.key].length === 0);
-    addToDraft(value, slot ? slot.key : 'p_other');
-    input.value = '';
-    input.focus();
-}
-
-$('m-vote-add-btn').addEventListener('click', addFromInput);
-$('m-vote-add').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); addFromInput(); }
-});
 
 $('m-vote-submit').addEventListener('click', () => {
     const user = auth.currentUser;
