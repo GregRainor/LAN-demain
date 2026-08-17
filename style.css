@@ -1523,10 +1523,59 @@ body.sidebar-visible {
     }
 }
 
+/* Base des entrées de menu — l'état actif et le survol sont définis juste après */
+.lan-nav-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.lan-nav-list li {
+    padding: var(--space-4);
+    border-radius: var(--radius-sharp);
+    cursor: pointer;
+    transition: background var(--transition-fast), padding-left var(--transition-fast);
+}
+
+.lan-nav-list li.nav-item--admin {
+    color: var(--danger-color);
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    margin-top: var(--space-1);
+}
+
+/* Grille de cartes (kocktails) */
+.card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: var(--space-4);
+}
+
+/* Croix de fermeture des modales */
+.modal-close {
+    position: absolute;
+    top: var(--space-4);
+    right: var(--space-5);
+    background: transparent;
+    border: none;
+    font-size: 2.5em;
+    line-height: 1;
+    color: var(--secondary-text);
+    cursor: pointer;
+    transition: color var(--transition-fast);
+}
+
+.modal-close:hover {
+    color: var(--accent-color);
+}
+
 .lan-nav-list li.active {
     background: rgba(212, 175, 55, 0.1) !important;
     border-left: 3px solid var(--accent-color);
     color: var(--accent-color) !important;
+    font-weight: 700;
 }
 
 .lan-nav-list li:hover:not(.active) {

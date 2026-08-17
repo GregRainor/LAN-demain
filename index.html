@@ -181,7 +181,7 @@
             <div id="closed-results-display" class="results-container luxury-panel"
                 style="width: 100%; max-width: 800px; animation: etherealFadeInUp 1.2s ease forwards;">
                 <h2>Top Jeux à Télécharger</h2>
-                <div id="closed-download-list" style="display: flex; flex-direction: column; gap: 15px;"></div>
+                <div id="closed-download-list" class="stack"></div>
             </div>
         </div>
 
@@ -275,23 +275,18 @@
                 <!-- Left Sidebar: Nav -->
                 <aside class="animated-section">
                     <div class="luxury-panel sidebar-module">
-                        <ul class="lan-nav-list"
-                            style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px;">
-                            <li class="nav-item active" data-target="lan-dashboard"
-                                style="padding: 15px; cursor: pointer; border-radius: 4px; transition: background 0.3s; color: var(--accent-color); font-weight: bold; background: rgba(212, 175, 55, 0.1);">
+                        <ul class="lan-nav-list">
+                            <li class="nav-item active" data-target="lan-dashboard">
                                 Dashboard</li>
-                            <li class="nav-item" data-target="lan-events"
-                                style="padding: 15px; cursor: pointer; border-radius: 4px; transition: background 0.3s;">
+                            <li class="nav-item" data-target="lan-events">
                                 Événements</li>
-                            <li class="nav-item" data-target="lan-kocktails"
-                                style="padding: 15px; cursor: pointer; border-radius: 4px; transition: background 0.3s;">
+                            <li class="nav-item" data-target="lan-kocktails">
                                 Kocktails</li>
-                            <li class="nav-item" data-target="lan-games"
-                                style="padding: 15px; cursor: pointer; border-radius: 4px; transition: background 0.3s;">
+                            <li class="nav-item" data-target="lan-games">
                                 Historique des Votes</li>
                             <!-- Admin-only nav item, shown via JS -->
-                            <li id="lan-nav-admin" class="nav-item" data-target="lan-admin"
-                                style="display: none; padding: 15px; cursor: pointer; border-radius: 4px; transition: background 0.3s; color: var(--danger-color); border-top: 1px solid rgba(255,255,255,0.05); margin-top: 5px;">
+                            <li id="lan-nav-admin" class="nav-item nav-item--admin" data-target="lan-admin"
+                                style="display: none;">
                                 ⚙️ Admin</li>
                         </ul>
                     </div>
@@ -313,7 +308,7 @@
                             <h3
                                 style="margin-top: 0; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px;">
                                 Prochains Événements</h3>
-                            <div id="upcoming-events-preview" style="display: flex; flex-direction: column; gap: 10px;">
+                            <div id="upcoming-events-preview" class="stack stack--sm">
                                 <p style="font-style:italic; color:var(--secondary-text);">Aucun événement prévu.</p>
                             </div>
                         </div>
@@ -326,7 +321,7 @@
                             <h2 class="subview-title" style="border: none; margin: 0;">Événements</h2>
                             <button id="btn-create-event" class="gold-link-btn">+ Créer</button>
                         </div>
-                        <div id="events-list" style="display: flex; flex-direction: column; gap: 15px;">
+                        <div id="events-list" class="stack">
                             <!-- Event cards go here -->
                         </div>
                     </div>
@@ -343,7 +338,7 @@
                                     style="font-size: 0.8em; display:none;">+ Ajouter</button>
                             </div>
                             <div id="kocktail-master-list"
-                                style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px;">
+                                class="card-grid">
                                 <!-- Standard cocktails -->
                             </div>
                         </div>
@@ -356,7 +351,7 @@
                                     Proposer un Kocktail</button>
                             </div>
                             <div id="kocktail-one-shot-list"
-                                style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px;">
+                                class="card-grid">
                                 <!-- User cocktails -->
                             </div>
                         </div>
@@ -367,7 +362,7 @@
                             <h3
                                 style="color: #bb86fc; margin-top: 0; border-bottom: 1px solid rgba(187,134,252,0.2); padding-bottom: 15px;">
                                 Commandes en cours (Barman)</h3>
-                            <div id="kocktail-orders-list" style="display: flex; flex-direction: column; gap: 10px;">
+                            <div id="kocktail-orders-list" class="stack stack--sm">
                             </div>
                         </div>
                     </div>
@@ -446,7 +441,7 @@
         style="align-items: flex-start; padding-top: 10vh; overflow-y: auto;">
         <div class="modal-content luxury-panel" style="max-width: 800px; padding: 40px; position: relative;">
             <button id="close-results-btn"
-                style="position: absolute; top: 15px; right: 20px; background: transparent; border: none; font-size: 2.5em; color: var(--secondary-text); cursor: pointer; transition: color 0.3s;"
+                class="modal-close"
                 onmouseover="this.style.color='var(--accent-color)'"
                 onmouseout="this.style.color='var(--secondary-text)'">&times;</button>
             <h2 style="font-size: 2.5em; margin-top: 0;">Résultats Définitifs</h2>
@@ -466,7 +461,7 @@
         <div class="luxury-panel modal-content"
             style="max-width: 800px; width: 90%; max-height: 85vh; padding: 40px; display: flex; flex-direction: column; position: relative;">
             <button id="close-history-modal-btn"
-                style="position: absolute; top: 15px; right: 20px; background: transparent; border: none; font-size: 2.5em; color: var(--secondary-text); cursor: pointer; transition: color 0.3s;"
+                class="modal-close"
                 onmouseover="this.style.color='var(--accent-color)'"
                 onmouseout="this.style.color='var(--secondary-text)'">&times;</button>
             <h2 style="font-size: 2em; margin-bottom: 10px;">Historique des LANs</h2>
@@ -487,7 +482,7 @@
     <div id="player-votes-modal" class="modal-overlay">
         <div class="luxury-panel modal-content" style="max-width: 500px;">
             <h3 id="player-votes-name" style="text-align: center; font-size: 1.8em; margin-bottom: 10px;">Votes</h3>
-            <div id="player-votes-content" style="display: flex; flex-direction: column; gap: 15px;"></div>
+            <div id="player-votes-content" class="stack"></div>
             <div class="modal-actions" style="margin-top: 25px;">
                 <button id="close-player-votes-btn" class="gold-link-btn" style="width: 100%;">Fermer</button>
             </div>
@@ -498,7 +493,7 @@
     <div id="create-event-modal" class="modal-overlay">
         <div class="luxury-panel modal-content" style="max-width: 600px;">
             <h3>Créer un Événement</h3>
-            <form id="create-event-form" style="display: flex; flex-direction: column; gap: 15px;">
+            <form id="create-event-form" class="stack">
                 <div class="admin-select-group">
                     <label>Titre de l'événement</label>
                     <input type="text" id="event-title" class="luxury-input" required placeholder="Ex: Tournoi LoL...">
@@ -550,7 +545,7 @@
                 style="background: none; border: none; color: var(--secondary-text); cursor: pointer; font-size: 0.8em; text-decoration: underline;">Tout
                 effacer</button>
         </div>
-        <div id="notifications-list" style="display: flex; flex-direction: column; gap: 10px;">
+        <div id="notifications-list" class="stack stack--sm">
             <!-- Notifs -->
         </div>
     </div>
@@ -559,7 +554,7 @@
     <div id="create-kocktail-modal" class="modal-overlay" style="display:none;">
         <div class="luxury-panel modal-content" style="max-width: 500px;">
             <h3>🍹 Proposer un Kocktail</h3>
-            <form id="create-kocktail-form" style="display: flex; flex-direction: column; gap: 15px;">
+            <form id="create-kocktail-form" class="stack">
                 <div class="admin-select-group">
                     <label>Nom du Kocktail *</label>
                     <input type="text" id="kocktail-name" class="luxury-input" required
@@ -584,7 +579,7 @@
     <div id="add-master-kocktail-modal" class="modal-overlay" style="display:none;">
         <div class="luxury-panel modal-content" style="max-width: 500px;">
             <h3>🍸 Ajouter à la Carte Officielle</h3>
-            <form id="add-master-kocktail-form" style="display: flex; flex-direction: column; gap: 15px;">
+            <form id="add-master-kocktail-form" class="stack">
                 <div class="admin-select-group">
                     <label>Nom du Cocktail *</label>
                     <input type="text" id="master-kocktail-name" class="luxury-input" required
