@@ -1099,7 +1099,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const ok = await askConfirm(
             "Archiver le classement actuel, effacer tous les votes et rouvrir les votes ? Les événements, kocktails et bibliothèques sont conservés.",
-            { title: '🎉 Nouvelle LAN', danger: true }
+            { title: '🎉 Nouvelle LAN', danger: true, confirmLabel: 'Démarrer' }
         );
         if (!ok) return;
 
@@ -1256,7 +1256,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // et bloque le rendu de la page tant qu'il est ouvert.
     let confirmResolver = null;
 
-    function askConfirm(message, { title = 'Confirmer', danger = false } = {}) {
+    function askConfirm(message, { title = 'Confirmer', danger = false, confirmLabel = null } = {}) {
         const modal = document.getElementById('confirm-modal');
         // Repli si la modale manque : mieux vaut le dialogue natif que rien
         if (!modal) return Promise.resolve(window.confirm(message));
@@ -1266,7 +1266,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const accept = document.getElementById('confirm-accept');
         accept.classList.toggle('danger-btn', danger);
-        accept.textContent = danger ? 'Supprimer' : 'Confirmer';
+        // « Supprimer » par défaut sur une action destructive, mais certaines
+        // (démarrer une nouvelle LAN) méritent un libellé propre
+        accept.textContent = confirmLabel || (danger ? 'Supprimer' : 'Confirmer');
 
         modal.style.display = 'flex';
         accept.focus();
