@@ -2588,6 +2588,101 @@ document.addEventListener('DOMContentLoaded', () => {
     // personne : l'intérêt est de trouver ce que le groupe a en commun.
     let libraryMode = 'common';
 
+    // Tags des jeux de bibliothèque. Contrairement au classement, on ne peut pas
+    // interroger Steam pour 600 jeux : on ne récupère les détails que des lignes
+    // réellement affichées, et la liste de tags s'enrichit au fil du défilement.
+    const libraryTagsByGame = new Map();
+    const selectedLibraryTags = new Set();
+
+    function libraryGameKey(game) {
+        return game.appId ? `a${game.appId}` : normalizeGameName(game.name);
+    }
+
+    async function loadLibraryTags(games) {
+        const missing = games.filter(g => g.appId && !libraryTagsByGame.has(libraryGameKey(g)));
+        if (missing.length === 0) return false;
+
+        let added = false;
+        await Promise.all(missing.slice(0, 30).map(async (g) => {
+            const key = libraryGameKey(g);
+            libraryTagsByGame.set(key, null); // marque comme demandé
+            try {
+                const res = await fetch(`/api/game-details?appid=${encodeURIComponent(g.appId)}`);
+                if (!res.ok) return;
+                const details = await res.json();
+                const tags = [...(details.genres || []), ...(details.categories || [])];
+                tags.forEach(t => tagLabels.set(t.toLowerCase(), t));
+                (details.genres || []).forEach(t => gameplayTags.add(t.toLowerCase()));
+                (details.categories || []).forEach(t => {
+                    if (GAMEPLAY_CATEGORY.test(t)) gameplayTags.add(t.toLowerCase());
+                });
+                libraryTagsByGame.set(key, tags.map(t => t.toLowerCase()));
+                added = true;
+            } catch (error) {
+                console.debug('Tags bibliothèque indisponibles:', error);
+            }
+        }));
+
+        return added;
+    }
+
+    function renderLibraryTagBar(mount, games) {
+        const bar = mount.querySelector('.js-library-tags');
+        if (!bar) return;
+
+        const counts = new Map();
+        games.forEach(g => {
+            const tags = libraryTagsByGame.get(libraryGameKey(g));
+            if (!Array.isArray(tags)) return;
+            new Set(tags).forEach(t => counts.set(t, (counts.get(t) || 0) + 1));
+        });
+
+        const sorted = [...counts.entries()]
+            .filter(([k]) => gameplayTags.has(k))
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 6);
+
+        bar.innerHTML = '';
+        if (sorted.length === 0) return;
+
+        const label = document.createElement('span');
+        label.className = 'filter-bar__label';
+        label.textContent = 'Tags';
+        bar.appendChild(label);
+
+        sorted.forEach(([key, n]) => {
+            const chip = document.createElement('button');
+            chip.type = 'button';
+            chip.className = selectedLibraryTags.has(key) ? 'filter-chip active' : 'filter-chip';
+            chip.dataset.libtag = key;
+            chip.textContent = tagLabels.get(key) || key;
+            const badge = document.createElement('span');
+            badge.className = 'filter-chip__n';
+            badge.textContent = n;
+            chip.appendChild(badge);
+            bar.appendChild(chip);
+        });
+
+        if (selectedLibraryTags.size) {
+            const reset = document.createElement('button');
+            reset.type = 'button';
+            reset.className = 'filter-chip filter-chip--reset';
+            reset.dataset.libtag = '__reset__';
+            reset.textContent = '✕ Effacer';
+            bar.appendChild(reset);
+        }
+    }
+
+    document.addEventListener('click', (e) => {
+        const chip = e.target.closest('.js-library-tags .filter-chip');
+        if (!chip) return;
+        const key = chip.dataset.libtag;
+        if (key === '__reset__') selectedLibraryTags.clear();
+        else if (selectedLibraryTags.has(key)) selectedLibraryTags.delete(key);
+        else selectedLibraryTags.add(key);
+        renderGroupLibrary();
+    });
+
     // Une ligne de jeu issue d'une bibliothèque Steam (pas du classement de votes)
     function buildLibraryRow(game, index, playerCount) {
         const row = document.createElement('div');
@@ -2889,7 +2984,8 @@ document.addEventListener('DOMContentLoaded', () => {
         <p class="panel-section__hint js-library-summary">Aucune bibliothèque liée.</p>
         <div class="filter-bar js-library-filter"></div>
         <input type="search" class="luxury-input js-library-search" placeholder="Rechercher un jeu..."
-            style="margin-bottom: 12px;">
+            style="margin-bottom: 10px;">
+        <div class="filter-bar js-library-tags"></div>
         <div class="rank-list scroll-area js-library-list"></div>
         <details class="link-steam">
             <summary>Ajouter une bibliothèque Steam</summary>
@@ -2998,6 +3094,17 @@ document.addEventListener('DOMContentLoaded', () => {
             list = list.filter(g => (g.name || '').toLowerCase().includes(search));
         }
 
+        // Filtre par tags : un jeu doit porter tous ceux qui sont sélectionnés.
+        // Les jeux dont les tags ne sont pas encore connus sont écartés, sinon
+        // le filtre semblerait ne rien faire.
+        if (selectedLibraryTags.size) {
+            list = list.filter(g => {
+                const tags = libraryTagsByGame.get(libraryGameKey(g));
+                if (!Array.isArray(tags)) return false;
+                return [...selectedLibraryTags].every(t => tags.includes(t));
+            });
+        }
+
         if (list.length === 0) {
             container.innerHTML = search
                 ? `<p style="font-style:italic; color:var(--secondary-text);">Aucun jeu ne correspond à « ${escapeHtml(search)} ».</p>`
@@ -3006,11 +3113,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Sans recherche on plafonne l'affichage ; en recherche on veut tout voir
-        list.slice(0, search ? 200 : 60).forEach((game, index) => {
+        const shown = list.slice(0, search ? 200 : 60);
+        shown.forEach((game, index) => {
             container.appendChild(buildLibraryRow(game, index, countBasis));
         });
 
+        renderLibraryTagBar(mount, shown);
         renderLinkedLibrariesAdmin(libraries, mount);
+
+        // Les tags arrivent après coup : on redessine une fois qu'ils sont là
+        loadLibraryTags(shown).then(added => {
+            if (added) renderLibraryTagBar(mount, shown);
+        });
     }
 
     function formatAge(timestamp) {
