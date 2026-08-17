@@ -543,6 +543,7 @@ document.addEventListener('DOMContentLoaded', () => {
         db.ref('lan/polls').on('value', (snapshot) => {
             globalPolls = snapshot.val() || {};
             announceNewPolls();
+            handlePollClosures();
             renderPolls();
         });
         buildPollOptionInputs(2);
@@ -1153,6 +1154,63 @@ document.addEventListener('DOMContentLoaded', () => {
         return mins > 0 ? `${mins} min ${secs}s` : `${secs}s`;
     }
 
+    // Un sondage peut viser tout le monde (audience absente) ou une liste de
+    // joueurs. Le créateur et les admins le voient toujours, pour pouvoir le gérer.
+    function isPollForMe(poll) {
+        const user = auth.currentUser;
+        if (!user) return false;
+        if (!poll.audience) return true;
+        if (poll.createdBy === user.uid || window.currentUserIsAdmin) return true;
+        return !!poll.audience[user.uid];
+    }
+
+    // Joueurs connus : présents en ligne, ou ayant voté
+    function knownPlayers() {
+        const players = new Map();
+        Object.entries(globalUsers || {}).forEach(([uid, u]) => players.set(uid, u.name || 'Joueur'));
+        Object.entries(globalVotes || {}).forEach(([uid, v]) => {
+            if (!players.has(uid)) players.set(uid, v.name || 'Joueur');
+        });
+        return [...players.entries()].map(([uid, name]) => ({ uid, name }));
+    }
+
+    function renderAudiencePicker() {
+        const box = document.getElementById('poll-audience-list');
+        if (!box) return;
+        const me = auth.currentUser;
+        const previous = new Set(
+            [...box.querySelectorAll('input:checked')].map(i => i.value)
+        );
+
+        box.innerHTML = '';
+        knownPlayers()
+            .filter(p => !me || p.uid !== me.uid)
+            .forEach(p => {
+                const label = document.createElement('label');
+                label.className = 'poll-audience__choice';
+                const cb = document.createElement('input');
+                cb.type = 'checkbox';
+                cb.value = p.uid;
+                cb.checked = previous.has(p.uid);
+                label.append(cb, document.createTextNode(' ' + p.name));
+                box.appendChild(label);
+            });
+
+        if (box.children.length === 0) {
+            box.innerHTML = '<span class="tag-menu__empty">Aucun autre joueur connecté.</span>';
+        }
+    }
+
+    document.querySelectorAll('input[name="poll-audience"]').forEach(radio => {
+        radio.addEventListener('change', () => {
+            const box = document.getElementById('poll-audience-list');
+            if (!box) return;
+            const some = radio.value === 'some' && radio.checked;
+            box.style.display = some ? 'flex' : 'none';
+            if (some) renderAudiencePicker();
+        });
+    });
+
     function buildPollOptionInputs(count = 2) {
         const box = document.getElementById('poll-options');
         if (!box) return;
@@ -1210,10 +1268,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const optionMap = {};
         options.forEach((label, i) => { optionMap['o' + i] = { label, order: i }; });
 
+        // Audience ciblée : on inclut toujours le créateur, sinon il ne verrait
+        // pas son propre sondage
+        const scope = document.querySelector('input[name="poll-audience"]:checked')?.value || 'all';
+        let audience = null;
+        if (scope === 'some') {
+            const picked = [...document.querySelectorAll('#poll-audience-list input:checked')].map(i => i.value);
+            if (picked.length === 0) { showToast('Choisissez au moins un joueur.', 'error'); return; }
+            audience = {};
+            picked.forEach(uid => { audience[uid] = true; });
+            audience[user.uid] = true;
+        }
+
         try {
             await db.ref('lan/polls').push().set({
                 question,
                 options: optionMap,
+                audience,
                 createdBy: user.uid,
                 createdByName: user.displayName || 'Un joueur',
                 createdAt: firebase.database.ServerValue.TIMESTAMP,
@@ -1356,6 +1427,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const entries = Object.entries(globalPolls)
             .map(([id, p]) => ({ id, ...p }))
+            .filter(isPollForMe)
             .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
         const active = entries.filter(p => !isPollClosed(p));
@@ -1443,6 +1515,99 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Sondages déjà vus comme clos, pour n'afficher le résultat qu'une fois
+    const resolvedPolls = new Set();
+
+    function showPollResult(poll) {
+        const modal = document.getElementById('poll-result-modal');
+        const body = document.getElementById('poll-result-body');
+        if (!modal || !body) return;
+
+        document.getElementById('poll-result-question').textContent = poll.question;
+
+        const votes = poll.votes || {};
+        const total = Object.keys(votes).length;
+        const counts = {};
+        Object.values(votes).forEach(optId => { counts[optId] = (counts[optId] || 0) + 1; });
+
+        const options = Object.entries(poll.options || {})
+            .map(([id, o]) => ({ id, ...o, count: counts[id] || 0 }))
+            .sort((a, b) => b.count - a.count);
+
+        const best = options.length ? options[0].count : 0;
+
+        body.innerHTML = '';
+        options.forEach(opt => {
+            const row = document.createElement('div');
+            row.className = 'player-row';
+            const name = document.createElement('span');
+            name.className = 'player-row__name';
+            // Égalité possible : on marque tous les premiers ex aequo
+            name.textContent = (opt.count === best && best > 0 ? '🏆 ' : '') + opt.label;
+            const score = document.createElement('span');
+            score.className = 'player-row__score';
+            score.textContent = total ? `${opt.count} (${Math.round(opt.count / total * 100)}%)` : '0';
+            row.append(name, score);
+            body.appendChild(row);
+        });
+
+        modal.style.display = 'flex';
+    }
+
+    document.getElementById('poll-result-close')?.addEventListener('click', () => {
+        const modal = document.getElementById('poll-result-modal');
+        if (modal) modal.style.display = 'none';
+    });
+
+    document.getElementById('poll-result-modal')?.addEventListener('click', (e) => {
+        if (e.target.id === 'poll-result-modal') e.currentTarget.style.display = 'none';
+    });
+
+    // Affiche le résultat à la clôture. Les notifications ne sont envoyées que
+    // par le client du créateur : sinon chaque participant en enverrait un jeu
+    // complet et tout le monde recevrait autant de copies qu'il y a de joueurs.
+    function handlePollClosures() {
+        const user = auth.currentUser;
+        if (!user) return;
+
+        Object.entries(globalPolls).forEach(([id, poll]) => {
+            if (!isPollClosed(poll)) { resolvedPolls.delete(id); return; }
+            if (resolvedPolls.has(id)) return;
+            resolvedPolls.add(id);
+
+            // Au chargement, on ne rejoue pas les sondages clos depuis longtemps
+            const closedRecently = !poll.closesAt || (Date.now() - poll.closesAt) < 120000;
+            if (!closedRecently) return;
+            if (!isPollForMe(poll)) return;
+
+            showPollResult(poll);
+
+            if (poll.createdBy === user.uid) {
+                const targets = poll.audience
+                    ? Object.keys(poll.audience)
+                    : knownPlayers().map(p => p.uid);
+                const winner = pollWinnerLabel(poll);
+                targets
+                    .filter(uid => uid !== user.uid)
+                    .forEach(uid => sendNotification(uid,
+                        `📊 Sondage terminé : « ${poll.question} » → ${winner}`, 'info'));
+            }
+        });
+    }
+
+    function pollWinnerLabel(poll) {
+        const votes = poll.votes || {};
+        const counts = {};
+        Object.values(votes).forEach(optId => { counts[optId] = (counts[optId] || 0) + 1; });
+        const options = Object.entries(poll.options || {})
+            .map(([id, o]) => ({ id, label: o.label, count: counts[id] || 0 }))
+            .sort((a, b) => b.count - a.count);
+        if (!options.length || options[0].count === 0) return 'aucun vote';
+        const best = options[0].count;
+        const winners = options.filter(o => o.count === best).map(o => o.label);
+        return winners.length > 1 ? `égalité (${winners.join(', ')})` : winners[0];
+    }
+
     // Un sondage n'a d'intérêt que si on le voit arriver
     function announceNewPolls() {
         const user = auth.currentUser;
@@ -1455,6 +1620,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // On n'annonce ni les anciens sondages au chargement, ni les siens
             const isFresh = poll.createdAt && (Date.now() - poll.createdAt) < 60000;
             if (!isFresh || isPollClosed(poll) || poll.createdBy === user.uid) return;
+            if (!isPollForMe(poll)) return;
 
             showToast(`📊 ${poll.createdByName} lance un sondage : « ${poll.question} »`, 'success');
         });
@@ -1464,11 +1630,17 @@ document.addEventListener('DOMContentLoaded', () => {
     // On ne redessine que si un sondage est réellement affiché quelque part.
     setInterval(() => {
         if (!Object.keys(globalPolls).length) return;
+
+        // L'expiration ne déclenche aucun événement Firebase : c'est ici qu'on
+        // détecte qu'un sondage vient d'arriver à échéance.
+        handlePollClosures();
+
         const pollsView = document.getElementById('lan-polls');
         const votingMount = document.getElementById('polls-voting-mount');
-        const pollsVisible = pollsView && pollsView.style.display !== 'none';
-        const mountVisible = votingMount && votingMount.style.display !== 'none' && votingMount.offsetParent !== null;
-        if (pollsVisible || mountVisible) renderPolls();
+        const dashPolls = document.getElementById('dashboard-polls-panel');
+        const visible = [pollsView, votingMount, dashPolls]
+            .some(el => el && el.style.display !== 'none' && el.offsetParent !== null);
+        if (visible) renderPolls();
     }, 1000);
 
     // --- NOUVELLE LAN --------------------------------------------------------

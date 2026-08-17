@@ -3227,6 +3227,34 @@ select.luxury-input option:disabled {
     padding: var(--space-2) var(--space-3);
 }
 
+.poll-audience {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    margin-top: var(--space-3);
+}
+
+.poll-audience__choice {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--text-sm);
+    color: var(--secondary-text);
+    cursor: pointer;
+}
+
+.poll-audience__list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    width: 100%;
+    padding: var(--space-3);
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sharp);
+}
+
 .poll-card {
     padding: var(--space-5);
     background: var(--card-bg);

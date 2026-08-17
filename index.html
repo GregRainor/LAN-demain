@@ -411,6 +411,17 @@
                                 </label>
                             </div>
 
+                            <div class="poll-audience">
+                                <span class="filter-bar__label">Pour qui</span>
+                                <label class="poll-audience__choice">
+                                    <input type="radio" name="poll-audience" value="all" checked> Tout le monde
+                                </label>
+                                <label class="poll-audience__choice">
+                                    <input type="radio" name="poll-audience" value="some"> Certains joueurs
+                                </label>
+                                <div id="poll-audience-list" class="poll-audience__list" style="display: none;"></div>
+                            </div>
+
                             <button id="poll-create" class="btn-block" style="margin-top: 15px;">Lancer le
                                 sondage</button>
                         </div>
@@ -626,6 +637,18 @@
 
             <div id="game-details-error" class="game-modal__error" style="display: none;">
                 Impossible de récupérer la fiche de ce jeu sur Steam.
+            </div>
+        </div>
+    </div>
+
+    <!-- RESULTAT D'UN SONDAGE (affiché à la clôture) -->
+    <div id="poll-result-modal" class="modal-overlay" style="display: none; z-index: 2300;">
+        <div class="luxury-panel modal-content" style="max-width: 480px;">
+            <h3>📊 Résultat du sondage</h3>
+            <p id="poll-result-question" class="confirm-message"></p>
+            <div id="poll-result-body" class="stack stack--xs"></div>
+            <div class="row-actions" style="justify-content: center; margin-top: 20px;">
+                <button id="poll-result-close" class="gold-btn btn-inline">Fermer</button>
             </div>
         </div>
     </div>
