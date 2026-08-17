@@ -19,6 +19,8 @@ const BATCH_SIZE = 20;
 function cleanTitle(title) {
     return String(title)
         .replace(/\s*\((aperçu|preview|game preview|windows|pc)\)\s*$/i, '')
+        // « A Plague Tale: Requiem - Windows » doit pouvoir matcher Steam
+        .replace(/\s*[-–]\s*(windows|pc)(\s+edition)?\s*$/i, '')
         .trim();
 }
 

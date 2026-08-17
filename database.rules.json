@@ -96,6 +96,13 @@
         }
       },
 
+      "subscriptions": {
+        ".read": "auth != null",
+        "$sub_id": {
+          ".write": "auth != null"
+        }
+      },
+
       "foodRuns": {
         ".read": "auth != null",
         "$run_id": {

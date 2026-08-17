@@ -2143,16 +2143,63 @@ select.luxury-input option:disabled {
     border-top: 1px solid var(--border-subtle);
 }
 
-.link-steam summary {
-    font-size: var(--text-xs);
+/* Ces dépliants se lisaient comme du texte gris : on leur donne le poids d'un
+   bouton (cadre, chevron, pleine largeur) sans les rendre tapageurs. */
+.link-steam summary,
+.chart-details summary,
+#polls-history-box summary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    width: 100%;
+    padding: var(--space-3) var(--space-4);
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
     letter-spacing: 0.5px;
     color: var(--secondary-text);
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sharp);
     cursor: pointer;
-    transition: color var(--transition-fast);
+    list-style: none;
+    transition: color var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
 }
 
-.link-steam summary:hover {
+.link-steam summary::-webkit-details-marker,
+.chart-details summary::-webkit-details-marker,
+#polls-history-box summary::-webkit-details-marker {
+    display: none;
+}
+
+/* Chevron qui pivote : indique que le bloc s'ouvre */
+.link-steam summary::after,
+.chart-details summary::after,
+#polls-history-box summary::after {
+    content: '▾';
+    font-size: 0.9em;
+    transition: transform var(--transition-fast);
+}
+
+.link-steam[open] summary::after,
+.chart-details[open] summary::after,
+#polls-history-box[open] summary::after {
+    transform: rotate(180deg);
+}
+
+.link-steam summary:hover,
+.chart-details summary:hover,
+#polls-history-box summary:hover {
     color: var(--accent-color);
+    background: var(--accent-a05);
+    border-color: var(--accent-a40);
+}
+
+.link-steam[open] summary,
+#polls-history-box[open] summary {
+    margin-bottom: var(--space-3);
+    color: var(--accent-color);
+    border-color: var(--accent-a25);
 }
 
 .link-steam .field-row {

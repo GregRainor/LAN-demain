@@ -539,6 +539,16 @@ document.addEventListener('DOMContentLoaded', () => {
             renderGroupLibrary();
         });
 
+        // Abonnements (Game Pass) : le catalogue n'est chargé que s'il en existe
+        db.ref('lan/subscriptions').on('value', (snapshot) => {
+            globalSubscriptions = snapshot.val() || {};
+            if (Object.keys(globalSubscriptions).length) {
+                loadGamepassCatalog().then(renderGroupLibrary);
+            } else {
+                renderGroupLibrary();
+            }
+        });
+
         // Sondages
         db.ref('lan/polls').on('value', (snapshot) => {
             globalPolls = snapshot.val() || {};
@@ -1923,15 +1933,18 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        // La carte officielle des kocktails et les bibliothèques Steam sont des
-        // acquis durables : on ne les efface pas d'une soirée à l'autre.
+        // Seule la carte officielle des kocktails survit : c'est un acquis
+        // curé par les admins. Les bibliothèques, elles, bougent entre deux
+        // soirées (achats, abonnements), donc on repart d'une liste fraîche.
         await Promise.all([
             db.ref('lan/votes').remove(),
             db.ref('lan/events').remove(),
             db.ref('lan/cocktails/oneshot').remove(),
             db.ref('lan/cocktails/orders').remove(),
             db.ref('lan/polls').remove(),
-            db.ref('lan/foodRuns').remove()
+            db.ref('lan/foodRuns').remove(),
+            db.ref('lan/steamLibraries').remove(),
+            db.ref('lan/subscriptions').remove()
         ]);
 
         const settings = { isVotingOpen: true, isLanActive: false };
@@ -1946,7 +1959,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const newName = (input?.value || '').trim();
 
         const ok = await askConfirm(
-            "Archiver la soirée en cours (classement, événements, créations kocktails) puis repartir de zéro ? La carte officielle des kocktails et les bibliothèques Steam sont conservées.",
+            "Archiver la soirée en cours (classement, événements, créations kocktails) puis repartir de zéro ? Les bibliothèques et abonnements sont également effacés. Seule la carte officielle des kocktails est conservée.",
             { title: '🎉 Nouvelle LAN', danger: true, confirmLabel: 'Démarrer' }
         );
         if (!ok) return;
@@ -2521,6 +2534,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // pourcentage de possession. On ignore les jeux possédés par une seule
     // personne : l'intérêt est de trouver ce que le groupe a en commun.
     let libraryMode = 'common';
+    let globalSubscriptions = {};
 
     // Une ligne de jeu issue d'une bibliothèque Steam (pas du classement de votes)
     function buildLibraryRow(game, index, playerCount) {
@@ -2705,22 +2719,85 @@ document.addEventListener('DOMContentLoaded', () => {
         showToast(`« ${gameName} » ajouté dans « Autres ».`, 'success');
     }
 
-    // Agrège les bibliothèques liées et compte les propriétaires de chaque jeu
-    function aggregateLibraries(players) {
-        const owners = new Map();
-        players.forEach(player => {
-            // Set : un même jeu ne doit compter qu'une fois par joueur
+    // Agrège toutes les sources (bibliothèques Steam et abonnements) et compte
+    // combien de personnes possèdent chaque jeu.
+    //
+    // La clé est le nom normalisé, pas l'appId : un abonnement Game Pass ne
+    // fournit que des titres, et c'est le seul terrain commun avec Steam.
+    function aggregateLibraries(owners) {
+        const games = new Map();
+
+        owners.forEach(owner => {
+            // Set : un même jeu ne doit compter qu'une fois par personne
             const seen = new Set();
-            (player.games || []).forEach(g => {
-                if (seen.has(g.appId)) return;
-                seen.add(g.appId);
-                const entry = owners.get(g.appId) || { name: g.name, count: 0, minutes: 0 };
+            (owner.games || []).forEach(g => {
+                const key = normalizeGameName(g.name);
+                if (!key || seen.has(key)) return;
+                seen.add(key);
+
+                const entry = games.get(key) || { name: g.name, appId: g.appId || null, count: 0, minutes: 0 };
                 entry.count += 1;
                 entry.minutes += g.playtimeMinutes || 0;
-                owners.set(g.appId, entry);
+                // On garde le premier appId rencontré : il sert à la jaquette
+                if (!entry.appId && g.appId) entry.appId = g.appId;
+                games.set(key, entry);
             });
         });
-        return [...owners.entries()].map(([appId, e]) => ({ appId, ...e }));
+
+        return [...games.values()];
+    }
+
+    // Catalogue Game Pass, chargé une seule fois par session
+    let gamepassCatalog = null;
+    let gamepassPromise = null;
+
+    function loadGamepassCatalog() {
+        if (gamepassCatalog) return Promise.resolve(gamepassCatalog);
+        if (gamepassPromise) return gamepassPromise;
+
+        gamepassPromise = fetch('/api/gamepass-catalog')
+            .then(r => r.ok ? r.json() : null)
+            .then(data => {
+                gamepassCatalog = (data && data.games) ? data.games : [];
+                return gamepassCatalog;
+            })
+            .catch(error => {
+                // API non officielle : une panne ne doit pas casser le panneau
+                console.debug('Catalogue Game Pass indisponible:', error);
+                gamepassCatalog = [];
+                return gamepassCatalog;
+            });
+
+        return gamepassPromise;
+    }
+
+    // Transforme bibliothèques et abonnements en une liste unique de "possesseurs"
+    function collectLibraryOwners() {
+        const owners = [];
+
+        Object.values(groupLibraries).forEach(lib => {
+            if (Array.isArray(lib.games) && lib.games.length) {
+                owners.push({
+                    id: lib.steamId,
+                    name: lib.personaName || 'Joueur',
+                    source: 'steam',
+                    games: lib.games
+                });
+            }
+        });
+
+        const catalogue = gamepassCatalog || [];
+        Object.entries(globalSubscriptions).forEach(([id, sub]) => {
+            if (sub.service !== 'gamepass' || catalogue.length === 0) return;
+            owners.push({
+                id,
+                name: `${sub.personaName} (Game Pass)`,
+                source: 'gamepass',
+                games: catalogue.map(g => ({ name: g.name, appId: null, playtimeMinutes: 0 }))
+            });
+        });
+
+        return owners;
     }
 
     // Le panneau apparaît dans deux vues (vote et LAN active). On l'injecte dans
@@ -2730,6 +2807,8 @@ document.addEventListener('DOMContentLoaded', () => {
         <h3 class="section-title">🎮 Bibliothèques Steam</h3>
         <p class="panel-section__hint js-library-summary">Aucune bibliothèque liée.</p>
         <div class="filter-bar js-library-filter"></div>
+        <input type="search" class="luxury-input js-library-search" placeholder="Rechercher un jeu..."
+            style="margin-bottom: 12px;">
         <div class="rank-list scroll-area js-library-list"></div>
         <details class="link-steam">
             <summary>Ajouter une bibliothèque Steam</summary>
@@ -2741,6 +2820,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 <button class="gold-btn btn-inline js-steam-add">Ajouter</button>
             </div>
             <div class="stack stack--xs js-linked-libraries" style="margin-top: 12px;"></div>
+
+            <p class="panel-section__hint" style="margin-top: 14px;">Abonnement : compte tout le catalogue PC Game Pass
+                comme possédé. (Ubisoft+ n'expose aucun catalogue public, donc pas encore supporté.)</p>
+            <div class="field-row">
+                <input type="text" class="luxury-input js-sub-name" placeholder="Nom du joueur abonné Game Pass"
+                    style="flex: 1;">
+                <button class="gold-btn btn-inline js-sub-add">Ajouter</button>
+            </div>
         </details>`;
 
     function ensureLibraryPanels() {
@@ -2765,16 +2852,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const filterBar = mount.querySelector('.js-library-filter');
         if (!container) return;
 
-        const libraries = Object.values(groupLibraries).filter(p => Array.isArray(p.games) && p.games.length);
+        const libraries = collectLibraryOwners();
         const playerCount = libraries.length;
-        const names = libraries.map(p => p.personaName).filter(Boolean);
+        const names = libraries.map(p => p.name).filter(Boolean);
 
         container.innerHTML = '';
 
         if (playerCount === 0) {
-            if (summary) summary.textContent = 'Aucune bibliothèque Steam ajoutée pour l\'instant.';
+            if (summary) summary.textContent = 'Aucune bibliothèque ajoutée pour l\'instant.';
             if (filterBar) filterBar.innerHTML = '';
-            container.innerHTML = '<p style="font-style:italic; color:var(--secondary-text);">Ajoutez un profil Steam ci-dessous : le vôtre ou celui d\'un ami.</p>';
+            container.innerHTML = '<p style="font-style:italic; color:var(--secondary-text);">Ajoutez un profil Steam ou un abonnement ci-dessous.</p>';
+            renderLinkedLibrariesAdmin(libraries, mount);
             return;
         }
 
@@ -2783,7 +2871,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (summary) {
             summary.textContent = playerCount === 1
-                ? `1 bibliothèque : ${names[0]} (${all.length} jeux). Ajoutez celle d'un ami pour comparer.`
+                ? `1 bibliothèque : ${names[0]} (${all.length} jeux). Ajoutez-en une autre pour comparer.`
                 : `${playerCount} bibliothèques : ${shared.length} jeux en commun sur ${all.length}.`;
         }
 
@@ -2793,7 +2881,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const chips = [];
             if (playerCount > 1) chips.push({ mode: 'common', label: 'En commun' });
             chips.push({ mode: 'all', label: 'Tous' });
-            libraries.forEach(lib => chips.push({ mode: lib.steamId, label: lib.personaName || 'Joueur' }));
+            libraries.forEach(lib => chips.push({ mode: lib.id, label: lib.name }));
 
             // Si le mode courant n'existe plus, on retombe sur un onglet valide
             if (!chips.some(c => c.mode === libraryMode)) {
@@ -2818,21 +2906,30 @@ document.addEventListener('DOMContentLoaded', () => {
             list = all.sort((a, b) => b.count - a.count || b.minutes - a.minutes);
         } else {
             // Bibliothèque d'une personne précise, triée par temps de jeu
-            const lib = groupLibraries[libraryMode];
+            const lib = libraries.find(l => l.id === libraryMode);
             countBasis = 1;
-            list = lib && Array.isArray(lib.games)
+            list = lib
                 ? lib.games
                     .map(g => ({ appId: g.appId, name: g.name, count: 1, minutes: g.playtimeMinutes || 0 }))
-                    .sort((a, b) => b.minutes - a.minutes)
+                    .sort((a, b) => b.minutes - a.minutes || a.name.localeCompare(b.name))
                 : [];
         }
 
+        // Recherche textuelle : avec 600 jeux, les onglets ne suffisent pas
+        const search = (mount.querySelector('.js-library-search')?.value || '').toLowerCase().trim();
+        if (search) {
+            list = list.filter(g => (g.name || '').toLowerCase().includes(search));
+        }
+
         if (list.length === 0) {
-            container.innerHTML = '<p style="font-style:italic; color:var(--secondary-text);">Aucun jeu à afficher ici.</p>';
+            container.innerHTML = search
+                ? `<p style="font-style:italic; color:var(--secondary-text);">Aucun jeu ne correspond à « ${escapeHtml(search)} ».</p>`
+                : '<p style="font-style:italic; color:var(--secondary-text);">Aucun jeu à afficher ici.</p>';
             return;
         }
 
-        list.slice(0, 60).forEach((game, index) => {
+        // Sans recherche on plafonne l'affichage ; en recherche on veut tout voir
+        list.slice(0, search ? 200 : 60).forEach((game, index) => {
             container.appendChild(buildLibraryRow(game, index, countBasis));
         });
 
@@ -2859,22 +2956,29 @@ document.addEventListener('DOMContentLoaded', () => {
             const row = document.createElement('div');
             row.className = 'player-row';
 
+            const source = lib.source === 'steam'
+                ? groupLibraries[lib.id]
+                : globalSubscriptions[lib.id];
+
             const name = document.createElement('span');
             name.className = 'player-row__name';
             // Une bibliothèque est un instantané : sans date, impossible de
             // savoir si elle date d'avant les derniers achats.
-            name.textContent = `${lib.personaName} : ${(lib.games || []).length} jeux · ${formatAge(lib.updatedAt)}`;
-            name.title = lib.addedByName ? `Ajoutée par ${lib.addedByName}` : '';
+            name.textContent = `${lib.name} : ${lib.games.length} jeux · ${formatAge(source && source.updatedAt)}`;
+            name.title = source && source.addedByName ? `Ajoutée par ${source.addedByName}` : '';
 
             const del = document.createElement('button');
             del.className = 'danger-link-btn';
             del.textContent = 'Retirer';
             del.style.marginLeft = 'auto';
             del.addEventListener('click', () => {
-                askConfirm(`Retirer la bibliothèque de ${lib.personaName} ?`, { danger: true }).then(ok => {
+                askConfirm(`Retirer ${lib.name} ?`, { danger: true }).then(ok => {
                     if (!ok) return;
-                    db.ref(`lan/steamLibraries/${lib.steamId}`).remove()
-                        .then(() => showToast(`Bibliothèque de ${lib.personaName} retirée.`, 'success'))
+                    const path = lib.source === 'steam'
+                        ? `lan/steamLibraries/${lib.id}`
+                        : `lan/subscriptions/${lib.id}`;
+                    db.ref(path).remove()
+                        .then(() => showToast(`${lib.name} retiré.`, 'success'))
                         .catch(err => showToast('Erreur : ' + err.message, 'error'));
                 });
             });
@@ -2884,6 +2988,40 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Ajout d'un abonnement : on ne stocke pas les 500 jeux du catalogue par
+    // personne, seulement le fait qu'elle est abonnée.
+    document.addEventListener('click', async (e) => {
+        const btn = e.target.closest('.js-sub-add');
+        if (!btn) return;
+
+        const user = auth.currentUser;
+        const panel = btn.closest('.library-panel-mount');
+        const input = panel?.querySelector('.js-sub-name');
+        if (!user || !input) return;
+
+        const personaName = input.value.trim();
+        if (!personaName) { showToast('Indiquez le nom du joueur abonné.', 'error'); return; }
+
+        try {
+            const catalogue = await loadGamepassCatalog();
+            if (catalogue.length === 0) {
+                showToast('Catalogue Game Pass indisponible pour le moment.', 'error');
+                return;
+            }
+            await db.ref('lan/subscriptions').push().set({
+                service: 'gamepass',
+                personaName,
+                addedBy: user.uid,
+                addedByName: user.displayName || null,
+                updatedAt: firebase.database.ServerValue.TIMESTAMP
+            });
+            input.value = '';
+            showToast(`${personaName} ajouté comme abonné Game Pass (${catalogue.length} jeux).`, 'success');
+        } catch (error) {
+            showToast('Ajout refusé : ' + error.message, 'error');
+        }
+    });
+
     // Délégation : les panneaux sont construits à la volée, donc on écoute le
     // document plutôt que des éléments qui n'existent pas encore.
     document.addEventListener('click', (e) => {
@@ -2891,6 +3029,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!chip) return;
         libraryMode = chip.dataset.libmode;
         renderGroupLibrary();
+    });
+
+    // La recherche ne redessine que son propre panneau, pour ne pas perdre le
+    // focus ni le texte saisi dans l'autre.
+    document.addEventListener('input', (e) => {
+        const field = e.target.closest('.js-library-search');
+        if (!field) return;
+        const mount = field.closest('.library-panel-mount');
+        if (mount) renderLibraryPanel(mount);
     });
 
     document.addEventListener('click', async (e) => {
