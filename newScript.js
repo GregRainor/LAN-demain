@@ -1070,6 +1070,105 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- CORRECTION DU NOM D'UN JEU (admin) --------------------------------
+
+    let renameTarget = null;
+
+    // Réécrit le nom dans les votes de tous les joueurs. Les jeux n'ont pas
+    // d'entrée propre en base : ils n'existent que comme chaînes dans les
+    // tableaux de votes, donc il faut parcourir chaque vote.
+    async function renameGameEverywhere(oldName, newName) {
+        const oldKey = normalizeGameName(oldName);
+        const snapshot = await db.ref('lan/votes').once('value');
+        const votes = snapshot.val() || {};
+
+        const updates = {};
+        let occurrences = 0;
+
+        for (const userId in votes) {
+            const voteData = votes[userId];
+            if (!voteData || !voteData.votes) continue;
+
+            for (const priority in voteData.votes) {
+                const games = voteData.votes[priority];
+                if (!Array.isArray(games)) continue;
+
+                let touched = false;
+                const next = games.map(game => {
+                    if (normalizeGameName(game) === oldKey) {
+                        touched = true;
+                        occurrences++;
+                        return newName;
+                    }
+                    return game;
+                });
+
+                if (touched) updates[`lan/votes/${userId}/votes/${priority}`] = next;
+            }
+        }
+
+        if (occurrences === 0) return 0;
+        await db.ref().update(updates);
+        return occurrences;
+    }
+
+    function openRenameGame(gameName) {
+        const modal = document.getElementById('rename-game-modal');
+        if (!modal) return;
+        renameTarget = gameName;
+        document.getElementById('rename-game-current').textContent = `Nom actuel : « ${gameName} »`;
+        const input = document.getElementById('rename-game-input');
+        input.value = gameName;
+        modal.style.display = 'flex';
+        input.focus();
+        input.select();
+    }
+
+    function closeRenameGame() {
+        const modal = document.getElementById('rename-game-modal');
+        if (modal) modal.style.display = 'none';
+        renameTarget = null;
+    }
+
+    document.getElementById('cancel-rename-game')?.addEventListener('click', closeRenameGame);
+
+    document.getElementById('rename-game-modal')?.addEventListener('click', (e) => {
+        if (e.target.id === 'rename-game-modal') closeRenameGame();
+    });
+
+    document.getElementById('rename-game-input')?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') document.getElementById('confirm-rename-game')?.click();
+        if (e.key === 'Escape') closeRenameGame();
+    });
+
+    document.getElementById('confirm-rename-game')?.addEventListener('click', async () => {
+        const input = document.getElementById('rename-game-input');
+        const newName = input.value.trim().replace(/\s+/g, ' ');
+
+        if (!renameTarget) return;
+        if (!newName) { showToast('Le nom ne peut pas être vide.', 'error'); return; }
+        if (newName === renameTarget) { closeRenameGame(); return; }
+
+        const previous = renameTarget;
+        closeRenameGame();
+
+        try {
+            const count = await renameGameEverywhere(previous, newName);
+            if (count === 0) {
+                showToast('Aucun vote ne correspondait à ce jeu.', 'error');
+            } else {
+                showToast(`« ${newName} » corrigé dans ${count} vote(s).`, 'success');
+                // la vignette et la fiche dépendent du nom : on vide les caches
+                imageCache.delete(previous.toLowerCase().trim());
+                detailsCache.delete(previous.toLowerCase().trim());
+                wikiCache.delete(previous.toLowerCase().trim());
+            }
+        } catch (error) {
+            console.error('Rename error:', error);
+            showToast('Correction refusée : ' + error.message, 'error');
+        }
+    });
+
     let currentHls = null;
 
     // Fiche pour un jeu absent de Steam : infos Wikipédia, pas de tags Steam,
@@ -1459,6 +1558,22 @@ document.addEventListener('DOMContentLoaded', () => {
         score.textContent = `${game.score} pts`;
 
         row.append(rank, img, nameCell, score);
+
+        // Les admins peuvent corriger une faute de frappe directement ici
+        if (window.currentUserIsAdmin) {
+            const editBtn = document.createElement('button');
+            editBtn.className = 'rank-row__edit';
+            editBtn.type = 'button';
+            editBtn.textContent = '✏️';
+            editBtn.title = `Corriger le nom de « ${game.name} »`;
+            editBtn.setAttribute('aria-label', `Corriger le nom de ${game.name}`);
+            editBtn.addEventListener('click', (e) => {
+                // sans ça, le clic ouvrirait aussi la fiche du jeu
+                e.stopPropagation();
+                openRenameGame(game.name);
+            });
+            row.appendChild(editBtn);
+        }
 
         // Ouvre la fiche Steam au clic, et récupère les étiquettes en arrière-plan
         row.classList.add('rank-row--clickable');

@@ -2619,7 +2619,8 @@ select.luxury-input option:disabled {
 
 .rank-row {
     display: grid;
-    grid-template-columns: 44px 96px 1fr auto;
+    /* la 5e colonne accueille le crayon des admins ; elle se réduit à 0 sinon */
+    grid-template-columns: 44px 96px 1fr auto auto;
     align-items: center;
     gap: var(--space-4);
     padding: var(--space-3) var(--space-4);
@@ -2684,9 +2685,40 @@ select.luxury-input option:disabled {
     white-space: nowrap;
 }
 
+/* Crayon de correction (admins) : discret, révélé au survol de la ligne */
+.rank-row__edit {
+    padding: var(--space-1) var(--space-2);
+    font-size: var(--text-sm);
+    line-height: 1;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sharp);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.rank-row:hover .rank-row__edit,
+.rank-row__edit:focus-visible {
+    opacity: 1;
+    border-color: var(--accent-a25);
+}
+
+.rank-row__edit:hover {
+    background: var(--accent-a08);
+    border-color: var(--accent-color);
+}
+
+/* Sur écran tactile, le survol n'existe pas : le crayon reste visible */
+@media (hover: none) {
+    .rank-row__edit {
+        opacity: 1;
+    }
+}
+
 /* Variante large : écran de résultats finaux, apparition en cascade */
 .rank-row--lg {
-    grid-template-columns: 56px 120px 1fr auto;
+    grid-template-columns: 56px 120px 1fr auto auto;
     padding: var(--space-4) var(--space-5);
     background: rgba(20, 20, 20, 0.8);
     border-color: var(--border-color);
@@ -2755,10 +2787,15 @@ select.luxury-input option:disabled {
 
 @media (max-width: 768px) {
     .rank-row {
-        /* la jaquette passe en 64px et le score sous le nom */
-        grid-template-columns: 32px 64px 1fr;
+        /* la jaquette passe en 64px, le score sous le nom, le crayon à droite */
+        grid-template-columns: 32px 64px 1fr auto;
         gap: var(--space-3);
         padding: var(--space-2) var(--space-3);
+    }
+
+    .rank-row__edit {
+        grid-column: 4;
+        grid-row: 1;
     }
 
     .rank-row__thumb {

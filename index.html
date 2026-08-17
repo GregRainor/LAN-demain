@@ -540,6 +540,22 @@
         </div>
     </div>
 
+    <!-- RENAME GAME MODAL (admin : corriger une faute de frappe) -->
+    <div id="rename-game-modal" class="modal-overlay" style="display: none; z-index: 2200;">
+        <div class="luxury-panel modal-content" style="max-width: 480px;">
+            <h3>✏️ Corriger le nom du jeu</h3>
+            <p class="panel-section__hint" id="rename-game-current"></p>
+            <label class="field-label" for="rename-game-input">Nouveau nom</label>
+            <input type="text" id="rename-game-input" class="luxury-input" placeholder="Ex : Warhammer 40,000: Dark Crusade">
+            <p class="panel-section__hint" style="margin-top: 10px;">Le nom sera corrigé dans les votes de tous les
+                joueurs.</p>
+            <div class="row-actions">
+                <button id="confirm-rename-game" class="gold-btn btn-inline">Corriger</button>
+                <button id="cancel-rename-game" class="gold-link-btn">Annuler</button>
+            </div>
+        </div>
+    </div>
+
     <!-- MODALS FOR ACTIVE LAN -->
 
     <!-- View Player Votes Modal -->
