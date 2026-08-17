@@ -314,71 +314,7 @@ document.addEventListener('DOMContentLoaded', () => {
             createSection('Autres (1 pt)', p.p_other, 'var(--secondary-text)');
         }
 
-        renderPlayerLibrarySection(uid, userName, listEl);
-
         modal.style.display = 'flex';
-    }
-
-    // Bibliothèque Steam du joueur, et ce qu'on a en commun avec lui
-    function renderPlayerLibrarySection(uid, userName, listEl) {
-        const player = groupLibraries[uid];
-        const me = auth.currentUser ? groupLibraries[auth.currentUser.uid] : null;
-
-        const section = document.createElement('div');
-        section.style.marginTop = '20px';
-
-        if (!player || !Array.isArray(player.games) || player.games.length === 0) {
-            section.innerHTML = `<h5 class="player-lib__title">Bibliothèque Steam</h5>
-                <p style="color:var(--secondary-text); font-style:italic; font-size:0.85em;">${escapeHtml(userName)} n'a pas encore lié sa bibliothèque.</p>`;
-            listEl.appendChild(section);
-            return;
-        }
-
-        // Jeux communs avec le joueur consulté (si j'ai lié la mienne)
-        let commonGames = [];
-        if (me && Array.isArray(me.games) && auth.currentUser.uid !== uid) {
-            const mine = new Set(me.games.map(g => g.appId));
-            commonGames = player.games
-                .filter(g => mine.has(g.appId))
-                .sort((a, b) => (b.playtimeMinutes || 0) - (a.playtimeMinutes || 0));
-        }
-
-        const heading = document.createElement('h5');
-        heading.className = 'player-lib__title';
-        heading.textContent = `Bibliothèque Steam — ${player.games.length} jeux`;
-        section.appendChild(heading);
-
-        if (auth.currentUser && auth.currentUser.uid !== uid) {
-            const note = document.createElement('p');
-            note.className = 'player-lib__note';
-            note.textContent = me
-                ? `${commonGames.length} jeu(x) en commun avec vous.`
-                : 'Liez votre bibliothèque pour voir vos jeux en commun.';
-            section.appendChild(note);
-        }
-
-        // On liste en priorité les jeux communs, sinon les plus joués
-        const toShow = (commonGames.length ? commonGames : [...player.games]
-            .sort((a, b) => (b.playtimeMinutes || 0) - (a.playtimeMinutes || 0))).slice(0, 20);
-
-        const list = document.createElement('div');
-        list.className = 'stack stack--xs';
-        toShow.forEach(g => {
-            const row = document.createElement('div');
-            row.className = 'player-row';
-            const name = document.createElement('span');
-            name.className = 'player-row__name';
-            name.textContent = g.name;
-            const time = document.createElement('span');
-            time.className = 'player-row__score';
-            const mins = g.playtimeMinutes || 0;
-            time.textContent = mins >= 60 ? `${Math.round(mins / 60)} h` : `${mins} min`;
-            row.append(name, time);
-            list.appendChild(row);
-        });
-        section.appendChild(list);
-
-        listEl.appendChild(section);
     }
 
     function initializeApp(user) {
@@ -455,8 +391,8 @@ document.addEventListener('DOMContentLoaded', () => {
             renderNotifications(snapshot.val() || {}, user);
         });
 
-        // Bibliothèques Steam liées par les joueurs
-        db.ref('lan/users').on('value', (snapshot) => {
+        // Bibliothèques Steam, indexées par compte Steam
+        db.ref('lan/steamLibraries').on('value', (snapshot) => {
             groupLibraries = snapshot.val() || {};
             renderGroupLibrary();
         });
@@ -1504,54 +1440,114 @@ document.addEventListener('DOMContentLoaded', () => {
         const filterBar = document.getElementById('library-filter-bar');
         if (!container) return;
 
-        const players = Object.values(groupLibraries).filter(p => Array.isArray(p.games) && p.games.length);
-        const playerCount = players.length;
-        const names = players.map(p => p.displayName).filter(Boolean);
+        const libraries = Object.values(groupLibraries).filter(p => Array.isArray(p.games) && p.games.length);
+        const playerCount = libraries.length;
+        const names = libraries.map(p => p.personaName).filter(Boolean);
 
         container.innerHTML = '';
 
         if (playerCount === 0) {
-            if (summary) summary.textContent = 'Personne n\'a encore lié sa bibliothèque Steam.';
-            if (filterBar) filterBar.style.display = 'none';
-            container.innerHTML = '<p style="font-style:italic; color:var(--secondary-text);">Liez votre profil ci-dessous pour commencer.</p>';
+            if (summary) summary.textContent = 'Aucune bibliothèque Steam ajoutée pour l\'instant.';
+            if (filterBar) filterBar.innerHTML = '';
+            container.innerHTML = '<p style="font-style:italic; color:var(--secondary-text);">Ajoutez un profil Steam ci-dessous — le vôtre ou celui d\'un ami.</p>';
             return;
         }
 
-        if (filterBar) filterBar.style.display = playerCount > 1 ? 'flex' : 'none';
-
-        const all = aggregateLibraries(players);
+        const all = aggregateLibraries(libraries);
         const shared = all.filter(g => g.count > 1);
 
-        // Message d'état : dire clairement pourquoi il n'y a rien à comparer
         if (summary) {
-            if (playerCount === 1) {
-                summary.textContent = `Seul ${names[0] || 'un joueur'} a lié sa bibliothèque (${all.length} jeux). Les autres doivent lier la leur pour voir les jeux en commun.`;
-            } else {
-                summary.textContent = `${playerCount} bibliothèques liées (${names.join(', ')}) — ${shared.length} jeux en commun sur ${all.length}.`;
-            }
+            summary.textContent = playerCount === 1
+                ? `1 bibliothèque : ${names[0]} (${all.length} jeux). Ajoutez celle d'un ami pour comparer.`
+                : `${playerCount} bibliothèques — ${shared.length} jeux en commun sur ${all.length}.`;
         }
 
-        // Une seule bibliothèque : rien n'est « commun », on montre la sienne
-        const useCommon = playerCount > 1 && libraryMode === 'common';
-        const list = (useCommon ? shared : all)
-            .sort((a, b) => b.count - a.count || b.minutes - a.minutes)
-            .slice(0, 40);
+        // Onglets : en commun, tous, puis un par personne
+        if (filterBar) {
+            filterBar.innerHTML = '';
+            const chips = [];
+            if (playerCount > 1) chips.push({ mode: 'common', label: 'En commun' });
+            chips.push({ mode: 'all', label: 'Tous' });
+            libraries.forEach(lib => chips.push({ mode: lib.steamId, label: lib.personaName || 'Joueur' }));
+
+            // Si le mode courant n'existe plus, on retombe sur un onglet valide
+            if (!chips.some(c => c.mode === libraryMode)) {
+                libraryMode = chips[0].mode;
+            }
+
+            chips.forEach(c => {
+                const btn = document.createElement('button');
+                btn.className = c.mode === libraryMode ? 'filter-chip active' : 'filter-chip';
+                btn.dataset.libmode = c.mode;
+                btn.textContent = c.label;
+                filterBar.appendChild(btn);
+            });
+        }
+
+        let list;
+        let countBasis = playerCount;
+
+        if (libraryMode === 'common') {
+            list = shared.sort((a, b) => b.count - a.count || b.minutes - a.minutes);
+        } else if (libraryMode === 'all') {
+            list = all.sort((a, b) => b.count - a.count || b.minutes - a.minutes);
+        } else {
+            // Bibliothèque d'une personne précise, triée par temps de jeu
+            const lib = groupLibraries[libraryMode];
+            countBasis = 1;
+            list = lib && Array.isArray(lib.games)
+                ? lib.games
+                    .map(g => ({ appId: g.appId, name: g.name, count: 1, minutes: g.playtimeMinutes || 0 }))
+                    .sort((a, b) => b.minutes - a.minutes)
+                : [];
+        }
 
         if (list.length === 0) {
-            container.innerHTML = '<p style="font-style:italic; color:var(--secondary-text);">Aucun jeu en commun pour l\'instant.</p>';
+            container.innerHTML = '<p style="font-style:italic; color:var(--secondary-text);">Aucun jeu à afficher ici.</p>';
             return;
         }
 
-        list.forEach((game, index) => {
-            container.appendChild(buildLibraryRow(game, index, playerCount));
+        list.slice(0, 60).forEach((game, index) => {
+            container.appendChild(buildLibraryRow(game, index, countBasis));
+        });
+
+        renderLinkedLibrariesAdmin(libraries);
+    }
+
+    // Liste des bibliothèques ajoutées, avec retrait (utile en cas d'erreur)
+    function renderLinkedLibrariesAdmin(libraries) {
+        const box = document.getElementById('linked-libraries');
+        if (!box) return;
+        box.innerHTML = '';
+
+        libraries.forEach(lib => {
+            const row = document.createElement('div');
+            row.className = 'player-row';
+
+            const name = document.createElement('span');
+            name.className = 'player-row__name';
+            name.textContent = `${lib.personaName} — ${(lib.games || []).length} jeux`;
+            name.title = lib.addedByName ? `Ajoutée par ${lib.addedByName}` : '';
+
+            const del = document.createElement('button');
+            del.className = 'danger-link-btn';
+            del.textContent = 'Retirer';
+            del.style.marginLeft = 'auto';
+            del.addEventListener('click', () => {
+                if (!confirm(`Retirer la bibliothèque de ${lib.personaName} ?`)) return;
+                db.ref(`lan/steamLibraries/${lib.steamId}`).remove()
+                    .then(() => showToast(`Bibliothèque de ${lib.personaName} retirée.`, 'success'))
+                    .catch(err => showToast('Erreur : ' + err.message, 'error'));
+            });
+
+            row.append(name, del);
+            box.appendChild(row);
         });
     }
 
     document.getElementById('library-filter-bar')?.addEventListener('click', (e) => {
         const chip = e.target.closest('.filter-chip');
         if (!chip) return;
-        document.querySelectorAll('#library-filter-bar .filter-chip')
-            .forEach(c => c.classList.toggle('active', c === chip));
         libraryMode = chip.dataset.libmode;
         renderGroupLibrary();
     });
@@ -1587,15 +1583,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            await db.ref(`lan/users/${user.uid}`).update({
+            // Indexé par compte Steam, et non par joueur connecté : on peut
+            // ainsi ajouter la bibliothèque d'un ami sans écraser la sienne.
+            const label = data.personaName || `Steam ${data.steamId}`;
+            await db.ref(`lan/steamLibraries/${data.steamId}`).set({
                 steamId: data.steamId,
-                displayName: user.displayName || null,
+                personaName: label,
+                avatar: data.avatar || null,
+                profileUrl: data.profileUrl || null,
                 games: data.games.slice(0, 500),
+                addedBy: user.uid,
+                addedByName: user.displayName || null,
                 updatedAt: firebase.database.ServerValue.TIMESTAMP
             });
 
-            status.textContent = `${data.gameCount} jeux importés. Merci !`;
-            showToast(`${data.gameCount} jeux importés depuis Steam !`, 'success');
+            status.textContent = `${data.gameCount} jeux importés pour ${label}.`;
+            showToast(`${data.gameCount} jeux importés pour ${label} !`, 'success');
             input.value = '';
         } catch (error) {
             console.error('Steam link error:', error);

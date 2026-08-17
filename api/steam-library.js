@@ -35,6 +35,23 @@ async function resolveSteamId(identifier, apiKey) {
     return data?.response?.success === 1 ? data.response.steamid : null;
 }
 
+// Le pseudo Steam du compte : c'est lui qui doit étiqueter la bibliothèque,
+// pas le nom du joueur connecté — sinon la bibliothèque d'un ami s'affiche
+// sous le nom de celui qui l'a ajoutée.
+async function fetchProfile(steamId, apiKey) {
+    const url = `https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/?key=${apiKey}&steamids=${steamId}`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const player = data?.response?.players?.[0];
+    if (!player) return null;
+    return {
+        personaName: player.personaname || null,
+        avatar: player.avatarmedium || player.avatar || null,
+        profileUrl: player.profileurl || null
+    };
+}
+
 export default async function handler(request, response) {
     const { profile } = request.query;
 
@@ -65,11 +82,13 @@ export default async function handler(request, response) {
 
         const libData = await libRes.json();
         const games = libData?.response?.games;
+        const profile = await fetchProfile(steamId, apiKey);
 
         // GetOwnedGames renvoie un objet vide quand le profil est privé
         if (!Array.isArray(games)) {
             return response.status(200).json({
                 steamId,
+                personaName: profile?.personaName || null,
                 privateProfile: true,
                 games: []
             });
@@ -79,6 +98,9 @@ export default async function handler(request, response) {
 
         return response.status(200).json({
             steamId,
+            personaName: profile?.personaName || null,
+            avatar: profile?.avatar || null,
+            profileUrl: profile?.profileUrl || null,
             privateProfile: false,
             gameCount: games.length,
             games: games.map(g => ({

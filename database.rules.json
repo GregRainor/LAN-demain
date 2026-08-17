@@ -75,6 +75,13 @@
         "$uid": {
           ".write": "auth != null && auth.uid === $uid"
         }
+      },
+
+      "steamLibraries": {
+        ".read": "auth != null",
+        "$steam_id": {
+          ".write": "auth != null"
+        }
       }
     }
   }
