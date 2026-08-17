@@ -301,11 +301,18 @@
                                 <h3 class="section-title">Jeux Officiels de la LAN</h3>
                                 <div id="games-filter-bar" class="filter-bar">
                                     <span class="filter-bar__label">Filtrer</span>
-                                    <button class="filter-chip active" data-filter="all">Tous</button>
-                                    <button class="filter-chip" data-filter="multijoueur">Multijoueur</button>
-                                    <button class="filter-chip" data-filter="coopération">Coop</button>
-                                    <button class="filter-chip" data-filter="pvp">PvP</button>
-                                    <button class="filter-chip" data-filter="free">Gratuit</button>
+                                    <span id="filter-top-tags" class="filter-bar__chips"></span>
+                                    <details id="filter-all-tags" class="tag-menu">
+                                        <summary class="filter-chip">Tous les tags ▾</summary>
+                                        <div class="tag-menu__panel">
+                                            <input type="text" id="tag-search" class="luxury-input tag-menu__search"
+                                                placeholder="Rechercher un tag…">
+                                            <div id="tag-menu-list" class="tag-menu__list"></div>
+                                        </div>
+                                    </details>
+                                    <button id="filter-reset" class="filter-chip filter-chip--reset"
+                                        style="display: none;">✕ Effacer</button>
+                                    <span id="filter-count" class="filter-bar__count"></span>
                                 </div>
                                 <div id="active-lan-games-list" class="rank-list scroll-area">
                                 </div>

@@ -1609,30 +1609,143 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- FILTRES DU CLASSEMENT ---------------------------------------------
 
-    let activeGameFilter = 'all';
+    // Tags sélectionnés (clé en minuscules) — un jeu doit tous les porter
+    const selectedTags = new Set();
+    // minuscule -> libellé d'origine, pour afficher « Coopération » et non « coopération »
+    const tagLabels = new Map();
 
-    // Les étiquettes arrivent de façon asynchrone : on réapplique le filtre
-    // après chaque rendu et à chaque fois qu'une fiche revient de l'API.
-    function applyGameFilter() {
-        const rows = document.querySelectorAll('#active-lan-games-list .rank-row');
-        rows.forEach(row => {
-            let visible = true;
-            if (activeGameFilter === 'free') {
-                visible = row.dataset.isFree === 'true';
-            } else if (activeGameFilter !== 'all') {
-                visible = (row.dataset.tags || '').includes(activeGameFilter);
-            }
-            row.classList.toggle('rank-row--hidden', !visible);
+    const FREE_TAG = '__free__';
+    const TOP_TAG_COUNT = 6;
+
+    function registerTags(details) {
+        [...(details.genres || []), ...(details.categories || [])].forEach(label => {
+            tagLabels.set(label.toLowerCase(), label);
         });
     }
 
-    document.getElementById('games-filter-bar')?.addEventListener('click', (e) => {
-        const chip = e.target.closest('.filter-chip');
-        if (!chip) return;
-        document.querySelectorAll('#games-filter-bar .filter-chip')
-            .forEach(c => c.classList.toggle('active', c === chip));
-        activeGameFilter = chip.dataset.filter;
+    function rowTags(row) {
+        const raw = row.dataset.tags || '';
+        return raw ? raw.split('|') : [];
+    }
+
+    // Fréquence de chaque tag parmi les jeux du classement
+    function computeTagCounts() {
+        const counts = new Map();
+        document.querySelectorAll('#active-lan-games-list .rank-row').forEach(row => {
+            new Set(rowTags(row)).forEach(t => counts.set(t, (counts.get(t) || 0) + 1));
+            if (row.dataset.isFree === 'true') {
+                counts.set(FREE_TAG, (counts.get(FREE_TAG) || 0) + 1);
+            }
+        });
+        return counts;
+    }
+
+    function tagLabel(key) {
+        if (key === FREE_TAG) return 'Gratuit';
+        return tagLabels.get(key) || key;
+    }
+
+    function makeTagChip(key, count) {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = selectedTags.has(key) ? 'filter-chip active' : 'filter-chip';
+        chip.dataset.tag = key;
+        chip.textContent = tagLabel(key);
+        if (count != null) {
+            const n = document.createElement('span');
+            n.className = 'filter-chip__n';
+            n.textContent = count;
+            chip.appendChild(n);
+        }
+        return chip;
+    }
+
+    function applyGameFilter() {
+        const rows = document.querySelectorAll('#active-lan-games-list .rank-row');
+        let shown = 0;
+
+        rows.forEach(row => {
+            const tags = rowTags(row);
+            const visible = [...selectedTags].every(t =>
+                t === FREE_TAG ? row.dataset.isFree === 'true' : tags.includes(t)
+            );
+            row.classList.toggle('rank-row--hidden', !visible);
+            if (visible) shown++;
+        });
+
+        const count = document.getElementById('filter-count');
+        if (count) {
+            count.textContent = selectedTags.size === 0
+                ? `${rows.length} jeux`
+                : `${shown} / ${rows.length} jeux`;
+        }
+
+        const reset = document.getElementById('filter-reset');
+        if (reset) reset.style.display = selectedTags.size ? 'inline-block' : 'none';
+    }
+
+    // Reconstruit les puces : les plus fréquentes en tête, le reste dans le menu
+    function renderTagFilters() {
+        const topBox = document.getElementById('filter-top-tags');
+        const menuList = document.getElementById('tag-menu-list');
+        if (!topBox || !menuList) return;
+
+        const counts = computeTagCounts();
+        const sorted = [...counts.entries()]
+            .sort((a, b) => b[1] - a[1] || tagLabel(a[0]).localeCompare(tagLabel(b[0])));
+
+        // Un tag sélectionné reste visible même s'il sort du top
+        const top = sorted.slice(0, TOP_TAG_COUNT).map(([k]) => k);
+        selectedTags.forEach(t => { if (!top.includes(t)) top.push(t); });
+
+        topBox.innerHTML = '';
+        top.forEach(key => topBox.appendChild(makeTagChip(key, counts.get(key) || 0)));
+
+        const search = (document.getElementById('tag-search')?.value || '').toLowerCase().trim();
+        menuList.innerHTML = '';
+        const menuTags = sorted.filter(([k]) => !search || tagLabel(k).toLowerCase().includes(search));
+
+        if (menuTags.length === 0) {
+            menuList.innerHTML = '<span class="tag-menu__empty">Aucun tag correspondant.</span>';
+        } else {
+            menuTags.forEach(([key, n]) => menuList.appendChild(makeTagChip(key, n)));
+        }
+
         applyGameFilter();
+    }
+
+    // Les fiches Steam reviennent une par une ; sans regroupement on
+    // reconstruirait la barre 20 fois de suite.
+    let tagRefreshTimer = null;
+    function scheduleTagFilterRefresh() {
+        clearTimeout(tagRefreshTimer);
+        tagRefreshTimer = setTimeout(renderTagFilters, 150);
+    }
+
+    // Clic sur une puce, dans la barre comme dans le menu
+    function onTagChipClick(e) {
+        const chip = e.target.closest('.filter-chip');
+        if (!chip || !chip.dataset.tag) return;
+        const key = chip.dataset.tag;
+        if (selectedTags.has(key)) selectedTags.delete(key);
+        else selectedTags.add(key);
+        renderTagFilters();
+    }
+
+    document.getElementById('filter-top-tags')?.addEventListener('click', onTagChipClick);
+    document.getElementById('tag-menu-list')?.addEventListener('click', onTagChipClick);
+
+    document.getElementById('tag-search')?.addEventListener('input', renderTagFilters);
+
+    document.getElementById('filter-reset')?.addEventListener('click', () => {
+        selectedTags.clear();
+        renderTagFilters();
+    });
+
+    // Referme le menu quand on clique ailleurs
+    document.addEventListener('click', (e) => {
+        const menu = document.getElementById('filter-all-tags');
+        if (menu && menu.open && !menu.contains(e.target)) menu.open = false;
     });
 
     // Construit une ligne de classement. Utilisé partout où l'on affiche
@@ -1699,7 +1812,9 @@ document.addEventListener('DOMContentLoaded', () => {
             row.dataset.tags = [...(details.genres || []), ...(details.categories || [])]
                 .join('|').toLowerCase();
             row.dataset.isFree = details.price && details.price.free ? 'true' : 'false';
-            applyGameFilter();
+            registerTags(details);
+            // Les fiches arrivent une par une : on reconstruit la barre au fil de l'eau
+            scheduleTagFilterRefresh();
         });
 
         return row;

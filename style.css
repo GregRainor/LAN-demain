@@ -2716,13 +2716,85 @@ select.luxury-input option:disabled {
     border-color: var(--accent-color);
 }
 
+.filter-bar__chips {
+    display: contents;
+}
+
+.filter-bar__count {
+    margin-left: auto;
+    font-size: var(--text-xs);
+    color: var(--muted-text);
+    white-space: nowrap;
+}
+
+.filter-chip__n {
+    margin-left: var(--space-1);
+    opacity: 0.6;
+    font-variant-numeric: tabular-nums;
+}
+
+.filter-chip--reset {
+    color: var(--danger-color);
+    border-color: rgba(158, 54, 54, 0.4);
+}
+
+.filter-chip--reset:hover {
+    color: #d46a6a;
+    border-color: var(--danger-color);
+}
+
+/* --- Menu déroulant de tous les tags --- */
+.tag-menu {
+    position: relative;
+}
+
+.tag-menu summary {
+    list-style: none;
+    display: inline-block;
+}
+
+.tag-menu summary::-webkit-details-marker {
+    display: none;
+}
+
+.tag-menu__panel {
+    position: absolute;
+    z-index: 60;
+    top: calc(100% + 6px);
+    left: 0;
+    width: 260px;
+    max-height: 320px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-3);
+    background: #101010;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sharp);
+    box-shadow: var(--shadow-lg);
+}
+
+.tag-menu__search {
+    font-size: var(--text-sm);
+    padding: var(--space-2) var(--space-3);
+}
+
+.tag-menu__list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    overflow-y: auto;
+}
+
+.tag-menu__empty {
+    font-size: var(--text-xs);
+    font-style: italic;
+    color: var(--muted-text);
+}
+
 /* Ligne de classement cliquable */
 .rank-row--clickable {
     cursor: pointer;
-}
-
-.rank-row--hidden {
-    display: none;
 }
 
 
@@ -2749,6 +2821,12 @@ select.luxury-input option:disabled {
     border-radius: var(--radius-sharp);
     background: rgba(255, 255, 255, 0.015);
     transition: background var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast);
+}
+
+/* Déclaré après .rank-row : à spécificité égale, c'est l'ordre qui tranche,
+   et « display: grid » l'emportait sur « display: none ». */
+.rank-row--hidden {
+    display: none;
 }
 
 .rank-row:hover {
