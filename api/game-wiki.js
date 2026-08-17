@@ -7,9 +7,22 @@
 
 const CACHE_HEADER = 'public, s-maxage=86400, stale-while-revalidate=604800';
 
+// Wikipédia impose un User-Agent descriptif et rejette les requêtes anonymes
+// vers l'API action (w/api.php) : sans lui, la recherche échoue en production.
+const WIKI_HEADERS = {
+    'accept': 'application/json',
+    'user-agent': 'LANDemain/1.0 (https://lan-demain.vercel.app)'
+};
+
+// Les titres Wikipédia commencent par une majuscule : « fortnite » ne résout pas.
+function capitalize(str) {
+    const s = String(str).trim();
+    return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 async function fetchSummary(lang, title) {
     const url = `https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`;
-    const res = await fetch(url, { headers: { 'accept': 'application/json' } });
+    const res = await fetch(url, { headers: WIKI_HEADERS });
     if (!res.ok) return null;
     const data = await res.json();
     // Les pages d'homonymie ne décrivent aucun jeu
@@ -19,8 +32,8 @@ async function fetchSummary(lang, title) {
 
 // Recherche le titre le plus pertinent en ajoutant « jeu vidéo » au besoin
 async function searchTitle(lang, query, hint) {
-    const url = `https://${lang}.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query + ' ' + hint)}&format=json&srlimit=1&origin=*`;
-    const res = await fetch(url);
+    const url = `https://${lang}.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query + ' ' + hint)}&format=json&srlimit=1`;
+    const res = await fetch(url, { headers: WIKI_HEADERS });
     if (!res.ok) return null;
     const data = await res.json();
     return data?.query?.search?.[0]?.title || null;
@@ -34,11 +47,13 @@ export default async function handler(request, response) {
     }
 
     try {
-        let summary = await fetchSummary('fr', name);
+        const titleCandidate = capitalize(name);
+
+        let summary = await fetchSummary('fr', titleCandidate);
         let lang = 'fr';
 
         if (!summary) {
-            summary = await fetchSummary('en', name);
+            summary = await fetchSummary('en', titleCandidate);
             lang = 'en';
         }
 
