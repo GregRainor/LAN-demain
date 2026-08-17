@@ -2111,7 +2111,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const newName = (input?.value || '').trim();
 
         const ok = await askConfirm(
-            "Archiver la soirée en cours (classement, événements, créations kocktails) puis repartir de zéro ? Les bibliothèques et abonnements sont également effacés. Seule la carte officielle des kocktails est conservée.",
+            "Archiver la soirée en cours (classement, événements, créations kocktails, sondages, commandes) puis repartir de zéro ? Les bibliothèques Steam sont également effacées. Seule la carte officielle des kocktails est conservée.",
             { title: '🎉 Nouvelle LAN', danger: true, confirmLabel: 'Démarrer' }
         );
         if (!ok) return;
@@ -3092,7 +3092,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return gamepassPromise;
     }
 
-    // Transforme bibliothèques et abonnements en une liste unique de "possesseurs"
+    // Transforme les bibliothèques Steam en une liste unique de "possesseurs"
     function collectLibraryOwners() {
         const owners = [];
 
