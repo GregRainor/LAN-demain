@@ -758,6 +758,10 @@ h2::after {
 
 .game-input-wrapper input {
     flex-grow: 1;
+    /* Sans min-width:0, un <input> flex refuse de descendre sous sa taille
+       intrinsèque (~20 caractères) et pousse le bouton hors de l'écran :
+       la page défilait horizontalement sur mobile. */
+    min-width: 0;
     padding: 12px 15px;
     background-color: transparent;
     color: var(--primary-text);
@@ -3076,6 +3080,24 @@ select.luxury-input option:disabled {
     .gold-link-btn,
     .danger-link-btn {
         min-height: 36px;
+    }
+
+    .steam-search-btn {
+        min-height: 44px;
+    }
+
+    /* Le bandeau de stats tient sur une ligne compacte */
+    .stat-strip {
+        gap: var(--space-4);
+        padding: var(--space-3) var(--space-4);
+    }
+
+    .stat-strip__item {
+        gap: var(--space-2);
+    }
+
+    .stat-strip__value {
+        font-size: var(--text-lg);
     }
 }
 
