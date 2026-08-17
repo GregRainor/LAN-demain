@@ -458,8 +458,21 @@
 
                         <!-- Voting Controls -->
                         <div class="luxury-panel" style="padding: 25px;">
-                            <h3 style="margin-top: 0; color: var(--danger-color); border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px;">⚠️ Contrôles Avancés</h3>
-                            <button id="toggle-voting-btn-dashboard-lan" class="danger-btn" style="padding: 12px 25px; width: 100%; margin-bottom: 10px;">Clore le Vote</button>
+                            <h3 class="section-title section-title--danger">⚠️ Contrôles Avancés</h3>
+                            <button id="toggle-voting-btn-dashboard-lan" class="danger-btn btn-block">Clore le
+                                Vote</button>
+
+                            <div class="panel-section" style="margin-top: 20px;">
+                                <h4 class="section-title">🎉 Nouvelle LAN</h4>
+                                <p class="panel-section__text">Archive le classement actuel dans l'historique, efface
+                                    tous les votes et rouvre les votes pour un nouvel événement. Les événements,
+                                    kocktails et bibliothèques Steam sont conservés.</p>
+                                <label class="field-label" for="new-lan-name">Nom de la nouvelle LAN</label>
+                                <input type="text" id="new-lan-name" class="luxury-input"
+                                    placeholder="Ex : LAN de Noël">
+                                <button id="btn-new-lan" class="btn-block" style="margin-top: 15px;">Démarrer une
+                                    nouvelle LAN</button>
+                            </div>
                         </div>
                     </div>
                 </main>

@@ -537,7 +537,10 @@ document.addEventListener('DOMContentLoaded', () => {
             // On utilise window.currentUserIsAdmin (mis à jour par les rôles en DB) et non
             // une variable figée à la connexion, sinon un admin promu en cours de LAN a une UI incohérente
             if (window.currentUserIsAdmin) {
-                const toggleBtns = document.querySelectorAll('#toggle-voting-btn-open, #toggle-voting-btn-dashboard');
+                // Les trois boutons doivent suivre l'état : celui de la LAN active
+                // était absent de ce sélecteur et restait figé sur « Clore le Vote »,
+                // si bien qu'il rouvrait les votes au lieu de les clore.
+                const toggleBtns = document.querySelectorAll('#toggle-voting-btn-open, #toggle-voting-btn-dashboard, #toggle-voting-btn-dashboard-lan');
                 toggleBtns.forEach(btn => btn && (btn.textContent = globalSettings.isVotingOpen ? "Clôturer le Vote" : "Ouvrir le Vote"));
                 const countInputs = document.querySelectorAll('#dashboard-top-games-count');
                 countInputs.forEach(input => input && (input.value = globalSettings.topGamesCount || 10));
@@ -1061,6 +1064,56 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(() => showToast('Résultats archivés dans l\'historique !', 'success'))
             .catch(err => console.error('Archive error:', err));
     }
+
+    // --- NOUVELLE LAN --------------------------------------------------------
+
+    // Archive le classement en cours puis remet le cycle à zéro : votes effacés,
+    // votes rouverts, LAN active désactivée. On ne touche ni aux événements, ni
+    // aux kocktails, ni aux bibliothèques Steam — ils survivent d'une LAN à l'autre.
+    async function startNewLan(newName) {
+        const sortedGames = calculateScores(globalVotes);
+
+        if (sortedGames.length > 0) {
+            const previousName = globalSettings.lanName || 'LAN Demain';
+            await db.ref('lan/history').push().set({
+                name: previousName,
+                date: new Date().toLocaleDateString('fr-FR'),
+                timestamp: firebase.database.ServerValue.TIMESTAMP,
+                topGames: sortedGames.slice(0, globalSettings.topGamesCount || 10),
+                votes: globalVotes
+            });
+        }
+
+        await db.ref('lan/votes').remove();
+
+        const settings = { isVotingOpen: true, isLanActive: false };
+        if (newName) settings.lanName = newName;
+        await db.ref('lan/settings').update(settings);
+
+        return sortedGames.length;
+    }
+
+    document.getElementById('btn-new-lan')?.addEventListener('click', async () => {
+        const input = document.getElementById('new-lan-name');
+        const newName = (input?.value || '').trim();
+
+        const ok = await askConfirm(
+            "Archiver le classement actuel, effacer tous les votes et rouvrir les votes ? Les événements, kocktails et bibliothèques sont conservés.",
+            { title: '🎉 Nouvelle LAN', danger: true }
+        );
+        if (!ok) return;
+
+        try {
+            const archived = await startNewLan(newName);
+            if (input) input.value = '';
+            showToast(archived > 0
+                ? `Nouvelle LAN lancée ! ${archived} jeux archivés dans l'historique.`
+                : 'Nouvelle LAN lancée ! Les votes sont ouverts.', 'success');
+        } catch (error) {
+            console.error('New LAN error:', error);
+            showToast('Impossible de démarrer une nouvelle LAN : ' + error.message, 'error');
+        }
+    });
 
     // --- FICHE JEU STEAM ---------------------------------------------------
 
@@ -2517,9 +2570,25 @@ document.addEventListener('DOMContentLoaded', () => {
     // 3. Notifications bell  toggle
     const btnNotifications = document.getElementById('btn-notifications');
     const notifPanel = document.getElementById('notifications-panel');
-    btnNotifications?.addEventListener('click', () => {
+    btnNotifications?.addEventListener('click', (e) => {
         if (!notifPanel) return;
+        // sans ça, le clic remonte jusqu'au document et referme aussitôt le panneau
+        e.stopPropagation();
         notifPanel.style.display = (notifPanel.style.display === 'none' || !notifPanel.style.display) ? 'block' : 'none';
+    });
+
+    // Un panneau qui ne se ferme qu'en recliquant la cloche est pénible :
+    // on le referme aussi au clic ailleurs et à la touche Échap.
+    document.addEventListener('click', (e) => {
+        if (!notifPanel || notifPanel.style.display !== 'block') return;
+        if (notifPanel.contains(e.target) || btnNotifications?.contains(e.target)) return;
+        notifPanel.style.display = 'none';
+    });
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && notifPanel && notifPanel.style.display === 'block') {
+            notifPanel.style.display = 'none';
+        }
     });
 
     // --- RENDER EVENTS ---
