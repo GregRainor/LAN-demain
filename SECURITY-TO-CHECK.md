@@ -1,4 +1,4 @@
-# Sécurité — points à vérifier
+# Sécurité : points à vérifier
 
 Checklist de revue pour un audit de sécurité de **LAN Demain**.
 Chaque point est une hypothèse à *vérifier*, pas un fait établi.
@@ -20,14 +20,14 @@ compte Google compromis. Les points ci-dessous sont classés dans cet esprit.
 Deux chemins acceptent l'écriture de n'importe quel compte authentifié. C'est
 délibéré (l'app écrit côté client), mais à confirmer comme acceptable.
 
-- [ ] **`lan/notifications/$uid` — écriture par tous.**
+- [ ] **`lan/notifications/$uid` : écriture par tous.**
   Nécessaire : broadcasts, rappels, « shot ! » et notifications de cocktail prêt sont
   envoyés depuis le navigateur de l'expéditeur vers la file d'un autre joueur.
   *À vérifier* : un joueur peut-il spammer, usurper l'identité de l'admin dans un
   message, ou saturer la base ? Y a-t-il une limite de taille/volume ?
   *Piste* : déplacer l'envoi dans une fonction serverless et repasser en `.write: false`.
 
-- [ ] **`lan/steamLibraries/$steamId` — écriture et suppression par tous.**
+- [ ] **`lan/steamLibraries/$steamId` : écriture et suppression par tous.**
   Introduit pour qu'on puisse ajouter *et retirer* la bibliothèque d'un ami.
   Conséquence : n'importe quel joueur connecté peut supprimer la bibliothèque de
   n'importe qui, ou en injecter une fausse.
@@ -38,7 +38,7 @@ délibéré (l'app écrit côté client), mais à confirmer comme acceptable.
   *À vérifier* : un client modifié peut-il écrire un vote de 10 Mo, un titre
   d'événement de 100 000 caractères, ou des clés arbitraires sous `lan/` ?
 
-## 2. XSS — couverture de l'échappement
+## 2. XSS : couverture de l'échappement
 
 Un helper `escapeHtml` existe et est utilisé à ~24 endroits, mais la couverture
 n'a jamais été auditée exhaustivement.
@@ -48,7 +48,7 @@ n'a jamais été auditée exhaustivement.
   Champs concernés : noms de jeux, titres/descriptions/règles d'événements, noms et
   recettes de cocktails, messages de broadcast, pseudos, noms de LAN.
   *Note* : plusieurs rendus sont passés à `textContent` (sûr par construction) lors
-  du travail de design — distinguer les deux.
+  du travail de design : distinguer les deux.
 
 - [ ] **Données venant d'API tierces.** Steam, Wikipédia et IsThereAnyDeal renvoient
   du texte affiché tel quel (`shortDescription`, `personaName`, noms de boutiques,
@@ -105,7 +105,7 @@ n'a jamais été auditée exhaustivement.
 
 - [ ] **Bibliothèques Steam.** L'app stocke la liste complète des jeux et le temps de
   jeu de chaque personne ajoutée, lisible par tout joueur connecté. La personne
-  concernée n'a pas forcément consenti — n'importe qui peut ajouter son profil.
+  concernée n'a pas forcément consenti : n'importe qui peut ajouter son profil.
   *À vérifier* : est-ce acceptable dans ce cercle ? Faut-il un moyen de se retirer ?
 
 - [ ] **`steamId` et données de présence.** `lan/status` expose qui est en ligne,
@@ -130,7 +130,7 @@ n'a jamais été auditée exhaustivement.
 
 ## 7. Points déjà traités (à re-vérifier, pas à supposer acquis)
 
-- [ ] Règles Firebase publiées et effectives — un test anonyme renvoyait bien
+- [ ] Règles Firebase publiées et effectives : un test anonyme renvoyait bien
   `401 Permission denied` en lecture comme en écriture.
 - [ ] `api/verify-recaptcha.js` (code mort entièrement commenté) supprimé.
 - [ ] Secrets sortis du dépôt, `config.js` généré au build.

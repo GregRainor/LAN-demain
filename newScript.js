@@ -1298,7 +1298,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const score = document.createElement('span');
             score.className = 'poll-option__score';
-            score.textContent = count ? `${count} · ${pct}%` : '—';
+            score.textContent = count ? `${count} · ${pct}%` : '-';
 
             row.append(fill, label, score);
 
@@ -1426,7 +1426,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Archive le classement en cours puis remet le cycle à zéro : votes effacés,
     // votes rouverts, LAN active désactivée. On ne touche ni aux événements, ni
-    // aux kocktails, ni aux bibliothèques Steam — ils survivent d'une LAN à l'autre.
+    // aux kocktails, ni aux bibliothèques Steam : ils survivent d'une LAN à l'autre.
     async function startNewLan(newName) {
         const sortedGames = calculateScores(globalVotes);
 
@@ -1789,7 +1789,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('game-details-tags').innerHTML = '';
 
         const notice = document.getElementById('game-details-notice');
-        notice.textContent = `Pas disponible sur Steam — informations issues de Wikipédia${wiki.lang === 'en' ? ' (en anglais)' : ''}.`;
+        notice.textContent = `Pas disponible sur Steam : informations issues de Wikipédia${wiki.lang === 'en' ? ' (en anglais)' : ''}.`;
         notice.style.display = 'block';
 
         const media = document.getElementById('game-details-media');
@@ -1905,7 +1905,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Steam ne sert la bande-annonce qu'en HLS. Attention : Chrome répond
         // "maybe" à canPlayType pour ce type MIME alors qu'il ne sait pas le lire
-        // (le lecteur reste bloqué à readyState 0). Seul "probably" — Safari —
+        // (le lecteur reste bloqué à readyState 0). Seul "probably" (Safari)
         // indique un vrai support ; ailleurs on affiche l'image fixe.
         const media = document.getElementById('game-details-media');
         media.innerHTML = '';
@@ -2103,7 +2103,7 @@ document.addEventListener('DOMContentLoaded', () => {
     //
     // Prudence volontaire : la recherche floue renverrait « Riftbound Survivors »
     // pour « Riftbound ». On n'accepte donc la correction que si le nom proposé
-    // reste proche de la saisie — le bouton « Vérifier », lui, est explicite et
+    // reste proche de la saisie : le bouton « Vérifier », lui, est explicite et
     // peut se permettre d'être plus agressif.
     const AUTOFIX_MAX_DISTANCE_RATIO = 0.34;
 
@@ -2234,7 +2234,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Le panneau apparaît dans deux vues (vote et LAN active). On l'injecte dans
     // chaque point de montage plutôt que de dupliquer le markup : des ID en double
-    // ne câbleraient que la première copie — c'est exactement le bug B1.
+    // ne câbleraient que la première copie : c'est exactement le bug B1.
     const LIBRARY_PANEL_HTML = `
         <h3 class="section-title">🎮 Bibliothèques Steam</h3>
         <p class="panel-section__hint js-library-summary">Aucune bibliothèque liée.</p>
@@ -2283,7 +2283,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (playerCount === 0) {
             if (summary) summary.textContent = 'Aucune bibliothèque Steam ajoutée pour l\'instant.';
             if (filterBar) filterBar.innerHTML = '';
-            container.innerHTML = '<p style="font-style:italic; color:var(--secondary-text);">Ajoutez un profil Steam ci-dessous — le vôtre ou celui d\'un ami.</p>';
+            container.innerHTML = '<p style="font-style:italic; color:var(--secondary-text);">Ajoutez un profil Steam ci-dessous : le vôtre ou celui d\'un ami.</p>';
             return;
         }
 
@@ -2293,7 +2293,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (summary) {
             summary.textContent = playerCount === 1
                 ? `1 bibliothèque : ${names[0]} (${all.length} jeux). Ajoutez celle d'un ami pour comparer.`
-                : `${playerCount} bibliothèques — ${shared.length} jeux en commun sur ${all.length}.`;
+                : `${playerCount} bibliothèques : ${shared.length} jeux en commun sur ${all.length}.`;
         }
 
         // Onglets : en commun, tous, puis un par personne
@@ -2372,7 +2372,7 @@ document.addEventListener('DOMContentLoaded', () => {
             name.className = 'player-row__name';
             // Une bibliothèque est un instantané : sans date, impossible de
             // savoir si elle date d'avant les derniers achats.
-            name.textContent = `${lib.personaName} — ${(lib.games || []).length} jeux · ${formatAge(lib.updatedAt)}`;
+            name.textContent = `${lib.personaName} : ${(lib.games || []).length} jeux · ${formatAge(lib.updatedAt)}`;
             name.title = lib.addedByName ? `Ajoutée par ${lib.addedByName}` : '';
 
             const del = document.createElement('button');
@@ -2464,7 +2464,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- FILTRES DU CLASSEMENT ---------------------------------------------
 
-    // Tags sélectionnés (clé en minuscules) — un jeu doit tous les porter
+    // Tags sélectionnés (clé en minuscules) : un jeu doit tous les porter
     const selectedTags = new Set();
     // minuscule -> libellé d'origine, pour afficher « Coopération » et non « coopération »
     const tagLabels = new Map();
@@ -2851,7 +2851,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- PHASE 4: ACTIVE LAN LOGIC ---
 
-    // Event Reminders — toast when a registered event is coming up within 15 minutes
+    // Event Reminders : toast when a registered event is coming up within 15 minutes
     const remindedEventIds = new Set();
 
     // Rappels système : utiles quand l'onglet est en arrière-plan, là où un
@@ -2892,13 +2892,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 showToast(`⏰ Rappel : "${evt.title}" commence à ${evt.time} !`, 'success');
                 showReminderNotification(
                     `⏰ ${evt.title}`,
-                    `Ça commence à ${evt.time} — dans ${diff} minute(s).`
+                    `Ça commence à ${evt.time} : dans ${diff} minute(s).`
                 );
             }
         });
     }
 
-    // 4. Navigation — re-render data on tab switch
+    // 4. Navigation : re-render data on tab switch
     document.querySelectorAll('.lan-nav-list .nav-item').forEach(item => {
         item.addEventListener('click', (e) => {
             const targetId = e.currentTarget.dataset.target;
@@ -2915,7 +2915,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 view.classList.remove('active');
             });
 
-            // Activate target — reuse targetId already declared above
+            // Activate target : reuse targetId already declared above
             e.currentTarget.classList.add('active');
             const targetView = document.getElementById(targetId);
             if (targetView) {
@@ -3044,7 +3044,7 @@ document.addEventListener('DOMContentLoaded', () => {
             .catch(err => showToast('Erreur: ' + err.message, 'error'));
     });
 
-    // Active LAN admin panel — role assignment
+    // Active LAN admin panel : role assignment
     document.getElementById('btn-assign-role-lan')?.addEventListener('click', () => {
         const uid = document.getElementById('role-user-select-lan').value;
         const role = document.getElementById('role-type-select-lan').value;
@@ -3055,7 +3055,7 @@ document.addEventListener('DOMContentLoaded', () => {
             .catch(err => showToast('Erreur: ' + err.message, 'error'));
     });
 
-    // Active LAN admin panel — toggle voting button
+    // Active LAN admin panel : toggle voting button
     document.getElementById('toggle-voting-btn-dashboard-lan')?.addEventListener('click', handleToggleVoting);
 
     // Handle Event Creation (with description + notifications)
@@ -3280,7 +3280,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     acceptedBadge.textContent = '✓ Organisateur';
                     acceptedBadge.title = "Vous êtes le créateur.";
                 } else {
-                    // Muted green badge — clickable to un-register
+                    // Muted green badge : clickable to un-register
                     acceptedBadge.className = 'badge badge--success badge--clickable';
                     acceptedBadge.textContent = '✓ Inscrit';
                     acceptedBadge.title = "Cliquer pour annuler votre participation";

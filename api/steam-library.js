@@ -36,7 +36,7 @@ async function resolveSteamId(identifier, apiKey) {
 }
 
 // Le pseudo Steam du compte : c'est lui qui doit étiqueter la bibliothèque,
-// pas le nom du joueur connecté — sinon la bibliothèque d'un ami s'affiche
+// pas le nom du joueur connecté : sinon la bibliothèque d'un ami s'affiche
 // sous le nom de celui qui l'a ajoutée.
 async function fetchProfile(steamId, apiKey) {
     const url = `https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/?key=${apiKey}&steamids=${steamId}`;

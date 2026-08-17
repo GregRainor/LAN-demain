@@ -1,4 +1,4 @@
-# Sécurité — LAN Demain
+# Sécurité de LAN Demain
 
 ## Règles Firebase Realtime Database
 
@@ -20,7 +20,7 @@ réglages de la LAN, vider l'historique, etc.
 | `lan/cocktails/masterList` | tout utilisateur connecté | admin ou mixologue |
 | `lan/cocktails/oneshot/$id` | tout utilisateur connecté | création par soi-même, suppression par le créateur ou un admin |
 | `lan/cocktails/orders/$id` | tout utilisateur connecté | commande par soi-même, "Servi" (suppression) par admin/mixologue ou l'auteur |
-| `lan/notifications/$uid` | uniquement le destinataire | tout utilisateur connecté (nécessaire : les notifs — RSVP, shots, broadcasts — sont écrites côté client par l'expéditeur) |
+| `lan/notifications/$uid` | uniquement le destinataire | tout utilisateur connecté (nécessaire : les notifs (RSVP, shots, broadcasts) sont écrites côté client par l'expéditeur) |
 | `lan/users/$uid` | tout utilisateur connecté | uniquement soi-même |
 | `lan/steamLibraries/$steamId` | tout utilisateur connecté | tout utilisateur connecté (chacun peut ajouter la bibliothèque d'un ami, et la retirer en cas d'erreur) |
 
@@ -56,5 +56,5 @@ Si l'UID admin change, mettre à jour les deux.
   depuis les variables d'environnement Vercel. (La config web Firebase n'est pas un secret
   en soi, mais ça évite de la versionner.)
 - Échappement HTML (`escapeHtml`) de tous les contenus saisis par les joueurs (noms de jeux,
-  événements, cocktails, messages) avant insertion dans le DOM — anti-XSS.
+  événements, cocktails, messages) avant insertion dans le DOM : anti-XSS.
 - `api/verify-recaptcha.js` (code mort entièrement commenté) supprimé.

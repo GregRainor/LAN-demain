@@ -45,7 +45,7 @@
 
     /* --- Rayons : 3 valeurs, pas 8 --- */
     --radius-sharp: 2px;
-    /* panneaux, champs — angles nets = signature du thème */
+    /* panneaux, champs : angles nets = signature du thème */
     --radius-soft: 8px;
     /* vignettes, badges */
     --radius-pill: 999px;
@@ -1667,7 +1667,7 @@ select.luxury-input option:disabled {
     }
 }
 
-/* Base des entrées de menu — l'état actif et le survol sont définis juste après */
+/* Base des entrées de menu : l'état actif et le survol sont définis juste après */
 .lan-nav-list {
     list-style: none;
     padding: 0;
@@ -2225,7 +2225,7 @@ select.luxury-input option:disabled {
 
 /* Arrivée en cascade des lignes de classement.
    Le délai est plafonné pour que la 20e ligne n'attende pas 2 secondes. */
-/* :not(--lg) — la fiche de résultats finaux a sa propre cascade, et ce
+/* :not(--lg) : la fiche de résultats finaux a sa propre cascade, et ce
    sélecteur plus spécifique l'écraserait sinon. */
 .rank-list .rank-row:not(.rank-row--lg) {
     animation: rowSlideIn 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
@@ -2421,7 +2421,7 @@ select.luxury-input option:disabled {
     border-bottom-color: rgba(158, 54, 54, 0.2);
 }
 
-/* Empilement vertical régulier — remplace les flex-column + gap inline */
+/* Empilement vertical régulier : remplace les flex-column + gap inline */
 .stack {
     display: flex;
     flex-direction: column;
@@ -2444,7 +2444,7 @@ select.luxury-input option:disabled {
     color: var(--accent-color);
 }
 
-/* Bouton pleine largeur — mise en forme seulement.
+/* Bouton pleine largeur : mise en forme seulement.
    La couleur reste portée par .danger-btn / .btn-block--gold pour éviter
    qu'un bouton rouge ne devienne or selon l'ordre des règles. */
 .btn-block {
@@ -3149,7 +3149,7 @@ select.luxury-input option:disabled {
 
 /* Sur écran tactile, le survol n'existe pas : le crayon reste visible.
    Mesuré sur Pixel 8 : 37x23 px, bien en deçà des 44 px recommandés pour
-   une cible tactile — on agrandit la zone cliquable sans grossir l'icône. */
+   une cible tactile : on agrandit la zone cliquable sans grossir l'icône. */
 @media (hover: none),
 (max-width: 768px) {
     .rank-row__edit {
