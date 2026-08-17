@@ -239,7 +239,46 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 500);
     }
 
+    // Jeux introuvables chez Steam et Wikipédia. Mémorisés brièvement : un jeu
+    // peut sortir sur Steam, ou une faute de frappe être corrigée.
+    const MISSING_STORE_KEY = 'lan-demain:thumbs-missing:v1';
+    const MISSING_TTL_MS = 24 * 60 * 60 * 1000;
+    let missingImages = {};
+
+    function loadMissingStore() {
+        try {
+            const raw = localStorage.getItem(MISSING_STORE_KEY);
+            const data = raw ? JSON.parse(raw) : {};
+            const now = Date.now();
+            Object.entries(data).forEach(([name, ts]) => {
+                if ((now - ts) < MISSING_TTL_MS) missingImages[name] = ts;
+            });
+        } catch (error) {
+            console.debug('Cache des absences illisible:', error);
+        }
+    }
+
+    let missingStoreTimer = null;
+    function rememberMissingImage(normalizedName) {
+        missingImages[normalizedName] = Date.now();
+        clearTimeout(missingStoreTimer);
+        missingStoreTimer = setTimeout(() => {
+            try {
+                localStorage.setItem(MISSING_STORE_KEY, JSON.stringify(missingImages));
+            } catch (error) {
+                console.debug('Cache des absences non enregistré:', error);
+            }
+        }, 500);
+    }
+
     loadImageStore();
+    loadMissingStore();
+
+    // Les absences récentes peuplent le cache mémoire avec le placeholder,
+    // ce qui court-circuite les appels réseau au chargement suivant.
+    Object.keys(missingImages).forEach(name => {
+        if (!imageCache.has(name)) imageCache.set(name, DEFAULT_GAME_ICON);
+    });
 
     // Version synchrone : permet d'afficher la bonne vignette dès la création
     // de la ligne, au lieu de partir du placeholder puis de le remplacer.
@@ -248,12 +287,11 @@ document.addEventListener('DOMContentLoaded', () => {
         return typeof cached === 'string' ? cached : null;
     }
 
-    async function getGameImage(gameName) {
-        const normalizedName = gameName.toLowerCase().trim();
-        if (imageCache.has(normalizedName)) {
-            return imageCache.get(normalizedName);
-        }
+    // Requêtes en vol, pour que trois listes affichant le même jeu au même
+    // moment ne déclenchent pas trois appels identiques.
+    const imageRequests = new Map();
 
+    async function resolveGameImage(gameName, normalizedName) {
         try {
             const response = await fetch(`/api/get-game-image?name=${encodeURIComponent(normalizedName)}&v=${IMAGE_API_VERSION}`);
             if (response.ok) {
@@ -280,10 +318,28 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error("Wiki image error:", error);
         }
 
-        // Le placeholder n'est pas persisté : un jeu renommé ou une API
-        // momentanément indisponible doit pouvoir être retenté au prochain chargement.
+        // Ni Steam ni Wikipédia : on retient l'échec un jour, sinon ces jeux
+        // relanceraient deux appels à chaque rechargement de la page.
         imageCache.set(normalizedName, DEFAULT_GAME_ICON);
+        rememberMissingImage(normalizedName);
         return DEFAULT_GAME_ICON;
+    }
+
+    function getGameImage(gameName) {
+        const normalizedName = gameName.toLowerCase().trim();
+
+        if (imageCache.has(normalizedName)) {
+            return Promise.resolve(imageCache.get(normalizedName));
+        }
+        if (imageRequests.has(normalizedName)) {
+            return imageRequests.get(normalizedName);
+        }
+
+        const pending = resolveGameImage(gameName, normalizedName)
+            .finally(() => imageRequests.delete(normalizedName));
+
+        imageRequests.set(normalizedName, pending);
+        return pending;
     }
 
     function renderActiveUsers(users) {
