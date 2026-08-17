@@ -2151,8 +2151,7 @@ document.addEventListener('DOMContentLoaded', () => {
             db.ref('lan/cocktails/orders').remove(),
             db.ref('lan/polls').remove(),
             db.ref('lan/foodRuns').remove(),
-            db.ref('lan/steamLibraries').remove(),
-            db.ref('lan/subscriptions').remove()
+            db.ref('lan/steamLibraries').remove()
         ]);
 
         // lanFinished doit retomber ici : sinon la nouvelle soirée s'ouvrirait
@@ -4002,6 +4001,31 @@ document.addEventListener('DOMContentLoaded', () => {
                 const header = document.createElement('div');
                 header.className = 'card-header';
                 header.innerHTML = `<h3 class="card-header__title">${escapeHtml(entry.name || 'LAN')}</h3><span class="card-header__meta">${escapeHtml(entry.date || '')}</span>`;
+
+                // Les LAN de test s'accumulent dans l'historique : les admins
+                // doivent pouvoir en supprimer une.
+                if (window.currentUserIsAdmin) {
+                    const del = document.createElement('button');
+                    del.className = 'danger-link-btn';
+                    del.textContent = 'Supprimer';
+                    del.addEventListener('click', () => {
+                        askConfirm(`Supprimer « ${entry.name || 'LAN'} » de l'historique ?`, { danger: true })
+                            .then(ok => {
+                                if (!ok) return;
+                                db.ref(`lan/history/${entry.id}`).remove()
+                                    .then(() => {
+                                        card.remove();
+                                        showToast('LAN supprimée de l\'historique.', 'success');
+                                        if (!container.querySelector('.content-card')) {
+                                            container.innerHTML = '<p style="text-align:center; color:var(--secondary-text); font-style:italic;">Aucun historique disponible.</p>';
+                                        }
+                                    })
+                                    .catch(err => showToast('Suppression refusée : ' + err.message, 'error'));
+                            });
+                    });
+                    header.appendChild(del);
+                }
+
                 card.appendChild(header);
 
                 if (entry.topGames && entry.topGames.length > 0) {

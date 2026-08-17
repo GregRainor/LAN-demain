@@ -36,6 +36,7 @@
 
       "events": {
         ".read": "auth != null",
+        ".write": "auth != null && (root.child('lan/roles').child(auth.uid).val() === 'admin' || auth.uid === 'ITe5VPuwewMzO7JnJA5oPWMdfvt2')",
         "$event_id": {
           ".write": "auth != null && ((!data.exists() && newData.child('creatorId').val() === auth.uid) || (data.exists() && data.child('creatorId').val() === auth.uid) || root.child('lan/roles').child(auth.uid).val() === 'admin' || auth.uid === 'ITe5VPuwewMzO7JnJA5oPWMdfvt2')",
           "rsvps": {
@@ -52,11 +53,13 @@
           ".write": "auth != null && (root.child('lan/roles').child(auth.uid).val() === 'admin' || root.child('lan/roles').child(auth.uid).val() === 'mixologist' || auth.uid === 'ITe5VPuwewMzO7JnJA5oPWMdfvt2')"
         },
         "oneshot": {
+          ".write": "auth != null && (root.child('lan/roles').child(auth.uid).val() === 'admin' || auth.uid === 'ITe5VPuwewMzO7JnJA5oPWMdfvt2')",
           "$kocktail_id": {
             ".write": "auth != null && ((!data.exists() && newData.child('creatorId').val() === auth.uid) || (data.exists() && data.child('creatorId').val() === auth.uid) || root.child('lan/roles').child(auth.uid).val() === 'admin' || auth.uid === 'ITe5VPuwewMzO7JnJA5oPWMdfvt2')"
           }
         },
         "orders": {
+          ".write": "auth != null && (root.child('lan/roles').child(auth.uid).val() === 'admin' || root.child('lan/roles').child(auth.uid).val() === 'mixologist' || auth.uid === 'ITe5VPuwewMzO7JnJA5oPWMdfvt2')",
           "$order_id": {
             ".write": "auth != null && ((!data.exists() && newData.child('userId').val() === auth.uid) || (data.exists() && data.child('userId').val() === auth.uid) || root.child('lan/roles').child(auth.uid).val() === 'admin' || root.child('lan/roles').child(auth.uid).val() === 'mixologist' || auth.uid === 'ITe5VPuwewMzO7JnJA5oPWMdfvt2')"
           }
@@ -79,6 +82,7 @@
 
       "steamLibraries": {
         ".read": "auth != null",
+        ".write": "auth != null && (root.child('lan/roles').child(auth.uid).val() === 'admin' || auth.uid === 'ITe5VPuwewMzO7JnJA5oPWMdfvt2')",
         "$steam_id": {
           ".write": "auth != null"
         }
@@ -86,6 +90,7 @@
 
       "polls": {
         ".read": "auth != null",
+        ".write": "auth != null && (root.child('lan/roles').child(auth.uid).val() === 'admin' || auth.uid === 'ITe5VPuwewMzO7JnJA5oPWMdfvt2')",
         "$poll_id": {
           ".write": "auth != null && ((!data.exists() && newData.child('createdBy').val() === auth.uid) || (data.exists() && data.child('createdBy').val() === auth.uid) || root.child('lan/roles').child(auth.uid).val() === 'admin' || auth.uid === 'ITe5VPuwewMzO7JnJA5oPWMdfvt2')",
           "votes": {
@@ -96,15 +101,9 @@
         }
       },
 
-      "subscriptions": {
-        ".read": "auth != null",
-        "$sub_id": {
-          ".write": "auth != null"
-        }
-      },
-
       "foodRuns": {
         ".read": "auth != null",
+        ".write": "auth != null && (root.child('lan/roles').child(auth.uid).val() === 'admin' || auth.uid === 'ITe5VPuwewMzO7JnJA5oPWMdfvt2')",
         "$run_id": {
           ".write": "auth != null && ((!data.exists() && newData.child('createdBy').val() === auth.uid) || (data.exists() && data.child('createdBy').val() === auth.uid) || root.child('lan/roles').child(auth.uid).val() === 'admin' || auth.uid === 'ITe5VPuwewMzO7JnJA5oPWMdfvt2')",
           "items": {
