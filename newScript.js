@@ -1379,6 +1379,19 @@ document.addEventListener('DOMContentLoaded', () => {
             badge.textContent = active.length;
             badge.style.display = active.length ? 'inline-flex' : 'none';
         }
+
+        // Les sondages en cours sont aussi utiles pendant la phase de vote :
+        // c'est souvent là qu'on décide de la commande.
+        const votingMount = document.getElementById('polls-voting-mount');
+        if (votingMount) {
+            votingMount.innerHTML = '';
+            if (active.length === 0) {
+                votingMount.style.display = 'none';
+            } else {
+                votingMount.style.display = '';
+                active.forEach(p => votingMount.appendChild(buildPollCard(p, p.id)));
+            }
+        }
     }
 
     // Un sondage n'a d'intérêt que si on le voit arriver
@@ -1398,12 +1411,15 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Le compte à rebours doit avancer même sans nouvel événement Firebase
+    // Le compte à rebours doit avancer même sans nouvel événement Firebase.
+    // On ne redessine que si un sondage est réellement affiché quelque part.
     setInterval(() => {
-        const view = document.getElementById('lan-polls');
-        if (view && view.style.display !== 'none' && Object.keys(globalPolls).length) {
-            renderPolls();
-        }
+        if (!Object.keys(globalPolls).length) return;
+        const pollsView = document.getElementById('lan-polls');
+        const votingMount = document.getElementById('polls-voting-mount');
+        const pollsVisible = pollsView && pollsView.style.display !== 'none';
+        const mountVisible = votingMount && votingMount.style.display !== 'none' && votingMount.offsetParent !== null;
+        if (pollsVisible || mountVisible) renderPolls();
     }, 1000);
 
     // --- NOUVELLE LAN --------------------------------------------------------
