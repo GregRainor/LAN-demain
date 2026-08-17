@@ -526,6 +526,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const cocktailsData = snapshot.val() || {};
             window._latestCocktailsData = cocktailsData;
             renderCocktails(cocktailsData, user);
+            renderCocktailSummary(cocktailsData);
         });
 
         notificationsRef.on('value', (snapshot) => {
@@ -1392,6 +1393,54 @@ document.addEventListener('DOMContentLoaded', () => {
                 active.forEach(p => votingMount.appendChild(buildPollCard(p, p.id)));
             }
         }
+
+        // Et sur le tableau de bord, où l'on veut voir ce qui se décide
+        const dashPanel = document.getElementById('dashboard-polls-panel');
+        const dashBox = document.getElementById('dashboard-polls');
+        if (dashPanel && dashBox) {
+            dashBox.innerHTML = '';
+            dashPanel.style.display = active.length ? 'block' : 'none';
+            active.forEach(p => dashBox.appendChild(buildPollCard(p, p.id)));
+        }
+    }
+
+    // Résumé du bar sur le tableau de bord : ce qui attend d'être servi, et
+    // les dernières créations proposées.
+    function renderCocktailSummary(cocktailsData) {
+        const box = document.getElementById('dashboard-cocktails');
+        if (!box) return;
+
+        const orders = Object.values(cocktailsData.orders || {});
+        const oneshots = Object.entries(cocktailsData.oneshot || {}).map(([id, c]) => ({ id, ...c }));
+        const master = Object.keys(cocktailsData.masterList || {}).length;
+
+        box.innerHTML = '';
+
+        const line = (label, value) => {
+            const row = document.createElement('div');
+            row.className = 'player-row';
+            const l = document.createElement('span');
+            l.className = 'player-row__name';
+            l.textContent = label;
+            const v = document.createElement('span');
+            v.className = 'player-row__score';
+            v.textContent = value;
+            row.append(l, v);
+            return row;
+        };
+
+        box.appendChild(line('Commandes en attente', String(orders.length)));
+        box.appendChild(line('Créations proposées', String(oneshots.length)));
+        box.appendChild(line('Carte officielle', String(master)));
+
+        if (orders.length) {
+            const next = orders.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))[0];
+            const hint = document.createElement('p');
+            hint.className = 'panel-section__hint';
+            hint.style.marginTop = '10px';
+            hint.textContent = `Prochaine : ${next.cocktailName} pour ${next.userName}`;
+            box.appendChild(hint);
+        }
     }
 
     // Un sondage n'a d'intérêt que si on le voit arriver
@@ -1429,19 +1478,39 @@ document.addEventListener('DOMContentLoaded', () => {
     // aux kocktails, ni aux bibliothèques Steam : ils survivent d'une LAN à l'autre.
     async function startNewLan(newName) {
         const sortedGames = calculateScores(globalVotes);
+        const previousName = globalSettings.lanName || 'LAN Demain';
 
-        if (sortedGames.length > 0) {
-            const previousName = globalSettings.lanName || 'LAN Demain';
+        // Tout ce qui appartient à une soirée est archivé avec elle, puis effacé :
+        // sans ça, la nouvelle LAN héritait des événements et des kocktails
+        // de la précédente.
+        const [eventsSnap, cocktailsSnap] = await Promise.all([
+            db.ref('lan/events').once('value'),
+            db.ref('lan/cocktails/oneshot').once('value')
+        ]);
+
+        const hadContent = sortedGames.length > 0 || eventsSnap.exists() || cocktailsSnap.exists();
+
+        if (hadContent) {
             await db.ref('lan/history').push().set({
                 name: previousName,
                 date: new Date().toLocaleDateString('fr-FR'),
                 timestamp: firebase.database.ServerValue.TIMESTAMP,
                 topGames: sortedGames.slice(0, globalSettings.topGamesCount || 10),
-                votes: globalVotes
+                votes: globalVotes,
+                events: eventsSnap.val() || null,
+                oneshotCocktails: cocktailsSnap.val() || null
             });
         }
 
-        await db.ref('lan/votes').remove();
+        // La carte officielle des kocktails et les bibliothèques Steam sont des
+        // acquis durables : on ne les efface pas d'une soirée à l'autre.
+        await Promise.all([
+            db.ref('lan/votes').remove(),
+            db.ref('lan/events').remove(),
+            db.ref('lan/cocktails/oneshot').remove(),
+            db.ref('lan/cocktails/orders').remove(),
+            db.ref('lan/polls').remove()
+        ]);
 
         const settings = { isVotingOpen: true, isLanActive: false };
         if (newName) settings.lanName = newName;
@@ -1455,7 +1524,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const newName = (input?.value || '').trim();
 
         const ok = await askConfirm(
-            "Archiver le classement actuel, effacer tous les votes et rouvrir les votes ? Les événements, kocktails et bibliothèques sont conservés.",
+            "Archiver la soirée en cours (classement, événements, créations kocktails) puis repartir de zéro ? La carte officielle des kocktails et les bibliothèques Steam sont conservées.",
             { title: '🎉 Nouvelle LAN', danger: true, confirmLabel: 'Démarrer' }
         );
         if (!ok) return;
