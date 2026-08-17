@@ -1869,6 +1869,130 @@ select.luxury-input option:disabled {
 
 
 /* =====================================================================
+   PHASE DE VOTE
+   Le formulaire de vote passe devant : les statistiques et le graphique
+   occupaient ~700 px avant lui, et repoussaient l'action sous la ligne
+   de flottaison.
+   ===================================================================== */
+
+/* Bandeau de stats : une ligne, au lieu de trois cartes de 150 px */
+.stat-strip {
+    display: flex;
+    align-items: center;
+    gap: var(--space-6);
+    flex-wrap: wrap;
+    padding: var(--space-4) var(--space-5);
+    margin-bottom: var(--space-5);
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sharp);
+}
+
+.stat-strip__item {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-3);
+}
+
+.stat-strip__label {
+    font-size: var(--text-xs);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted-text);
+}
+
+.stat-strip__value {
+    font-family: var(--font-display);
+    font-size: var(--text-xl);
+    font-variant-numeric: tabular-nums;
+    color: var(--primary-text);
+}
+
+.stat-strip__value--accent {
+    color: var(--accent-color);
+    font-style: italic;
+}
+
+.stat-strip__thumb {
+    margin-left: auto;
+    height: 40px;
+    width: auto;
+    max-width: 120px;
+    object-fit: cover;
+    border-radius: var(--radius-soft);
+}
+
+/* Vignette absente : l'attribut src vide afficherait une icône cassée */
+.stat-strip__thumb:not([src]),
+.stat-strip__thumb[src=""] {
+    display: none;
+}
+
+/* Vote à gauche (large), classement et bibliothèques à droite */
+.vote-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.3fr) minmax(320px, 1fr);
+    gap: var(--space-5);
+    align-items: start;
+    margin-bottom: var(--space-5);
+}
+
+.vote-side {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+}
+
+.vote-layout .form-container,
+.vote-layout .results-container {
+    padding: var(--space-6);
+}
+
+/* Graphique replié par défaut */
+.chart-details {
+    margin-bottom: var(--space-6);
+}
+
+.chart-details summary {
+    display: inline-block;
+    padding: var(--space-3) var(--space-5);
+    font-size: var(--text-sm);
+    letter-spacing: 1px;
+    color: var(--secondary-text);
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sharp);
+    cursor: pointer;
+    transition: color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.chart-details summary:hover {
+    color: var(--accent-color);
+    border-color: var(--accent-a40);
+}
+
+.chart-details[open] summary {
+    margin-bottom: var(--space-4);
+    color: var(--accent-color);
+}
+
+.chart-details .chart-wrapper {
+    padding: var(--space-5);
+}
+
+.chart-details #chart-container {
+    height: 260px;
+    margin-top: var(--space-4);
+}
+
+@media (max-width: 1100px) {
+    .vote-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+
+/* =====================================================================
    TABLEAU DE BORD
    Deux colonnes : le classement à gauche, événements et bibliothèques à
    droite. Chaque liste défile dans son cadre, pour que tout reste visible

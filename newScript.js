@@ -1663,10 +1663,46 @@ document.addEventListener('DOMContentLoaded', () => {
         return [...owners.entries()].map(([appId, e]) => ({ appId, ...e }));
     }
 
+    // Le panneau apparaît dans deux vues (vote et LAN active). On l'injecte dans
+    // chaque point de montage plutôt que de dupliquer le markup : des ID en double
+    // ne câbleraient que la première copie — c'est exactement le bug B1.
+    const LIBRARY_PANEL_HTML = `
+        <h3 class="section-title">🎮 Bibliothèques Steam</h3>
+        <p class="panel-section__hint js-library-summary">Aucune bibliothèque liée.</p>
+        <div class="filter-bar js-library-filter"></div>
+        <div class="rank-list scroll-area js-library-list"></div>
+        <details class="link-steam">
+            <summary>Ajouter une bibliothèque Steam</summary>
+            <p class="panel-section__hint js-steam-status">La vôtre ou celle d'un ami. Le profil doit avoir
+                « Détails du jeu » en Public dans Steam.</p>
+            <div class="field-row">
+                <input type="text" class="luxury-input js-steam-input" placeholder="URL de profil ou pseudo Steam"
+                    style="flex: 1;">
+                <button class="gold-btn btn-inline js-steam-add">Ajouter</button>
+            </div>
+            <div class="stack stack--xs js-linked-libraries" style="margin-top: 12px;"></div>
+        </details>`;
+
+    function ensureLibraryPanels() {
+        document.querySelectorAll('.library-panel-mount').forEach(mount => {
+            if (!mount.dataset.built) {
+                mount.innerHTML = LIBRARY_PANEL_HTML;
+                mount.dataset.built = '1';
+            }
+        });
+    }
+
     function renderGroupLibrary() {
-        const container = document.getElementById('group-library-list');
-        const summary = document.getElementById('library-summary');
-        const filterBar = document.getElementById('library-filter-bar');
+        ensureLibraryPanels();
+        const mounts = [...document.querySelectorAll('.library-panel-mount')];
+        if (mounts.length === 0) return;
+        mounts.forEach(renderLibraryPanel);
+    }
+
+    function renderLibraryPanel(mount) {
+        const container = mount.querySelector('.js-library-list');
+        const summary = mount.querySelector('.js-library-summary');
+        const filterBar = mount.querySelector('.js-library-filter');
         if (!container) return;
 
         const libraries = Object.values(groupLibraries).filter(p => Array.isArray(p.games) && p.games.length);
@@ -1740,7 +1776,7 @@ document.addEventListener('DOMContentLoaded', () => {
             container.appendChild(buildLibraryRow(game, index, countBasis));
         });
 
-        renderLinkedLibrariesAdmin(libraries);
+        renderLinkedLibrariesAdmin(libraries, mount);
     }
 
     function formatAge(timestamp) {
@@ -1754,8 +1790,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Liste des bibliothèques ajoutées, avec retrait (utile en cas d'erreur)
-    function renderLinkedLibrariesAdmin(libraries) {
-        const box = document.getElementById('linked-libraries');
+    function renderLinkedLibrariesAdmin(libraries, mount) {
+        const box = mount.querySelector('.js-linked-libraries');
         if (!box) return;
         box.innerHTML = '';
 
@@ -1788,16 +1824,23 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    document.getElementById('library-filter-bar')?.addEventListener('click', (e) => {
-        const chip = e.target.closest('.filter-chip');
+    // Délégation : les panneaux sont construits à la volée, donc on écoute le
+    // document plutôt que des éléments qui n'existent pas encore.
+    document.addEventListener('click', (e) => {
+        const chip = e.target.closest('.js-library-filter .filter-chip');
         if (!chip) return;
         libraryMode = chip.dataset.libmode;
         renderGroupLibrary();
     });
 
-    document.getElementById('btn-link-steam')?.addEventListener('click', async () => {
-        const input = document.getElementById('steam-profile-input');
-        const status = document.getElementById('steam-link-status');
+    document.addEventListener('click', async (e) => {
+        const btn = e.target.closest('.js-steam-add');
+        if (!btn) return;
+
+        // On travaille dans le panneau cliqué, pas dans le premier de la page
+        const panel = btn.closest('.library-panel-mount');
+        const input = panel?.querySelector('.js-steam-input');
+        const status = panel?.querySelector('.js-steam-status');
         const user = auth.currentUser;
         if (!input || !user) return;
 

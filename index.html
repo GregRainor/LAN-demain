@@ -95,42 +95,25 @@
                 <!-- CENTER FEED -->
                 <main id="main-center-feed">
 
-                    <section class="kpi-grid animated-section">
-                        <div class="kpi-card luxury-panel">
-                            <div class="kpi-card-title">Jeu Gagnant</div>
-                            <img id="winner-image" src="" alt="Winner game image">
-                            <div id="kpi-winner-value" class="kpi-card-value">--</div>
+                    <!-- Bandeau de stats compact : information secondaire, donc discrète -->
+                    <section class="stat-strip animated-section">
+                        <div class="stat-strip__item">
+                            <span class="stat-strip__label">En tête</span>
+                            <span id="kpi-winner-value" class="stat-strip__value stat-strip__value--accent">--</span>
                         </div>
-                        <div class="kpi-card luxury-panel">
-                            <div class="kpi-card-title">Votants</div>
-                            <div id="kpi-voters-value" class="kpi-card-value">0</div>
+                        <div class="stat-strip__item">
+                            <span class="stat-strip__label">Votants</span>
+                            <span id="kpi-voters-value" class="stat-strip__value">0</span>
                         </div>
-                        <div class="kpi-card luxury-panel">
-                            <div class="kpi-card-title">Jeux Proposés</div>
-                            <div id="kpi-games-value" class="kpi-card-value">0</div>
+                        <div class="stat-strip__item">
+                            <span class="stat-strip__label">Jeux proposés</span>
+                            <span id="kpi-games-value" class="stat-strip__value">0</span>
                         </div>
+                        <img id="winner-image" src="" alt="" class="stat-strip__thumb">
                     </section>
 
-                    <section class="chart-wrapper luxury-panel animated-section" style="animation-delay: 0.2s;">
-                        <h2>Top 8 des Jeux</h2>
-                        <div id="chart-container"></div>
-                    </section>
-
-                    <div class="main-content animated-section" style="animation-delay: 0.4s;">
-                        <div class="results-container luxury-panel">
-                            <h2>Classement & Scores</h2>
-                            <table class="results-table" id="results-table">
-                                <thead>
-                                    <tr>
-                                        <th>Jeu</th>
-                                        <th>Score</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="results-table-body">
-                                </tbody>
-                            </table>
-                        </div>
-
+                    <!-- Le vote passe en premier : c'est l'action qu'on vient faire -->
+                    <div class="vote-layout animated-section" style="animation-delay: 0.2s;">
                         <div class="form-container luxury-panel">
                             <h2>Mon Vote</h2>
                             <form id="vote-form">
@@ -158,8 +141,36 @@
                                 </div>
                             </form>
                         </div>
+
+                        <div class="vote-side">
+                            <!-- Comparateur de bibliothèques : sert à décider quoi voter -->
+                            <div class="luxury-panel library-panel-mount" style="padding: 25px;"></div>
+
+                            <div class="results-container luxury-panel">
+                                <h2>Classement &amp; Scores</h2>
+                                <table class="results-table" id="results-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Jeu</th>
+                                            <th>Score</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="results-table-body">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
 
+                    <!-- Graphique replié : agréable, mais pas prioritaire -->
+                    <details class="chart-details animated-section" style="animation-delay: 0.4s;">
+                        <summary>📊 Top 8 des Jeux</summary>
+                        <div class="chart-wrapper luxury-panel">
+                            <div id="chart-container"></div>
+                        </div>
+                    </details>
+
+                </main>
             </div> <!-- End Two Column Layout -->
         </div> <!-- End View Voting Open -->
 
@@ -327,33 +338,8 @@
                                     </div>
                                 </div>
 
-                                <!-- Bibliothèques Steam -->
-                                <div class="luxury-panel" style="padding: 25px;">
-                                    <h3 class="section-title">🎮 Bibliothèques Steam</h3>
-
-                                    <p class="panel-section__hint" id="library-summary">Aucune bibliothèque liée.</p>
-
-                                    <div id="library-filter-bar" class="filter-bar">
-                                        <button class="filter-chip active" data-libmode="common">En commun</button>
-                                        <button class="filter-chip" data-libmode="all">Tous les jeux</button>
-                                    </div>
-
-                                    <div id="group-library-list" class="rank-list scroll-area">
-                                    </div>
-
-                                    <details id="steam-link-box" class="link-steam">
-                                        <summary>Ajouter une bibliothèque Steam</summary>
-                                        <p class="panel-section__hint" id="steam-link-status">La vôtre ou celle d'un
-                                            ami. Le profil doit avoir « Détails du jeu » en Public dans Steam.</p>
-                                        <div class="field-row">
-                                            <input type="text" id="steam-profile-input" class="luxury-input"
-                                                placeholder="URL de profil ou pseudo Steam" style="flex: 1;">
-                                            <button id="btn-link-steam" class="gold-btn btn-inline">Ajouter</button>
-                                        </div>
-                                        <div id="linked-libraries" class="stack stack--xs" style="margin-top: 12px;">
-                                        </div>
-                                    </details>
-                                </div>
+                                <!-- Bibliothèques Steam (contenu injecté par newScript.js) -->
+                                <div class="luxury-panel library-panel-mount" style="padding: 25px;"></div>
                             </div>
                         </div>
                     </div>
