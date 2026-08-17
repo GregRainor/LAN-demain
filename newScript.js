@@ -983,30 +983,38 @@ document.addEventListener('DOMContentLoaded', () => {
             notice.style.display = 'block';
         }
 
-        // Steam ne sert la bande-annonce qu'en HLS. On la lit quand le navigateur
-        // le sait nativement (Safari/iOS), sinon on affiche l'image de la
-        // bande-annonce — la lire ailleurs demanderait d'embarquer hls.js.
+        // Steam ne sert la bande-annonce qu'en HLS. Attention : Chrome répond
+        // "maybe" à canPlayType pour ce type MIME alors qu'il ne sait pas le lire
+        // (le lecteur reste bloqué à readyState 0). Seul "probably" — Safari —
+        // indique un vrai support ; ailleurs on affiche l'image fixe.
         const media = document.getElementById('game-details-media');
         media.innerHTML = '';
         const trailer = details.trailer;
-        const canPlayHls = document.createElement('video')
-            .canPlayType('application/vnd.apple.mpegurl') !== '';
+        const still = (trailer && trailer.thumbnail) || details.headerImage;
 
-        if (trailer && trailer.hls && canPlayHls) {
+        const showStill = () => {
+            media.innerHTML = '';
+            if (!still) return;
+            const img = document.createElement('img');
+            img.src = still;
+            img.alt = '';
+            media.appendChild(img);
+        };
+
+        const nativeHls = document.createElement('video')
+            .canPlayType('application/vnd.apple.mpegurl') === 'probably';
+
+        if (trailer && trailer.hls && nativeHls) {
             const video = document.createElement('video');
             video.src = trailer.hls;
             video.controls = true;
             video.preload = 'metadata';
             if (trailer.thumbnail) video.poster = trailer.thumbnail;
+            // Filet de sécurité si la lecture échoue malgré le test
+            video.addEventListener('error', showStill);
             media.appendChild(video);
         } else {
-            const still = (trailer && trailer.thumbnail) || details.headerImage;
-            if (still) {
-                const img = document.createElement('img');
-                img.src = still;
-                img.alt = '';
-                media.appendChild(img);
-            }
+            showStill();
         }
 
         const priceEl = document.getElementById('game-details-price');
