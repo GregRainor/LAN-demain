@@ -501,7 +501,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    document.getElementById('toggle-voting-btn')?.addEventListener('click', handleToggleVoting);
     document.getElementById('toggle-voting-btn-open')?.addEventListener('click', handleToggleVoting);
     document.getElementById('toggle-voting-btn-dashboard')?.addEventListener('click', handleToggleVoting);
 
@@ -913,6 +912,153 @@ document.addEventListener('DOMContentLoaded', () => {
             .catch(err => console.error('Archive error:', err));
     }
 
+    // --- FICHE JEU STEAM ---------------------------------------------------
+
+    const detailsCache = new Map();
+
+    // Les détails sont mis en cache côté client en plus du CDN : une même partie
+    // affiche le même jeu dans plusieurs listes.
+    async function getGameDetails(gameName) {
+        const key = gameName.toLowerCase().trim();
+        if (detailsCache.has(key)) return detailsCache.get(key);
+
+        const promise = (async () => {
+            try {
+                const res = await fetch(`/api/game-details?name=${encodeURIComponent(key)}`);
+                if (!res.ok) return null;
+                return await res.json();
+            } catch (error) {
+                console.error('Game details error:', error);
+                return null;
+            }
+        })();
+
+        detailsCache.set(key, promise);
+        return promise;
+    }
+
+    function renderTags(container, details, limit = 4) {
+        container.innerHTML = '';
+        if (!details) return;
+        const tags = [...(details.genres || []), ...(details.categories || [])].slice(0, limit);
+        tags.forEach(label => {
+            const chip = document.createElement('span');
+            chip.className = 'tag';
+            chip.textContent = label;
+            container.appendChild(chip);
+        });
+    }
+
+    async function openGameDetails(gameName) {
+        const modal = document.getElementById('game-details-modal');
+        if (!modal) return;
+
+        const loading = document.getElementById('game-details-loading');
+        const body = document.getElementById('game-details-body');
+        const errorBox = document.getElementById('game-details-error');
+
+        modal.style.display = 'flex';
+        loading.style.display = 'block';
+        body.style.display = 'none';
+        errorBox.style.display = 'none';
+
+        const details = await getGameDetails(gameName);
+        loading.style.display = 'none';
+
+        if (!details) {
+            errorBox.style.display = 'block';
+            return;
+        }
+
+        document.getElementById('game-details-title').textContent = details.name || gameName;
+        document.getElementById('game-details-desc').textContent = details.shortDescription || '';
+        renderTags(document.getElementById('game-details-tags'), details, 8);
+
+        // Bande-annonce si disponible, sinon la bannière du jeu
+        const media = document.getElementById('game-details-media');
+        media.innerHTML = '';
+        const trailerSrc = details.trailer && (details.trailer.mp4 || details.trailer.webm);
+        if (trailerSrc) {
+            const video = document.createElement('video');
+            video.src = trailerSrc;
+            video.controls = true;
+            video.preload = 'metadata';
+            if (details.trailer.thumbnail) video.poster = details.trailer.thumbnail;
+            media.appendChild(video);
+        } else if (details.headerImage) {
+            const img = document.createElement('img');
+            img.src = details.headerImage;
+            img.alt = '';
+            media.appendChild(img);
+        }
+
+        const priceEl = document.getElementById('game-details-price');
+        priceEl.innerHTML = '';
+        if (details.price) {
+            if (details.price.discountPercent > 0 && details.price.initialFormatted) {
+                const old = document.createElement('del');
+                old.textContent = details.price.initialFormatted;
+                priceEl.appendChild(old);
+            }
+            priceEl.appendChild(document.createTextNode(details.price.formatted || ''));
+            if (details.price.discountPercent > 0) {
+                const badge = document.createElement('span');
+                badge.className = 'price-badge';
+                badge.textContent = `-${details.price.discountPercent}%`;
+                priceEl.appendChild(badge);
+            }
+        } else {
+            priceEl.textContent = 'Prix indisponible';
+        }
+
+        const link = document.getElementById('game-details-link');
+        link.href = details.steamUrl || '#';
+
+        body.style.display = 'block';
+    }
+
+    document.getElementById('close-game-details-btn')?.addEventListener('click', () => {
+        const modal = document.getElementById('game-details-modal');
+        if (modal) modal.style.display = 'none';
+        // coupe la bande-annonce en fermant
+        const media = document.getElementById('game-details-media');
+        if (media) media.innerHTML = '';
+    });
+
+    document.getElementById('game-details-modal')?.addEventListener('click', (e) => {
+        if (e.target.id === 'game-details-modal') {
+            document.getElementById('close-game-details-btn')?.click();
+        }
+    });
+
+    // --- FILTRES DU CLASSEMENT ---------------------------------------------
+
+    let activeGameFilter = 'all';
+
+    // Les étiquettes arrivent de façon asynchrone : on réapplique le filtre
+    // après chaque rendu et à chaque fois qu'une fiche revient de l'API.
+    function applyGameFilter() {
+        const rows = document.querySelectorAll('#active-lan-games-list .rank-row');
+        rows.forEach(row => {
+            let visible = true;
+            if (activeGameFilter === 'free') {
+                visible = row.dataset.isFree === 'true';
+            } else if (activeGameFilter !== 'all') {
+                visible = (row.dataset.tags || '').includes(activeGameFilter);
+            }
+            row.classList.toggle('rank-row--hidden', !visible);
+        });
+    }
+
+    document.getElementById('games-filter-bar')?.addEventListener('click', (e) => {
+        const chip = e.target.closest('.filter-chip');
+        if (!chip) return;
+        document.querySelectorAll('#games-filter-bar .filter-chip')
+            .forEach(c => c.classList.toggle('active', c === chip));
+        activeGameFilter = chip.dataset.filter;
+        applyGameFilter();
+    });
+
     // Construit une ligne de classement. Utilisé partout où l'on affiche
     // un jeu avec son rang, sa jaquette et son score (dashboard, résultats, admin).
     function buildRankRow(game, position) {
@@ -929,16 +1075,39 @@ document.addEventListener('DOMContentLoaded', () => {
         img.alt = '';
         getGameImage(game.name).then(url => img.src = url);
 
+        // Le nom et ses étiquettes partagent la même colonne de la grille
+        const nameCell = document.createElement('div');
+        nameCell.className = 'rank-row__namecell';
+
         const name = document.createElement('span');
         name.className = 'rank-row__name';
         name.textContent = game.name;
         name.title = game.name;
+        nameCell.appendChild(name);
+
+        const tags = document.createElement('div');
+        tags.className = 'rank-row__tags';
+        nameCell.appendChild(tags);
 
         const score = document.createElement('span');
         score.className = 'rank-row__score';
         score.textContent = `${game.score} pts`;
 
-        row.append(rank, img, name, score);
+        row.append(rank, img, nameCell, score);
+
+        // Ouvre la fiche Steam au clic, et récupère les étiquettes en arrière-plan
+        row.classList.add('rank-row--clickable');
+        row.addEventListener('click', () => openGameDetails(game.name));
+
+        getGameDetails(game.name).then(details => {
+            if (!details) return;
+            renderTags(tags, details, 3);
+            row.dataset.tags = [...(details.genres || []), ...(details.categories || [])]
+                .join('|').toLowerCase();
+            row.dataset.isFree = details.price && details.price.free ? 'true' : 'false';
+            applyGameFilter();
+        });
+
         return row;
     }
 

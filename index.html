@@ -298,9 +298,15 @@
                     <div id="lan-dashboard" class="lan-subview active">
                         <h2 class="subview-title">Ressources & Tableau de Bord</h2>
                         <div class="luxury-panel results-container" style="margin-bottom: 30px; padding: 25px;">
-                            <h3
-                                style="margin-top: 0; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px;">
-                                Jeux Officiels de la LAN</h3>
+                            <h3 class="section-title">Jeux Officiels de la LAN</h3>
+                            <div id="games-filter-bar" class="filter-bar">
+                                <span class="filter-bar__label">Filtrer</span>
+                                <button class="filter-chip active" data-filter="all">Tous</button>
+                                <button class="filter-chip" data-filter="multijoueur">Multijoueur</button>
+                                <button class="filter-chip" data-filter="coopération">Coop</button>
+                                <button class="filter-chip" data-filter="pvp">PvP</button>
+                                <button class="filter-chip" data-filter="free">Gratuit</button>
+                            </div>
                             <div id="active-lan-games-list" class="rank-list">
                             </div>
                         </div>
@@ -442,8 +448,7 @@
         <div class="modal-content luxury-panel" style="max-width: 800px; padding: 40px; position: relative;">
             <button id="close-results-btn"
                 class="modal-close"
-                onmouseover="this.style.color='var(--accent-color)'"
-                onmouseout="this.style.color='var(--secondary-text)'">&times;</button>
+                >&times;</button>
             <h2 style="font-size: 2.5em; margin-top: 0;">Résultats Définitifs</h2>
             <p style="text-align: center; margin-bottom: 30px; font-size: 1.2em;">La liste des jeux à Télécharger pour
                 la LAN !</p>
@@ -462,8 +467,7 @@
             style="max-width: 800px; width: 90%; max-height: 85vh; padding: 40px; display: flex; flex-direction: column; position: relative;">
             <button id="close-history-modal-btn"
                 class="modal-close"
-                onmouseover="this.style.color='var(--accent-color)'"
-                onmouseout="this.style.color='var(--secondary-text)'">&times;</button>
+                >&times;</button>
             <h2 style="font-size: 2em; margin-bottom: 10px;">Historique des LANs</h2>
             <p style="text-align: center; margin-bottom: 30px; font-style: italic;">Retrouvez les jeux qui ont marqué
                 nos précédents événements.</p>
@@ -472,6 +476,31 @@
                 style="flex: 1; overflow-y: auto; padding-right: 10px; display: flex; flex-direction: column; gap: 20px;">
                 <div style="text-align: center; color: var(--secondary-text); font-style: italic;">Chargement de
                     l'historique...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- GAME DETAILS MODAL (fiche Steam d'un jeu du classement) -->
+    <div id="game-details-modal" class="modal-overlay" style="display: none; z-index: 2100;">
+        <div class="luxury-panel modal-content game-modal">
+            <button id="close-game-details-btn" class="modal-close">&times;</button>
+
+            <div id="game-details-loading" class="game-modal__loading">Chargement de la fiche…</div>
+
+            <div id="game-details-body" class="game-modal__body" style="display: none;">
+                <div id="game-details-media" class="game-modal__media"></div>
+                <h2 id="game-details-title" class="game-modal__title"></h2>
+                <div id="game-details-tags" class="tag-list"></div>
+                <p id="game-details-desc" class="game-modal__desc"></p>
+                <div class="game-modal__footer">
+                    <span id="game-details-price" class="game-modal__price"></span>
+                    <a id="game-details-link" class="gold-link-btn" target="_blank" rel="noopener noreferrer">Voir sur
+                        Steam</a>
+                </div>
+            </div>
+
+            <div id="game-details-error" class="game-modal__error" style="display: none;">
+                Impossible de récupérer la fiche de ce jeu sur Steam.
             </div>
         </div>
     </div>
