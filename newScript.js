@@ -1031,7 +1031,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const price = document.createElement('span');
             price.className = 'deal-row__price';
-            price.textContent = `${deal.price.toFixed(2)} €`;
+            // « 0.00 € » se lit mal pour un free-to-play
+            price.textContent = deal.price === 0 ? 'Gratuit' : `${deal.price.toFixed(2)} €`;
 
             row.append(shop, cut, price);
             list.appendChild(row);
