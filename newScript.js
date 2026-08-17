@@ -960,6 +960,86 @@ document.addEventListener('DOMContentLoaded', () => {
         return hlsLoader;
     }
 
+    const wikiCache = new Map();
+
+    // Repli pour les jeux absents de Steam (LoL, Fortnite, Riftbound…)
+    async function getWikiInfo(gameName) {
+        const key = gameName.toLowerCase().trim();
+        if (wikiCache.has(key)) return wikiCache.get(key);
+
+        const promise = (async () => {
+            try {
+                const res = await fetch(`/api/game-wiki?name=${encodeURIComponent(gameName)}`);
+                if (!res.ok) return null;
+                return await res.json();
+            } catch (error) {
+                console.error('Wiki error:', error);
+                return null;
+            }
+        })();
+
+        wikiCache.set(key, promise);
+        return promise;
+    }
+
+    // Prix multi-boutiques via IsThereAnyDeal
+    async function getDeals({ appId, title }) {
+        try {
+            const query = appId ? `appid=${encodeURIComponent(appId)}` : `title=${encodeURIComponent(title)}`;
+            const res = await fetch(`/api/game-deals?${query}`);
+            if (!res.ok) return null;
+            return await res.json();
+        } catch (error) {
+            console.error('Deals error:', error);
+            return null;
+        }
+    }
+
+    function renderDeals(data) {
+        const box = document.getElementById('game-details-deals');
+        const list = document.getElementById('game-details-deals-list');
+        const low = document.getElementById('game-details-lowest');
+        if (!box || !list) return;
+
+        list.innerHTML = '';
+
+        if (!data || !data.found || !data.deals || data.deals.length === 0) {
+            box.style.display = 'none';
+            return;
+        }
+
+        low.textContent = data.historyLow != null
+            ? `Plus bas historique : ${data.historyLow.toFixed(2)} €`
+            : '';
+
+        data.deals.forEach((deal, index) => {
+            const row = document.createElement('a');
+            row.className = index === 0 ? 'deal-row deal-row--best' : 'deal-row';
+            row.href = deal.url || '#';
+            row.target = '_blank';
+            row.rel = 'noopener noreferrer';
+
+            const shop = document.createElement('span');
+            shop.className = 'deal-row__shop';
+            shop.textContent = deal.shop;
+
+            const cut = document.createElement('span');
+            if (deal.cut > 0) {
+                cut.className = 'deal-row__cut';
+                cut.textContent = `-${deal.cut}%`;
+            }
+
+            const price = document.createElement('span');
+            price.className = 'deal-row__price';
+            price.textContent = `${deal.price.toFixed(2)} €`;
+
+            row.append(shop, cut, price);
+            list.appendChild(row);
+        });
+
+        box.style.display = 'block';
+    }
+
     function renderTags(container, details, limit = 4) {
         container.innerHTML = '';
         if (!details) return;
@@ -973,6 +1053,45 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     let currentHls = null;
+
+    // Fiche pour un jeu absent de Steam : infos Wikipédia, pas de tags Steam,
+    // mais on tente quand même le comparateur de prix par titre.
+    function renderWikiCard(gameName, wiki) {
+        const body = document.getElementById('game-details-body');
+
+        document.getElementById('game-details-title').textContent = wiki.title || gameName;
+        document.getElementById('game-details-desc').textContent = wiki.description || '';
+        document.getElementById('game-details-tags').innerHTML = '';
+
+        const notice = document.getElementById('game-details-notice');
+        notice.textContent = `Pas disponible sur Steam — informations issues de Wikipédia${wiki.lang === 'en' ? ' (en anglais)' : ''}.`;
+        notice.style.display = 'block';
+
+        const media = document.getElementById('game-details-media');
+        media.innerHTML = '';
+        if (wiki.image) {
+            const img = document.createElement('img');
+            img.src = wiki.image;
+            img.alt = '';
+            media.appendChild(img);
+        }
+
+        document.getElementById('game-details-price').textContent = '';
+
+        const storeQuery = encodeURIComponent(wiki.title || gameName);
+        const steamLink = document.getElementById('game-details-link');
+        steamLink.href = wiki.url || '#';
+        steamLink.textContent = 'Wikipédia';
+        document.getElementById('game-details-ig').href =
+            `https://www.instant-gaming.com/fr/rechercher/?q=${storeQuery}`;
+        document.getElementById('game-details-itad').href =
+            `https://isthereanydeal.com/search/?q=${storeQuery}`;
+
+        renderDeals(null);
+        getDeals({ title: wiki.title || gameName }).then(renderDeals);
+
+        body.style.display = 'block';
+    }
 
     async function openGameDetails(gameName) {
         const modal = document.getElementById('game-details-modal');
@@ -988,25 +1107,31 @@ document.addEventListener('DOMContentLoaded', () => {
         errorBox.style.display = 'none';
 
         const details = await getGameDetails(gameName);
-        loading.style.display = 'none';
 
-        if (!details) {
-            errorBox.style.display = 'block';
+        // Pas de correspondance exacte sur Steam : on bascule sur Wikipédia
+        // plutôt que d'afficher la fiche d'un autre jeu.
+        if (!details || !details.exactMatch) {
+            const wiki = await getWikiInfo(gameName);
+            loading.style.display = 'none';
+
+            if (!wiki || !wiki.found) {
+                errorBox.style.display = 'block';
+                return;
+            }
+            renderWikiCard(gameName, wiki);
             return;
         }
+
+        loading.style.display = 'none';
 
         document.getElementById('game-details-title').textContent = details.name || gameName;
         document.getElementById('game-details-desc').textContent = details.shortDescription || '';
         renderTags(document.getElementById('game-details-tags'), details, 8);
+        document.getElementById('game-details-notice').style.display = 'none';
 
-        // Prévient quand Steam n'a pas ce jeu et qu'on montre le résultat le plus proche
-        const notice = document.getElementById('game-details-notice');
-        if (details.exactMatch) {
-            notice.style.display = 'none';
-        } else {
-            notice.textContent = `"${gameName}" n'est pas sur Steam — fiche du jeu le plus proche.`;
-            notice.style.display = 'block';
-        }
+        // Les prix arrivent après coup : la fiche s'affiche sans attendre
+        renderDeals(null);
+        getDeals({ appId: details.appId }).then(renderDeals);
 
         // Steam ne sert la bande-annonce qu'en HLS. Attention : Chrome répond
         // "maybe" à canPlayType pour ce type MIME alors qu'il ne sait pas le lire
@@ -1100,7 +1225,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // Liens boutiques. Instant Gaming et IsThereAnyDeal n'ont pas d'API
         // publique sans clé : on ouvre donc leur recherche sur le nom du jeu.
         const storeQuery = encodeURIComponent(details.name || gameName);
-        document.getElementById('game-details-link').href = details.steamUrl || '#';
+        const steamLink = document.getElementById('game-details-link');
+        steamLink.href = details.steamUrl || '#';
+        // renderWikiCard réutilise ce bouton pour Wikipédia : on remet le libellé
+        steamLink.textContent = 'Steam';
         document.getElementById('game-details-ig').href =
             `https://www.instant-gaming.com/fr/rechercher/?q=${storeQuery}`;
         document.getElementById('game-details-itad').href =
