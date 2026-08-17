@@ -191,6 +191,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // v2 : l'endpoint exige désormais une correspondance exacte. Le paramètre
+    // change la clé de cache du CDN, sinon les anciennes vignettes erronées
+    // (Ruined King pour LoL) resteraient servies jusqu'à 24 h.
+    const IMAGE_API_VERSION = '2';
+
     async function getGameImage(gameName) {
         const normalizedName = gameName.toLowerCase().trim();
         if (imageCache.has(normalizedName)) {
@@ -198,7 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            const response = await fetch(`/api/get-game-image?name=${encodeURIComponent(normalizedName)}`);
+            const response = await fetch(`/api/get-game-image?name=${encodeURIComponent(normalizedName)}&v=${IMAGE_API_VERSION}`);
             if (response.ok) {
                 const data = await response.json();
                 if (data.imageUrl && data.imageUrl !== DEFAULT_GAME_ICON && await imageLoads(data.imageUrl)) {
@@ -209,6 +214,18 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             console.error("API Error:", error);
         }
+
+        // Absent de Steam : on tente l'illustration Wikipédia avant l'icône générique
+        try {
+            const wiki = await getWikiInfo(gameName);
+            if (wiki && wiki.image && await imageLoads(wiki.image)) {
+                imageCache.set(normalizedName, wiki.image);
+                return wiki.image;
+            }
+        } catch (error) {
+            console.error("Wiki image error:", error);
+        }
+
         imageCache.set(normalizedName, DEFAULT_GAME_ICON);
         return DEFAULT_GAME_ICON;
     }

@@ -1,3 +1,13 @@
+// Normalise pour comparer : minuscules, sans accents, sans ™/®, sans ponctuation
+function normalize(str) {
+    return String(str)
+        .toLowerCase()
+        .normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .replace(/[™®©]/g, '')
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim();
+}
+
 export default async function handler(request, response) {
     const gameName = request.query.name;
 
@@ -16,10 +26,17 @@ export default async function handler(request, response) {
 
         const data = await steamResponse.json();
 
-        if (data.total > 0 && Array.isArray(data.items) && data.items.length > 0) {
-            const topResult = data.items[0];
-            const appId = topResult.id;
-            const officialName = topResult.name; // On récupère le nom officiel
+        // On exige une correspondance exacte : prendre le premier résultat
+        // affichait la jaquette de Ruined King pour « League of Legends »
+        // et celle de Minecraft Dungeons pour « Minecraft ».
+        const target = normalize(gameName);
+        const exact = Array.isArray(data.items)
+            ? data.items.find(item => normalize(item.name) === target)
+            : null;
+
+        if (exact) {
+            const appId = exact.id;
+            const officialName = exact.name; // On récupère le nom officiel
             const imageUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/header.jpg`;
 
             // Cache sur le CDN Vercel : 24h de fraîcheur, 7 jours en stale-while-revalidate.
