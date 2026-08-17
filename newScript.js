@@ -374,6 +374,12 @@ document.addEventListener('DOMContentLoaded', () => {
             renderNotifications(snapshot.val() || {}, user);
         });
 
+        // Bibliothèques Steam liées par les joueurs
+        db.ref('lan/users').on('value', (snapshot) => {
+            groupLibraries = snapshot.val() || {};
+            renderGroupLibrary();
+        });
+
         settingsRef.on('value', (snapshot) => {
             const newSettings = snapshot.val() || { isVotingOpen: true, topGamesCount: 10, isLanActive: false };
 
@@ -1053,6 +1059,132 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('game-details-modal')?.addEventListener('click', (e) => {
         if (e.target.id === 'game-details-modal') {
             document.getElementById('close-game-details-btn')?.click();
+        }
+    });
+
+    // --- BIBLIOTHÈQUES STEAM DU GROUPE -------------------------------------
+
+    let groupLibraries = {};
+
+    // Agrège les bibliothèques de tous les joueurs liés et classe par
+    // pourcentage de possession. On ignore les jeux possédés par une seule
+    // personne : l'intérêt est de trouver ce que le groupe a en commun.
+    function renderGroupLibrary() {
+        const container = document.getElementById('group-library-list');
+        if (!container) return;
+
+        const players = Object.values(groupLibraries).filter(p => Array.isArray(p.games) && p.games.length);
+        const playerCount = players.length;
+
+        container.innerHTML = '';
+
+        if (playerCount === 0) {
+            container.innerHTML = '<p style="font-style:italic; color:var(--secondary-text);">Aucune bibliothèque liée pour l\'instant.</p>';
+            return;
+        }
+
+        const owners = new Map();
+        players.forEach(player => {
+            // Set : un même jeu ne doit compter qu'une fois par joueur
+            const seen = new Set();
+            player.games.forEach(g => {
+                if (seen.has(g.appId)) return;
+                seen.add(g.appId);
+                const entry = owners.get(g.appId) || { name: g.name, count: 0, minutes: 0 };
+                entry.count += 1;
+                entry.minutes += g.playtimeMinutes || 0;
+                owners.set(g.appId, entry);
+            });
+        });
+
+        const ranked = [...owners.entries()]
+            .map(([appId, e]) => ({ appId, ...e, ratio: e.count / playerCount }))
+            .filter(g => g.count > 1)
+            .sort((a, b) => b.count - a.count || b.minutes - a.minutes)
+            .slice(0, 15);
+
+        if (ranked.length === 0) {
+            container.innerHTML = `<p style="font-style:italic; color:var(--secondary-text);">Aucun jeu commun trouvé pour l'instant (${playerCount} bibliothèque(s) liée(s)).</p>`;
+            return;
+        }
+
+        ranked.forEach((game, index) => {
+            const row = document.createElement('div');
+            row.className = 'rank-row rank-row--clickable';
+
+            const rank = document.createElement('span');
+            rank.className = 'rank-row__position';
+            rank.textContent = index + 1;
+
+            const img = document.createElement('img');
+            img.className = 'rank-row__thumb';
+            img.src = `https://cdn.cloudflare.steamstatic.com/steam/apps/${game.appId}/header.jpg`;
+            img.alt = '';
+            img.addEventListener('error', () => { img.src = DEFAULT_GAME_ICON; });
+
+            const cell = document.createElement('div');
+            cell.className = 'rank-row__namecell';
+            const name = document.createElement('span');
+            name.className = 'rank-row__name';
+            name.textContent = game.name;
+            name.title = game.name;
+            cell.appendChild(name);
+
+            const score = document.createElement('span');
+            score.className = 'rank-row__score';
+            score.textContent = `${game.count}/${playerCount} joueurs`;
+
+            row.append(rank, img, cell, score);
+            row.addEventListener('click', () => openGameDetails(game.name));
+            container.appendChild(row);
+        });
+    }
+
+    document.getElementById('btn-link-steam')?.addEventListener('click', async () => {
+        const input = document.getElementById('steam-profile-input');
+        const status = document.getElementById('steam-link-status');
+        const user = auth.currentUser;
+        if (!input || !user) return;
+
+        const profile = input.value.trim();
+        if (!profile) { showToast('Entrez une URL de profil Steam.', 'error'); return; }
+
+        status.textContent = 'Récupération de votre bibliothèque…';
+
+        try {
+            const res = await fetch(`/api/steam-library?profile=${encodeURIComponent(profile)}`);
+            const data = await res.json();
+
+            if (data.missingKey) {
+                status.textContent = 'La clé API Steam n\'est pas configurée côté serveur.';
+                showToast('STEAM_API_KEY manquante sur Vercel.', 'error');
+                return;
+            }
+            if (!res.ok) {
+                status.textContent = 'Profil Steam introuvable. Vérifiez l\'URL ou le pseudo.';
+                showToast('Profil Steam introuvable.', 'error');
+                return;
+            }
+            if (data.privateProfile) {
+                status.textContent = 'Profil trouvé, mais ses détails de jeu sont privés. Passez « Détails du jeu » en Public dans Steam puis réessayez.';
+                showToast('Bibliothèque Steam privée.', 'error');
+                return;
+            }
+
+            await db.ref(`lan/users/${user.uid}`).update({
+                steamId: data.steamId,
+                displayName: user.displayName || null,
+                games: data.games.slice(0, 500),
+                updatedAt: firebase.database.ServerValue.TIMESTAMP
+            });
+
+            status.textContent = `${data.gameCount} jeux importés. Merci !`;
+            showToast(`${data.gameCount} jeux importés depuis Steam !`, 'success');
+            input.value = '';
+        } catch (error) {
+            console.error('Steam link error:', error);
+            status.textContent = 'Erreur lors de la récupération de la bibliothèque.';
+            showToast('Erreur Steam.', 'error');
         }
     });
 

@@ -68,6 +68,13 @@
           ".read": "auth != null && auth.uid === $uid",
           ".write": "auth != null"
         }
+      },
+
+      "users": {
+        ".read": "auth != null",
+        "$uid": {
+          ".write": "auth != null && auth.uid === $uid"
+        }
       }
     }
   }
