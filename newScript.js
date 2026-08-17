@@ -769,10 +769,13 @@ document.addEventListener('DOMContentLoaded', () => {
         searchButton.disabled = true;
 
         try {
-            const response = await fetch(`/api/get-game-image?name=${encodeURIComponent(searchTerm)}`);
+            // fuzzy=1 : « Vérifier » sert justement à retrouver le nom officiel
+            // à partir d'une abréviation, une correspondance exacte serait inutile
+            const response = await fetch(`/api/get-game-image?name=${encodeURIComponent(searchTerm)}&fuzzy=1`);
             if (response.ok) {
                 const data = await response.json();
                 inputField.value = data.name;
+                showToast(`Nom corrigé : « ${data.name} »`, 'success');
             } else {
                 showToast('Jeu non trouvé sur Steam.', 'error');
             }
@@ -1641,8 +1644,57 @@ document.addEventListener('DOMContentLoaded', () => {
             : (game.minutes >= 60 ? `${Math.round(game.minutes / 60)} h` : `${game.minutes} min`);
 
         row.append(rank, img, cell, badge);
+
+        // Pendant la phase de vote, on peut ajouter le jeu directement à son vote
+        if (globalSettings.isVotingOpen && document.getElementById('vote-form')) {
+            const addBtn = document.createElement('button');
+            addBtn.type = 'button';
+            addBtn.className = 'rank-row__add';
+            addBtn.textContent = '+';
+            addBtn.title = `Ajouter « ${game.name} » à mon vote`;
+            addBtn.setAttribute('aria-label', `Ajouter ${game.name} à mon vote`);
+            addBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                addGameToVote(game.name);
+            });
+            row.appendChild(addBtn);
+        }
+
         row.addEventListener('click', () => openGameDetails(game.name));
         return row;
+    }
+
+    // Place un jeu dans le formulaire de vote : premier champ libre, sinon
+    // nouvelle ligne dans « Autres ».
+    function addGameToVote(gameName) {
+        const form = document.getElementById('vote-form');
+        if (!form) return;
+
+        const existing = [...form.querySelectorAll('input[type="text"]')];
+
+        // Déjà voté ? On le signale plutôt que de créer un doublon
+        const already = existing.find(i => normalizeGameName(i.value) === normalizeGameName(gameName));
+        if (already) {
+            showToast(`« ${gameName} » est déjà dans votre vote.`, 'error');
+            already.focus();
+            return;
+        }
+
+        const empty = existing.find(i => !i.value.trim());
+        if (empty) {
+            empty.value = gameName;
+            empty.focus();
+            isEditing = true;
+            showToast(`« ${gameName} » ajouté à votre vote.`, 'success');
+            return;
+        }
+
+        // Tous les champs sont pris : on en ajoute un dans « Autres »
+        const otherList = form.querySelector('.priority-group[data-priority="p_other"] .game-input-list');
+        if (!otherList) return;
+        createInput(gameName, false, otherList);
+        isEditing = true;
+        showToast(`« ${gameName} » ajouté dans « Autres ».`, 'success');
     }
 
     // Agrège les bibliothèques liées et compte les propriétaires de chaque jeu

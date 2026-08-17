@@ -3079,6 +3079,41 @@ select.luxury-input option:disabled {
     }
 }
 
+/* Bouton « ajouter à mon vote » sur une ligne de bibliothèque */
+.rank-row__add {
+    min-width: 30px;
+    min-height: 30px;
+    padding: 0 var(--space-2);
+    font-size: var(--text-lg);
+    line-height: 1;
+    color: var(--accent-color);
+    background: var(--accent-a08);
+    border: 1px solid var(--accent-a25);
+    border-radius: var(--radius-sharp);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity var(--transition-fast), background var(--transition-fast);
+}
+
+.rank-row:hover .rank-row__add,
+.rank-row__add:focus-visible {
+    opacity: 1;
+}
+
+.rank-row__add:hover {
+    background: var(--accent-color);
+    color: var(--dark-bg);
+}
+
+@media (hover: none),
+(max-width: 768px) {
+    .rank-row__add {
+        opacity: 1;
+        min-width: 44px;
+        min-height: 44px;
+    }
+}
+
 /* Variante large : écran de résultats finaux, apparition en cascade */
 .rank-row--lg {
     grid-template-columns: 56px 120px 1fr auto auto;
@@ -3156,9 +3191,17 @@ select.luxury-input option:disabled {
         padding: var(--space-2) var(--space-3);
     }
 
-    .rank-row__edit {
+    .rank-row__edit,
+    .rank-row__add {
         grid-column: 4;
         grid-row: 1;
+    }
+
+    /* Comme .rank-row__score : sous le nom plutôt qu'en colonne dédiée */
+    .owner-badge {
+        grid-column: 3;
+        justify-self: start;
+        margin-top: var(--space-1);
     }
 
     .rank-row__thumb {
