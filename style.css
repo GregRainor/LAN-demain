@@ -142,9 +142,71 @@ h1 {
     margin: 0;
 }
 
+/* =====================================================================
+   TITRE PRINCIPAL
+   Or métallique : un dégradé clippé sur le texte, balayé par un reflet.
+   ===================================================================== */
+
 #main-title {
+    position: relative;
+    z-index: 100;
+    margin: var(--space-7) 0 var(--space-6);
     text-align: center;
-    margin: 0;
+    font-size: clamp(2.4rem, 7vw, 4.2rem);
+    line-height: 1.1;
+    letter-spacing: 4px;
+
+    background: linear-gradient(100deg,
+            #8a6d1f 0%,
+            var(--gold) 28%,
+            #fff3c4 46%,
+            var(--gold) 62%,
+            #8a6d1f 100%);
+    background-size: 250% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+
+    /* Le text-shadow hérité de h1 resterait visible derrière un texte
+       transparent : la lueur passe par un filtre à la place. */
+    text-shadow: none;
+    filter: drop-shadow(0 0 18px var(--accent-glow));
+    animation:
+        etherealFadeInDown 1.4s cubic-bezier(0.2, 0.8, 0.2, 1) both,
+        titleSheen 9s ease-in-out 1.4s infinite;
+}
+
+/* Filet décoratif sous le titre, qui s'ouvre à l'arrivée */
+#main-title::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: -14px;
+    height: 1px;
+    width: min(220px, 40vw);
+    transform: translateX(-50%) scaleX(0);
+    transform-origin: center;
+    background: linear-gradient(90deg, transparent, var(--accent-color), transparent);
+    box-shadow: 0 0 10px var(--accent-glow);
+    animation: ruleExpand 1.2s cubic-bezier(0.2, 0.8, 0.2, 1) 0.7s forwards;
+}
+
+@keyframes titleSheen {
+
+    0%,
+    100% {
+        background-position: 120% 0;
+    }
+
+    50% {
+        background-position: -20% 0;
+    }
+}
+
+@keyframes ruleExpand {
+    to {
+        transform: translateX(-50%) scaleX(1);
+    }
 }
 
 h2 {
@@ -1803,6 +1865,170 @@ select.luxury-input option:disabled {
     font-size: 0.85em;
     color: var(--secondary-text);
     font-weight: 500;
+}
+
+
+/* =====================================================================
+   FINITIONS & ANIMATIONS
+   ===================================================================== */
+
+/* Arrivée en cascade des lignes de classement.
+   Le délai est plafonné pour que la 20e ligne n'attende pas 2 secondes. */
+/* :not(--lg) — la fiche de résultats finaux a sa propre cascade, et ce
+   sélecteur plus spécifique l'écraserait sinon. */
+.rank-list .rank-row:not(.rank-row--lg) {
+    animation: rowSlideIn 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.rank-list .rank-row:nth-child(1) {
+    animation-delay: 0.02s;
+}
+
+.rank-list .rank-row:nth-child(2) {
+    animation-delay: 0.04s;
+}
+
+.rank-list .rank-row:nth-child(3) {
+    animation-delay: 0.06s;
+}
+
+.rank-list .rank-row:nth-child(4) {
+    animation-delay: 0.08s;
+}
+
+.rank-list .rank-row:nth-child(5) {
+    animation-delay: 0.1s;
+}
+
+.rank-list .rank-row:nth-child(n+6) {
+    animation-delay: 0.12s;
+}
+
+@keyframes rowSlideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-12px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* La jaquette s'éclaire légèrement au survol de la ligne */
+.rank-row__thumb {
+    transition: transform var(--transition-base), filter var(--transition-base);
+}
+
+.rank-row:hover .rank-row__thumb {
+    transform: scale(1.06);
+    filter: saturate(1.15) brightness(1.08);
+}
+
+/* Liseré doré qui glisse sous l'entrée de menu survolée */
+.lan-nav-list li {
+    position: relative;
+    overflow: hidden;
+}
+
+.lan-nav-list li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--accent-color);
+    transform: scaleY(0);
+    transform-origin: center;
+    transition: transform var(--transition-fast);
+}
+
+.lan-nav-list li:hover::before {
+    transform: scaleY(1);
+}
+
+/* Les panneaux se soulèvent d'un cheveu au survol */
+.luxury-panel {
+    transition: border-color var(--transition-base), box-shadow var(--transition-base), transform var(--transition-base);
+}
+
+/* mais pas les modales : elles ne doivent pas bouger sous le curseur */
+.luxury-panel:not(.modal-content):hover {
+    transform: translateY(-2px);
+}
+
+/* Pastilles de score : petite pulsation à l'apparition du podium */
+.rank-row--1 .rank-row__score {
+    animation: scorePulse 2.6s ease-in-out 1.2s 2;
+}
+
+@keyframes scorePulse {
+
+    0%,
+    100% {
+        box-shadow: 0 0 0 0 var(--accent-a40);
+    }
+
+    50% {
+        box-shadow: 0 0 0 6px rgba(212, 175, 55, 0);
+    }
+}
+
+/* Ouverture des modales */
+.modal-overlay {
+    animation: overlayFade 0.25s ease both;
+}
+
+.modal-content {
+    animation: modalRise 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes overlayFade {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes modalRise {
+    from {
+        opacity: 0;
+        transform: translateY(14px) scale(0.98);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* Respect du réglage système : on coupe tout mouvement décoratif.
+   Les états finaux restent visibles (rien ne doit disparaître). */
+@media (prefers-reduced-motion: reduce) {
+
+    #main-title,
+    #main-title::after,
+    .rank-list .rank-row,
+    .rank-row--1 .rank-row__score,
+    .modal-overlay,
+    .modal-content {
+        animation: none !important;
+    }
+
+    #main-title::after {
+        transform: translateX(-50%) scaleX(1);
+    }
+
+    .rank-row:hover,
+    .luxury-panel:hover,
+    .rank-row:hover .rank-row__thumb {
+        transform: none;
+    }
 }
 
 
