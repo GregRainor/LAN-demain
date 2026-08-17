@@ -1921,6 +1921,142 @@ body.sidebar-visible {
 
 
 /* =====================================================================
+   PETITS COMPOSANTS PARTAGÉS
+   Extraits des style.cssText restants dans newScript.js.
+   ===================================================================== */
+
+/* Ligne « joueur » : avatar + nom, dans les listes de votes et d'événements */
+.player-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    font-size: var(--text-sm);
+}
+
+.stack--xs {
+    gap: var(--space-2);
+}
+
+/* Carte générique de contenu (historique, événements) */
+.content-card {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sharp);
+    padding: var(--space-5);
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-4);
+    gap: var(--space-3);
+}
+
+.card-header__title {
+    margin: 0;
+    color: var(--accent-color);
+}
+
+.card-header__meta {
+    font-size: var(--text-sm);
+    color: var(--secondary-text);
+}
+
+.player-row__rank {
+    min-width: 25px;
+    font-weight: 700;
+    color: var(--accent-color);
+}
+
+.player-row__name {
+    color: var(--primary-text);
+}
+
+.player-row__score {
+    margin-left: auto;
+    color: var(--secondary-text);
+}
+
+/* Encadré de description, filet à gauche */
+.desc-box {
+    margin-top: var(--space-3);
+    padding: var(--space-3);
+    font-size: var(--text-sm);
+    color: var(--secondary-text);
+    background: rgba(255, 255, 255, 0.03);
+    border-left: 2px solid var(--border-color);
+    border-radius: var(--radius-sharp);
+}
+
+/* Pastille d'état (inscrit, organisateur…) */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    padding: var(--space-2) var(--space-4);
+    font-size: var(--text-sm);
+    border-radius: var(--radius-pill);
+}
+
+.badge--accent {
+    background: var(--accent-a15);
+    color: var(--accent-color);
+    border: 1px solid var(--accent-a25);
+}
+
+.badge--success {
+    background: rgba(76, 175, 80, 0.12);
+    color: #81c784;
+    border: 1px solid rgba(76, 175, 80, 0.3);
+}
+
+.badge--clickable {
+    cursor: pointer;
+    transition: filter var(--transition-fast);
+}
+
+.badge--clickable:hover {
+    filter: brightness(1.25);
+}
+
+/* Ligne de liste compacte avec filet d'accent (aperçus, file du bar) */
+.list-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3);
+    background: rgba(255, 255, 255, 0.02);
+    border-left: 2px solid var(--accent-color);
+    border-radius: var(--radius-sharp);
+}
+
+.list-item--queue {
+    background: rgba(187, 134, 252, 0.1);
+    border: 1px solid rgba(187, 134, 252, 0.3);
+    border-left-width: 2px;
+}
+
+/* Bouton du barman : violet plutôt qu'or, pour le distinguer des actions joueur */
+.gold-link-btn--mixo {
+    border-color: #bb86fc;
+    color: #bb86fc;
+}
+
+.gold-link-btn--mixo:hover {
+    background: #bb86fc;
+    color: #000;
+}
+
+.row-actions {
+    display: flex;
+    gap: var(--space-3);
+    margin-top: var(--space-4);
+}
+
+
+/* =====================================================================
    CLASSEMENT DES JEUX
    Remplace les styles inline qui étaient générés depuis newScript.js.
    ===================================================================== */

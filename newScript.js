@@ -284,7 +284,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 sec.innerHTML = `<h5 style="color: ${color}; margin-bottom: 5px; font-family: 'Outfit'; font-size: 0.9em;">${title}</h5>`;
                 gamesArray.forEach(g => {
                     const row = document.createElement('div');
-                    row.style.cssText = "display: flex; align-items: center; gap: 10px; margin-bottom: 5px; font-size: 0.9em;";
+                    row.className = 'player-row';
                     row.innerHTML = `<span style="color: var(--primary-text);">${escapeHtml(g)}</span>`;
                     sec.appendChild(row);
                 });
@@ -1194,20 +1194,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
             entries.forEach(entry => {
                 const card = document.createElement('div');
-                card.style.cssText = "background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 4px; padding: 20px;";
+                card.className = 'content-card';
 
                 const header = document.createElement('div');
-                header.style.cssText = "display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;";
-                header.innerHTML = `<h3 style="margin:0; color: var(--accent-color);">${escapeHtml(entry.name || 'LAN')}</h3><span style="color:var(--secondary-text); font-size:0.9em;">${escapeHtml(entry.date || '')}</span>`;
+                header.className = 'card-header';
+                header.innerHTML = `<h3 class="card-header__title">${escapeHtml(entry.name || 'LAN')}</h3><span class="card-header__meta">${escapeHtml(entry.date || '')}</span>`;
                 card.appendChild(header);
 
                 if (entry.topGames && entry.topGames.length > 0) {
                     const list = document.createElement('div');
-                    list.style.cssText = "display: flex; flex-direction: column; gap: 8px;";
+                    list.className = 'stack stack--xs';
                     entry.topGames.slice(0, 5).forEach((game, i) => {
                         const row = document.createElement('div');
-                        row.style.cssText = "display: flex; align-items: center; gap: 10px; font-size: 0.9em;";
-                        row.innerHTML = `<span style="color:var(--accent-color); min-width:25px; font-weight:bold;">#${i + 1}</span><span style="color:var(--primary-text);">${escapeHtml(game.name)}</span><span style="color:var(--secondary-text); margin-left:auto;">${game.score} pts</span>`;
+                        row.className = 'player-row';
+                        row.innerHTML = `<span class="player-row__rank">#${i + 1}</span><span class="player-row__name">${escapeHtml(game.name)}</span><span class="player-row__score">${game.score} pts</span>`;
                         list.appendChild(row);
                     });
                     card.appendChild(list);
@@ -1466,7 +1466,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (evt.description || (evt.isAlcohol && evt.alcoholRules)) {
                 const descBox = document.createElement('div');
-                descBox.style.cssText = "font-size: 0.9em; color: var(--secondary-text); background: rgba(255,255,255,0.03); padding: 10px; border-radius: 4px; margin-top: 10px; border-left: 2px solid var(--border-color);";
+                descBox.className = 'desc-box';
                 if (evt.description) descBox.innerHTML += `<div>${escapeHtml(evt.description)}</div>`;
                 if (evt.isAlcohol && evt.alcoholRules) {
                     descBox.innerHTML += `<div style="margin-top: 5px; color: #ff9800; font-size: 0.85em;"><strong>Règles:</strong> ${escapeHtml(evt.alcoholRules)}</div>`;
@@ -1476,30 +1476,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Action buttons (RSVP)
             const actions = document.createElement('div');
-            actions.style.display = 'flex';
-            actions.style.gap = '10px';
-            actions.style.marginTop = '15px';
+            actions.className = 'row-actions';
 
             const hasAccepted = evt.rsvps && evt.rsvps[currentUser.uid] === 'accepted';
             const isCreator = evt.creatorId === currentUser.uid;
 
             if (hasAccepted) {
                 const acceptedBadge = document.createElement('span');
-                acceptedBadge.style.cssText = 'padding: 6px 14px; font-size: 0.9em; border-radius: 15px; display: inline-flex; align-items: center; gap: 5px;';
 
                 if (isCreator) {
                     // Static non-interactive badge for creator
-                    acceptedBadge.style.background = 'rgba(212,175,55,0.12)';
-                    acceptedBadge.style.color = 'var(--accent-color)';
-                    acceptedBadge.style.border = '1px solid rgba(212,175,55,0.3)';
+                    acceptedBadge.className = 'badge badge--accent';
                     acceptedBadge.textContent = '✓ Organisateur';
                     acceptedBadge.title = "Vous êtes le créateur.";
                 } else {
                     // Muted green badge — clickable to un-register
-                    acceptedBadge.style.background = 'rgba(76,175,80,0.12)';
-                    acceptedBadge.style.color = '#81c784';
-                    acceptedBadge.style.border = '1px solid rgba(76,175,80,0.3)';
-                    acceptedBadge.style.cursor = 'pointer';
+                    acceptedBadge.className = 'badge badge--success badge--clickable';
                     acceptedBadge.textContent = '✓ Inscrit';
                     acceptedBadge.title = "Cliquer pour annuler votre participation";
                     acceptedBadge.addEventListener('click', () => {
@@ -1559,7 +1551,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Add to preview up to 3
             if (previewCount < 3) {
                 const previewItem = document.createElement('div');
-                previewItem.style.cssText = "display: flex; justify-content: space-between; align-items: center; padding: 10px; background: rgba(255,255,255,0.02); border-left: 2px solid var(--accent-color); border-radius: 2px;";
+                previewItem.className = 'list-item';
                 previewItem.innerHTML = `
                        <div>
                            <div style="color: var(--primary-text); font-weight: 500;">${evt.isGlobal ? '🌍 ' : ''}${escapeHtml(evt.title)}</div>
@@ -1651,7 +1643,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 ordersArray.forEach(order => {
                     const item = document.createElement('div');
-                    item.style.cssText = "display: flex; justify-content: space-between; align-items: center; padding: 10px; background: rgba(187,134,252,0.1); border: 1px solid rgba(187,134,252,0.3); border-radius: 4px;";
+                    item.className = 'list-item list-item--queue';
                     item.innerHTML = `
                              <div>
                                   <strong>${escapeHtml(order.cocktailName)}</strong> pour <span style="color: var(--primary-text);">${escapeHtml(order.userName)}</span>
@@ -1659,9 +1651,7 @@ document.addEventListener('DOMContentLoaded', () => {
                              </div>
                         `;
                     const doneBtn = document.createElement('button');
-                    doneBtn.className = 'gold-link-btn';
-                    doneBtn.style.borderColor = '#bb86fc';
-                    doneBtn.style.color = '#bb86fc';
+                    doneBtn.className = 'gold-link-btn gold-link-btn--mixo';
                     doneBtn.textContent = 'Servi';
                     doneBtn.addEventListener('click', () => {
                         db.ref(`lan/cocktails/orders/${order.id}`).remove();
