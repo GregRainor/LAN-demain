@@ -143,22 +143,25 @@
                         </div>
 
                         <div class="vote-side">
-                            <!-- Comparateur de bibliothèques : sert à décider quoi voter -->
-                            <div class="luxury-panel library-panel-mount" style="padding: 25px;"></div>
-
+                            <!-- Le classement en premier : c'est ce qu'on regarde en votant -->
                             <div class="results-container luxury-panel">
                                 <h2>Classement &amp; Scores</h2>
-                                <table class="results-table" id="results-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Jeu</th>
-                                            <th>Score</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="results-table-body">
-                                    </tbody>
-                                </table>
+                                <div class="scroll-area scroll-area--sm">
+                                    <table class="results-table" id="results-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Jeu</th>
+                                                <th>Score</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="results-table-body">
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
+
+                            <!-- Comparateur de bibliothèques : sert à décider quoi voter -->
+                            <div class="luxury-panel library-panel-mount" style="padding: 25px;"></div>
                         </div>
                     </div>
 
@@ -538,6 +541,10 @@
                     </div>
                     <div id="game-details-deals-list" class="deals__list"></div>
                 </div>
+
+                <button id="game-details-add-vote" class="btn-block" style="display: none; margin-bottom: 16px;">
+                    ➕ Ajouter à mon vote
+                </button>
 
                 <div class="game-modal__footer">
                     <span id="game-details-price" class="game-modal__price"></span>

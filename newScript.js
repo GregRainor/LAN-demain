@@ -428,7 +428,22 @@ document.addEventListener('DOMContentLoaded', () => {
                     row.className = 'player-row';
                     // Les votes stockent la saisie brute, souvent en minuscules :
                     // on réutilise la casse d'affichage calculée pour le classement
-                    row.innerHTML = `<span style="color: var(--primary-text);">${escapeHtml(displayGameName(g))}</span>`;
+                    const label = displayGameName(g);
+                    row.innerHTML = `<span style="color: var(--primary-text);">${escapeHtml(label)}</span>`;
+
+                    // Reprendre un jeu vu chez un autre joueur, pendant le vote
+                    if (globalSettings.isVotingOpen && document.getElementById('vote-form')) {
+                        const add = document.createElement('button');
+                        add.type = 'button';
+                        add.className = 'rank-row__add';
+                        add.textContent = '+';
+                        add.title = `Ajouter « ${label} » à mon vote`;
+                        add.setAttribute('aria-label', `Ajouter ${label} à mon vote`);
+                        add.style.marginLeft = 'auto';
+                        add.addEventListener('click', () => addGameToVote(label));
+                        row.appendChild(add);
+                    }
+
                     sec.appendChild(row);
                 });
                 listEl.appendChild(sec);
@@ -740,6 +755,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
             });
+
+            // Un même jeu ne peut pas occuper deux priorités : il cumulerait
+            // les points et fausserait le classement.
+            const duplicates = findDuplicateVotes();
+            if (duplicates.length > 0) {
+                const list = duplicates.map(d => `« ${d} »`).join(', ');
+                showToast(`${list} apparaît plusieurs fois dans votre vote. Gardez une seule priorité par jeu.`, 'error');
+                highlightDuplicateInputs();
+                return;
+            }
 
             const suggestions = checkTypos(Array.from(allNewGames), globalVotes);
             if (suggestions.length > 0) {
@@ -1403,6 +1428,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let currentHls = null;
 
+    // Le bouton « Ajouter à mon vote » de la fiche : visible seulement pendant
+    // la phase de vote, et rattaché au jeu actuellement affiché.
+    function setupGameCardVoteButton(gameName) {
+        const btn = document.getElementById('game-details-add-vote');
+        if (!btn) return;
+
+        const canVote = globalSettings.isVotingOpen && !!document.getElementById('vote-form');
+        btn.style.display = canVote ? 'block' : 'none';
+        if (!canVote) return;
+
+        btn.textContent = `➕ Ajouter « ${gameName} » à mon vote`;
+        // onclick (et non addEventListener) : réécrit à chaque ouverture,
+        // donc aucun risque d'empiler les gestionnaires des fiches précédentes
+        btn.onclick = () => {
+            addGameToVote(gameName);
+            document.getElementById('close-game-details-btn')?.click();
+        };
+    }
+
     // Fiche pour un jeu absent de Steam : infos Wikipédia, pas de tags Steam,
     // mais on tente quand même le comparateur de prix par titre.
     function renderWikiCard(gameName, wiki) {
@@ -1438,6 +1482,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         renderDeals(null);
         getDeals({ title: wiki.title || gameName }).then(renderDeals);
+
+        // On vote pour le nom tel qu'il figure dans la LAN, pas le titre Wikipédia
+        setupGameCardVoteButton(gameName);
 
         body.style.display = 'block';
     }
@@ -1481,6 +1528,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Les prix arrivent après coup : la fiche s'affiche sans attendre
         renderDeals(null);
         getDeals({ appId: details.appId }).then(renderDeals);
+
+        // Le nom officiel Steam est le meilleur candidat pour le vote
+        setupGameCardVoteButton(details.name || gameName);
 
         // Steam ne sert la bande-annonce qu'en HLS. Attention : Chrome répond
         // "maybe" à canPlayType pour ce type MIME alors qu'il ne sait pas le lire
@@ -1662,6 +1712,50 @@ document.addEventListener('DOMContentLoaded', () => {
 
         row.addEventListener('click', () => openGameDetails(game.name));
         return row;
+    }
+
+    // Renvoie les noms saisis plus d'une fois, toutes priorités confondues
+    function findDuplicateVotes() {
+        const form = document.getElementById('vote-form');
+        if (!form) return [];
+
+        const seen = new Map();
+        const duplicates = new Set();
+
+        form.querySelectorAll('input[type="text"]').forEach(input => {
+            const raw = input.value.trim();
+            if (!raw) return;
+            const key = normalizeGameName(raw);
+            if (!key) return;
+            if (seen.has(key)) duplicates.add(seen.get(key));
+            else seen.set(key, raw);
+        });
+
+        return [...duplicates];
+    }
+
+    // Souligne en rouge les champs fautifs, le temps de les corriger
+    function highlightDuplicateInputs() {
+        const form = document.getElementById('vote-form');
+        if (!form) return;
+
+        const counts = new Map();
+        const inputs = [...form.querySelectorAll('input[type="text"]')];
+
+        inputs.forEach(input => {
+            const key = normalizeGameName(input.value.trim());
+            if (key) counts.set(key, (counts.get(key) || 0) + 1);
+        });
+
+        inputs.forEach(input => {
+            const key = normalizeGameName(input.value.trim());
+            const isDupe = key && counts.get(key) > 1;
+            input.classList.toggle('input-error', !!isDupe);
+            if (isDupe) {
+                // le surlignage disparaît dès qu'on modifie le champ
+                input.addEventListener('input', () => input.classList.remove('input-error'), { once: true });
+            }
+        });
     }
 
     // Place un jeu dans le formulaire de vote : premier champ libre, sinon

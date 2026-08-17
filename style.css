@@ -3101,6 +3101,17 @@ select.luxury-input option:disabled {
     }
 }
 
+/* Champ de vote en doublon : signalé jusqu'à la première correction */
+.input-error {
+    border-color: var(--danger-color) !important;
+    background: rgba(158, 54, 54, 0.08) !important;
+}
+
+/* Dans la fiche d'un joueur, le « + » reste visible (pas d'effet de survol de ligne) */
+.player-row .rank-row__add {
+    opacity: 1;
+}
+
 /* Bouton « ajouter à mon vote » sur une ligne de bibliothèque */
 .rank-row__add {
     min-width: 30px;
