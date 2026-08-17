@@ -63,6 +63,10 @@
                     style="display:none; position:absolute; top:-5px; right:-5px; background:var(--danger-color); color:white; border-radius:50%; width:16px; height:16px; font-size:0.7em; align-items:center; justify-content:center;">0</span>
             </button>
             <button id="btn-lan-history" class="gold-link-btn" title="Historique">Historique</button>
+            <!-- Retour vers l'interface téléphone. Masqué sur grand écran : il ne
+                 sert qu'au joueur qui a forcé la version bureau sur son mobile. -->
+            <button id="btn-mobile-version" class="gold-link-btn" title="Version téléphone">📱 Version
+                téléphone</button>
             <div id="user-info-menu">
                 <span id="user-name"></span>
                 <img id="user-avatar" src="" alt="Avatar">
@@ -877,6 +881,7 @@
     <div id="toast-container"></div>
 
     <script src="config.js"></script>
+    <script src="core.js"></script>
     <script src="newScript.js"></script>
 </body>
 

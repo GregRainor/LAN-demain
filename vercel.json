@@ -1,4 +1,28 @@
 {
     "buildCommand": "node build-config.js",
-    "outputDirectory": "."
+    "outputDirectory": ".",
+    "rewrites": [
+        {
+            "source": "/",
+            "has": [{ "type": "cookie", "key": "lan_vue", "value": "bureau" }],
+            "destination": "/desktop.html"
+        },
+        {
+            "source": "/",
+            "has": [{ "type": "cookie", "key": "lan_vue", "value": "mobile" }],
+            "destination": "/m.html"
+        },
+        {
+            "source": "/",
+            "has": [
+                {
+                    "type": "header",
+                    "key": "user-agent",
+                    "value": ".*(Android.*Mobile|iPhone|iPod|Windows Phone).*"
+                }
+            ],
+            "destination": "/m.html"
+        },
+        { "source": "/", "destination": "/desktop.html" }
+    ]
 }

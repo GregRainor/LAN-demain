@@ -63,10 +63,17 @@ Voici les étapes pour déployer votre propre instance de "LAN Demain".
     │   ├── get-game-image.js
     │   └── verify-recaptcha.js
     ├── .gitignore
-    └── index.html
+    ├── core.js         logique partagée par les deux interfaces
+    ├── desktop.html    interface bureau
+    ├── newScript.js
+    ├── style.css
+    ├── m.html          interface téléphone
+    ├── mobile.js
+    ├── mobile.css
+    └── vercel.json     aiguillage bureau / téléphone
     ```
 3.  Collez le code fourni pour chaque fichier à son emplacement respectif.
-4.  Dans `index.html`, remplacez les placeholders dans la `firebaseConfig` par votre propre configuration obtenue à l'étape 2.
+4.  Dans `config.js`, remplacez les placeholders de la `firebaseConfig` par votre propre configuration obtenue à l'étape 2. En production, ce fichier est généré par `build-config.js` à partir des variables d'environnement.
 
 ### Étape 5 : Déploiement sur Vercel
 

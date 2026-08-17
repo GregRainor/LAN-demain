@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <link rel="icon" href="favicon.png" type="image/png">
+    <meta charset="UTF-8">
+    <!-- viewport-fit=cover : sans lui, les encoches et la barre gestuelle
+         iOS mangent la barre d'onglets du bas. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#050505">
+    <title>LAN Demain</title>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <link rel="stylesheet" href="mobile.css">
+</head>
+
+<body>
+
+    <!-- ===================== CONNEXION ===================== -->
+    <div class="m-auth" id="m-auth">
+        <h1 class="m-auth__title">LAN Demain</h1>
+        <p class="m-auth__sub">La soirée, dans la poche.</p>
+        <button class="m-google" id="m-login">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+            </svg>
+            <span id="m-login-text">Se connecter à Google</span>
+            <span class="m-spinner" id="m-login-spinner" style="display:none"></span>
+        </button>
+        <p class="m-auth__err" id="m-auth-error"></p>
+    </div>
+
+    <!-- ===================== APPLICATION ===================== -->
+    <div class="m-app" id="m-app" style="display:none">
+
+        <header class="m-appbar">
+            <div class="m-appbar__row">
+                <span class="m-appbar__name" id="m-lan-name">LAN Demain</span>
+                <span class="m-live" id="m-phase" style="display:none"><span class="m-live__dot"></span><span
+                        id="m-phase-label">En cours</span></span>
+                <button class="m-iconbtn" id="m-btn-notifs" aria-label="Notifications">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M18 9a6 6 0 1 0-12 0c0 6-2 7-2 7h16s-2-1-2-7z" />
+                        <path d="M13.7 20a2 2 0 0 1-3.4 0" />
+                    </svg>
+                    <span class="m-badge" id="m-notif-badge" style="display:none">0</span>
+                </button>
+                <img class="m-avatar" id="m-avatar" src="" alt="">
+            </div>
+            <div class="m-presence">
+                <span class="m-presence__stack" id="m-presence-stack"></span>
+                <span class="m-presence__label" id="m-presence-label"></span>
+            </div>
+        </header>
+
+        <div class="m-content" id="m-content">
+
+            <!-- ---------- SOIRÉE ---------- -->
+            <section class="m-screen is-active" data-screen="soiree">
+                <div class="m-section" id="m-now-section" style="display:none">
+                    <div class="m-section__head">
+                        <h2 class="m-section__title">En ce moment</h2>
+                    </div>
+                    <div id="m-now"></div>
+                </div>
+
+                <div class="m-section" id="m-next-section" style="display:none">
+                    <div class="m-section__head">
+                        <h2 class="m-section__title">Prochain événement</h2>
+                        <button class="m-section__link" data-goto="evenements" id="m-events-count"></button>
+                    </div>
+                    <div id="m-next-event"></div>
+                </div>
+
+                <div class="m-section">
+                    <div class="m-section__head">
+                        <h2 class="m-section__title">Podium des votes</h2>
+                        <button class="m-section__link" data-goto="jeux">Tout voir</button>
+                    </div>
+                    <div id="m-podium"></div>
+                </div>
+            </section>
+
+            <!-- ---------- JEUX ---------- -->
+            <section class="m-screen" data-screen="jeux">
+                <input class="m-input" type="search" id="m-game-search" placeholder="Chercher un jeu"
+                    aria-label="Chercher un jeu">
+                <div class="m-filters" id="m-game-filters"></div>
+                <div id="m-games"></div>
+            </section>
+
+            <!-- ---------- VOTE ---------- -->
+            <section class="m-screen" data-screen="vote">
+                <div class="m-section">
+                    <div class="m-section__head">
+                        <h2 class="m-section__title">Mon vote</h2>
+                        <span class="m-section__link" id="m-vote-count"></span>
+                    </div>
+                    <div class="m-field">
+                        <input class="m-input" id="m-vote-add" placeholder="Ajouter un jeu"
+                            aria-label="Ajouter un jeu">
+                        <button class="m-btn m-btn--sm" id="m-vote-add-btn">Ajouter</button>
+                    </div>
+                    <p class="m-err" id="m-vote-error" style="display:none"></p>
+                </div>
+                <div id="m-vote-groups"></div>
+                <div class="m-sticky">
+                    <button class="m-btn m-btn--solid m-btn--full" id="m-vote-submit">Enregistrer mon vote</button>
+                </div>
+            </section>
+
+            <!-- ---------- MIAM ---------- -->
+            <section class="m-screen" data-screen="miam">
+                <div id="m-food-runs"></div>
+                <button class="m-btn m-btn--quiet m-btn--full" id="m-food-open">Ouvrir une commande</button>
+            </section>
+
+            <!-- ---------- SONDAGES ---------- -->
+            <section class="m-screen" data-screen="sondages">
+                <div id="m-polls"></div>
+                <button class="m-btn m-btn--solid m-btn--full" id="m-poll-new">Lancer un sondage</button>
+            </section>
+
+            <!-- ---------- PLUS ---------- -->
+            <section class="m-screen" data-screen="plus">
+                <div class="m-section">
+                    <div class="m-section__head">
+                        <h2 class="m-section__title">La soirée</h2>
+                    </div>
+                    <div class="m-list">
+                        <button class="m-list__row" data-goto="evenements">
+                            <svg class="m-list__ico" viewBox="0 0 24 24" aria-hidden="true">
+                                <rect x="3" y="5" width="18" height="16" rx="2" />
+                                <path d="M8 3v4M16 3v4M3 11h18" />
+                            </svg>
+                            <span class="m-list__label">Événements</span>
+                            <span class="m-list__hint" id="m-plus-events"></span>
+                            <svg class="m-list__chev" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="m9 6 6 6-6 6" />
+                            </svg>
+                        </button>
+                        <button class="m-list__row" data-goto="kocktails">
+                            <svg class="m-list__ico" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M7 3h10l-1 6a4 4 0 0 1-8 0z" />
+                                <path d="M12 13v7M8 21h8" />
+                            </svg>
+                            <span class="m-list__label">Kocktails</span>
+                            <span class="m-list__hint" id="m-plus-kocktails"></span>
+                            <svg class="m-list__chev" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="m9 6 6 6-6 6" />
+                            </svg>
+                        </button>
+                        <button class="m-list__row" data-goto="vote">
+                            <svg class="m-list__ico" viewBox="0 0 24 24" aria-hidden="true">
+                                <rect x="3" y="4" width="18" height="17" rx="2" />
+                                <path d="M9 11l2 2 4-4" />
+                            </svg>
+                            <span class="m-list__label">Mon vote</span>
+                            <span class="m-list__hint" id="m-plus-vote"></span>
+                            <svg class="m-list__chev" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="m9 6 6 6-6 6" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="m-section">
+                    <div class="m-section__head">
+                        <h2 class="m-section__title">Compte</h2>
+                    </div>
+                    <div class="m-list">
+                        <div class="m-list__row">
+                            <svg class="m-list__ico" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M4 20v-1a5 5 0 0 1 5-5h6a5 5 0 0 1 5 5v1" />
+                                <circle cx="12" cy="8" r="4" />
+                            </svg>
+                            <span class="m-list__label" id="m-plus-name"></span>
+                            <span class="m-list__hint" id="m-plus-role"></span>
+                        </div>
+                        <button class="m-list__row" id="m-goto-desktop">
+                            <svg class="m-list__ico" viewBox="0 0 24 24" aria-hidden="true">
+                                <rect x="2" y="4" width="20" height="13" rx="2" />
+                                <path d="M8 21h8M12 17v4" />
+                            </svg>
+                            <span class="m-list__label">Passer en version bureau</span>
+                            <svg class="m-list__chev" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="m9 6 6 6-6 6" />
+                            </svg>
+                        </button>
+                        <button class="m-list__row m-list__row--danger" id="m-logout">
+                            <svg class="m-list__ico" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M15 17l5-5-5-5M20 12H9M11 21H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5" />
+                            </svg>
+                            <span class="m-list__label">Se déconnecter</span>
+                        </button>
+                    </div>
+                </div>
+
+                <p class="m-card__meta" style="text-align:center">
+                    Les bibliothèques Steam, l'historique et l'administration restent sur la version bureau.
+                </p>
+            </section>
+
+            <!-- ---------- ÉVÉNEMENTS ---------- -->
+            <section class="m-screen" data-screen="evenements">
+                <div class="m-section__head">
+                    <h2 class="m-section__title">Événements</h2>
+                    <button class="m-section__link" id="m-event-new">+ Créer</button>
+                </div>
+                <div id="m-events"></div>
+            </section>
+
+            <!-- ---------- KOCKTAILS ---------- -->
+            <section class="m-screen" data-screen="kocktails">
+                <div class="m-section" id="m-bar-section" style="display:none">
+                    <div class="m-section__head">
+                        <h2 class="m-section__title">Au bar</h2>
+                    </div>
+                    <div id="m-bar-queue"></div>
+                </div>
+                <div class="m-section">
+                    <div class="m-section__head">
+                        <h2 class="m-section__title">La carte</h2>
+                    </div>
+                    <div id="m-kocktails-master"></div>
+                </div>
+                <div class="m-section">
+                    <div class="m-section__head">
+                        <h2 class="m-section__title">One-shots</h2>
+                        <button class="m-section__link" id="m-kocktail-new">+ Inventer</button>
+                    </div>
+                    <div id="m-kocktails-oneshot"></div>
+                </div>
+            </section>
+
+            <!-- ---------- BILAN ---------- -->
+            <section class="m-screen" data-screen="bilan">
+                <div id="m-recap"></div>
+            </section>
+
+        </div>
+
+        <nav class="m-tabbar" id="m-tabbar" aria-label="Navigation principale">
+            <button class="m-tab is-active" data-goto="soiree">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="12" cy="12" r="3" />
+                    <path d="M7.8 16.2a6 6 0 0 1 0-8.4M16.2 7.8a6 6 0 0 1 0 8.4M5 19a10 10 0 0 1 0-14M19 5a10 10 0 0 1 0 14" />
+                </svg>
+                <span class="m-tab__label">Soirée</span>
+            </button>
+            <button class="m-tab" data-goto="jeux">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <rect x="2" y="7" width="20" height="11" rx="5" />
+                    <path d="M7 12.5h3M8.5 11v3" />
+                    <circle cx="16" cy="11.6" r=".9" fill="currentColor" stroke="none" />
+                    <circle cx="18.1" cy="13.8" r=".9" fill="currentColor" stroke="none" />
+                </svg>
+                <span class="m-tab__label">Jeux</span>
+            </button>
+            <button class="m-tab" data-goto="miam">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M4 11h16a8 8 0 0 1-16 0z" />
+                    <path d="M3 20h18M12 4v3" />
+                </svg>
+                <span class="m-tab__label">Miam</span>
+                <span class="m-tab__dot" id="m-tab-food" style="display:none">0</span>
+            </button>
+            <button class="m-tab" data-goto="sondages">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M6 20V11M12 20V4M18 20v-6" />
+                </svg>
+                <span class="m-tab__label">Sondages</span>
+                <span class="m-tab__dot" id="m-tab-polls" style="display:none">0</span>
+            </button>
+            <button class="m-tab" data-goto="plus">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="5" cy="12" r="1.5" fill="currentColor" stroke="none" />
+                    <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none" />
+                    <circle cx="19" cy="12" r="1.5" fill="currentColor" stroke="none" />
+                </svg>
+                <span class="m-tab__label">Plus</span>
+            </button>
+        </nav>
+    </div>
+
+    <!-- ===================== FEUILLE GLISSANTE ===================== -->
+    <div class="m-sheet" id="m-sheet" role="dialog" aria-modal="true">
+        <div class="m-sheet__scrim" data-sheet-close></div>
+        <div class="m-sheet__panel">
+            <div class="m-sheet__grab"></div>
+            <div class="m-sheet__head" id="m-sheet-head" style="display:none">
+                <span class="m-sheet__heading" id="m-sheet-heading"></span>
+                <button class="m-iconbtn" data-sheet-close aria-label="Fermer">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M18 6 6 18M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div class="m-sheet__body" id="m-sheet-body"></div>
+        </div>
+    </div>
+
+    <div id="m-toasts"></div>
+
+    <script src="config.js"></script>
+    <script src="core.js"></script>
+    <script src="mobile.js"></script>
+</body>
+
+</html>

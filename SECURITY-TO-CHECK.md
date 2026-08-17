@@ -4,7 +4,7 @@ Checklist de revue pour un audit de sécurité de **LAN Demain**.
 Chaque point est une hypothèse à *vérifier*, pas un fait établi.
 
 - **Statut** : rédigé le 17 août 2026, avant tout audit.
-- **Portée** : `index.html`, `newScript.js`, `style.css`, `api/*.js`, `database.rules.json`.
+- **Portée** : `desktop.html`, `newScript.js`, `style.css`, `m.html`, `mobile.js`, `mobile.css`, `core.js`, `api/*.js`, `database.rules.json`.
 - **Contexte** : application entre amis (~10 joueurs), auth Google, Firebase Realtime
   Database attaquée directement depuis le navigateur, hébergement Vercel.
 - **Convention** : cocher `[x]` une fois vérifié, et noter la conclusion sous le point.
