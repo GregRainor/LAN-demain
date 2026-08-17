@@ -974,6 +974,15 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('game-details-desc').textContent = details.shortDescription || '';
         renderTags(document.getElementById('game-details-tags'), details, 8);
 
+        // Prévient quand Steam n'a pas ce jeu et qu'on montre le résultat le plus proche
+        const notice = document.getElementById('game-details-notice');
+        if (details.exactMatch) {
+            notice.style.display = 'none';
+        } else {
+            notice.textContent = `"${gameName}" n'est pas sur Steam — fiche du jeu le plus proche.`;
+            notice.style.display = 'block';
+        }
+
         // Steam ne sert la bande-annonce qu'en HLS. On la lit quand le navigateur
         // le sait nativement (Safari/iOS), sinon on affiche l'image de la
         // bande-annonce — la lire ailleurs demanderait d'embarquer hls.js.
@@ -1108,7 +1117,9 @@ document.addEventListener('DOMContentLoaded', () => {
         row.addEventListener('click', () => openGameDetails(game.name));
 
         getGameDetails(game.name).then(details => {
-            if (!details) return;
+            // Sur une correspondance approximative, les genres/prix sont ceux d'un
+            // autre jeu : on n'affiche ni étiquettes ni données de filtrage.
+            if (!details || !details.exactMatch) return;
             renderTags(tags, details, 3);
             row.dataset.tags = [...(details.genres || []), ...(details.categories || [])]
                 .join('|').toLowerCase();

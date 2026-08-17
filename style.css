@@ -2140,6 +2140,17 @@ body.sidebar-visible {
     height: auto;
 }
 
+.game-modal__notice {
+    margin: 0 0 var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--text-sm);
+    font-style: italic;
+    color: #e0a552;
+    background: rgba(255, 152, 0, 0.08);
+    border-left: 2px solid #ff9800;
+    border-radius: var(--radius-sharp);
+}
+
 .game-modal__title {
     margin: 0 0 var(--space-3);
     font-size: var(--text-2xl);
