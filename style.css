@@ -2270,6 +2270,9 @@ select.luxury-input option:disabled {
        paraissait décentré. */
     position: relative;
     width: 100%;
+    /* Pas de reset box-sizing global dans style.css (mobile.css en a un) :
+       sans lui, width:100% + padding + bordure débordaient du panneau de 66 px. */
+    box-sizing: border-box;
     /* Marge latérale identique des deux côtés, assez large pour que le chevron
        ne chevauche pas un libellé long : le centrage reste vrai. */
     padding: var(--space-3) var(--space-6);
