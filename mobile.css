@@ -211,6 +211,18 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
     object-fit: cover;
     background: var(--panel-2);
 }
+/* Le cercle dit qui est là : vert pour une session ouverte, gris pour un
+   joueur qui n'a laissé que son vote. Trop petit pour une pastille à côté,
+   la vignette porte donc l'information elle-même. */
+.m-presence__face.is-online {
+    border-color: #57b368;
+    box-shadow: 0 0 0 1px #57b368;
+}
+.m-presence__face.is-offline {
+    border-color: #6e6e6e;
+    filter: grayscale(100%);
+    opacity: .55;
+}
 .m-presence__stack img:first-child { margin-left: 0; }
 .m-presence__label {
     font-size: .72rem; color: var(--text-3);

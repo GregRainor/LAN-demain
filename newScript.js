@@ -70,6 +70,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let globalProfiles = {};
     // Notre entrée dans /status : une par session, pas une par joueur.
     let myConnectionRef = null;
+    let myConnectionKey = null;
+    let firebaseConnected = false;
     let appInitialized = false;
     let isEditing = false;
     const imageCache = new Map();
@@ -350,6 +352,28 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function writeMyPresence() {
+        const user = auth.currentUser;
+        if (!user || !myConnectionRef) return;
+        myConnectionRef.set({ name: user.displayName, avatar: user.photoURL, device: 'bureau' });
+        myConnectionRef.onDisconnect().remove();
+    }
+
+    // Un onglet resté sur une version antérieure efface /status/{uid} en entier
+    // quand il se ferme, emportant les sessions des autres appareils du même
+    // joueur. Plutôt que de disparaître de la bande alors qu'on est toujours
+    // là, on se réinscrit dès qu'on constate l'effacement.
+    function reassertPresence() {
+        const user = auth.currentUser;
+        if (!user || !firebaseConnected || !myConnectionRef) return;
+        const node = globalUsers[user.uid];
+        if (node && node[myConnectionKey]) return;
+        // Forme à plat écrite par un ancien client : elle nous décrit déjà, la
+        // réécrire mélangerait les deux formes pour rien.
+        if (node && typeof node.name === 'string') return;
+        writeMyPresence();
+    }
+
     function renderActiveUsers() {
         const sidebar = document.getElementById('active-users-sidebar');
         const body = document.body;
@@ -507,13 +531,13 @@ document.addEventListener('DOMContentLoaded', () => {
         // Une clé par session ouverte : le même compte tourne souvent sur le PC
         // et sur le téléphone, et fermer l'un ne doit pas déclarer l'autre parti.
         myConnectionRef = db.ref('/status/' + user.uid).push();
+        myConnectionKey = myConnectionRef.key;
         const connectedRef = db.ref('.info/connected');
 
         connectedRef.on('value', (snap) => {
-            if (snap.val() === true) {
-                const userData = { name: user.displayName, avatar: user.photoURL, device: 'bureau' };
-                myConnectionRef.set(userData);
-                myConnectionRef.onDisconnect().remove();
+            firebaseConnected = snap.val() === true;
+            if (firebaseConnected) {
+                writeMyPresence();
                 // Copie qui survit à la déconnexion : /status est effacé en
                 // partant, la fiche reste pour afficher la photo d'un absent.
                 db.ref('lan/users/' + user.uid).update({
@@ -532,6 +556,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         db.ref('/status').on('value', snapshot => {
             globalUsers = snapshot.val() || {};
+            reassertPresence();
             renderActiveUsers();
         });
 

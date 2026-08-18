@@ -37,6 +37,8 @@ let voteDraft = null;
 let currentScreen = 'soiree';
 /* Notre entrée dans /status : une par session ouverte, pas une par joueur. */
 let myConnectionRef = null;
+let myConnectionKey = null;
+let firebaseConnected = false;
 /* La LAN terminée, on amène le joueur au bilan une seule fois : ensuite il
    navigue où il veut sans qu'on le ramène de force à chaque mise à jour. */
 let recapShown = false;
@@ -420,19 +422,38 @@ function watch(path, handler) {
     return ref;
 }
 
+function writeMyPresence(user) {
+    if (!myConnectionRef || !user) return;
+    myConnectionRef.onDisconnect().remove();
+    myConnectionRef.set({
+        state: 'online',
+        name: user.displayName || user.email,
+        photo: user.photoURL || null,
+        device: 'téléphone'
+    });
+}
+
+/* Un appareil resté sur une version antérieure efface /status/{uid} en entier
+   en se fermant, emportant les sessions des autres appareils du même joueur.
+   Si la nôtre a disparu alors qu'on est toujours connecté, on se réinscrit. */
+function reassertPresence() {
+    const user = auth.currentUser;
+    if (!user || !firebaseConnected || !myConnectionRef) return;
+    const node = state.status[user.uid];
+    if (node && node[myConnectionKey]) return;
+    if (node && typeof node.name === 'string') return;
+    writeMyPresence(user);
+}
+
 function boot(user) {
     /* Une clé par session : le même joueur ouvre souvent le téléphone en plus
        du PC, et fermer l'un effaçait la présence de l'autre. */
     myConnectionRef = db.ref('/status/' + user.uid).push();
+    myConnectionKey = myConnectionRef.key;
     db.ref('.info/connected').on('value', snap => {
-        if (snap.val() === false) return;
-        myConnectionRef.onDisconnect().remove();
-        myConnectionRef.set({
-            state: 'online',
-            name: user.displayName || user.email,
-            photo: user.photoURL || null,
-            device: 'téléphone'
-        });
+        firebaseConnected = snap.val() === true;
+        if (!firebaseConnected) return;
+        writeMyPresence(user);
         /* Fiche durable : /status s'efface en partant, mais le bureau affiche
            les votants absents et a besoin de leur photo. */
         db.ref('lan/users/' + user.uid).update({
@@ -459,7 +480,7 @@ function boot(user) {
         state.isMixologist = myRole === 'mixologist';
         $('m-plus-role').textContent = state.isAdmin ? 'Admin' : (state.isMixologist ? 'Mixologue' : '');
     });
-    watch('/status', value => { state.status = value || {}; });
+    watch('/status', value => { state.status = value || {}; reassertPresence(); });
     watch('lan/users', value => { state.profiles = value || {}; });
     watch('lan/polls', value => { state.polls = value || {}; });
     watch('lan/foodRuns', value => { state.foodRuns = value || {}; });
@@ -542,12 +563,20 @@ function renderPresence() {
        sa seule présence vaut « en ligne ». L'ancien test sur state === 'online'
        ne voyait plus personne depuis que les sessions sont imbriquées. */
     const online = Object.keys(state.status).filter(uid => statusIdentity(state.status[uid]));
-    online.slice(0, 5).forEach(uid => {
-        const img = el('img');
-        img.src = playerPhoto(uid);
-        img.alt = '';
-        stack.appendChild(img);
-    });
+
+    /* Les votants absents restent affichés, cerclés de gris : comme sur le PC,
+       on veut voir d'un coup d'œil qui manque, pas seulement qui est là. */
+    const away = Object.keys(state.votes).filter(uid => !online.includes(uid));
+    [...online.map(uid => [uid, true]), ...away.map(uid => [uid, false])]
+        .slice(0, 6)
+        .forEach(([uid, isOnline]) => {
+            const img = el('img', isOnline ? 'm-presence__face is-online' : 'm-presence__face is-offline');
+            img.src = playerPhoto(uid);
+            img.alt = `${playerName(uid)} — ${isOnline ? 'connecté' : 'déconnecté'}`;
+            img.title = img.alt;
+            stack.appendChild(img);
+        });
+
     if (!online.length) {
         label.textContent = 'Personne d\'autre en ligne';
         return;
