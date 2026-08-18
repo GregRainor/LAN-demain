@@ -118,37 +118,53 @@
 
                     <!-- Le vote passe en premier : c'est l'action qu'on vient faire -->
                     <div class="vote-layout animated-section" style="animation-delay: 0.2s;">
-                        <div class="form-container luxury-panel">
-                            <h2>Mon Vote</h2>
-                            <form id="vote-form">
-                                <div class="priority-group" data-priority="p1">
-                                    <h3>Priorité 1 <span>(5 pts)</span></h3>
-                                    <div class="game-input-list"></div>
-                                </div>
-                                <div class="priority-group" data-priority="p2">
-                                    <h3>Priorité 2 <span>(3 pts)</span></h3>
-                                    <div class="game-input-list"></div>
-                                    <button type="button" class="add-game-btn">+</button>
-                                </div>
-                                <div class="priority-group" data-priority="p3">
-                                    <h3>Priorité 3 <span>(2 pts)</span></h3>
-                                    <div class="game-input-list"></div>
-                                    <button type="button" class="add-game-btn">+</button>
-                                </div>
-                                <div class="priority-group" data-priority="p_other">
-                                    <h3>Autres <span>(1 pt)</span></h3>
-                                    <div class="game-input-list"></div>
-                                    <button type="button" class="add-game-btn">+</button>
-                                </div>
-                                <!-- Les erreurs s'affichent ici, sous les yeux : un toast
-                                     en bas à droite passe inaperçu pendant la saisie -->
-                                <div id="vote-error" class="form-error" style="display: none;"></div>
+                        <!-- Colonne de gauche : le formulaire, puis les jeux déjà
+                             proposés. Sans ce second bloc, la colonne s'arrêtait
+                             au bouton d'envoi et laissait un grand vide face au
+                             classement, plus haut qu'elle. -->
+                        <div class="vote-main">
+                            <div class="form-container luxury-panel">
+                                <h2>Mon Vote</h2>
+                                <form id="vote-form">
+                                    <div class="priority-group" data-priority="p1">
+                                        <h3>Priorité 1 <span>(5 pts)</span></h3>
+                                        <div class="game-input-list"></div>
+                                    </div>
+                                    <div class="priority-group" data-priority="p2">
+                                        <h3>Priorité 2 <span>(3 pts)</span></h3>
+                                        <div class="game-input-list"></div>
+                                        <button type="button" class="add-game-btn">+</button>
+                                    </div>
+                                    <div class="priority-group" data-priority="p3">
+                                        <h3>Priorité 3 <span>(2 pts)</span></h3>
+                                        <div class="game-input-list"></div>
+                                        <button type="button" class="add-game-btn">+</button>
+                                    </div>
+                                    <div class="priority-group" data-priority="p_other">
+                                        <h3>Autres <span>(1 pt)</span></h3>
+                                        <div class="game-input-list"></div>
+                                        <button type="button" class="add-game-btn">+</button>
+                                    </div>
+                                    <!-- Les erreurs s'affichent ici, sous les yeux : un toast
+                                         en bas à droite passe inaperçu pendant la saisie -->
+                                    <div id="vote-error" class="form-error" style="display: none;"></div>
 
-                                <div class="form-actions">
-                                    <button type="submit" id="submit-vote-btn">Soumettre mon Vote</button>
-                                </div>
-                            </form>
+                                    <div class="form-actions">
+                                        <button type="submit" id="submit-vote-btn">Soumettre mon Vote</button>
+                                    </div>
+                                </form>
+                            </div>
+
+                            <!-- Ce que les autres ont déjà proposé : un clic l'ajoute
+                                 à son propre bulletin, ce qui évite de retaper un
+                                 nom (et de créer un doublon d'orthographe). -->
+                            <div id="vote-suggestions" class="luxury-panel vote-suggestions">
+                                <h3 class="section-title">Déjà proposés par les autres</h3>
+                                <p class="panel-section__hint">Un clic l'ajoute à vos « Autres » (1 pt).</p>
+                                <div id="vote-suggestion-chips" class="suggestion-chips"></div>
+                            </div>
                         </div>
+                        <!-- Fin colonne de gauche -->
 
                         <div class="vote-side">
                             <!-- Le classement en premier : c'est ce qu'on regarde en votant -->

@@ -415,6 +415,13 @@ function boot(user) {
             name: user.displayName || user.email,
             photo: user.photoURL || null
         });
+        /* Fiche durable : /status s'efface en partant, mais le bureau affiche
+           les votants absents et a besoin de leur photo. */
+        db.ref('lan/users/' + user.uid).update({
+            name: user.displayName || user.email || '',
+            avatar: user.photoURL || '',
+            lastSeen: Date.now()
+        }).catch(() => { /* profil non critique */ });
     });
 
     watch('lan/settings', value => {

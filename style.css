@@ -1188,6 +1188,50 @@ body.sidebar-visible {
     /* Offset for main content */
 }
 
+/* Chaque joueur de la bande : la photo, plus une pastille de présence posée
+   dans le coin. Le conteneur porte le positionnement de la pastille et de
+   l'infobulle. */
+.user-avatar-container {
+    position: relative;
+    display: block;
+    line-height: 0;
+    cursor: pointer;
+}
+
+.presence-dot {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    /* Le liseré sombre détache la pastille de la photo, quelle qu'elle soit */
+    border: 2px solid #0b0b0b;
+    pointer-events: none;
+}
+
+.user-avatar-container.is-online .presence-dot {
+    /* Vert plus clair que --success-color : sur 13 px, le vert sourd des
+       bandeaux passait pour du gris foncé. */
+    background: #57b368;
+    box-shadow: 0 0 8px rgba(87, 179, 104, 0.65);
+}
+
+.user-avatar-container.is-offline .presence-dot {
+    background: #6e6e6e;
+}
+
+/* Absent : la photo s'efface, sans disparaître. On lit d'un coup d'œil qui
+   est là et qui a seulement laissé son vote. */
+.user-avatar-container.is-offline .user-avatar-icon {
+    filter: grayscale(100%);
+    opacity: 0.5;
+}
+
+.user-avatar-container.is-offline:hover .user-avatar-icon {
+    opacity: 1;
+}
+
 /* Tooltip for avatar in sidebar */
 .user-avatar-container::before {
     content: attr(data-name);
@@ -1200,6 +1244,9 @@ body.sidebar-visible {
     padding: 6px 12px;
     border-radius: 4px;
     font-size: 0.85em;
+    /* Le conteneur est en line-height: 0 pour coller à la photo : sans cette
+       ligne, l'infobulle se réduirait à un trait. */
+    line-height: 1.4;
     white-space: nowrap;
     opacity: 0;
     pointer-events: none;
@@ -1220,14 +1267,24 @@ body.sidebar-visible {
     object-fit: cover;
     border: 2px solid transparent;
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-    filter: grayscale(40%);
+    /* Plus de désaturation par défaut : le gris signale désormais l'absence,
+       il ne doit plus toucher ceux qui sont là. */
 }
 
-.gnome-band .user-avatar-icon:hover {
+/* Le survol vise le conteneur : la pastille grandit avec la photo au lieu de
+   rester plantée à côté. */
+.gnome-band .user-avatar-container:hover .user-avatar-icon {
     filter: grayscale(0%);
-    transform: scale(1.15);
     border-color: var(--accent-color);
     box-shadow: 0 0 15px rgba(212, 175, 55, 0.4);
+}
+
+.gnome-band .user-avatar-container {
+    transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.gnome-band .user-avatar-container:hover {
+    transform: scale(1.15);
 }
 
 
@@ -1381,6 +1438,13 @@ body.sidebar-visible {
     .gnome-band .user-avatar-icon {
         width: 34px;
         height: 34px;
+    }
+
+    /* Pastille proportionnée à la vignette réduite */
+    .gnome-band .presence-dot {
+        width: 10px;
+        height: 10px;
+        border-width: 1.5px;
     }
 
     /* L'infobulle du pseudo pointait vers la droite, hors écran */
@@ -2030,10 +2094,14 @@ select.luxury-input option:disabled {
     display: grid;
     grid-template-columns: minmax(0, 1.3fr) minmax(320px, 1fr);
     gap: var(--space-5);
-    align-items: start;
+    /* stretch et non start : la colonne de gauche prend toute la hauteur de la
+       ligne, ce qui permet au bloc des suggestions d'absorber le vide laissé
+       sous le bouton d'envoi quand le classement descend plus bas. */
+    align-items: stretch;
     margin-bottom: var(--space-5);
 }
 
+.vote-main,
 .vote-side {
     display: flex;
     flex-direction: column;
@@ -2044,9 +2112,94 @@ select.luxury-input option:disabled {
     min-width: 0;
 }
 
+.vote-main>*,
 .vote-side>*,
 .dashboard-side>* {
     min-width: 0;
+}
+
+/* Les jeux déjà proposés, sous le formulaire : c'est ce bloc qui comble le vide
+   sous « Soumettre mon Vote ».
+   flex-basis 0 : le bloc ne compte pas dans la hauteur naturelle de la colonne,
+   il se contente d'occuper ce que la colonne de droite laisse en trop. Il ne
+   crée donc jamais le vide inverse ; s'il y a trop de jeux, la liste défile. */
+.vote-suggestions {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 0;
+    /* Plancher : en dessous, la liste se réduit à une ligne coincée entre le
+       titre et le bord, ce qui est pire que le vide qu'on voulait combler. */
+    min-height: 240px;
+    padding: var(--space-5);
+    overflow: hidden;
+}
+
+/* En-tête resserré : ici, chaque pixel repris au titre va aux jeux */
+.vote-suggestions .section-title {
+    margin-bottom: var(--space-2);
+    padding-bottom: var(--space-2);
+    font-size: var(--text-base);
+}
+
+.vote-suggestions .panel-section__hint {
+    margin-bottom: 0;
+}
+
+.suggestion-chips {
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: var(--space-2);
+    margin-top: var(--space-3);
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.suggestion-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    font-family: var(--font-body);
+    font-size: var(--text-sm);
+    color: var(--secondary-text);
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-pill);
+    cursor: pointer;
+    transition: color var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.suggestion-chip:hover {
+    color: var(--accent-color);
+    background: var(--accent-a05);
+    border-color: var(--accent-a40);
+}
+
+.suggestion-chip__score {
+    font-variant-numeric: tabular-nums;
+    font-size: var(--text-xs);
+    color: var(--muted-text);
+}
+
+.suggestion-chip:hover .suggestion-chip__score {
+    color: var(--accent-color);
+}
+
+/* Vignette du jeu : reprend celle du classement, en plus petit */
+.suggestion-chip__icon {
+    width: 20px;
+    height: 20px;
+    object-fit: cover;
+    border-radius: var(--radius-soft);
+}
+
+.suggestion-empty {
+    margin: 0;
+    color: var(--muted-text);
+    font-size: var(--text-sm);
+    font-style: italic;
 }
 
 .results-container .chart-details,
@@ -2111,6 +2264,20 @@ select.luxury-input option:disabled {
 @media (max-width: 1100px) {
     .vote-layout {
         grid-template-columns: 1fr;
+    }
+
+    /* Une seule colonne : il n'y a plus de vide à combler, et une liste qui
+       défile dans une page qui défile déjà est pénible. Le bloc reprend sa
+       hauteur naturelle. */
+    .vote-suggestions {
+        flex: 0 0 auto;
+        min-height: 0;
+        overflow: visible;
+    }
+
+    .suggestion-chips {
+        flex: 0 0 auto;
+        overflow: visible;
     }
 }
 
@@ -2179,9 +2346,14 @@ select.luxury-input option:disabled {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: var(--space-2);
+    /* Le chevron est sorti du flux (position: absolute plus bas) : dans le flux,
+       il poussait le libellé d'une demi-largeur vers la gauche et le titre
+       paraissait décentré. */
+    position: relative;
     width: 100%;
-    padding: var(--space-3) var(--space-4);
+    /* Marge latérale identique des deux côtés, assez large pour que le chevron
+       ne chevauche pas un libellé long : le centrage reste vrai. */
+    padding: var(--space-3) var(--space-6);
     font-family: var(--font-body);
     font-size: var(--text-sm);
     letter-spacing: 0.5px;
@@ -2205,6 +2377,10 @@ select.luxury-input option:disabled {
 .chart-details summary::after,
 #polls-history-box summary::after {
     content: '▾';
+    position: absolute;
+    right: var(--space-4);
+    top: 50%;
+    transform: translateY(-50%);
     font-size: 0.9em;
     transition: transform var(--transition-fast);
 }
@@ -2212,7 +2388,7 @@ select.luxury-input option:disabled {
 .link-steam[open] summary::after,
 .chart-details[open] summary::after,
 #polls-history-box[open] summary::after {
-    transform: rotate(180deg);
+    transform: translateY(-50%) rotate(180deg);
 }
 
 .link-steam summary:hover,

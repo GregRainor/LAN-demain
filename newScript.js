@@ -65,6 +65,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let globalVotes = {};
     let globalSettings = { isVotingOpen: true, topGamesCount: 10, isLanActive: false };
     let globalUsers = {};
+    // Fiches durables (nom + avatar). /status disparaît à la déconnexion : sans
+    // ce miroir, un joueur qui a voté puis fermé l'onglet n'avait plus de photo.
+    let globalProfiles = {};
     let appInitialized = false;
     let isEditing = false;
     const imageCache = new Map();
@@ -285,9 +288,59 @@ document.addEventListener('DOMContentLoaded', () => {
         return pending;
     }
 
-    function renderActiveUsers(users) {
+    // Avatar de repli pour un joueur dont on n'a pas encore la photo Google :
+    // ses initiales sur un fond sombre valent mieux qu'une image cassée.
+    function initialsAvatar(name) {
+        const initials = String(name || '?')
+            .trim()
+            .split(/\s+/)
+            .slice(0, 2)
+            .map(word => word[0] || '')
+            .join('')
+            .toUpperCase() || '?';
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+            <rect width="64" height="64" fill="#1c1c1c"/>
+            <text x="32" y="41" font-family="Georgia, serif" font-size="26" fill="#8a7a45"
+                  text-anchor="middle">${initials}</text></svg>`;
+        return 'data:image/svg+xml,' + encodeURIComponent(svg);
+    }
+
+    // Le trombinoscope réunit trois sources : qui est connecté (/status), qui a
+    // voté (lan/votes) et les fiches durables (lan/users). Un joueur qui a voté
+    // reste affiché même hors ligne : c'est lui qu'on cherche du regard.
+    function buildRoster() {
+        const roster = new Map();
+
+        const put = (uid, name, avatar, online) => {
+            const existing = roster.get(uid) || { uid, name: '', avatar: '', online: false };
+            roster.set(uid, {
+                uid,
+                name: name || existing.name,
+                avatar: avatar || existing.avatar,
+                online: existing.online || online
+            });
+        };
+
+        // L'interface téléphone écrit « photo » là où le bureau écrit « avatar » :
+        // on accepte les deux, sinon les joueurs sur mobile perdaient leur image.
+        Object.entries(globalUsers || {}).forEach(([uid, u]) => put(uid, u && u.name, u && (u.avatar || u.photo), true));
+        Object.entries(globalProfiles || {}).forEach(([uid, p]) => put(uid, p && p.name, p && p.avatar, false));
+        Object.entries(globalVotes || {}).forEach(([uid, v]) => put(uid, v && v.name, null, false));
+
+        // Les fiches seules ne suffisent pas à figurer dans la bande : il faut
+        // être connecté ou avoir voté, sinon d'anciens invités traîneraient.
+        const kept = [...roster.values()].filter(p => p.online || (globalVotes && globalVotes[p.uid]));
+
+        // Les connectés d'abord, puis par nom : la bande reste stable d'un
+        // rendu à l'autre au lieu de suivre l'ordre des clés Firebase.
+        return kept.sort((a, b) => {
+            if (a.online !== b.online) return a.online ? -1 : 1;
+            return String(a.name).localeCompare(String(b.name), 'fr');
+        });
+    }
+
+    function renderActiveUsers() {
         const sidebar = document.getElementById('active-users-sidebar');
-        const roleSelect = document.getElementById('role-user-select');
         const body = document.body;
         if (!sidebar) return;
 
@@ -297,9 +350,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (sel) sel.innerHTML = '<option value="">Sélectionner un joueur...</option>';
         });
 
-        const userCount = users ? Object.keys(users).length : 0;
+        const roster = buildRoster();
 
-        if (userCount > 0) {
+        if (roster.length > 0) {
             sidebar.classList.add('visible');
             body.classList.add('sidebar-visible');
         } else {
@@ -307,30 +360,41 @@ document.addEventListener('DOMContentLoaded', () => {
             body.classList.remove('sidebar-visible');
         }
 
-        for (const uid in users) {
-            const user = users[uid];
-            const img = document.createElement('img');
-            img.src = user.avatar;
-            img.title = user.name;
-            img.className = 'user-avatar-icon';
+        roster.forEach(player => {
+            const slot = document.createElement('div');
+            slot.className = 'user-avatar-container ' + (player.online ? 'is-online' : 'is-offline');
+            slot.dataset.name = `${player.name || 'Joueur'} — ${player.online ? 'connecté' : 'déconnecté'}`;
 
-            img.addEventListener('click', () => {
-                showPlayerVotesModal(uid, user.name, globalVotes);
+            const img = document.createElement('img');
+            img.src = player.avatar || initialsAvatar(player.name);
+            img.alt = player.name || 'Joueur';
+            img.className = 'user-avatar-icon';
+            // Une photo Google périmée renverrait une image cassée : on retombe
+            // sur les initiales plutôt que sur l'icône de vignette absente.
+            img.addEventListener('error', () => { img.src = initialsAvatar(player.name); });
+            slot.appendChild(img);
+
+            const dot = document.createElement('span');
+            dot.className = 'presence-dot';
+            slot.appendChild(dot);
+
+            slot.addEventListener('click', () => {
+                showPlayerVotesModal(player.uid, player.name, globalVotes);
             });
 
-            sidebar.appendChild(img);
+            sidebar.appendChild(slot);
 
             // Populate both role selects (View 3 admin panel + Active LAN admin panel)
             ['role-user-select', 'role-user-select-lan'].forEach(selectId => {
                 const sel = document.getElementById(selectId);
                 if (sel) {
                     const opt = document.createElement('option');
-                    opt.value = uid;
-                    opt.textContent = user.name;
+                    opt.value = player.uid;
+                    opt.textContent = player.name || player.uid;
                     sel.appendChild(opt);
                 }
             });
-        }
+        });
     }
 
     // Table « nom normalisé -> casse d'affichage », construite une fois par
@@ -437,6 +501,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 const userData = { name: user.displayName, avatar: user.photoURL };
                 userStatusRef.set(userData);
                 userStatusRef.onDisconnect().remove();
+                // Copie qui survit à la déconnexion : /status est effacé en
+                // partant, la fiche reste pour afficher la photo d'un absent.
+                db.ref('lan/users/' + user.uid).update({
+                    name: user.displayName || '',
+                    avatar: user.photoURL || '',
+                    lastSeen: Date.now()
+                }).catch(() => { /* profil non critique : le vote passe avant */ });
             }
         });
 
@@ -448,7 +519,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         db.ref('/status').on('value', snapshot => {
             globalUsers = snapshot.val() || {};
-            renderActiveUsers(globalUsers);
+            renderActiveUsers();
+        });
+
+        db.ref('lan/users').on('value', snapshot => {
+            globalProfiles = snapshot.val() || {};
+            renderActiveUsers();
         });
 
         eventsRef.on('value', (snapshot) => {
@@ -543,6 +619,8 @@ document.addEventListener('DOMContentLoaded', () => {
         votesRef.on('value', (snapshot) => {
             globalVotes = snapshot.val() || {};
             renderDashboard(globalVotes, user);
+            // Un nouveau votant doit rejoindre le trombinoscope même hors ligne.
+            renderActiveUsers();
 
             const selectedUserId = voterSelectMenu.value || user.uid;
             if (!isEditing || selectedUserId !== user.uid) {
@@ -694,10 +772,19 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     if (voteForm) {
+        // La liste des suggestions se recalcule après la frappe, pas pendant :
+        // redessiner à chaque touche ferait clignoter les vignettes.
+        let suggestionsTimer = null;
+        const refreshSuggestionsSoon = () => {
+            clearTimeout(suggestionsTimer);
+            suggestionsTimer = setTimeout(() => renderVoteSuggestions(), 400);
+        };
+
         voteForm.addEventListener('input', () => {
             if (voterSelectMenu.value === '' || (auth.currentUser && voterSelectMenu.value === auth.currentUser.uid)) {
                 isEditing = true;
             }
+            refreshSuggestionsSoon();
         });
 
         voteForm.addEventListener('click', (e) => {
@@ -707,6 +794,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             if (e.target.classList.contains('remove-game-btn')) {
                 e.target.closest('.game-input-wrapper').remove();
+                renderVoteSuggestions();
             }
             const searchButton = e.target.closest('.steam-search-btn');
             if (searchButton) {
@@ -807,6 +895,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (response.ok) {
                 const data = await response.json();
                 inputField.value = data.name;
+                // Écriture par script : aucun événement input n'est émis, donc
+                // les suggestions ne se recalculeraient pas toutes seules.
+                renderVoteSuggestions();
                 showToast(`Nom corrigé : « ${data.name} »`, 'success');
             } else {
                 showToast('Jeu non trouvé sur Steam.', 'error');
@@ -935,6 +1026,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         });
+
+        renderVoteSuggestions();
     }
 
     function renderKPIs(gamesData, votes) {
@@ -1065,6 +1158,84 @@ document.addEventListener('DOMContentLoaded', () => {
         renderClosedResults(sortedGames);
         renderActiveLanGames(sortedGames);
         renderActiveLanAllGames(sortedGames);
+        renderVoteSuggestions(sortedGames);
+    }
+
+    // Jeux déjà proposés par d'autres et absents du bulletin en cours d'édition.
+    // Les retaper à la main, c'est risquer une deuxième orthographe du même jeu,
+    // donc un score coupé en deux : un clic vaut mieux qu'une saisie.
+    function renderVoteSuggestions(sortedGames) {
+        const panel = document.getElementById('vote-suggestions');
+        const box = document.getElementById('vote-suggestion-chips');
+        if (!panel || !box) return;
+
+        const games = sortedGames || calculateScores(globalVotes);
+
+        // Ce qui est déjà dans le formulaire, y compris ce qui vient d'être tapé
+        // sans être encore enregistré.
+        const alreadyPicked = new Set();
+        document.querySelectorAll('#vote-form .game-input-list input').forEach(input => {
+            const normalized = normalizeGameName(input.value);
+            if (normalized) alreadyPicked.add(normalized);
+        });
+
+        const missing = games.filter(game => !alreadyPicked.has(normalizeGameName(game.name)));
+
+        box.innerHTML = '';
+
+        if (missing.length === 0) {
+            // Le message va dans la liste, pas dans le panneau : sinon la liste
+            // vide, qui s'étire, le repousserait tout en bas du cadre.
+            const message = document.createElement('p');
+            message.className = 'suggestion-empty';
+            message.textContent = games.length === 0
+                ? 'Personne n\'a encore proposé de jeu. Ouvrez le bal.'
+                : 'Vous avez déjà tous les jeux proposés dans votre bulletin.';
+            box.appendChild(message);
+            return;
+        }
+
+        missing.forEach(game => {
+            const chip = document.createElement('button');
+            chip.type = 'button';
+            chip.className = 'suggestion-chip';
+            chip.title = `Ajouter « ${game.name} » à vos Autres`;
+
+            const icon = document.createElement('img');
+            icon.src = DEFAULT_GAME_ICON;
+            icon.alt = '';
+            icon.className = 'suggestion-chip__icon';
+            getGameImage(game.name).then(url => { icon.src = url; });
+            chip.appendChild(icon);
+
+            chip.append(game.name);
+
+            const score = document.createElement('span');
+            score.className = 'suggestion-chip__score';
+            score.textContent = `${game.score} pt${game.score > 1 ? 's' : ''}`;
+            chip.appendChild(score);
+
+            chip.addEventListener('click', () => addSuggestionToVote(game.name));
+            box.appendChild(chip);
+        });
+    }
+
+    function addSuggestionToVote(gameName) {
+        const list = document.querySelector('#vote-form .priority-group[data-priority="p_other"] .game-input-list');
+        if (!list) return;
+
+        // Un champ vide traîne souvent en fin de liste : on le remplit plutôt
+        // que d'en empiler un nouveau juste en dessous.
+        const blank = [...list.querySelectorAll('input')].find(input => !input.value.trim());
+        if (blank) {
+            blank.value = gameName;
+        } else {
+            createInput(gameName, list.querySelectorAll('input').length === 0, list);
+        }
+
+        isEditing = true;
+        renderVoteSuggestions();
+        showToast(`« ${gameName} » ajouté à vos Autres. Pensez à soumettre.`);
     }
 
     // Archive votes snapshot to lan/history when admin closes voting
