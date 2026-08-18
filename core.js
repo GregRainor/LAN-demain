@@ -14,6 +14,20 @@ const escapeHtml = (str) => {
     return str.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 };
 
+// N'accepte qu'une URL http(s) avant de la poser sur un href/src. Les URL de
+// liens nous viennent d'API tierces (ITAD, Wikipédia) : si l'une d'elles était
+// compromise, un `javascript:` posé sur un href s'exécuterait au clic. Toute
+// URL non http(s) est remplacée par un « # » inerte.
+const safeHttpUrl = (url, fallback = '#') => {
+    if (typeof url !== 'string') return fallback;
+    try {
+        const parsed = new URL(url, window.location.origin);
+        return (parsed.protocol === 'http:' || parsed.protocol === 'https:') ? parsed.href : fallback;
+    } catch (_e) {
+        return fallback;
+    }
+};
+
 function levenshtein(s1, s2) { s1 = s1.toLowerCase(); s2 = s2.toLowerCase(); const costs = []; for (let i = 0; i <= s1.length; i++) { let lastValue = i; for (let j = 0; j <= s2.length; j++) { if (i === 0) costs[j] = j; else if (j > 0) { let newValue = costs[j - 1]; if (s1.charAt(i - 1) !== s2.charAt(j - 1)) newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1; costs[j - 1] = lastValue; lastValue = newValue; } } if (i > 0) costs[s2.length] = lastValue; } return costs[s2.length]; }
 
 function checkTypos(newGames, currentVotes) {

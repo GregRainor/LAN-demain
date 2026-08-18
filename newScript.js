@@ -2372,6 +2372,10 @@ document.addEventListener('DOMContentLoaded', () => {
         hlsLoader = new Promise((resolve, reject) => {
             const script = document.createElement('script');
             script.src = 'https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js';
+            // SRI : le CDN ne peut pas nous servir un hls.js altéré sans que le
+            // navigateur refuse de l'exécuter.
+            script.integrity = 'sha384-9v3HcdYrO3D+OPDTjZ40RXocgE4GtXVCd3/mCS62JsM93JXgI1afJVuwjFvsu6ni';
+            script.crossOrigin = 'anonymous';
             script.onload = () => resolve(window.Hls);
             script.onerror = () => reject(new Error('hls.js indisponible'));
             document.head.appendChild(script);
@@ -2437,7 +2441,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Apparition en cascade : les prix se posent l'un après l'autre
             row.classList.add('fade-in-up');
             row.style.setProperty('--stagger', `${index * 0.05}s`);
-            row.href = deal.url || '#';
+            row.href = safeHttpUrl(deal.url);
             row.target = '_blank';
             row.rel = 'noopener noreferrer';
 
@@ -2673,7 +2677,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const storeQuery = encodeURIComponent(wiki.title || gameName);
         const steamLink = document.getElementById('game-details-link');
-        steamLink.href = wiki.url || '#';
+        steamLink.href = safeHttpUrl(wiki.url);
         steamLink.textContent = 'Wikipédia';
         document.getElementById('game-details-ig').href =
             `https://www.instant-gaming.com/fr/rechercher/?q=${storeQuery}`;
@@ -4731,7 +4735,10 @@ document.addEventListener('DOMContentLoaded', () => {
             message: message,
             timestamp: firebase.database.ServerValue.TIMESTAMP,
             read: false,
-            type: type
+            type: type,
+            // Les règles Firebase exigent senderId === auth.uid : une notif est
+            // toujours attribuable à l'expéditeur réel (fin de l'usurpation anonyme).
+            senderId: (auth.currentUser && auth.currentUser.uid) || null
         });
     }
 

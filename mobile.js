@@ -2134,7 +2134,10 @@ function sendNotification(targetUid, message, type = 'info') {
         message,
         timestamp: firebase.database.ServerValue.TIMESTAMP,
         read: false,
-        type
+        type,
+        // Les règles Firebase exigent senderId === auth.uid : une notif est
+        // toujours attribuable à l'expéditeur réel (fin de l'usurpation anonyme).
+        senderId: (auth.currentUser && auth.currentUser.uid) || null
     });
 }
 

@@ -8,7 +8,13 @@ function normalize(str) {
         .trim();
 }
 
+import { guard } from './_guard.js';
+
 export default async function handler(request, response) {
+    // Endpoint public (recherche Steam sans clé), appelé en rafale par la
+    // marquee : contrôle d'origine seul, pas de rate-limit par IP.
+    if (guard(request, response)) return;
+
     const gameName = request.query.name;
     // Deux besoins opposés sur le même endpoint :
     //  - les vignettes exigent une correspondance exacte (sinon League of

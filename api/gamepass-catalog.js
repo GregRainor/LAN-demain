@@ -30,7 +30,12 @@ function chunk(arr, size) {
     return out;
 }
 
+import { guard } from './_guard.js';
+
 export default async function handler(request, response) {
+    // Endpoint public (catalogue Game Pass, sans clé) : contrôle d'origine seul.
+    if (guard(request, response)) return;
+
     const market = (request.query.market || 'FR').toUpperCase();
     const language = request.query.language || 'fr-fr';
 

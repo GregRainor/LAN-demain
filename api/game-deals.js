@@ -11,7 +11,12 @@ const ITAD = 'https://api.isthereanydeal.com';
 // Prix en euros et boutiques disponibles en France
 const COUNTRY = 'FR';
 
+import { guard } from './_guard.js';
+
 export default async function handler(request, response) {
+    // Consomme ITAD_API_KEY : origine + rate-limit
+    if (guard(request, response, { limit: 100 })) return;
+
     const { appid, title } = request.query;
 
     if (!appid && !title) {

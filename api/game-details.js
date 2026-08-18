@@ -48,7 +48,13 @@ function pickTrailer(movies) {
     };
 }
 
+import { guard } from './_guard.js';
+
 export default async function handler(request, response) {
+    // Endpoint public (données Steam publiques) : contrôle d'origine seul,
+    // pas de rate-limit — la marquee tire beaucoup d'images en rafale.
+    if (guard(request, response)) return;
+
     const { appid, name } = request.query;
 
     if (!appid && !name) {

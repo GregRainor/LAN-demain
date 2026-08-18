@@ -39,7 +39,12 @@ async function searchTitle(lang, query, hint) {
     return data?.query?.search?.[0]?.title || null;
 }
 
+import { guard } from './_guard.js';
+
 export default async function handler(request, response) {
+    // Endpoint public (API Wikipédia, sans clé) : contrôle d'origine seul.
+    if (guard(request, response)) return;
+
     const { name } = request.query;
 
     if (!name) {
