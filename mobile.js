@@ -19,6 +19,7 @@ const state = {
     votes: {},
     roles: {},
     status: {},
+    profiles: {},
     polls: {},
     foodRuns: {},
     events: {},
@@ -34,6 +35,8 @@ const state = {
    sinon la moindre mise à jour temps réel effacerait ce que le joueur tape. */
 let voteDraft = null;
 let currentScreen = 'soiree';
+/* Notre entrée dans /status : une par session ouverte, pas une par joueur. */
+let myConnectionRef = null;
 /* La LAN terminée, on amène le joueur au bilan une seule fois : ensuite il
    navigue où il veut sans qu'on le ramène de force à chaque mise à jour. */
 let recapShown = false;
@@ -82,13 +85,19 @@ function fallbackAvatar(name) {
 
 function playerName(uid) {
     if (state.votes[uid] && state.votes[uid].name) return state.votes[uid].name;
-    if (state.status[uid] && state.status[uid].name) return state.status[uid].name;
+    const identity = statusIdentity(state.status[uid]);
+    if (identity && identity.name) return identity.name;
+    if (state.profiles[uid] && state.profiles[uid].name) return state.profiles[uid].name;
     if (uid === (state.user && state.user.uid)) return state.user.displayName || 'Moi';
     return 'Un joueur';
 }
 
 function playerPhoto(uid) {
-    if (state.status[uid] && state.status[uid].photo) return state.status[uid].photo;
+    const identity = statusIdentity(state.status[uid]);
+    if (identity && (identity.photo || identity.avatar)) return identity.photo || identity.avatar;
+    /* Fiche durable : elle survit à la déconnexion, contrairement à /status. */
+    const profile = state.profiles[uid];
+    if (profile && profile.avatar) return profile.avatar;
     if (uid === (state.user && state.user.uid) && state.user.photoURL) return state.user.photoURL;
     return fallbackAvatar(playerName(uid));
 }
@@ -384,7 +393,13 @@ $('m-login').addEventListener('click', () => {
 
 $('m-logout').addEventListener('click', () => {
     const user = auth.currentUser;
-    if (user) db.ref('/status/' + user.uid).remove();
+    /* Seulement cette session : le PC du même joueur reste connecté. */
+    if (myConnectionRef) {
+        myConnectionRef.remove();
+        myConnectionRef = null;
+    } else if (user) {
+        db.ref('/status/' + user.uid).remove();
+    }
     auth.signOut();
 });
 
@@ -406,14 +421,17 @@ function watch(path, handler) {
 }
 
 function boot(user) {
-    const statusRef = db.ref('/status/' + user.uid);
+    /* Une clé par session : le même joueur ouvre souvent le téléphone en plus
+       du PC, et fermer l'un effaçait la présence de l'autre. */
+    myConnectionRef = db.ref('/status/' + user.uid).push();
     db.ref('.info/connected').on('value', snap => {
         if (snap.val() === false) return;
-        statusRef.onDisconnect().remove();
-        statusRef.set({
+        myConnectionRef.onDisconnect().remove();
+        myConnectionRef.set({
             state: 'online',
             name: user.displayName || user.email,
-            photo: user.photoURL || null
+            photo: user.photoURL || null,
+            device: 'téléphone'
         });
         /* Fiche durable : /status s'efface en partant, mais le bureau affiche
            les votants absents et a besoin de leur photo. */
@@ -442,6 +460,7 @@ function boot(user) {
         $('m-plus-role').textContent = state.isAdmin ? 'Admin' : (state.isMixologist ? 'Mixologue' : '');
     });
     watch('/status', value => { state.status = value || {}; });
+    watch('lan/users', value => { state.profiles = value || {}; });
     watch('lan/polls', value => { state.polls = value || {}; });
     watch('lan/foodRuns', value => { state.foodRuns = value || {}; });
     watch('lan/events', value => { state.events = value || {}; });
@@ -519,7 +538,10 @@ function renderPresence() {
     const stack = $('m-presence-stack');
     const label = $('m-presence-label');
     stack.innerHTML = '';
-    const online = Object.keys(state.status).filter(uid => state.status[uid] && state.status[uid].state === 'online');
+    /* Le nœud d'un joueur n'existe que tant qu'il lui reste une session ouverte :
+       sa seule présence vaut « en ligne ». L'ancien test sur state === 'online'
+       ne voyait plus personne depuis que les sessions sont imbriquées. */
+    const online = Object.keys(state.status).filter(uid => statusIdentity(state.status[uid]));
     online.slice(0, 5).forEach(uid => {
         const img = el('img');
         img.src = playerPhoto(uid);

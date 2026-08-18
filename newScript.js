@@ -68,6 +68,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Fiches durables (nom + avatar). /status disparaît à la déconnexion : sans
     // ce miroir, un joueur qui a voté puis fermé l'onglet n'avait plus de photo.
     let globalProfiles = {};
+    // Notre entrée dans /status : une par session, pas une par joueur.
+    let myConnectionRef = null;
     let appInitialized = false;
     let isEditing = false;
     const imageCache = new Map();
@@ -120,7 +122,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     logoutBtn.addEventListener('click', () => {
         const user = auth.currentUser;
-        if (user) {
+        // On ne retire que cette session : le téléphone du même joueur, s'il est
+        // ouvert, reste connecté.
+        if (myConnectionRef) {
+            myConnectionRef.remove();
+            myConnectionRef = null;
+        } else if (user) {
             db.ref('/status/' + user.uid).remove();
         }
         auth.signOut();
@@ -321,9 +328,13 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         };
 
+        // statusIdentity aplatit les sessions du joueur en une seule fiche.
         // L'interface téléphone écrit « photo » là où le bureau écrit « avatar » :
         // on accepte les deux, sinon les joueurs sur mobile perdaient leur image.
-        Object.entries(globalUsers || {}).forEach(([uid, u]) => put(uid, u && u.name, u && (u.avatar || u.photo), true));
+        Object.entries(globalUsers || {}).forEach(([uid, node]) => {
+            const identity = statusIdentity(node);
+            if (identity) put(uid, identity.name, identity.avatar || identity.photo, true);
+        });
         Object.entries(globalProfiles || {}).forEach(([uid, p]) => put(uid, p && p.name, p && p.avatar, false));
         Object.entries(globalVotes || {}).forEach(([uid, v]) => put(uid, v && v.name, null, false));
 
@@ -493,14 +504,16 @@ document.addEventListener('DOMContentLoaded', () => {
             updateVotingUIState();
         });
 
-        const userStatusRef = db.ref('/status/' + user.uid);
+        // Une clé par session ouverte : le même compte tourne souvent sur le PC
+        // et sur le téléphone, et fermer l'un ne doit pas déclarer l'autre parti.
+        myConnectionRef = db.ref('/status/' + user.uid).push();
         const connectedRef = db.ref('.info/connected');
 
         connectedRef.on('value', (snap) => {
             if (snap.val() === true) {
-                const userData = { name: user.displayName, avatar: user.photoURL };
-                userStatusRef.set(userData);
-                userStatusRef.onDisconnect().remove();
+                const userData = { name: user.displayName, avatar: user.photoURL, device: 'bureau' };
+                myConnectionRef.set(userData);
+                myConnectionRef.onDisconnect().remove();
                 // Copie qui survit à la déconnexion : /status est effacé en
                 // partant, la fiche reste pour afficher la photo d'un absent.
                 db.ref('lan/users/' + user.uid).update({

@@ -69,3 +69,24 @@ function calculateScores(votes) {
         return { name: displayName, score: gameScores[name] };
     }).sort((a, b) => b.score - a.score);
 }
+
+/* Présence multi-appareils.
+   /status/{uid} contient une entrée par session ouverte (PC, téléphone, second
+   onglet), chacune effacée par son propre onDisconnect. Une seule fiche par
+   joueur ne marchait pas : fermer le téléphone effaçait le nœud entier et le
+   PC, toujours connecté, passait pour absent.
+   Pendant le déploiement, les clients encore sur l'ancienne version écrivent
+   une fiche à plat : les deux formes doivent se lire. */
+function statusIdentity(node) {
+    if (!node || typeof node !== 'object') return null;
+
+    // Ancienne forme : les champs sont directement sur le nœud du joueur.
+    if (typeof node.name === 'string' || node.avatar || node.photo) return node;
+
+    const sessions = Object.values(node).filter(s => s && typeof s === 'object');
+    if (!sessions.length) return null;
+
+    // La session qui porte une photo l'emporte : une seule des deux interfaces
+    // l'a parfois enregistrée.
+    return sessions.find(s => s.avatar || s.photo) || sessions[0];
+}
