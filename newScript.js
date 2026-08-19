@@ -39,6 +39,41 @@ function showToast(message, type = 'success') {
     }, 4000);
 }
 
+/* Firebase accepte un second callback sur .on(), appelé quand la lecture
+   échoue : règle refusée, jeton expiré, transport bloqué. Aucun listener n'en
+   passait, si bien qu'un échec était parfaitement muet — l'écran restait vide
+   et rien n'indiquait pourquoi. C'est ce qui a laissé l'application morte sur
+   certains navigateurs sans que personne puisse la diagnostiquer. */
+const reportedDbErrors = new Set();
+
+function watchValue(ref, handler) {
+    ref.on('value', handler, (error) => {
+        const path = String(ref);
+        console.error('Lecture Firebase refusée :', path, error);
+        // Un seul message par chemin : une coupure fait échouer les douze
+        // listeners d'un coup, et douze toasts identiques n'apprennent rien
+        // de plus que le premier.
+        if (reportedDbErrors.has(path)) return;
+        reportedDbErrors.add(path);
+        showToast(`Base de données inaccessible (${error.code || 'erreur'}).`, 'error');
+    });
+    return ref;
+}
+
+/* Un transport bloqué (extension, CSP, pare-feu) ne déclenche aucune erreur :
+   la connexion reste simplement en attente et l'application semble vide sans
+   raison. Au bout de dix secondes sans connexion, on le dit. */
+function watchConnection(connectedRef, isConnected) {
+    let announced = false;
+    setTimeout(() => {
+        if (announced || isConnected()) return;
+        announced = true;
+        console.error('Aucune connexion à la Realtime Database après 10 s.');
+        showToast("Connexion à la base impossible. Un bloqueur de contenu ou le mode strict du navigateur peut en être la cause.", 'error');
+    }, 10000);
+    return connectedRef;
+}
+
 // --- INITIALISATION ---
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
@@ -507,7 +542,7 @@ document.addEventListener('DOMContentLoaded', () => {
         window.currentUserIsMixologist = false;
 
         // Listen for user roles
-        db.ref('lan/roles').on('value', snapshot => {
+        watchValue(db.ref('lan/roles'), snapshot => {
             const roles = snapshot.val() || {};
             const myRole = roles[user.uid];
 
@@ -548,24 +583,26 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
+        watchConnection(connectedRef, () => firebaseConnected);
+
         votesRef = db.ref('lan/votes');
         settingsRef = db.ref('lan/settings');
         eventsRef = db.ref('lan/events');
         cocktailsRef = db.ref('lan/cocktails');
         notificationsRef = db.ref('lan/notifications/' + user.uid);
 
-        db.ref('/status').on('value', snapshot => {
+        watchValue(db.ref('/status'), snapshot => {
             globalUsers = snapshot.val() || {};
             reassertPresence();
             renderActiveUsers();
         });
 
-        db.ref('lan/users').on('value', snapshot => {
+        watchValue(db.ref('lan/users'), snapshot => {
             globalProfiles = snapshot.val() || {};
             renderActiveUsers();
         });
 
-        eventsRef.on('value', (snapshot) => {
+        watchValue(eventsRef, (snapshot) => {
             const eventsData = snapshot.val() || {};
             window._latestEventsData = eventsData;
             renderEvents(eventsData, user);
@@ -585,20 +622,20 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }, 60000);
 
-        cocktailsRef.on('value', (snapshot) => {
+        watchValue(cocktailsRef, (snapshot) => {
             const cocktailsData = snapshot.val() || {};
             window._latestCocktailsData = cocktailsData;
             renderCocktails(cocktailsData, user);
             renderCocktailSummary(cocktailsData);
         });
 
-        notificationsRef.on('value', (snapshot) => {
+        watchValue(notificationsRef, (snapshot) => {
             renderNotifications(snapshot.val() || {}, user);
         });
 
         // Bibliothèques Steam, indexées par compte Steam. Le catalogue Game Pass
         // n'est téléchargé que si au moins une personne est marquée abonnée.
-        db.ref('lan/steamLibraries').on('value', (snapshot) => {
+        watchValue(db.ref('lan/steamLibraries'), (snapshot) => {
             groupLibraries = snapshot.val() || {};
             const needsGamepass = Object.values(groupLibraries).some(l => l.gamepass);
             if (needsGamepass && !gamepassCatalog) {
@@ -609,7 +646,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         // Sondages
-        db.ref('lan/polls').on('value', (snapshot) => {
+        watchValue(db.ref('lan/polls'), (snapshot) => {
             globalPolls = snapshot.val() || {};
             announceNewPolls();
             handlePollClosures();
@@ -618,14 +655,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         // Commandes groupées
-        db.ref('lan/foodRuns').on('value', (snapshot) => {
+        watchValue(db.ref('lan/foodRuns'), (snapshot) => {
             globalFoodRuns = snapshot.val() || {};
             renderFoodRuns();
             refreshRecapIfVisible();
         });
         buildPollOptionInputs(2);
 
-        settingsRef.on('value', (snapshot) => {
+        watchValue(settingsRef, (snapshot) => {
             const newSettings = snapshot.val() || { isVotingOpen: true, topGamesCount: 10, isLanActive: false };
 
             if (appInitialized && globalSettings.isVotingOpen === true && newSettings.isVotingOpen === false) {
@@ -665,7 +702,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        votesRef.on('value', (snapshot) => {
+        watchValue(votesRef, (snapshot) => {
             globalVotes = snapshot.val() || {};
             renderDashboard(globalVotes, user);
             // Un nouveau votant doit rejoindre le trombinoscope même hors ligne.

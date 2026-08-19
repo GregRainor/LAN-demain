@@ -412,14 +412,36 @@ $('m-goto-desktop').addEventListener('click', () => {
     location.reload();
 });
 
+/* Le second callback de .on() manquait : quand une lecture échouait (règle
+   refusée, jeton expiré, transport bloqué), l'écran restait vide sans le
+   moindre message. On le dit désormais, une fois par chemin — une coupure les
+   fait tous échouer d'un coup et répéter le même toast n'apprend rien. */
+const reportedDbErrors = new Set();
+
 function watch(path, handler) {
     const ref = db.ref(path);
     ref.on('value', snapshot => {
         handler(snapshot.val());
         if (state.ready) renderAll();
+    }, error => {
+        console.error('Lecture Firebase refusée :', path, error);
+        if (reportedDbErrors.has(path)) return;
+        reportedDbErrors.add(path);
+        showToast(`Base de données inaccessible (${error.code || 'erreur'}).`, 'error');
     });
     refs.push(ref);
     return ref;
+}
+
+/* Un transport bloqué (extension, CSP, navigateur en mode strict) ne lève
+   aucune erreur : la connexion reste en attente et l'application paraît vide
+   sans raison. Au bout de dix secondes, on le dit. */
+function watchConnection() {
+    setTimeout(() => {
+        if (firebaseConnected) return;
+        console.error('Aucune connexion à la Realtime Database après 10 s.');
+        showToast("Connexion impossible. Un bloqueur de contenu ou le mode strict du navigateur peut en être la cause.", 'error');
+    }, 10000);
 }
 
 function writeMyPresence(user) {
@@ -450,6 +472,7 @@ function boot(user) {
        du PC, et fermer l'un effaçait la présence de l'autre. */
     myConnectionRef = db.ref('/status/' + user.uid).push();
     myConnectionKey = myConnectionRef.key;
+    watchConnection();
     db.ref('.info/connected').on('value', snap => {
         firebaseConnected = snap.val() === true;
         if (!firebaseConnected) return;
