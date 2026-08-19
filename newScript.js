@@ -569,11 +569,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const eventsData = snapshot.val() || {};
             window._latestEventsData = eventsData;
             renderEvents(eventsData, user);
+            renderAgenda();
             checkEventReminders(eventsData, user);
         });
 
-        // Check reminders every 60 seconds
+        // Une minute suffit : rappels, compte à rebours et repère « maintenant »
+        // du programme se rafraîchissent ensemble.
         setInterval(() => {
+            if (auth.currentUser) {
+                renderWhenWhere();
+                renderAgenda();
+            }
             if (window._latestEventsData && auth.currentUser) {
                 checkEventReminders(window._latestEventsData, auth.currentUser);
             }
@@ -629,6 +635,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             globalSettings = newSettings;
             updateVotingUIState();
+            // La date de la LAN sert de jour par défaut au programme : les deux
+            // se rafraîchissent ensemble.
+            renderWhenWhere();
+            renderAgenda();
+            fillScheduleInputs();
 
             // On utilise window.currentUserIsAdmin (mis à jour par les rôles en DB) et non
             // une variable figée à la connexion, sinon un admin promu en cours de LAN a une UI incohérente
@@ -4062,10 +4073,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const now = new Date();
         const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
+        const today = currentDayKey(now);
+
         Object.entries(eventsData).forEach(([id, evt]) => {
             if (!evt.time || remindedEventIds.has(id)) return;
             // Only remind if the user has accepted this event
             if (!evt.rsvps || evt.rsvps[currentUser.uid] !== 'accepted') return;
+            // Un événement daté d'un autre jour ne se rappelle pas aujourd'hui :
+            // sans ce filtre, une LAN sur deux jours annonçait dès le samedi les
+            // tournois du dimanche.
+            const dayKey = eventDayKey(evt, globalSettings.lanDate || '');
+            if (dayKey && dayKey !== today) return;
             // Parse time "HH:MM"
             const [h, m] = evt.time.split(':').map(Number);
             if (isNaN(h) || isNaN(m)) return;
@@ -4093,6 +4111,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (targetId === 'lan-events' && window._latestEventsData) {
                 renderEvents(window._latestEventsData, auth.currentUser);
             }
+            if (targetId === 'lan-calendar') {
+                renderWhenWhere();
+                renderAgenda();
+            }
             // Deactivate all
             document.querySelectorAll('.lan-nav-list .nav-item').forEach(nav => nav.classList.remove('active'));
             document.querySelectorAll('.lan-subview').forEach(view => {
@@ -4111,15 +4133,29 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // 2. Modals (Events & Kocktails)
-    document.getElementById('btn-create-event')?.addEventListener('click', () => {
+    function openCreateEventModal() {
         const createModal = document.getElementById('create-event-modal');
         if (createModal) createModal.style.display = 'flex';
+
+        // Le jour part sur la date de la LAN : l'écrasante majorité des
+        // événements s'y déroule, et le laisser vide les jetait « sans date ».
+        const dateInput = document.getElementById('event-date');
+        if (dateInput && !dateInput.value) dateInput.value = globalSettings.lanDate || '';
 
         if (window.currentUserIsAdmin) {
             const toggleContainer = document.getElementById('event-global-toggle-container');
             if (toggleContainer) toggleContainer.style.display = 'flex';
         }
+    }
+
+    document.getElementById('btn-create-event')?.addEventListener('click', openCreateEventModal);
+    document.getElementById('btn-create-event-calendar')?.addEventListener('click', openCreateEventModal);
+
+    document.getElementById('btn-goto-calendar')?.addEventListener('click', () => {
+        document.querySelector('.lan-nav-list .nav-item[data-target="lan-calendar"]')?.click();
     });
+
+    bindScheduleForms();
 
     document.getElementById('cancel-event-btn')?.addEventListener('click', () => {
         const createModal = document.getElementById('create-event-modal');
@@ -4279,6 +4315,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const title = document.getElementById('event-title').value;
             const game = document.getElementById('event-game').value;
             const time = document.getElementById('event-time').value;
+            const date = document.getElementById('event-date')?.value || '';
             const slots = document.getElementById('event-slots').value;
             const desc = document.getElementById('event-desc')?.value || '';
             const isGlobal = document.getElementById('event-is-global')?.checked || false;
@@ -4290,6 +4327,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 description: desc,
                 game: game || '',
                 time: time || '',
+                date: date || '',
                 slots: slots ? parseInt(slots) : 0,
                 creatorId: user.uid,
                 creatorName: user.displayName,
@@ -4312,10 +4350,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         const users = snap.val() || {};
                         const notifType = isGlobal ? 'alert' : 'info';
                         const emoji = isGlobal ? '🌍' : '🎮';
+                        const when = describeEventWhen({ date, time });
                         Object.keys(users).forEach(uid => {
                             if (uid !== user.uid) {
                                 sendNotification(uid,
-                                    `${emoji} ${user.displayName} a créé un événement : "${title}" ${time ? 'à ' + time : ''}`,
+                                    `${emoji} ${user.displayName} a créé un événement : "${title}"${when ? ' ' + when : ''}`,
                                     notifType
                                 );
                             }
@@ -4415,6 +4454,323 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    /* ======================================================================
+       PROGRAMME : quand & où a lieu la LAN, puis le déroulé de la soirée.
+       Le calcul (jour, ordre, compte à rebours) vit dans core.js ; ici on ne
+       fait que le mettre à l'écran.
+       ====================================================================== */
+
+    const twoDigits = (n) => String(n).padStart(2, '0');
+
+    // "demain à 21:00", "à 21:00", "samedi 13 septembre" — vide si rien n'est su.
+    function describeEventWhen(evt) {
+        const dayKey = evt && parseDayKey(evt.date) ? String(evt.date).trim() : '';
+        const time = evt && parseClock(evt.time) !== null ? String(evt.time).trim() : '';
+        const distance = dayKey ? dayKeyDistance(currentDayKey(new Date()), dayKey) : null;
+
+        let day = '';
+        // Le jour même se passe de mention : « à 21:00 » suffit.
+        if (dayKey && distance !== 0) {
+            if (distance === 1) day = 'demain';
+            else day = parseDayKey(dayKey).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+        }
+
+        if (day && time) return `${day} à ${time}`;
+        return day || (time ? `à ${time}` : '');
+    }
+
+    /* --- Quand & où ------------------------------------------------------ */
+
+    const WHEN_WHERE_MOUNTS = ['when-where-voting', 'when-where-waiting', 'when-where-calendar'];
+
+    function buildWhenWhereContent(schedule) {
+        const fragment = document.createDocumentFragment();
+
+        const main = document.createElement('div');
+        main.className = 'when-where__main';
+
+        const eyebrow = document.createElement('span');
+        eyebrow.className = 'when-where__eyebrow';
+        eyebrow.textContent = 'Rendez-vous';
+        main.appendChild(eyebrow);
+
+        const when = document.createElement('p');
+        when.className = 'when-where__when';
+        when.textContent = schedule.when || 'Date encore à fixer';
+        if (schedule.time) {
+            const time = document.createElement('span');
+            time.className = 'when-where__time';
+            time.textContent = ` dès ${schedule.time}`;
+            when.appendChild(time);
+        }
+        main.appendChild(when);
+
+        if (schedule.place) {
+            const place = document.createElement('p');
+            place.className = 'when-where__place';
+            place.textContent = `📍 ${schedule.place}`;
+            main.appendChild(place);
+        }
+        fragment.appendChild(main);
+
+        const side = document.createElement('div');
+        side.className = 'when-where__side';
+
+        if (schedule.countdown) {
+            const countdown = document.createElement('span');
+            countdown.className = `when-where__countdown when-where__countdown--${schedule.state}`;
+            countdown.textContent = schedule.countdown;
+            side.appendChild(countdown);
+        }
+
+        if (schedule.startKey) {
+            const ics = document.createElement('button');
+            ics.className = 'gold-link-btn';
+            ics.textContent = '📆 Ajouter à mon agenda';
+            ics.addEventListener('click', downloadLanIcs);
+            side.appendChild(ics);
+        }
+        fragment.appendChild(side);
+
+        return fragment;
+    }
+
+    function renderWhenWhere() {
+        const schedule = describeLanSchedule(globalSettings, new Date());
+
+        WHEN_WHERE_MOUNTS.forEach(id => {
+            const mount = document.getElementById(id);
+            if (!mount) return;
+            mount.innerHTML = '';
+
+            if (!schedule) {
+                // Rien d'annoncé : seul l'admin voit le rappel. Les autres n'ont
+                // pas à contempler un cadre vide.
+                mount.classList.add('when-where--empty');
+                if (!window.currentUserIsAdmin) {
+                    mount.style.display = 'none';
+                    return;
+                }
+                mount.style.display = 'flex';
+                const hint = document.createElement('p');
+                hint.className = 'when-where__hint';
+                hint.textContent = 'Ni date ni lieu annoncés. Renseignez-les dans « Quand & où », au panneau Admin.';
+                mount.appendChild(hint);
+                return;
+            }
+
+            mount.classList.remove('when-where--empty');
+            mount.style.display = 'flex';
+            mount.appendChild(buildWhenWhereContent(schedule));
+        });
+    }
+
+    // Fichier .ics : chacun pose la LAN dans son propre agenda et n'a plus à
+    // se souvenir de la date.
+    function downloadLanIcs() {
+        const ics = buildLanIcs(globalSettings);
+        if (!ics) {
+            showToast("Aucune date n'est encore annoncée.", 'error');
+            return;
+        }
+
+        const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${(globalSettings.lanName || 'LAN Demain').replace(/[^\w\- ]+/g, '').trim() || 'lan'}.ics`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        // Certains navigateurs n'ont pas fini de lire le blob au retour du clic.
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+    }
+
+    /* --- Réglages « quand & où » (admin) --------------------------------- */
+
+    // Les deux panneaux d'admin (console fermée, LAN active) portent les mêmes
+    // champs data-schedule : un seul code les remplit et les enregistre.
+    function fillScheduleInputs() {
+        document.querySelectorAll('[data-schedule]').forEach(input => {
+            // Ne pas écraser une saisie en cours : la mise à jour temps réel
+            // arrive pendant que l'admin tape.
+            if (document.activeElement === input) return;
+            input.value = globalSettings[input.dataset.schedule] || '';
+        });
+    }
+
+    function bindScheduleForms() {
+        document.querySelectorAll('.schedule-form .schedule-save-btn').forEach(button => {
+            button.addEventListener('click', () => {
+                const form = button.closest('.schedule-form');
+                if (!form) return;
+
+                const update = {};
+                form.querySelectorAll('[data-schedule]').forEach(input => {
+                    update[input.dataset.schedule] = input.value.trim();
+                });
+
+                if (update.lanEndDate && update.lanDate && update.lanEndDate < update.lanDate) {
+                    showToast('La date de fin tombe avant le début.', 'error');
+                    return;
+                }
+
+                db.ref('lan/settings').update(update)
+                    .then(() => showToast('Date et lieu annoncés à tout le monde.', 'success'))
+                    .catch(error => showToast('Erreur : ' + error.message, 'error'));
+            });
+        });
+    }
+
+    /* --- Le programme ---------------------------------------------------- */
+
+    function buildNowMarker(now) {
+        const marker = document.createElement('li');
+        marker.className = 'agenda__now';
+        const label = document.createElement('span');
+        label.className = 'agenda__now-label';
+        label.textContent = `maintenant · ${twoDigits(now.getHours())}:${twoDigits(now.getMinutes())}`;
+        marker.appendChild(label);
+        return marker;
+    }
+
+    function buildAgendaSlot(evt, flags) {
+        const item = document.createElement('li');
+        item.className = 'agenda__slot';
+        if (flags.isPast) item.classList.add('is-past');
+        if (flags.isNext) item.classList.add('is-next');
+        if (evt.isGlobal) item.classList.add('is-global');
+
+        const time = document.createElement('span');
+        time.className = 'agenda__time';
+        // Un événement sans heure se joue « quelque part dans la soirée ».
+        time.textContent = evt.time || '· · ·';
+        item.appendChild(time);
+
+        const body = document.createElement('div');
+        body.className = 'agenda__body';
+
+        const title = document.createElement('h4');
+        title.className = 'agenda__title';
+        title.textContent = `${evt.isGlobal ? '🌍 ' : ''}${evt.title || 'Événement'}`;
+        if (flags.isNext) {
+            const tag = document.createElement('span');
+            tag.className = 'agenda__tag';
+            tag.textContent = 'à suivre';
+            title.appendChild(tag);
+        }
+        body.appendChild(title);
+
+        const rsvpCount = evt.rsvps ? Object.values(evt.rsvps).filter(v => v === 'accepted').length : 0;
+        const details = [];
+        if (evt.game) details.push(`🎮 ${evt.game}`);
+        details.push(evt.slots > 0 ? `👥 ${rsvpCount}/${evt.slots}` : `👥 ${rsvpCount}`);
+        if (evt.isAlcohol) details.push('🥃 jeu à boire');
+        if (evt.creatorName) details.push(`par ${evt.creatorName}`);
+
+        const meta = document.createElement('p');
+        meta.className = 'agenda__meta';
+        meta.textContent = details.join(' · ');
+        body.appendChild(meta);
+
+        item.appendChild(body);
+
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+            const accepted = evt.rsvps && evt.rsvps[currentUser.uid] === 'accepted';
+            const isCreator = evt.creatorId === currentUser.uid;
+
+            if (accepted && isCreator) {
+                const badge = document.createElement('span');
+                badge.className = 'badge badge--accent';
+                badge.textContent = '✓ Organisateur';
+                item.appendChild(badge);
+            } else if (accepted) {
+                const badge = document.createElement('button');
+                badge.className = 'badge badge--success badge--clickable';
+                badge.textContent = '✓ Inscrit';
+                badge.title = 'Cliquer pour annuler votre participation';
+                badge.addEventListener('click', () => {
+                    db.ref(`lan/events/${evt.id}/rsvps/${currentUser.uid}`).remove();
+                });
+                item.appendChild(badge);
+            } else {
+                const join = document.createElement('button');
+                join.className = 'gold-link-btn';
+                join.textContent = 'Participer';
+                join.addEventListener('click', () => {
+                    db.ref(`lan/events/${evt.id}/rsvps/${currentUser.uid}`).set('accepted');
+                    requestReminderPermission();
+                });
+                item.appendChild(join);
+            }
+        }
+
+        return item;
+    }
+
+    function renderAgenda() {
+        const mount = document.getElementById('agenda-timeline');
+        if (!mount) return;
+        mount.innerHTML = '';
+
+        const now = new Date();
+        const agenda = buildAgenda(window._latestEventsData || {}, globalSettings.lanDate || '');
+
+        if (!agenda.length) {
+            const empty = document.createElement('p');
+            empty.className = 'agenda__empty';
+            empty.textContent = "Le programme est encore vide. Créez un événement pour l'ouvrir.";
+            mount.appendChild(empty);
+            return;
+        }
+
+        const today = currentDayKey(now);
+        const nowOrder = nowNightMinutes(now);
+        const next = nextEventInAgenda(agenda, now);
+
+        agenda.forEach(day => {
+            const section = document.createElement('section');
+            section.className = 'agenda__day';
+            const isToday = !!day.dayKey && day.dayKey === today;
+            if (isToday) section.classList.add('agenda__day--today');
+
+            const head = document.createElement('header');
+            head.className = 'agenda__day-head';
+
+            const title = document.createElement('h3');
+            title.textContent = formatDayLabel(day.dayKey, now);
+            head.appendChild(title);
+
+            const count = document.createElement('span');
+            count.className = 'agenda__day-count';
+            count.textContent = `${day.events.length} événement${day.events.length > 1 ? 's' : ''}`;
+            head.appendChild(count);
+            section.appendChild(head);
+
+            const list = document.createElement('ol');
+            list.className = 'agenda__list';
+
+            // Le trait « maintenant » n'a de sens que sur la journée en cours.
+            let markerPlaced = !isToday;
+            day.events.forEach(evt => {
+                if (!markerPlaced && evt.order !== null && evt.order > nowOrder) {
+                    list.appendChild(buildNowMarker(now));
+                    markerPlaced = true;
+                }
+                list.appendChild(buildAgendaSlot(evt, {
+                    isPast: isEventPast(evt, now),
+                    isNext: !!next && next.id === evt.id
+                }));
+            });
+            // Tout est déjà passé : le trait ferme la journée.
+            if (!markerPlaced) list.appendChild(buildNowMarker(now));
+
+            section.appendChild(list);
+            mount.appendChild(section);
+        });
+    }
+
     // --- RENDER EVENTS ---
     function renderEvents(eventsData, currentUser) {
         const eventsList = document.getElementById('events-list');
@@ -4424,9 +4780,11 @@ document.addEventListener('DOMContentLoaded', () => {
         eventsList.innerHTML = '';
         previewList.innerHTML = '';
 
-        const eventsArray = Object.entries(eventsData).map(([id, data]) => ({ id, ...data }));
-        // Sort by creation time descending for now
-        eventsArray.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+        // Ordre du programme, et non ordre de création : la liste se lit comme
+        // la soirée se déroule, jour par jour puis heure par heure.
+        const now = new Date();
+        const agenda = buildAgenda(eventsData, globalSettings.lanDate || '');
+        const eventsArray = flattenAgenda(agenda);
 
         if (eventsArray.length === 0) {
             eventsList.innerHTML = '<p style="color:var(--secondary-text); font-style:italic;">Aucun événement actuellement.</p>';
@@ -4451,6 +4809,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const meta = document.createElement('div');
             meta.className = 'event-meta';
             if (evt.game) meta.innerHTML += `<span>🎮 ${escapeHtml(evt.game)}</span>`;
+            // Le jour n'apparaît que s'il n'est pas celui de la LAN : sur une
+            // soirée d'un seul soir, le répéter sur chaque carte est du bruit.
+            if (evt.dayKey && evt.dayKey !== (globalSettings.lanDate || '')) {
+                meta.innerHTML += `<span>📅 ${escapeHtml(formatDayLabel(evt.dayKey, now))}</span>`;
+            }
             if (evt.time) meta.innerHTML += `<span>🕒 ${escapeHtml(evt.time)}</span>`;
 
             const rsvpCount = evt.rsvps ? Object.values(evt.rsvps).filter(v => v === 'accepted').length : 0;
@@ -4551,21 +4914,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
             card.appendChild(actions);
             eventsList.appendChild(card);
+        });
 
-            // Add to preview up to 3
-            if (previewCount < 3) {
-                const previewItem = document.createElement('div');
-                previewItem.className = 'list-item';
-                previewItem.innerHTML = `
-                       <div>
-                           <div style="color: var(--primary-text); font-weight: 500;">${evt.isGlobal ? '🌍 ' : ''}${escapeHtml(evt.title)}</div>
-                           <div style="font-size: 0.85em; color: var(--secondary-text);">${escapeHtml(evt.game || '')} ${evt.time ? 'à ' + escapeHtml(evt.time) : ''}</div>
-                       </div>
-                       <div style="font-size: 0.85em; color: var(--accent-color);">👥 ${rsvpCount}</div>
-                   `;
-                previewList.appendChild(previewItem);
-                previewCount++;
-            }
+        /* Aperçu du tableau de bord : ce qui reste à venir. Une soirée entière
+           déjà jouée retombe sur les derniers événements, faute de mieux. */
+        const upcoming = eventsArray.filter(evt => !isEventPast(evt, now));
+        const previewSource = upcoming.length ? upcoming : eventsArray.slice(-3);
+
+        previewSource.slice(0, 3).forEach(evt => {
+            const rsvpCount = evt.rsvps ? Object.values(evt.rsvps).filter(v => v === 'accepted').length : 0;
+            const when = describeEventWhen(evt);
+            const previewItem = document.createElement('div');
+            previewItem.className = 'list-item';
+            previewItem.innerHTML = `
+                   <div>
+                       <div style="color: var(--primary-text); font-weight: 500;">${evt.isGlobal ? '🌍 ' : ''}${escapeHtml(evt.title)}</div>
+                       <div style="font-size: 0.85em; color: var(--secondary-text);">${escapeHtml(evt.game || '')} ${escapeHtml(when)}</div>
+                   </div>
+                   <div style="font-size: 0.85em; color: var(--accent-color);">👥 ${rsvpCount}</div>
+               `;
+            previewList.appendChild(previewItem);
+            previewCount++;
         });
 
         if (previewCount === 0 && eventsArray.length > 0) {

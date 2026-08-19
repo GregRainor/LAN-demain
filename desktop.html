@@ -99,6 +99,11 @@
                 <!-- CENTER FEED -->
                 <main id="main-center-feed">
 
+                    <!-- Quand & où : pendant le vote, c'est la première question que
+                         tout le monde se pose. Masqué tant qu'aucune date n'est annoncée. -->
+                    <div id="when-where-voting" class="when-where when-where--banner animated-section"
+                        style="display: none;"></div>
+
                     <!-- Bandeau de stats compact : information secondaire, donc discrète -->
                     <section class="stat-strip animated-section">
                         <div class="stat-strip__item">
@@ -249,6 +254,10 @@
                 <p style="font-size: 1.25em; margin: 0;">L'administrateur prépare la suite de la LAN...</p>
             </div>
 
+            <!-- Quand & où : la seule chose utile à savoir tant que les votes sont clos -->
+            <div id="when-where-waiting" class="when-where when-where--banner"
+                style="display: none; width: 100%; max-width: 800px; margin-bottom: 40px;"></div>
+
             <div id="closed-results-display" class="results-container luxury-panel"
                 style="width: 100%; max-width: 800px; animation: etherealFadeInUp 1.2s ease forwards;">
                 <h2>Top Jeux à Télécharger</h2>
@@ -290,6 +299,31 @@
                             placeholder="Nom de l'événement">
 
                         <button id="save-config-btn" class="btn-block">Sauvegarder Configuration</button>
+                    </div>
+
+                    <!-- Quand & où : renseigné ici, affiché partout ailleurs.
+                         Les champs portent data-schedule pour que le même code
+                         serve ce panneau et celui de la LAN active. -->
+                    <div class="admin-control-item panel-section schedule-form">
+                        <h3 class="section-title">📅 Quand & où</h3>
+                        <p class="panel-section__text">Annoncé sur l'écran de vote, l'écran d'attente et le
+                            programme. Laissez vide tant que rien n'est décidé.</p>
+
+                        <label class="field-label" for="lan-date">Date de la LAN</label>
+                        <input type="date" id="lan-date" class="luxury-input" data-schedule="lanDate">
+
+                        <label class="field-label" for="lan-start-time">Heure de début</label>
+                        <input type="time" id="lan-start-time" class="luxury-input" data-schedule="lanStartTime">
+
+                        <label class="field-label" for="lan-end-date">Date de fin (si ça dure plusieurs
+                            jours)</label>
+                        <input type="date" id="lan-end-date" class="luxury-input" data-schedule="lanEndDate">
+
+                        <label class="field-label" for="lan-place">Lieu</label>
+                        <input type="text" id="lan-place" class="luxury-input" maxlength="200"
+                            placeholder="Ex : chez Greg, 12 rue des Pixels" data-schedule="lanPlace">
+
+                        <button class="btn-block schedule-save-btn">Annoncer la date</button>
                     </div>
 
                     <div class="admin-control-item danger-zone panel-section panel-section--danger">
@@ -349,6 +383,8 @@
                         <ul class="lan-nav-list">
                             <li class="nav-item active" data-target="lan-dashboard">
                                 Dashboard</li>
+                            <li class="nav-item" data-target="lan-calendar">
+                                Programme</li>
                             <li class="nav-item" data-target="lan-events">
                                 Événements</li>
                             <li class="nav-item" data-target="lan-kocktails">
@@ -401,7 +437,10 @@
                                  ce qui arrive, ce qu'on décide, ce qu'on boit. -->
                             <div class="dashboard-side">
                                 <div class="luxury-panel" style="padding: 25px;">
-                                    <h3 class="section-title">Prochains Événements</h3>
+                                    <div class="panel-head">
+                                        <h3 class="section-title" style="margin: 0;">Prochains Événements</h3>
+                                        <button id="btn-goto-calendar" class="gold-link-btn">Programme</button>
+                                    </div>
                                     <div id="upcoming-events-preview" class="stack stack--sm scroll-area scroll-area--sm">
                                         <p style="font-style:italic; color:var(--secondary-text);">Aucun événement prévu.
                                         </p>
@@ -419,6 +458,21 @@
                                 </div>
                             </div>
                         </div>
+                    </div>
+
+                    <!-- Subview: Programme (le calendrier de la soirée) -->
+                    <div id="lan-calendar" class="lan-subview" style="display: none;">
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); margin-bottom: 20px; padding-bottom: 10px;">
+                            <h2 class="subview-title" style="border: none; margin: 0;">Programme</h2>
+                            <button id="btn-create-event-calendar" class="gold-link-btn">+ Créer</button>
+                        </div>
+
+                        <!-- Quand & où : rempli par renderWhenWhere(), masqué tant que
+                             l'admin n'a annoncé ni date ni lieu. -->
+                        <div id="when-where-calendar" class="when-where" style="display: none;"></div>
+
+                        <div id="agenda-timeline" class="agenda"></div>
                     </div>
 
                     <!-- Subview: Events -->
@@ -578,6 +632,25 @@
                                 <input type="text" id="broadcast-message-lan" class="luxury-input"
                                     placeholder="Ex: RDV au salon dans 5 min !" style="flex: 1;">
                                 <button id="btn-send-broadcast-lan" class="gold-btn" style="padding: 12px 20px; white-space: nowrap;">📣 Envoyer</button>
+                            </div>
+                        </div>
+
+                        <!-- Quand & où (mêmes champs que la console d'admin fermée) -->
+                        <div class="luxury-panel schedule-form" style="padding: 25px; margin-bottom: 25px;">
+                            <h3 style="margin-top: 0; color: var(--accent-color); border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px;">📅 Quand & où</h3>
+                            <div class="admin-select-group" style="gap: 12px;">
+                                <label for="lan-date-active">Date de la LAN</label>
+                                <input type="date" id="lan-date-active" class="luxury-input" data-schedule="lanDate">
+                                <label for="lan-start-time-active">Heure de début</label>
+                                <input type="time" id="lan-start-time-active" class="luxury-input"
+                                    data-schedule="lanStartTime">
+                                <label for="lan-end-date-active">Date de fin (si ça dure plusieurs jours)</label>
+                                <input type="date" id="lan-end-date-active" class="luxury-input"
+                                    data-schedule="lanEndDate">
+                                <label for="lan-place-active">Lieu</label>
+                                <input type="text" id="lan-place-active" class="luxury-input" maxlength="200"
+                                    placeholder="Ex : chez Greg, 12 rue des Pixels" data-schedule="lanPlace">
+                                <button class="gold-btn schedule-save-btn" style="padding: 12px 20px;">Enregistrer</button>
                             </div>
                         </div>
 
@@ -802,6 +875,12 @@
                         style="resize: vertical;"></textarea>
                 </div>
                 <div style="display: flex; gap: 15px;">
+                    <div class="admin-select-group" style="flex: 1;">
+                        <!-- Pré-rempli avec la date de la LAN : la plupart des
+                             événements tombent le soir même. -->
+                        <label>Jour (Optionnel)</label>
+                        <input type="date" id="event-date" class="luxury-input">
+                    </div>
                     <div class="admin-select-group" style="flex: 1;">
                         <label>Heure (Optionnel)</label>
                         <input type="time" id="event-time" class="luxury-input">

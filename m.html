@@ -68,6 +68,15 @@
 
             <!-- ---------- SOIRÉE ---------- -->
             <section class="m-screen is-active" data-screen="soiree">
+                <!-- Quand & où : la première question avant la LAN, masquée tant
+                     que l'admin n'a annoncé ni date ni lieu. -->
+                <div class="m-section" id="m-when-where-section" style="display:none">
+                    <div class="m-section__head">
+                        <h2 class="m-section__title">Rendez-vous</h2>
+                    </div>
+                    <div id="m-when-where"></div>
+                </div>
+
                 <div class="m-section" id="m-now-section" style="display:none">
                     <div class="m-section__head">
                         <h2 class="m-section__title">En ce moment</h2>
@@ -299,6 +308,22 @@
 
                 <div class="m-section">
                     <div class="m-section__head">
+                        <h2 class="m-section__title">Quand &amp; où</h2>
+                    </div>
+                    <label class="m-label" for="m-lan-date">Date de la LAN</label>
+                    <input class="m-input" type="date" id="m-lan-date" data-schedule="lanDate">
+                    <label class="m-label" for="m-lan-start-time">Heure de début</label>
+                    <input class="m-input" type="time" id="m-lan-start-time" data-schedule="lanStartTime">
+                    <label class="m-label" for="m-lan-end-date">Date de fin</label>
+                    <input class="m-input" type="date" id="m-lan-end-date" data-schedule="lanEndDate">
+                    <label class="m-label" for="m-lan-place">Lieu</label>
+                    <input class="m-input" id="m-lan-place" maxlength="200" placeholder="Ex : chez Greg, 12 rue des Pixels"
+                        data-schedule="lanPlace">
+                    <button class="m-btn m-btn--full" id="m-schedule-save">Annoncer la date</button>
+                </div>
+
+                <div class="m-section">
+                    <div class="m-section__head">
                         <h2 class="m-section__title">La soirée</h2>
                     </div>
                     <button class="m-btn m-btn--full" id="m-toggle-voting">Ouvrir le vote</button>
@@ -326,7 +351,7 @@
                     <h2 class="m-section__title">Événements</h2>
                     <button class="m-section__link" id="m-event-new">+ Créer</button>
                 </div>
-                <div id="m-events"></div>
+                <div id="m-events" class="m-agenda"></div>
             </section>
 
             <!-- ---------- KOCKTAILS ---------- -->

@@ -53,6 +53,7 @@
           "description":  { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 5000)" },
           "game":         { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 300)" },
           "time":         { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 100)" },
+          "date":         { ".validate": "!newData.exists() || (newData.isString() && newData.val().matches(/^$|^[0-9]{4}-[0-9]{2}-[0-9]{2}$/))" },
           "alcoholRules": { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 5000)" },
           "creatorName":  { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 300)" },
           "rsvps": {

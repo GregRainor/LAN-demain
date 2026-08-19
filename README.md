@@ -10,6 +10,8 @@ Ce projet est parti d'une simple idée de tableur Excel pour évoluer vers une a
 
 * **Système de Vote par Priorité :** Chaque joueur classe ses jeux par ordre de préférence (P1, P2, P3...), et un score est attribué à chaque jeu.
 * **Tableau de Bord en Temps Réel :** Les votes, scores et classements sont mis à jour instantanément pour tous les utilisateurs connectés grâce à Firebase Realtime Database.
+* **Date, Lieu & Compte à Rebours :** L'admin annonce quand et où se tient la LAN ; la date, l'adresse et le temps restant s'affichent sur l'écran de vote, l'écran d'attente et le programme. Un bouton « Ajouter à mon agenda » génère un fichier `.ics`.
+* **Programme de la Soirée :** Un calendrier regroupe les événements par journée, dans l'ordre où ils se jouent (les shots de minuit restent en fin de soirée, pas au petit matin), avec un repère « maintenant » et la mise en avant du prochain événement.
 * **Indicateurs de Performance (KPIs) :** Visualisez en un clin d'œil le jeu gagnant, le nombre de votants et le total des jeux proposés.
 * **Visualisation Graphique :** Un graphique à barres animé affiche les scores des jeux les plus populaires.
 * **Podium Stylisé :** Le top 3 des jeux est mis en évidence dans le classement et sur le graphique avec des médailles d'Or, d'Argent et de Bronze.

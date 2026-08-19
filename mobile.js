@@ -510,6 +510,7 @@ function boot(user) {
 function renderAll() {
     renderHeader();
     renderPresence();
+    renderWhenWhere();
     renderSoiree();
     renderPolls();
     renderFood();
@@ -637,6 +638,65 @@ function renderLocks() {
    Écran Soirée
    ========================================================================== */
 
+/* Quand & où : la seule question qui compte avant que la LAN démarre, donc
+   affichée sur Soirée, dans toutes les phases. */
+function renderWhenWhere() {
+    const section = $('m-when-where-section');
+    const mount = $('m-when-where');
+    if (!section || !mount) return;
+    mount.innerHTML = '';
+
+    const schedule = describeLanSchedule(state.settings, new Date());
+
+    if (!schedule) {
+        // Rien d'annoncé : seul l'admin voit le rappel, les autres n'ont pas à
+        // contempler un cadre vide.
+        if (!state.isAdmin) { section.style.display = 'none'; return; }
+        section.style.display = 'flex';
+        mount.appendChild(emptyState('Ni date ni lieu annoncés. À renseigner dans Admin › Quand & où.'));
+        return;
+    }
+
+    section.style.display = 'flex';
+
+    const card = el('article', 'm-card');
+    const top = el('div', 'm-card__top');
+    top.appendChild(el('h3', 'm-card__title', schedule.when || 'Date encore à fixer'));
+    if (schedule.countdown) {
+        const imminent = schedule.state === 'live' || schedule.state === 'today';
+        top.appendChild(el('span', `m-chip ${imminent ? 'm-chip--live' : 'm-chip--gold'}`, schedule.countdown));
+    }
+    card.appendChild(top);
+
+    if (schedule.time) card.appendChild(el('p', 'm-card__body', `🕒 dès ${schedule.time}`));
+    if (schedule.place) card.appendChild(el('p', 'm-card__body', `📍 ${schedule.place}`));
+
+    if (schedule.startKey) {
+        const add = el('button', 'm-btn m-btn--quiet m-btn--full', '📆 Ajouter à mon agenda');
+        add.addEventListener('click', downloadLanIcs);
+        card.appendChild(add);
+    }
+
+    mount.appendChild(card);
+}
+
+// Fichier .ics : chacun pose la LAN dans son propre agenda et n'a plus à se
+// souvenir de la date.
+function downloadLanIcs() {
+    const ics = buildLanIcs(state.settings);
+    if (!ics) { showToast("Aucune date n'est encore annoncée.", 'error'); return; }
+
+    const url = URL.createObjectURL(new Blob([ics], { type: 'text/calendar;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${(state.settings.lanName || 'LAN Demain').replace(/[^\w\- ]+/g, '').trim() || 'lan'}.ics`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    // Certains navigateurs n'ont pas fini de lire le blob au retour du clic.
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
 function renderSoiree() {
     const now = $('m-now');
     now.innerHTML = '';
@@ -679,14 +739,18 @@ function renderSoiree() {
 
     $('m-now-section').style.display = now.children.length ? 'flex' : 'none';
 
-    /* Prochain événement : lui aussi appartient à la soirée */
-    const upcoming = evening ? sortedEvents() : [];
+    /* Prochain événement : lui aussi appartient à la soirée. On montre celui
+       qui reste à venir, pas le premier de la liste : à 23 h, annoncer le
+       tournoi de 20 h n'aide personne. */
+    const days = evening ? agendaDays() : [];
+    const total = flattenAgenda(days).length;
+    const next = evening ? nextEventInAgenda(days, new Date()) : null;
     const nextBox = $('m-next-event');
     nextBox.innerHTML = '';
-    if (upcoming.length) {
-        nextBox.appendChild(buildEventCard(upcoming[0][0], upcoming[0][1]));
+    if (next) {
+        nextBox.appendChild(buildEventCard(next, { isNext: true, showDay: true }));
         $('m-next-section').style.display = 'flex';
-        $('m-events-count').textContent = `${upcoming.length} au programme`;
+        $('m-events-count').textContent = `${total} au programme`;
     } else {
         $('m-next-section').style.display = 'none';
     }
@@ -1516,33 +1580,39 @@ $('m-food-open').addEventListener('click', () => {
    Écran Événements
    ========================================================================== */
 
-/* Une LAN passe minuit : trier les heures en texte mettrait "00:00" avant
-   "21:00" et annoncerait les shots de minuit comme prochain événement à 21 h.
-   Tout ce qui tombe avant 6 h du matin compte donc pour le lendemain. */
-function eventOrder(time) {
-    const match = /^(\d{1,2}):(\d{2})$/.exec(String(time || ''));
-    if (!match) return Number.MAX_SAFE_INTEGER;
-    const minutes = parseInt(match[1], 10) * 60 + parseInt(match[2], 10);
-    return minutes < 6 * 60 ? minutes + 24 * 60 : minutes;
+/* Le regroupement par jour, l'ordre (une LAN passe minuit) et le « c'est
+   passé » vivent dans core.js : le programme doit se lire à l'identique sur
+   téléphone et sur PC. */
+function agendaDays() {
+    return buildAgenda(state.events, state.settings.lanDate || '');
 }
 
 function sortedEvents() {
-    return Object.entries(state.events)
-        .filter(([, evt]) => !!evt)
-        .sort((a, b) => eventOrder(a[1].time) - eventOrder(b[1].time));
+    return flattenAgenda(agendaDays());
 }
 
-function buildEventCard(id, evt) {
+function buildEventCard(evt, flags) {
+    const options = flags || {};
+    const id = evt.id;
     const uid = state.user && state.user.uid;
     const rsvps = evt.rsvps || {};
     const accepted = Object.values(rsvps).filter(v => v === 'accepted').length;
     const mine = rsvps[uid];
 
-    const card = el('article', 'm-card');
+    const card = el('article', `m-card${options.isPast ? ' is-past' : ''}`);
     const top = el('div', 'm-card__top');
     top.appendChild(el('h3', 'm-card__title', evt.title || 'Événement'));
+    if (options.isNext) top.appendChild(el('span', 'm-chip m-chip--live', 'à suivre'));
     if (evt.time) top.appendChild(el('span', 'm-chip m-chip--gold', evt.time));
     card.appendChild(top);
+
+    /* Le jour ne s'affiche que hors du programme, où aucun titre de journée ne
+       le porte déjà — et seulement s'il diffère de celui de la LAN : sur une
+       soirée d'un seul soir, le répéter est du bruit. */
+    const dayKey = evt.dayKey || eventDayKey(evt, state.settings.lanDate || '');
+    if (options.showDay && dayKey && dayKey !== (state.settings.lanDate || '')) {
+        card.appendChild(el('p', 'm-card__meta', `📅 ${formatDayLabel(dayKey, new Date())}`));
+    }
 
     if (evt.description) card.appendChild(el('p', 'm-card__body', evt.description));
     if (evt.isAlcohol && evt.alcoholRules) {
@@ -1587,15 +1657,54 @@ function setRsvp(eventId, value) {
     action.catch(error => showToast('Erreur : ' + error.message, 'error'));
 }
 
+/* Le repère « maintenant » : sans lui, une liste d'heures ne dit pas où on
+   en est de la soirée. */
+function nowMarker(now) {
+    const pad = (n) => String(n).padStart(2, '0');
+    const row = el('div', 'm-now');
+    row.appendChild(el('span', 'm-now__label', `maintenant · ${pad(now.getHours())}:${pad(now.getMinutes())}`));
+    return row;
+}
+
 function renderEvents() {
     const mount = $('m-events');
     mount.innerHTML = '';
-    const events = sortedEvents();
-    if (!events.length) {
+
+    const now = new Date();
+    const days = agendaDays();
+    if (!days.length) {
         mount.appendChild(emptyState('Aucun événement au programme.'));
         return;
     }
-    events.forEach(([id, evt]) => mount.appendChild(buildEventCard(id, evt)));
+
+    const today = currentDayKey(now);
+    const nowOrder = nowNightMinutes(now);
+    const next = nextEventInAgenda(days, now);
+
+    days.forEach(day => {
+        const section = el('div', 'm-section');
+        const head = el('div', 'm-section__head');
+        head.appendChild(el('h3', 'm-section__title', formatDayLabel(day.dayKey, now)));
+        head.appendChild(el('span', 'm-card__meta', `${day.events.length} événement${day.events.length > 1 ? 's' : ''}`));
+        section.appendChild(head);
+
+        // Le trait n'a de sens que sur la journée en cours.
+        let markerPlaced = !(day.dayKey && day.dayKey === today);
+        day.events.forEach(evt => {
+            if (!markerPlaced && evt.order !== null && evt.order > nowOrder) {
+                section.appendChild(nowMarker(now));
+                markerPlaced = true;
+            }
+            section.appendChild(buildEventCard(evt, {
+                isPast: isEventPast(evt, now),
+                isNext: !!next && next.id === evt.id
+            }));
+        });
+        // Tout est déjà passé : le trait ferme la journée.
+        if (!markerPlaced) section.appendChild(nowMarker(now));
+
+        mount.appendChild(section);
+    });
 }
 
 $('m-event-new').addEventListener('click', () => {
@@ -1611,6 +1720,14 @@ $('m-event-new').addEventListener('click', () => {
         const game = el('input', 'm-input');
         game.placeholder = 'Jeu (optionnel)';
         body.appendChild(game);
+
+        /* Jour pré-rempli avec la date de la LAN : l'écrasante majorité des
+           événements s'y déroule, et le laisser vide les jetait « sans date ». */
+        const date = el('input', 'm-input');
+        date.type = 'date';
+        date.setAttribute('aria-label', 'Jour');
+        date.value = state.settings.lanDate || '';
+        body.appendChild(date);
 
         const timeRow = el('div', 'm-field');
         const time = el('input', 'm-input');
@@ -1650,6 +1767,7 @@ $('m-event-new').addEventListener('click', () => {
                 description: desc.value.trim(),
                 game: game.value.trim(),
                 time: time.value || '',
+                date: date.value || '',
                 slots: parseInt(slots.value, 10) || 0,
                 creatorId: user.uid,
                 creatorName: user.displayName || 'Un joueur',
@@ -2165,7 +2283,30 @@ function renderAdmin() {
     $('m-toggle-voting').textContent = state.settings.isVotingOpen ? 'Clore le vote' : 'Ouvrir le vote';
     $('m-finish-lan').style.display = state.settings.lanFinished ? 'none' : 'inline-flex';
     $('m-reopen-lan').style.display = state.settings.lanFinished ? 'inline-flex' : 'none';
+
+    /* Champs « quand & où » : on ne réécrit pas par-dessus une saisie en
+       cours, la mise à jour temps réel arrive pendant que l'admin tape. */
+    document.querySelectorAll('[data-schedule]').forEach(input => {
+        if (document.activeElement === input) return;
+        input.value = state.settings[input.dataset.schedule] || '';
+    });
 }
+
+$('m-schedule-save').addEventListener('click', () => {
+    const update = {};
+    document.querySelectorAll('[data-schedule]').forEach(input => {
+        update[input.dataset.schedule] = input.value.trim();
+    });
+
+    if (update.lanEndDate && update.lanDate && update.lanEndDate < update.lanDate) {
+        showToast('La date de fin tombe avant le début.', 'error');
+        return;
+    }
+
+    db.ref('lan/settings').update(update)
+        .then(() => showToast('Date et lieu annoncés à tout le monde.', 'success'))
+        .catch(e => showToast('Erreur : ' + e.message, 'error'));
+});
 
 $('m-broadcast-send').addEventListener('click', () => {
     const input = $('m-broadcast');

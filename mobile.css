@@ -651,3 +651,22 @@ textarea.m-input { resize: vertical; min-height: 84px; }
         transition-duration: .01ms !important;
     }
 }
+
+/* ---------- Programme (agenda par journée) ---------- */
+.m-agenda { display: flex; flex-direction: column; gap: 20px; }
+
+/* Ce qui est joué reste lisible mais recule : on garde le fil de la soirée
+   sans faire concurrence à ce qui vient. */
+.m-card.is-past { opacity: .55; }
+
+/* Le repère « maintenant » : sans lui, une liste d'heures ne dit pas où on
+   en est de la soirée. */
+.m-now { display: flex; align-items: center; gap: 9px; }
+.m-now::after {
+    content: ''; flex: 1; height: 1px;
+    background: linear-gradient(90deg, var(--danger), transparent);
+}
+.m-now__label {
+    font-size: .68rem; letter-spacing: .12em; text-transform: uppercase;
+    color: #c96a6a; white-space: nowrap;
+}
