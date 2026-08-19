@@ -52,7 +52,12 @@ async function fetchProfile(steamId, apiKey) {
     };
 }
 
+import { guard } from './_guard.js';
+
 export default async function handler(request, response) {
+    // Consomme STEAM_API_KEY : origine + rate-limit
+    if (guard(request, response, { limit: 60 })) return;
+
     const { profile } = request.query;
 
     if (!profile) {
