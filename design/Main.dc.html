@@ -96,7 +96,7 @@
 
     <!-- Rail : six destinations au lieu de douze -->
     <div style="display: flex; flex-direction: column; padding: 20px 0; border-right: 1px solid var(--border); background: rgba(6,6,6,0.6);">
-      <div style="display: flex; flex-direction: column;">
+      <div style="display: flex; flex-direction: column; flex-shrink: 0;">
         <div style="display: flex; align-items: center; gap: 13px; padding: 12px 22px; color: var(--secondary-text); border-left: 3px solid transparent; cursor: pointer;">
           <svg viewBox="0 0 24 24" width="19" height="19"><rect x="3" y="5" width="18" height="16" rx="1"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>
           <span style="font-size: 14.5px;">&Eacute;v&eacute;nements</span>
@@ -125,58 +125,30 @@
         </div>
       </div>
 
-      <div style="flex-grow: 1;"></div>
-
-      <!-- Qui est l&agrave;. La bande flottante de gauche rentre dans le rail :
-           elle comble son vide, et on lit la tabl&eacute;e sans quitter l&#39;&eacute;cran
-           courant. Vous, vous restez en haut &agrave; droite. -->
-      <div style="display: flex; flex-direction: column; padding-bottom: 16px;">
+      <div style="display: flex; flex-direction: column; flex-grow: 1; min-height: 0;">
+        <div style="height: 1px; background: var(--border-subtle); margin: 15px 22px 16px;"></div>
         <div style="display: flex; align-items: center; gap: 9px; padding: 0 22px; margin-bottom: 10px;">
           <span style="font-size: 11px; letter-spacing: 1.6px; text-transform: uppercase; color: var(--muted-text);">Autour de la table</span>
           <span style="margin-left: auto; display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--secondary-text); font-variant-numeric: tabular-nums;">
-            <span style="width: 6px; height: 6px; border-radius: 999px; background: #57b368; box-shadow: 0 0 7px rgba(87,179,104,0.65);"></span>5
+            <span style="width: 6px; height: 6px; border-radius: 999px; background: #57b368; box-shadow: 0 0 7px rgba(87,179,104,0.65);"></span>{{online}}
           </span>
         </div>
-        <div style="display: flex; align-items: center; gap: 11px; padding: 6px 22px; cursor: pointer;">
-          <span style="position: relative; display: block; flex-shrink: 0;">
-            <span style="display: grid; place-items: center; width: 28px; height: 28px; border-radius: 999px; background: linear-gradient(140deg, #3a3a3a, #1a1a1a); border: 1px solid rgba(255,255,255,0.1); font-size: 11.5px; color: #f4f0ec; opacity: 1; filter: none;">K</span>
-            <span style="position: absolute; right: -1px; bottom: -1px; width: 11px; height: 11px; border-radius: 999px; border: 2px solid #0b0b0b; background: #57b368; box-shadow: 0 0 8px rgba(87,179,104,0.65);"></span>
-          </span>
-          <span style="font-size: 13.5px; color: var(--primary-text);">Kevin</span>
-        </div>
-        <div style="display: flex; align-items: center; gap: 11px; padding: 6px 22px; cursor: pointer;">
-          <span style="position: relative; display: block; flex-shrink: 0;">
-            <span style="display: grid; place-items: center; width: 28px; height: 28px; border-radius: 999px; background: linear-gradient(140deg, #3a3a3a, #1a1a1a); border: 1px solid rgba(255,255,255,0.1); font-size: 11.5px; color: #f4f0ec; opacity: 1; filter: none;">S</span>
-            <span style="position: absolute; right: -1px; bottom: -1px; width: 11px; height: 11px; border-radius: 999px; border: 2px solid #0b0b0b; background: #57b368; box-shadow: 0 0 8px rgba(87,179,104,0.65);"></span>
-          </span>
-          <span style="font-size: 13.5px; color: var(--primary-text);">Sarah</span>
-        </div>
-        <div style="display: flex; align-items: center; gap: 11px; padding: 6px 22px; cursor: pointer;">
-          <span style="position: relative; display: block; flex-shrink: 0;">
-            <span style="display: grid; place-items: center; width: 28px; height: 28px; border-radius: 999px; background: linear-gradient(140deg, #3a3a3a, #1a1a1a); border: 1px solid rgba(255,255,255,0.1); font-size: 11.5px; color: #f4f0ec; opacity: 1; filter: none;">T</span>
-            <span style="position: absolute; right: -1px; bottom: -1px; width: 11px; height: 11px; border-radius: 999px; border: 2px solid #0b0b0b; background: #57b368; box-shadow: 0 0 8px rgba(87,179,104,0.65);"></span>
-          </span>
-          <span style="font-size: 13.5px; color: var(--primary-text);">Thomas</span>
-        </div>
-        <div style="display: flex; align-items: center; gap: 11px; padding: 6px 22px; cursor: pointer;">
-          <span style="position: relative; display: block; flex-shrink: 0;">
-            <span style="display: grid; place-items: center; width: 28px; height: 28px; border-radius: 999px; background: linear-gradient(140deg, #3a3a3a, #1a1a1a); border: 1px solid rgba(255,255,255,0.1); font-size: 11.5px; color: #f4f0ec; opacity: 1; filter: none;">L</span>
-            <span style="position: absolute; right: -1px; bottom: -1px; width: 11px; height: 11px; border-radius: 999px; border: 2px solid #0b0b0b; background: #57b368; box-shadow: 0 0 8px rgba(87,179,104,0.65);"></span>
-          </span>
-          <span style="font-size: 13.5px; color: var(--primary-text);">L&eacute;a</span>
-        </div>
-        <div style="display: flex; align-items: center; gap: 11px; padding: 6px 22px; cursor: pointer;">
-          <span style="position: relative; display: block; flex-shrink: 0;">
-            <span style="display: grid; place-items: center; width: 28px; height: 28px; border-radius: 999px; background: linear-gradient(140deg, #3a3a3a, #1a1a1a); border: 1px solid rgba(255,255,255,0.1); font-size: 11.5px; color: #7d7b77; opacity: 0.5; filter: grayscale(100%);">M</span>
-            <span style="position: absolute; right: -1px; bottom: -1px; width: 11px; height: 11px; border-radius: 999px; border: 2px solid #0b0b0b; background: #6e6e6e; box-shadow: none;"></span>
-          </span>
-          <span style="font-size: 13.5px; color: var(--muted-text);">Marc</span>
+        <div style="display: flex; flex-direction: column; overflow-y: auto; min-height: 0; flex-grow: 1; mask-image: {{fade}}; -webkit-mask-image: {{fade}};">
+          <sc-for list="{{players}}" as="p" hint-placeholder-count="5">
+            <div style="display: flex; align-items: center; gap: 11px; padding: 6px 22px; cursor: pointer;">
+              <span style="position: relative; display: block; flex-shrink: 0;">
+                <span style="display: grid; place-items: center; width: 28px; height: 28px; border-radius: 999px; background: linear-gradient(140deg, #3a3a3a, #1a1a1a); border: 1px solid rgba(255,255,255,0.1); font-size: 11.5px; color: {{p.ink}}; opacity: {{p.opacity}}; filter: {{p.filter}};">{{p.initial}}</span>
+                <span style="position: absolute; right: -1px; bottom: -1px; width: 11px; height: 11px; border-radius: 999px; border: 2px solid #0b0b0b; background: {{p.dot}}; box-shadow: {{p.glow}};"></span>
+              </span>
+              <span style="font-size: 13.5px; color: {{p.nameColor}};">{{p.name}}</span>
+            </div>
+          </sc-for>
         </div>
       </div>
 
       <!-- Le poste du ma&icirc;tre du jeu ferme le rail : il ne s&#39;ouvre que
            quand il y a quelque chose &agrave; trancher. -->
-      <div style="padding: 0 22px;">
+      <div style="padding: 0 22px; flex-shrink: 0;">
         <div style="height: 1px; background: var(--border-subtle); margin-bottom: 14px;"></div>
         <div style="display: flex; align-items: center; gap: 13px; padding: 11px 0; color: var(--accent); cursor: pointer;">
           <svg viewBox="0 0 24 24" width="19" height="19"><path d="M4 7h9M18.5 7H20M4 17h4.5M14 17h6"></path><circle cx="15.5" cy="7" r="2.2"></circle><circle cx="11" cy="17" r="2.2"></circle></svg>
@@ -259,7 +231,7 @@
 </div>
 </x-dc>
 
-<script data-dc-script data-props='{"rayon":{"editor":"enum","options":["Tout","Privilèges","Bonus","Handicaps","Cosmétiques","Divers"],"default":"Tout","section":"Boutique"},"$preview":{"width":1440,"height":900}}'>
+<script data-dc-script data-props='{"rayon":{"editor":"enum","options":["Tout","Privilèges","Bonus","Handicaps","Cosmétiques","Divers"],"default":"Tout","section":"Boutique"},"tablee":{"editor":"int","default":6,"min":2,"max":20,"unit":"joueurs","section":"Rail"},"$preview":{"width":1440,"height":900}}'>
 class Component extends DCLogic {
   renderVals() {
     const FAM = {
@@ -321,9 +293,47 @@ class Component extends DCLogic {
 
     const items = pick === "Tout" ? rows : rows.filter((r) => r.famLabel === pick);
 
-    /* Douze tuiles : exactement trois rangs pleins dans la fenêtre. Le compteur
-       de la puce « Tout » dit qu'il y en a plus, sans montrer un rang coupé. */
-    return { chips: chips, items: items.slice(0, 12) };
+    /* ---------- La tablée ----------
+       Le rail garde ~420 px sous le menu, soit dix lignes de 40. Au-delà la
+       liste défile, et un fondu en bas dit qu'il en reste — sans quoi la
+       dixième personne aurait l'air d'être la dernière. */
+    const NAMES = [
+      ["K", "Kevin", true], ["S", "Sarah", true], ["T", "Thomas", true],
+      ["L", "Léa", true], ["M", "Marc", false], ["J", "Julie", true],
+      ["A", "Antoine", true], ["C", "Camille", true], ["H", "Hugo", false],
+      ["M", "Manon", true], ["N", "Nicolas", true], ["É", "Élise", true],
+      ["P", "Pierre", true], ["C", "Chloé", false], ["M", "Maxime", true],
+      ["L", "Laura", true], ["R", "Romain", true], ["I", "Inès", true],
+      ["B", "Bastien", false], ["C", "Clara", true]
+    ];
+
+    const seats = Math.max(2, Math.min(20, this.props.tablee ?? 6));
+    const others = NAMES.slice(0, seats - 1);
+    const players = others.map((p) => ({
+      initial: p[0],
+      name: p[1],
+      ink: p[2] ? "#f4f0ec" : "#7d7b77",
+      nameColor: p[2] ? "#f4f0ec" : "#7d7b77",
+      opacity: p[2] ? "1" : "0.5",
+      filter: p[2] ? "none" : "grayscale(100%)",
+      dot: p[2] ? "#57b368" : "#6e6e6e",
+      glow: p[2] ? "0 0 8px rgba(87,179,104,0.65)" : "none"
+    }));
+
+    const fade = others.length > 10
+      ? "linear-gradient(to bottom, #000 0%, #000 86%, transparent 100%)"
+      : "none";
+
+    return {
+      chips: chips,
+      /* Douze tuiles : exactement trois rangs pleins dans la fenêtre. Le
+         compteur de la puce « Tout » dit qu'il y en a plus, sans montrer
+         un rang coupé. */
+      items: items.slice(0, 12),
+      players: players,
+      online: others.filter((p) => p[2]).length + 1,
+      fade: fade
+    };
   }
 }
 </script>
