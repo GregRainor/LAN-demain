@@ -258,6 +258,21 @@ choix à connaître :
 - **Une illustration est attachée au jeu, pas au set.** Recréer un set ne
   regénère donc que ce qui manque : une Signature déjà dessinée lors d'une
   soirée précédente est réutilisée telle quelle.
+- **Rien n'est généré sans qu'on le demande.** La création d'un set ouvre le
+  choix des illustrations ; on importe les siennes, et le bouton « Générer les
+  manquantes » ne s'occupe que de ce qui reste. Une image importée n'est jamais
+  écrasée par une génération. Les images importées sont redimensionnées à
+  1024 px de large avant l'envoi : une photo de téléphone dépasserait sinon la
+  limite de 4 Mo du nœud.
+
+### Recomposer un set efface le précédent
+
+`discardSet()` supprime l'ancien set **et les paquets qui en venaient**. Ce
+n'est pas une précaution excessive : le contenu d'un paquet se rejoue depuis les
+cartes de son set, donc un paquet dont le set a disparu ne contient plus rien et
+peuplerait les collections de silhouettes vides. La confirmation annonce combien
+de boosters ouverts partent avec. L'ancien n'est effacé qu'**après** l'écriture
+du nouveau : si elle échoue, rien n'a été détruit.
 
 Sans clé configurée, la fonction répond 503 et les Signature gardent simplement
 leur jaquette Steam. Rien d'autre ne change.

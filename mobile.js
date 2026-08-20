@@ -3054,12 +3054,38 @@ function ensureGeneratedArt(gameKey) {
         .finally(() => generatedArtPending.delete(gameKey));
 }
 
-/* Illustration d'une carte. Plus aucun appel à l'API des jaquettes : la carte
-   porte son appId, et l'adresse de la jaquette Steam s'en déduit. Un set de
-   cinq cents cartes ne déclenche donc plus une seule requête. */
+/* Repli pour les sets composés avant que les cartes portent un appId : on
+   retombe sur la résolution par nom, à l'ancienne. Sans lui, un set créé par
+   une version précédente n'affiche plus une seule illustration — c'est
+   exactement ce qui est arrivé. Chargé à l'approche de l'écran, sinon un set
+   de cinq cents cartes redemanderait cinq cents jaquettes d'un coup. */
+const legacyArtObserver = ('IntersectionObserver' in window)
+    ? new IntersectionObserver((entries, observer) => {
+        entries.forEach(entry => {
+            if (!entry.isIntersecting) return;
+            observer.unobserve(entry.target);
+            thumbFor(entry.target.dataset.game || '', entry.target);
+        });
+    }, { rootMargin: '320px' })
+    : null;
+
+/* Illustration d'une carte. Quand la carte porte son appId — tous les sets
+   composés à partir de maintenant — l'adresse de la jaquette Steam s'en déduit
+   et le set entier ne déclenche pas une seule requête. */
 function cardArtFor(card, imgEl) {
     if (card.rarity === 'signature') ensureGeneratedArt(card.gameKey);
-    imgEl.src = cardImage(card, generatedArt) || DEFAULT_THUMB;
+
+    const known = cardImage(card, generatedArt);
+    if (known) { imgEl.src = known; return; }
+
+    const label = card.name || card.gameKey;
+    const cached = thumbCache.get(normalizeGameName(label));
+    if (cached) { imgEl.src = cached; return; }
+
+    imgEl.src = DEFAULT_THUMB;
+    imgEl.dataset.game = label;
+    if (legacyArtObserver) legacyArtObserver.observe(imgEl);
+    else thumbFor(label, imgEl);
 }
 
 /* La carte elle-même. Une seule fabrique pour la grille, les doubles,
@@ -3247,11 +3273,36 @@ function resolveVotedArt(pool) {
     )).then(found => Object.fromEntries(found.filter(Boolean)));
 }
 
+/* Un set remplacé s'efface. Les paquets qui en venaient partent avec lui :
+   leur contenu se rejoue depuis les cartes du set, donc sans le set ils ne
+   contiennent plus rien et pollueraient les collections de silhouettes vides.
+   C'est destructeur et c'est assumé — recréer un set, c'est repartir de zéro. */
+function discardSet(setId) {
+    if (!setId) return Promise.resolve();
+    const doomed = Object.entries(state.tcg.packs || {})
+        .filter(([, pack]) => pack && pack.setId === setId)
+        .map(([id]) => id);
+    return Promise.all(doomed.map(id => db.ref('lan/tcg/packs/' + id).remove()))
+        .then(() => db.ref('lan/tcg/sets/' + setId).remove());
+}
+
+/* Une écriture refusée par les règles ne dit rien d'utile telle quelle. Ici on
+   sait pourquoi ça arrive presque toujours : les règles Firebase n'ont pas été
+   republiées depuis que la carte porte `owners` et `appId`. */
+function tcgWriteError(error) {
+    const code = (error && (error.code || error.message)) || '';
+    if (/permission/i.test(code)) {
+        return 'Écriture refusée par la base. Les règles Firebase doivent être republiées (voir SECURITY.md).';
+    }
+    return 'Erreur : ' + ((error && error.message) || code);
+}
+
 function mintSet(force) {
     const user = state.user;
     if (!user) return;
 
-    if (!force && tcgCurrentSetId(state.tcg)) {
+    const previous = tcgCurrentSetId(state.tcg);
+    if (!force && previous) {
         showToast('Le set de la LAN existe déjà !', 'error');
         return;
     }
@@ -3275,18 +3326,145 @@ function mintSet(force) {
             cards: cards
         })
             .then(() => db.ref('lan/tcg/currentSet').set(ref.key))
+            // L'ancien ne part qu'une fois le nouveau en place : si l'écriture
+            // échoue, on n'a rien détruit.
+            .then(() => discardSet(previous))
             .then(() => {
                 showToast('Set créé : ' + count + ' cartes !', 'success');
-                return generateSignatureArt(cards);
+                return openSignatureArtSheet(cards);
             });
-    }).catch(e => showToast('Erreur : ' + e.message, 'error'));
+    }).catch(e => showToast(tcgWriteError(e), 'error'));
 }
 
-/* Les huit Signature reçoivent une illustration dessinée pour elles. On les
-   génère une par une, en sautant celles qu'une soirée précédente a déjà fait
-   dessiner : une illustration est attachée au jeu, pas au set. Un échec
-   (pas de clé, quota, refus du modèle) n'est pas grave — la carte garde sa
-   jaquette Steam et tout le reste continue de tourner. */
+/* Le choix des illustrations des Signature : importer les siennes, ou laisser
+   le modèle dessiner ce qui manque. Importer d'abord puis générer ne regénère
+   que le reste — c'est ce qui permet de n'utiliser l'API que pour ce qu'on n'a
+   pas déjà fait soi-même. */
+function openSignatureArtSheet(setCards) {
+    const wanted = signatureCards(setCards);
+    if (!wanted.length) return Promise.resolve();
+
+    openSheet('Illustrations des Signature', (body) => {
+        body.appendChild(el('p', 'm-card__meta',
+            'Ces ' + wanted.length + ' cartes sont le sommet du set. Importe tes propres '
+            + 'illustrations, ou laisse le modèle dessiner celles qui manquent.'));
+
+        const list = el('div', 'm-artlist');
+        body.appendChild(list);
+
+        const generate = el('button', 'm-btn m-btn--solid m-btn--full', 'Générer les manquantes');
+        generate.addEventListener('click', () => {
+            generate.disabled = true;
+            generateSignatureArt(setCards).then(() => {
+                generate.disabled = false;
+                paint();
+            });
+        });
+        body.appendChild(generate);
+
+        const done = el('button', 'm-btn m-btn--quiet m-btn--full', 'Terminé');
+        done.addEventListener('click', closeSheet);
+        body.appendChild(done);
+
+        const paint = () => {
+            list.innerHTML = '';
+            let missing = 0;
+            wanted.forEach(card => {
+                const row = el('div', 'm-artrow');
+                const thumb = el('img', 'm-artrow__thumb');
+                thumb.alt = '';
+                const art = generatedArt[card.gameKey];
+                if (art) thumb.src = art;
+                else { thumb.src = DEFAULT_THUMB; missing++; }
+                row.appendChild(thumb);
+
+                const label = el('span', 'm-artrow__name', card.name);
+                row.appendChild(label);
+
+                /* Un vrai <input type="file"> caché derrière un libellé : c'est
+                   la seule façon d'ouvrir la galerie du téléphone. */
+                const pick = el('label', 'm-artrow__pick', art ? 'Remplacer' : 'Importer');
+                const input = el('input');
+                input.type = 'file';
+                input.accept = 'image/*';
+                input.addEventListener('change', () => {
+                    const file = input.files && input.files[0];
+                    if (!file) return;
+                    importCardArt(card, file).then(paint);
+                });
+                pick.appendChild(input);
+                row.appendChild(pick);
+
+                list.appendChild(row);
+            });
+            generate.textContent = missing
+                ? 'Générer les ' + missing + ' manquantes'
+                : 'Toutes illustrées';
+            generate.disabled = !missing;
+        };
+
+        // On sait déjà lesquelles existent : on les lit avant de dessiner.
+        Promise.all(wanted.map(card =>
+            db.ref('lan/cardArt/' + card.gameKey).once('value')
+                .then(snapshot => {
+                    const node = snapshot.val();
+                    generatedArt[card.gameKey] = (node && node.data) || null;
+                })
+                .catch(() => { generatedArt[card.gameKey] = null; })
+        )).then(paint);
+
+        paint();
+    });
+
+    return Promise.resolve();
+}
+
+/* Une photo de téléphone pèse plusieurs mégaoctets : on la redimensionne avant
+   de l'envoyer. La fenêtre d'illustration d'une carte fait 240 px de large au
+   plus, donc 1024 px suffisent largement, et les règles refusent au-delà de
+   4 Mo de toute façon. */
+const ART_MAX_WIDTH = 1024;
+
+function shrinkImage(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('Fichier illisible'));
+        reader.onload = () => {
+            const image = new Image();
+            image.onerror = () => reject(new Error('Image illisible'));
+            image.onload = () => {
+                const scale = Math.min(1, ART_MAX_WIDTH / (image.width || ART_MAX_WIDTH));
+                const canvas = document.createElement('canvas');
+                canvas.width = Math.round(image.width * scale);
+                canvas.height = Math.round(image.height * scale);
+                canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+                resolve(canvas.toDataURL('image/jpeg', 0.85));
+            };
+            image.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+function importCardArt(card, file) {
+    return shrinkImage(file)
+        .then(dataUrl => db.ref('lan/cardArt/' + card.gameKey).set({
+            data: dataUrl,
+            name: card.name,
+            by: state.user ? state.user.uid : null,
+            ts: firebase.database.ServerValue.TIMESTAMP
+        }).then(() => {
+            generatedArt[card.gameKey] = dataUrl;
+            showToast(card.name + ' : illustration importée.', 'success');
+            renderCartes();
+        }))
+        .catch(e => showToast(tcgWriteError(e), 'error'));
+}
+
+/* Les Signature encore sans illustration sont dessinées par le modèle. On saute
+   celles qu'on a déjà — importées, ou dessinées lors d'une soirée précédente :
+   une illustration est attachée au jeu, pas au set. Un échec (pas de clé,
+   quota, refus du modèle) n'est pas grave — la carte garde sa jaquette Steam. */
 function generateSignatureArt(setCards) {
     const wanted = signatureCards(setCards);
     if (!wanted.length) return Promise.resolve();
@@ -3336,11 +3514,20 @@ function generateSignatureArt(setCards) {
 $('m-mint-set').addEventListener('click', () => mintSet(false));
 
 $('m-remint-set').addEventListener('click', () => {
+    const previous = tcgCurrentSetId(state.tcg);
+    const doomed = Object.values(state.tcg.packs || {})
+        .filter(pack => pack && pack.setId === previous).length;
+
     openSheet('Recréer le set ?', (body) => {
         body.appendChild(el('p', 'm-card__meta',
-            'Un nouveau set remplace celui de la soirée pour les prochains boosters. '
-            + 'Les cartes déjà ouvertes gardent le leur : elles ne changent pas.'));
-        const go = el('button', 'm-btn m-btn--solid m-btn--full', 'Recréer le set');
+            'L\'ancien set est EFFACÉ'
+            + (doomed
+                ? ', ainsi que ' + doomed + ' booster' + (doomed > 1 ? 's' : '')
+                  + ' déjà ouvert' + (doomed > 1 ? 's' : '')
+                  + ' et les cartes qu\'' + (doomed > 1 ? 'ils contenaient' : 'il contenait') + '.'
+                : '.')
+            + ' On repart de zéro.'));
+        const go = el('button', 'm-btn m-btn--danger m-btn--full', 'Effacer et recréer');
         go.addEventListener('click', () => { closeSheet(); mintSet(true); });
         body.appendChild(go);
     });
