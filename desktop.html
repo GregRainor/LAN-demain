@@ -364,6 +364,7 @@
                             <select id="role-type-select" class="luxury-input" style="flex: 1;">
                                 <option value="player">Joueur (défaut)</option>
                                 <option value="mixologist">Mixologue</option>
+                                <option value="gamemaster">Maître du jeu</option>
                                 <option value="admin">Admin</option>
                             </select>
                             <button id="btn-assign-role" class="gold-btn" style="padding: 10px 20px;">Attribuer</button>
@@ -389,6 +390,10 @@
                                 Événements</li>
                             <li class="nav-item" data-target="lan-kocktails">
                                 Kocktails</li>
+                            <li class="nav-item" data-target="lan-boutique">
+                                Boutique <span id="shop-nav-badge" class="nav-badge" style="display:none;">0</span></li>
+                            <li class="nav-item" data-target="lan-tcg">
+                                Collection <span id="tcg-nav-badge" class="nav-badge" style="display:none;">0</span></li>
                             <li class="nav-item" data-target="lan-food">
                                 Miam <span id="food-nav-badge" class="nav-badge" style="display:none;">0</span></li>
                             <li class="nav-item" data-target="lan-polls">
@@ -609,6 +614,167 @@
                         </div>
                     </div>
 
+                    <!-- Subview: Boutique (l'économie de la soirée) -->
+                    <div id="lan-boutique" class="lan-subview" style="display: none;">
+                        <h2 class="subview-title" style="margin-bottom: 30px;">Boutique</h2>
+
+                        <div class="wallet-banner luxury-panel">
+                            <div>
+                                <span class="wallet-banner__label">Mon solde</span>
+                                <strong id="wallet-value" class="wallet-banner__value">0 PO</strong>
+                            </div>
+                            <p id="wallet-hint" class="wallet-banner__hint"></p>
+                        </div>
+
+                        <!-- Poste de travail du maître du jeu : ce qu'il doit trancher -->
+                        <div id="shop-gm-panel" class="luxury-panel" style="padding: 25px; margin-bottom: 25px; display: none; border-color: rgba(212,175,55,0.35);">
+                            <h3 class="section-title section-title--accent">🎲 Demandes à valider</h3>
+                            <div id="shop-gm-queue" class="stack stack--sm"></div>
+                        </div>
+
+                        <!-- Créditer : la seule façon de faire entrer des points -->
+                        <div id="shop-grant-panel" class="luxury-panel" style="padding: 25px; margin-bottom: 25px; display: none;">
+                            <h3 class="section-title">Créditer des points</h3>
+                            <p class="panel-section__hint">Chaque crédit laisse une ligne signée dans le
+                                registre, visible de tous.</p>
+                            <div class="stack stack--sm">
+                                <select id="grant-user-select" class="luxury-input shop-field">
+                                    <option value="">Sélectionner un joueur...</option>
+                                </select>
+                                <div class="shop-grant-row">
+                                    <input type="number" id="grant-amount" class="luxury-input shop-field"
+                                        placeholder="Montant" min="1">
+                                    <input type="text" id="grant-reason" class="luxury-input shop-field"
+                                        placeholder="Pourquoi ? (ex : défi une main)">
+                                    <button id="btn-grant-points" class="gold-btn shop-grant-btn">Créditer</button>
+                                </div>
+                                <details class="shop-seed">
+                                    <summary>Créditer tout le monde d'un coup</summary>
+                                    <div class="shop-grant-row" style="margin-top: 12px;">
+                                        <input type="number" id="seed-amount" class="luxury-input shop-field"
+                                            placeholder="Montant par joueur" min="1">
+                                        <button id="btn-seed-all" class="gold-btn shop-grant-btn">Distribuer</button>
+                                    </div>
+                                </details>
+                            </div>
+                        </div>
+
+                        <div class="luxury-panel" style="padding: 25px; margin-bottom: 25px;">
+                            <div class="panel-head">
+                                <h3 class="section-title" style="margin: 0;">La carte</h3>
+                                <button id="btn-add-shop-item" class="gold-link-btn"
+                                    style="font-size: 0.8em; display:none;">+ Ajouter un article</button>
+                            </div>
+                            <div id="shop-catalog"></div>
+                        </div>
+
+                        <div class="dashboard-grid">
+                            <div class="luxury-panel" style="padding: 25px;">
+                                <h3 class="section-title">Registre</h3>
+                                <p class="panel-section__hint">Tout mouvement de points, à la vue de tous.
+                                    C'est ce qui rend l'économie honnête.</p>
+                                <div id="shop-feed" class="stack stack--sm scroll-area"></div>
+                            </div>
+                            <div class="dashboard-side">
+                                <div class="luxury-panel" style="padding: 25px;">
+                                    <h3 class="section-title">Fortunes</h3>
+                                    <div id="shop-leaderboard" class="rank-list"></div>
+                                </div>
+                                <div id="shop-my-purchases-panel" class="luxury-panel"
+                                    style="padding: 25px; display: none;">
+                                    <h3 class="section-title">Mes demandes</h3>
+                                    <div id="shop-my-purchases" class="stack stack--sm"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Subview: Collection (le jeu de cartes de la soirée)
+                         Le set est frappé par le vote : les jeux demandés
+                         deviennent les cartes, leur rareté est leur score.
+                         Rien n'est stocké ici — la collection se rejoue depuis
+                         les paquets ouverts et les échanges acceptés. -->
+                    <div id="lan-tcg" class="lan-subview" style="display: none;">
+                        <h2 class="subview-title" style="margin-bottom: 30px;">Collection</h2>
+
+                        <div class="set-banner luxury-panel">
+                            <div class="set-banner__main">
+                                <span class="set-banner__label" id="tcg-set-name">Pas encore de set</span>
+                                <strong class="set-banner__value" id="tcg-progress">0 / 0</strong>
+                                <div class="set-banner__bar"><span id="tcg-progress-fill"></span></div>
+                            </div>
+                            <p class="set-banner__hint" id="tcg-hint"></p>
+                        </div>
+
+                        <!-- Poste du maître du jeu : frapper le set, offrir un booster -->
+                        <div id="tcg-gm-panel" class="luxury-panel"
+                            style="padding: 25px; margin-bottom: 25px; display: none; border-color: rgba(212,175,55,0.35);">
+                            <h3 class="section-title section-title--accent">🎴 Le set de la soirée</h3>
+                            <p class="panel-section__hint" id="tcg-mint-state"></p>
+                            <div class="shop-grant-row">
+                                <button id="btn-mint-set" class="gold-btn shop-grant-btn">Frapper le set</button>
+                                <select id="tcg-gift-user" class="luxury-input shop-field">
+                                    <option value="">Offrir un booster à...</option>
+                                </select>
+                                <button id="btn-gift-pack" class="gold-btn shop-grant-btn">Offrir</button>
+                            </div>
+                        </div>
+
+                        <div id="tcg-packs-panel" class="luxury-panel"
+                            style="padding: 25px; margin-bottom: 25px; display: none;">
+                            <h3 class="section-title">Mes boosters</h3>
+                            <div id="tcg-packs" class="stack stack--sm"></div>
+                        </div>
+
+                        <div id="tcg-trade-in-panel" class="luxury-panel"
+                            style="padding: 25px; margin-bottom: 25px; display: none; border-color: rgba(212,175,55,0.35);">
+                            <h3 class="section-title section-title--accent">Échanges reçus</h3>
+                            <div id="tcg-trade-in" class="stack stack--sm"></div>
+                        </div>
+
+                        <div class="luxury-panel" style="padding: 25px; margin-bottom: 25px;">
+                            <div class="panel-head">
+                                <h3 class="section-title" style="margin: 0;">Le set</h3>
+                                <div class="filter-bar" id="tcg-filters"></div>
+                            </div>
+                            <div id="tcg-set-grid" class="card-grid"></div>
+                        </div>
+
+                        <div id="tcg-dupes-panel" class="luxury-panel"
+                            style="padding: 25px; margin-bottom: 25px; display: none;">
+                            <div class="panel-head">
+                                <h3 class="section-title" style="margin: 0;">Mes doubles</h3>
+                                <button id="btn-new-trade" class="gold-link-btn" style="font-size: 0.8em;">Proposer un
+                                    échange</button>
+                            </div>
+                            <p class="panel-section__hint">Les doubles ne se transforment pas en poussière : sans eux,
+                                personne n'a rien à troquer.</p>
+                            <div id="tcg-dupes" class="card-grid card-grid--sm"></div>
+                        </div>
+
+                        <div id="tcg-trade-out-panel" class="luxury-panel"
+                            style="padding: 25px; margin-bottom: 25px; display: none;">
+                            <h3 class="section-title">Mes propositions</h3>
+                            <div id="tcg-trade-out" class="stack stack--sm"></div>
+                        </div>
+
+                        <div class="dashboard-grid">
+                            <div class="luxury-panel" style="padding: 25px;">
+                                <h3 class="section-title">Journal des échanges</h3>
+                                <p class="panel-section__hint">Public, comme le registre des points. Un échange dont
+                                    l'émetteur ne possédait pas ses cartes n'est pas refusé : il est sans effet, et ça
+                                    se voit.</p>
+                                <div id="tcg-trade-feed" class="stack stack--sm scroll-area"></div>
+                            </div>
+                            <div class="dashboard-side">
+                                <div class="luxury-panel" style="padding: 25px;">
+                                    <h3 class="section-title">Complétion</h3>
+                                    <div id="tcg-leaderboard" class="rank-list"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Subview: Jeux / Votes Archived -->
                     <div id="lan-games" class="lan-subview" style="display: none;">
                         <h2 class="subview-title">Historique des Votes</h2>
@@ -666,6 +832,7 @@
                                     <select id="role-type-select-lan" class="luxury-input" style="flex: 1;">
                                         <option value="player">Joueur (défaut)</option>
                                         <option value="mixologist">Mixologue</option>
+                                        <option value="gamemaster">Maître du jeu</option>
                                         <option value="admin">Admin</option>
                                     </select>
                                     <button id="btn-assign-role-lan" class="gold-btn" style="padding: 10px 20px;">Attribuer</button>
@@ -970,6 +1137,97 @@
                         Carte</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Maître du jeu : mettre un article en boutique -->
+    <div id="add-shop-item-modal" class="modal-overlay" style="display:none;">
+        <div class="luxury-panel modal-content" style="max-width: 520px;">
+            <h3>🛍️ Ajouter un article</h3>
+            <form id="add-shop-item-form" class="stack">
+                <div class="admin-select-group">
+                    <label>Nom *</label>
+                    <input type="text" id="shop-item-name" class="luxury-input" required
+                        placeholder="Ex: Choisir le prochain jeu">
+                </div>
+                <div class="admin-select-group">
+                    <label>Description</label>
+                    <textarea id="shop-item-desc" class="luxury-input" rows="2"
+                        placeholder="Ce que ça fait, et pour combien de temps" style="resize: vertical;"></textarea>
+                </div>
+                <div class="admin-select-group">
+                    <label>Prix *</label>
+                    <input type="number" id="shop-item-price" class="luxury-input" required min="0"
+                        placeholder="En points">
+                </div>
+                <div class="admin-select-group">
+                    <label>Rayon</label>
+                    <select id="shop-item-category" class="luxury-input"></select>
+                </div>
+                <div class="admin-select-group">
+                    <label>Stock (laisser vide pour illimité)</label>
+                    <input type="number" id="shop-item-stock" class="luxury-input" min="1"
+                        placeholder="Ex: 1 pour un privilège unique">
+                </div>
+                <label class="shop-target-check">
+                    <input type="checkbox" id="shop-item-target">
+                    <span>À jouer sur un autre joueur (handicap)</span>
+                </label>
+                <!-- Un booster n'est pas un article comme un autre : sa
+                     validation donne droit à un paquet scellé, dont le contenu
+                     est décidé par l'horodatage du serveur. -->
+                <label class="shop-target-check">
+                    <input type="checkbox" id="shop-item-pack">
+                    <span>C'est un booster de cartes</span>
+                </label>
+                <div class="modal-actions" style="flex-direction: row; margin-top: 10px;">
+                    <button type="button" id="cancel-shop-item-btn" style="flex: 1;">Annuler</button>
+                    <button type="submit"
+                        style="flex: 1; border-color: var(--accent-color); color: var(--accent-color);">Mettre en
+                        boutique</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Ouverture d'un booster : plein écran, parce que c'est le moment du
+         produit. On révèle une carte à la fois, la plus rare en dernier. -->
+    <div id="pack-reveal-overlay" class="reveal-overlay" style="display:none;">
+        <p class="reveal-seal" id="reveal-seal"></p>
+        <div class="reveal-stage" id="reveal-stage"></div>
+        <div class="reveal-foot">
+            <span class="reveal-count" id="reveal-count"></span>
+            <button id="reveal-next" class="gold-btn">Révéler</button>
+        </div>
+    </div>
+
+    <!-- Proposer un échange : ce que je donne, ce que je demande. -->
+    <div id="trade-modal" class="modal-overlay" style="display:none;">
+        <div class="luxury-panel modal-content" style="max-width: 860px;">
+            <h3>🔁 Proposer un échange</h3>
+            <div class="admin-select-group">
+                <label>À qui ?</label>
+                <select id="trade-target" class="luxury-input"></select>
+            </div>
+            <h4 class="trade-side-title">Je donne</h4>
+            <div id="trade-mine" class="card-grid card-grid--sm trade-picker"></div>
+            <h4 class="trade-side-title">Je demande</h4>
+            <div id="trade-theirs" class="card-grid card-grid--sm trade-picker"></div>
+            <div class="modal-actions" style="flex-direction: row; margin-top: 16px;">
+                <button type="button" id="trade-cancel" style="flex: 1;">Annuler</button>
+                <button type="button" id="trade-send" class="gold-btn" style="flex: 1;">Envoyer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- La fiche d'une carte : sa rareté, son score de vote, sa provenance. -->
+    <div id="card-modal" class="modal-overlay" style="display:none;">
+        <div class="luxury-panel modal-content" style="max-width: 460px;">
+            <div id="card-modal-stage" class="card-solo"></div>
+            <div id="card-modal-body" class="stack stack--sm"></div>
+            <div class="modal-actions" style="margin-top: 16px;">
+                <button type="button" id="card-modal-close" style="width: 100%;">Fermer</button>
+            </div>
         </div>
     </div>
 

@@ -15,6 +15,7 @@ const state = {
     user: null,
     isAdmin: false,
     isMixologist: false,
+    isGamemaster: false,
     settings: { isVotingOpen: false, isLanActive: false, lanFinished: false, lanName: 'LAN Demain', topGamesCount: 10 },
     votes: {},
     roles: {},
@@ -24,6 +25,10 @@ const state = {
     foodRuns: {},
     events: {},
     cocktails: {},
+    economy: {},
+    /* Le set, les paquets et les échanges. Aucune collection n'y est stockée :
+       elle se rejoue depuis les paquets ouverts (core.js). */
+    tcg: {},
     notifs: {},
     libraries: {},
     history: {},
@@ -227,10 +232,11 @@ function gameDetails(gameName) {
    Navigation
    ========================================================================== */
 
-const TABS = ['soiree', 'jeux', 'miam', 'sondages', 'plus'];
+const TABS = ['soiree', 'jeux', 'boutique', 'miam', 'sondages', 'plus'];
 
 const SCREEN_TITLES = {
     vote: 'Mon vote',
+    cartes: 'Mes cartes',
     evenements: 'Événements',
     kocktails: 'Kocktails',
     biblio: 'Bibliothèques',
@@ -255,14 +261,16 @@ function phase() {
 
 /* Ce qui appartient à la soirée elle-même : sans LAN lancée, pas de commande
    groupée, pas de sondage, pas d'événement, pas de bar. */
-const LAN_SCREENS = ['miam', 'sondages', 'evenements', 'kocktails'];
+const LAN_SCREENS = ['miam', 'sondages', 'evenements', 'kocktails', 'boutique'];
 
 function screenAvailable(screen) {
     const p = phase();
     if (LAN_SCREENS.includes(screen)) return p === 'lan';
     if (screen === 'vote') return p === 'vote';
     if (screen === 'bilan') return p === 'finished';
-    return true; // soiree, jeux, plus, biblio, historique, admin
+    /* Les cartes restent consultables hors soirée : une collection qui
+       disparaît entre deux LAN ne se collectionne pas. */
+    return true; // soiree, jeux, plus, cartes, biblio, historique, admin
 }
 
 function lockReason(screen) {
@@ -322,6 +330,7 @@ function goto(screen, options) {
     if (content) content.scrollTop = 0;
     if (screen === 'jeux') renderGames();
     if (screen === 'vote') renderVote();
+    if (screen === 'cartes') renderCartes();
     if (screen === 'biblio') renderLibraries();
     if (screen === 'admin') renderAdmin();
 }
@@ -501,7 +510,12 @@ function boot(user) {
         const myRole = state.roles[user.uid];
         state.isAdmin = myRole === 'admin' || user.uid === ADMIN_UID;
         state.isMixologist = myRole === 'mixologist';
-        $('m-plus-role').textContent = state.isAdmin ? 'Admin' : (state.isMixologist ? 'Mixologue' : '');
+        /* Le maître du jeu tient la boutique : il crédite, valide les achats et
+           range la carte. L'admin l'est d'office, pour qu'une soirée ne se
+           bloque pas si le maître du jeu est parti dormir. */
+        state.isGamemaster = isGamemaster(myRole, user.uid, ADMIN_UID);
+        $('m-plus-role').textContent = state.isAdmin ? 'Admin'
+            : (state.isMixologist ? 'Mixologue' : (state.isGamemaster ? 'Maître du jeu' : ''));
     });
     watch('/status', value => { state.status = value || {}; reassertPresence(); });
     watch('lan/users', value => { state.profiles = value || {}; });
@@ -509,9 +523,13 @@ function boot(user) {
     watch('lan/foodRuns', value => { state.foodRuns = value || {}; });
     watch('lan/events', value => { state.events = value || {}; });
     watch('lan/cocktails', value => { state.cocktails = value || {}; });
+    watch('lan/economy', value => { state.economy = value || {}; sealBoughtPacks(); });
+    watch('lan/tcg', value => { state.tcg = value || {}; sealBoughtPacks(); });
     watch('lan/steamLibraries', value => { state.libraries = value || {}; });
     watch('lan/history', value => { state.history = value || {}; });
     watch(`lan/notifications/${user.uid}`, value => { state.notifs = value || {}; });
+
+    startTickEngine();
 
     state.ready = true;
     /* Racine de l'historique de navigation : sans elle, le premier retour du
@@ -531,14 +549,20 @@ function boot(user) {
    ========================================================================== */
 
 function renderAll() {
+    /* Le rejeu des cartes est recalculé une fois par passe, pas une fois par
+       section : c'est le seul calcul de ce fichier qui parcourt tout. */
+    tcgView = null;
     renderHeader();
     renderPresence();
     renderWhenWhere();
+    renderSealedTeaser();
     renderSoiree();
     renderPolls();
     renderFood();
     renderEvents();
     renderKocktails();
+    renderBoutique();
+    renderCartes();
     renderLibraries();
     renderHistory();
     renderAdmin();
@@ -634,6 +658,14 @@ function renderBadges() {
     const pollDot = $('m-tab-polls');
     pollDot.style.display = openPolls ? 'grid' : 'none';
     pollDot.textContent = openPolls;
+
+    /* La pastille de la boutique ne parle qu'au maître du jeu : pour tous les
+       autres, une file d'attente n'est pas une nouvelle à traiter. */
+    const waiting = (state.isGamemaster && screenAvailable('boutique'))
+        ? pendingPurchases(state.economy).length : 0;
+    const shopDot = $('m-tab-shop');
+    shopDot.style.display = waiting ? 'grid' : 'none';
+    shopDot.textContent = waiting;
 }
 
 /* Grise les destinations qui n'appartiennent pas à la phase en cours, dans
@@ -1949,6 +1981,12 @@ function renderPlus() {
     $('m-plus-events').textContent = events ? String(events) : '';
     const orders = Object.keys(state.cocktails.orders || {}).length;
     $('m-plus-kocktails').textContent = orders ? `${orders} en attente` : '';
+    const view = tcgSnapshot();
+    const sealed = view.uid ? sealedPacksOf(state.tcg, view.uid).length : 0;
+    const progress = setProgress(view.setCards, view.cards, view.uid);
+    $('m-plus-cartes').textContent = sealed
+        ? `${sealed} booster${sealed > 1 ? 's' : ''} à ouvrir`
+        : (progress.total ? `${progress.owned}/${progress.total}` : '');
     const total = draftTotal();
     $('m-plus-vote').textContent = total ? `${total} jeu${total > 1 ? 'x' : ''}` : '';
     const libs = Object.keys(state.libraries).length;
@@ -2391,7 +2429,7 @@ $('m-reopen-lan').addEventListener('click', () => {
 $('m-new-lan').addEventListener('click', () => {
     const newName = $('m-new-lan-name').value.trim();
     confirmSheet(
-        'Archiver la soirée en cours puis repartir de zéro ? Les votes, événements, sondages, commandes, one-shots et bibliothèques sont effacés. Seule la carte des kocktails est conservée.',
+        'Archiver la soirée en cours puis repartir de zéro ? Les votes, événements, sondages, commandes, one-shots et bibliothèques sont effacés. La carte des kocktails est conservée, ainsi que les cartes à collectionner : une collection ne se réinitialise pas.',
         'Démarrer',
         () => startNewLan(newName),
         true
@@ -2518,6 +2556,1282 @@ function renderRecap() {
     });
     box.appendChild(stats);
     mount.appendChild(box);
+}
+
+/* ==========================================================================
+   Boutique
+   Le solde n'est jamais stocké : il se recalcule depuis le registre et le
+   compteur de présence (core.js). Ici on n'écrit que deux choses — une tranche
+   de présence, et une demande d'achat. Tout le reste passe par un maître du
+   jeu, parce que rien de ce qu'un joueur écrit ne doit pouvoir l'enrichir.
+   ========================================================================== */
+
+/* Le gain passif. Les règles Firebase imposent le rythme et le plafond ; ce
+   minuteur ne fait que proposer une tranche quand elle est due. Une tentative
+   trop tôt, ou depuis un second appareil du même joueur, est refusée par la
+   base — c'est voulu : on gagne par joueur, pas par écran ouvert. */
+let tickTimer = null;
+
+function claimTick() {
+    const user = state.user;
+    if (!user || !state.settings.isLanActive) return;
+
+    const node = (state.economy.ticks || {})[user.uid] || null;
+    const count = Number(node && node.count) || 0;
+    if (count >= ECONOMY.MAX_TICKS) return;
+
+    const last = Number(node && node.lastTick) || 0;
+    /* Une petite marge : l'horloge du téléphone avance rarement comme celle du
+       serveur, et une tentative en avance est rejetée pour rien. */
+    if (last && Date.now() - last < ECONOMY.TICK_INTERVAL_MS + 2000) return;
+
+    db.ref('lan/economy/ticks/' + user.uid).set({
+        count: count + 1,
+        lastTick: firebase.database.ServerValue.TIMESTAMP
+    }).catch(() => { /* refusé par les règles : trop tôt, ou un autre appareil a pris la tranche */ });
+}
+
+function startTickEngine() {
+    clearInterval(tickTimer);
+    /* On sonde plus souvent que l'intervalle : le joueur arrive au milieu
+       d'une tranche, et attendre dix minutes pleines pour la première serait
+       perçu comme une panne. */
+    tickTimer = setInterval(claimTick, 60000);
+    claimTick();
+}
+
+function renderBoutique() {
+    const uid = state.user && state.user.uid;
+    if (!uid) return;
+
+    const balance = economyBalance(state.economy, uid);
+    const available = availablePoints(state.economy, uid);
+    const reserved = balance - available;
+
+    $('m-wallet-value').textContent = formatPoints(balance);
+    const hint = $('m-wallet-hint');
+    if (reserved > 0) {
+        hint.textContent = 'dont ' + formatPoints(reserved) + ' en attente de validation';
+    } else if (state.settings.isLanActive) {
+        const ticks = Number(((state.economy.ticks || {})[uid] || {}).count) || 0;
+        hint.textContent = ticks >= ECONOMY.MAX_TICKS
+            ? 'Présence : plafond atteint, à toi de jouer'
+            : '+' + ECONOMY.TICK_VALUE + ' ' + ECONOMY.CURRENCY + ' toutes les 10 min de présence';
+    } else {
+        hint.textContent = 'Les points se gagnent pendant la LAN.';
+    }
+
+    renderGmQueue();
+    renderMyPurchases();
+    renderShopList();
+    renderShopLeaderboard();
+    renderShopFeed();
+
+    $('m-shop-new').style.display = state.isGamemaster ? 'block' : 'none';
+}
+
+/* ---------- File d'attente du maître du jeu ---------- */
+
+function renderGmQueue() {
+    const section = $('m-gm-section');
+    const mount = $('m-gm-queue');
+    if (!state.isGamemaster) { section.style.display = 'none'; return; }
+
+    section.style.display = 'flex';
+    mount.innerHTML = '';
+    const queue = pendingPurchases(state.economy);
+    if (!queue.length) {
+        mount.appendChild(emptyState('Aucune demande en attente.'));
+        return;
+    }
+
+    queue.forEach(p => {
+        const card = el('article', 'm-card');
+        const top = el('div', 'm-card__top');
+        top.appendChild(el('h3', 'm-card__title', p.itemName || 'Article'));
+        top.appendChild(el('span', 'm-price', formatPoints(p.price)));
+        card.appendChild(top);
+
+        const buyerBalance = economyBalance(state.economy, p.uid);
+        let meta = (p.userName || playerName(p.uid)) + ' · solde ' + formatPoints(buyerBalance);
+        if (p.targetName) meta += ' · visé : ' + p.targetName;
+        card.appendChild(el('p', 'm-card__meta', meta));
+
+        /* Le solde est affiché au moment de trancher : c'est le garde-fou
+           contre un client bricolé qui aurait laissé passer un achat trop
+           cher. Les règles ne peuvent pas additionner un registre. */
+        if (buyerBalance < (Number(p.price) || 0)) {
+            card.appendChild(el('p', 'm-card__meta', '⚠️ Solde insuffisant.'));
+        }
+
+        const grant = el('button', 'm-btn m-btn--solid m-btn--sm m-btn--full', 'Valider');
+        grant.addEventListener('click', () => resolvePurchase(p, 'granted'));
+        card.appendChild(grant);
+        const refuse = el('button', 'm-btn m-btn--quiet m-btn--sm', 'Refuser');
+        refuse.addEventListener('click', () => resolvePurchase(p, 'refused'));
+        card.appendChild(refuse);
+
+        mount.appendChild(card);
+    });
+}
+
+/* Valider un achat, c'est écrire deux choses : la ligne du registre qui
+   débite, et le sort de la demande. Le registre d'abord : si la seconde
+   écriture échoue, le joueur a été débité d'un article qu'il recevra quand
+   même, ce qui se rattrape ; l'inverse donnerait un article gratuit. */
+function resolvePurchase(purchase, status) {
+    const user = state.user;
+    if (!user) return;
+
+    const close = () => db.ref('lan/economy/purchases/' + purchase.id).update({
+        status: status,
+        resolvedBy: user.uid,
+        resolvedByName: user.displayName || 'Maître du jeu',
+        resolvedAt: firebase.database.ServerValue.TIMESTAMP
+    });
+
+    if (status === 'refused') {
+        close().then(() => showToast('Demande refusée.', 'success'))
+            .catch(e => showToast('Erreur : ' + e.message, 'error'));
+        return;
+    }
+
+    writeLedger({
+        uid: purchase.uid,
+        delta: -(Number(purchase.price) || 0),
+        type: 'purchase',
+        reason: purchase.itemName || 'Achat',
+        refId: purchase.id
+    })
+        .then(close)
+        .then(() => showToast('Achat validé !', 'success'))
+        .catch(e => showToast('Erreur : ' + e.message, 'error'));
+}
+
+function writeLedger(entry) {
+    const user = state.user;
+    return db.ref('lan/economy/ledger').push().set(Object.assign({
+        by: user ? user.uid : null,
+        byName: user ? (user.displayName || 'Maître du jeu') : null,
+        ts: firebase.database.ServerValue.TIMESTAMP
+    }, entry));
+}
+
+/* ---------- Mes demandes en cours ---------- */
+
+function renderMyPurchases() {
+    const uid = state.user && state.user.uid;
+    const section = $('m-my-purchases-section');
+    const mount = $('m-my-purchases');
+    const mine = Object.entries(state.economy.purchases || {})
+        .map(([id, p]) => Object.assign({ id: id }, p))
+        .filter(p => p.uid === uid && p.status === 'pending')
+        .sort((a, b) => (a.ts || 0) - (b.ts || 0));
+
+    if (!mine.length) { section.style.display = 'none'; return; }
+    section.style.display = 'flex';
+    mount.innerHTML = '';
+
+    mine.forEach(p => {
+        const card = el('article', 'm-card');
+        const top = el('div', 'm-card__top');
+        top.appendChild(el('h3', 'm-card__title', p.itemName || 'Article'));
+        top.appendChild(el('span', 'm-chip', 'en attente'));
+        card.appendChild(top);
+        card.appendChild(el('p', 'm-card__meta',
+            formatPoints(p.price) + ' réservés' + (p.targetName ? ' · visé : ' + p.targetName : '')));
+
+        const cancel = el('button', 'm-btn m-btn--quiet m-btn--sm', 'Annuler');
+        cancel.addEventListener('click', () => {
+            db.ref('lan/economy/purchases/' + p.id).remove()
+                .then(() => showToast('Demande annulée.', 'success'))
+                .catch(e => showToast('Erreur : ' + e.message, 'error'));
+        });
+        card.appendChild(cancel);
+        mount.appendChild(card);
+    });
+}
+
+/* ---------- La carte ---------- */
+
+function renderShopList() {
+    const uid = state.user && state.user.uid;
+    const mount = $('m-shop-list');
+    mount.innerHTML = '';
+
+    const catalog = Object.entries(state.economy.catalog || {})
+        .filter(([, item]) => item && item.active !== false);
+
+    if (!catalog.length) {
+        mount.appendChild(emptyState(state.isGamemaster
+            ? 'La boutique est vide. Ajoute un premier article.'
+            : 'La boutique est vide pour le moment.'));
+        return;
+    }
+
+    /* Groupé par rayon : une liste à plat de vingt articles ne se lit pas sur
+       un téléphone. */
+    ECONOMY.CATEGORIES.forEach(cat => {
+        const items = catalog.filter(([, item]) => (item.category || 'fun') === cat.key);
+        if (!items.length) return;
+        mount.appendChild(el('p', 'm-shop__cat', cat.icon + ' ' + cat.label));
+        items
+            .sort((a, b) => (Number(a[1].price) || 0) - (Number(b[1].price) || 0))
+            .forEach(([id, item]) => mount.appendChild(buildShopCard(id, item, uid)));
+    });
+}
+
+function buildShopCard(id, item, uid) {
+    const card = el('article', 'm-card');
+    const verdict = canBuy(state.economy, uid, id, item);
+    if (!verdict.ok) card.classList.add('is-unaffordable');
+
+    const top = el('div', 'm-card__top');
+    top.appendChild(el('h3', 'm-card__title', item.name || 'Article'));
+    top.appendChild(el('span', 'm-price', formatPoints(item.price)));
+    card.appendChild(top);
+
+    if (isPackItem(item)) {
+        card.classList.add('m-card--pack');
+        card.appendChild(el('p', 'm-card__meta',
+            '🎴 ' + TCG.PACK_SIZE + ' cartes du set de la soirée, dont au moins une peu commune.'));
+    }
+    if (item.description) card.appendChild(el('p', 'm-card__body', item.description));
+
+    const left = itemStockLeft(state.economy, id, item);
+    if (left !== null) {
+        card.appendChild(el('p', 'm-card__meta', left ? left + ' restant' + (left > 1 ? 's' : '') : 'Épuisé'));
+    }
+
+    const buy = el('button', 'm-btn m-btn--full', verdict.ok ? 'Acheter' : verdict.why);
+    buy.disabled = !verdict.ok;
+    buy.addEventListener('click', () => requestPurchase(id, item));
+    card.appendChild(buy);
+
+    if (state.isGamemaster) {
+        const del = el('button', 'm-btn m-btn--quiet m-btn--sm', 'Retirer de la carte');
+        del.addEventListener('click', () => {
+            db.ref('lan/economy/catalog/' + id).remove()
+                .then(() => showToast('Article retiré.', 'success'))
+                .catch(e => showToast('Erreur : ' + e.message, 'error'));
+        });
+        card.appendChild(del);
+    }
+
+    return card;
+}
+
+/* Acheter, c'est déposer une demande — jamais se débiter soi-même. Le maître
+   du jeu tranche, et c'est seulement là que le registre bouge. */
+function requestPurchase(itemId, item) {
+    const user = state.user;
+    if (!user) return;
+
+    const send = (targetUid, targetName) => {
+        db.ref('lan/economy/purchases').push().set({
+            itemId: itemId,
+            itemName: item.name || 'Article',
+            price: Number(item.price) || 0,
+            uid: user.uid,
+            userName: user.displayName || 'Un joueur',
+            targetUid: targetUid || null,
+            targetName: targetName || null,
+            status: 'pending',
+            ts: firebase.database.ServerValue.TIMESTAMP
+        }).then(() => {
+            closeSheet();
+            showToast('Demande envoyée au maître du jeu !', 'success');
+        }).catch(e => showToast('Erreur : ' + e.message, 'error'));
+    };
+
+    /* Un handicap sans cible serait du sabotage anonyme : on demande sur qui,
+       et le nom restera visible dans le registre. */
+    if (!item.needsTarget) { send(null, null); return; }
+
+    openSheet(item.name + ' — sur qui ?', (body) => {
+        const others = economyPlayers().filter(u => u !== user.uid);
+        if (!others.length) {
+            body.appendChild(emptyState('Aucun autre joueur pour le moment.'));
+            return;
+        }
+        others.forEach(other => {
+            const row = el('button', 'm-btn m-btn--full', playerName(other));
+            row.addEventListener('click', () => send(other, playerName(other)));
+            body.appendChild(row);
+        });
+    });
+}
+
+/* Tous ceux qu'on connaît : connectés, votants, ou simplement déjà venus.
+   Un joueur parti se coucher reste une cible valable pour un handicap. */
+function economyPlayers() {
+    const seen = {};
+    [state.status, state.votes, state.profiles].forEach(source => {
+        Object.keys(source || {}).forEach(uid => { seen[uid] = true; });
+    });
+    return Object.keys(seen);
+}
+
+/* ---------- Fortunes et registre ---------- */
+
+function renderShopLeaderboard() {
+    const mount = $('m-shop-leaderboard');
+    mount.innerHTML = '';
+    const board = economyLeaderboard(state.economy, economyPlayers());
+    if (!board.length) {
+        mount.appendChild(emptyState("Personne n'a encore gagné de points."));
+        return;
+    }
+    board.slice(0, 10).forEach((row, i) => {
+        const line = el('div', 'm-rank m-rank--' + (i + 1));
+        line.appendChild(el('span', 'm-rank__pos', String(i + 1)));
+        const face = el('img', 'm-rank__face');
+        face.src = playerPhoto(row.uid);
+        face.alt = '';
+        line.appendChild(face);
+        line.appendChild(el('span', 'm-rank__name', playerName(row.uid)));
+        line.appendChild(el('span', 'm-price', formatPoints(row.balance)));
+        mount.appendChild(line);
+    });
+}
+
+/* Le registre est public : c'est lui qui rend l'économie honnête. Chacun voit
+   qui a reçu quoi, et pourquoi. */
+function renderShopFeed() {
+    const mount = $('m-shop-feed');
+    mount.innerHTML = '';
+    const feed = economyFeed(state.economy, 15);
+    if (!feed.length) {
+        mount.appendChild(emptyState('Aucun mouvement pour le moment.'));
+        return;
+    }
+    feed.forEach(entry => {
+        const row = el('div', 'm-move');
+        const who = el('span', 'm-move__who', playerName(entry.uid));
+        who.appendChild(el('span', 'm-move__why',
+            (entry.reason || 'Mouvement') + ' · ' + timeAgo(entry.ts)));
+        row.appendChild(who);
+        const delta = Number(entry.delta) || 0;
+        row.appendChild(el('span', 'm-move__delta ' + (delta >= 0 ? 'is-up' : 'is-down'),
+            (delta >= 0 ? '+' : '') + delta));
+        mount.appendChild(row);
+    });
+}
+
+/* ---------- Tenue de la boutique (maître du jeu) ---------- */
+
+$('m-shop-new').addEventListener('click', () => {
+    openSheet('Ajouter un article', (body) => {
+        const name = el('input', 'm-input');
+        name.placeholder = 'Ex : Choisir le prochain jeu';
+        body.appendChild(name);
+
+        const desc = el('textarea', 'm-input');
+        desc.placeholder = 'Ce que ça fait, et pour combien de temps';
+        body.appendChild(desc);
+
+        const price = el('input', 'm-input');
+        price.type = 'number';
+        price.min = '0';
+        price.placeholder = 'Prix en ' + ECONOMY.CURRENCY;
+        body.appendChild(price);
+
+        const category = el('select', 'm-input');
+        ECONOMY.CATEGORIES.forEach(cat => {
+            const opt = el('option', null, cat.icon + ' ' + cat.label);
+            opt.value = cat.key;
+            category.appendChild(opt);
+        });
+        body.appendChild(category);
+
+        const stock = el('input', 'm-input');
+        stock.type = 'number';
+        stock.min = '0';
+        stock.placeholder = 'Stock (vide = illimité)';
+        body.appendChild(stock);
+
+        const targetWrap = el('label', 'm-check');
+        const target = el('input');
+        target.type = 'checkbox';
+        targetWrap.appendChild(target);
+        targetWrap.appendChild(el('span', null, 'À jouer sur un autre joueur'));
+        body.appendChild(targetWrap);
+
+        /* Un booster n'est pas un article comme un autre : sa validation donne
+           droit à un paquet scellé, dont le contenu est décidé par le serveur
+           au moment du sceau. Le reste de la boutique ignore tout de ça. */
+        const packWrap = el('label', 'm-check');
+        const pack = el('input');
+        pack.type = 'checkbox';
+        packWrap.appendChild(pack);
+        packWrap.appendChild(el('span', null, 'C\'est un booster de cartes'));
+        body.appendChild(packWrap);
+
+        const submit = el('button', 'm-btn m-btn--solid m-btn--full', 'Mettre en boutique');
+        submit.addEventListener('click', () => {
+            const user = state.user;
+            if (!user) return;
+            const value = name.value.trim();
+            if (!value) { showToast('Il manque le nom.', 'error'); return; }
+            const priceValue = Number(price.value);
+            if (!price.value.trim() || !isFinite(priceValue) || priceValue < 0) {
+                showToast('Prix invalide.', 'error');
+                return;
+            }
+            const stockValue = Number(stock.value);
+            db.ref('lan/economy/catalog').push().set({
+                name: value,
+                description: desc.value.trim(),
+                price: Math.round(priceValue),
+                category: category.value,
+                stock: stock.value.trim() && isFinite(stockValue) && stockValue > 0 ? Math.round(stockValue) : null,
+                needsTarget: target.checked,
+                kind: pack.checked ? 'pack' : null,
+                active: true,
+                createdBy: user.uid,
+                createdAt: firebase.database.ServerValue.TIMESTAMP
+            }).then(() => {
+                closeSheet();
+                showToast('"' + value + '" en boutique !', 'success');
+            }).catch(e => showToast('Erreur : ' + e.message, 'error'));
+        });
+        body.appendChild(submit);
+    });
+});
+
+/* ==========================================================================
+   LES CARTES
+   La collection n'est stockée nulle part : elle se rejoue à chaque rendu
+   depuis les paquets ouverts et les échanges acceptés (core.js). Ce fichier
+   n'écrit que quatre choses — sceller un paquet acheté, l'ouvrir, proposer un
+   échange, y répondre. Tout le reste est de la lecture.
+   ========================================================================== */
+
+/* Le rejeu coûte un parcours de tous les paquets : on ne le refait pas six
+   fois par rendu. Invalidé au début de chaque renderAll. */
+let tcgView = null;
+
+function tcgSnapshot() {
+    if (tcgView) return tcgView;
+    const replay = tcgReplay(state.tcg);
+    const set = tcgCurrentSet(state.tcg);
+    tcgView = {
+        cards: replay.cards,
+        applied: replay.applied,
+        set,
+        setCards: (set && set.cards) || {},
+        uid: (state.user && state.user.uid) || ''
+    };
+    return tcgView;
+}
+
+/* Illustration d'une carte : le dessin s'il existe, sinon la jaquette Steam.
+   Le set est donc illustré dès le premier soir, et se bonifie carte par carte
+   sans jamais rien bloquer. */
+function cardArtFor(gameKey, name, imgEl) {
+    const drawn = cardArt(gameKey);
+    if (drawn) { imgEl.src = drawn; return; }
+    thumbFor(name || gameKey, imgEl);
+}
+
+/* La carte elle-même. Une seule fabrique pour la grille, les doubles,
+   l'échange et la révélation : une carte doit se ressembler partout. */
+function cardNode(card, options) {
+    const opts = options || {};
+    const rarity = rarityMeta(card.rarity);
+    const node = el('article', 'm-tcard m-tcard--' + rarity.key);
+    if (card.foil) node.classList.add('is-foil');
+    if (opts.missing) node.classList.add('is-missing');
+    if (opts.selected) node.classList.add('is-picked');
+    if (opts.small) node.classList.add('m-tcard--sm');
+
+    const art = el('div', 'm-tcard__art');
+    const img = el('img', 'm-tcard__img');
+    img.alt = '';
+    img.loading = 'lazy';
+    cardArtFor(card.gameKey, card.name, img);
+    art.appendChild(img);
+    if (card.foil) art.appendChild(el('span', 'm-tcard__foil'));
+    node.appendChild(art);
+
+    node.appendChild(el('h4', 'm-tcard__name', card.name || card.gameKey));
+
+    const foot = el('div', 'm-tcard__foot');
+    foot.appendChild(el('span', 'm-tcard__rarity', card.foil ? rarity.short + ' ✦' : rarity.short));
+    if (opts.badge) foot.appendChild(el('span', 'm-tcard__badge', opts.badge));
+    node.appendChild(foot);
+
+    /* Le reflet couvre la carte entière et se pose en dernier, donc au-dessus
+       de tout le reste. Il reste invisible tant qu'aucun pointeur ne la
+       touche. */
+    node.appendChild(el('span', 'm-tcard__glare'));
+
+    if (opts.onClick) {
+        node.setAttribute('role', 'button');
+        node.tabIndex = 0;
+        node.addEventListener('click', (e) => {
+            /* Toucher une carte est un geste : c'est l'autre occasion valable
+               de demander le capteur à iOS. */
+            askTiltPermission();
+            opts.onClick(e);
+        });
+    }
+    return node;
+}
+
+/* La fiche d'une carte : sa rareté, son score de vote, et surtout sa
+   provenance. Qui l'a sortie du paquet, quand, et par combien de mains elle
+   est passée — c'est ce qui fait d'une carte un souvenir de soirée. */
+function openCardSheet(card) {
+    openSheet(card.name || card.gameKey, (body) => {
+        const stage = el('div', 'm-tcard-solo');
+        stage.appendChild(cardNode(card, {}));
+        body.appendChild(stage);
+
+        const rarity = rarityMeta(card.rarity);
+        body.appendChild(el('p', 'm-card__meta',
+            rarity.label + (card.foil ? ' · brillante ✦' : '')));
+
+        const setCard = tcgSnapshot().setCards[card.gameKey];
+        if (setCard) {
+            body.appendChild(el('p', 'm-card__meta',
+                'Rareté méritée : ' + setCard.score + ' point' + (setCard.score > 1 ? 's' : '') + ' au vote de la soirée.'));
+        }
+
+        if (card.mintedBy) {
+            body.appendChild(el('p', 'm-card__meta',
+                'Sortie du paquet par ' + playerName(card.mintedBy)
+                + (card.mintedAt ? ' · ' + new Date(card.mintedAt).toLocaleString('fr-FR') : '')));
+        }
+        const hands = (card.lineage || []).length - 1;
+        if (hands > 0) {
+            body.appendChild(el('p', 'm-card__meta',
+                'Échangée ' + hands + ' fois : ' + card.lineage.map(playerName).join(' → ')));
+        }
+    });
+}
+
+/* ---------- Le bandeau du set ---------- */
+
+function renderCartes() {
+    const view = tcgSnapshot();
+    if (!view.uid) return;
+
+    renderSetBand(view);
+    renderMintPanel(view);
+    renderMyPacks(view);
+    renderTradesIn(view);
+    renderSetGrid(view);
+    renderDupes(view);
+    renderTradesOut(view);
+    renderTcgLeaderboard(view);
+    renderTradeFeed(view);
+}
+
+function renderSetBand(view) {
+    const band = $('m-set-band');
+    band.innerHTML = '';
+
+    if (!view.set) {
+        band.appendChild(el('p', 'm-setband__title', 'Pas encore de set'));
+        band.appendChild(el('p', 'm-setband__hint',
+            'Les cartes sont frappées à partir du vote : elles apparaîtront quand le maître du jeu aura ouvert la soirée.'));
+        return;
+    }
+
+    const progress = setProgress(view.setCards, view.cards, view.uid);
+    band.appendChild(el('p', 'm-setband__title', view.set.name));
+    const bar = el('div', 'm-setband__bar');
+    const fill = el('span', 'm-setband__fill');
+    fill.style.width = progress.percent + '%';
+    bar.appendChild(fill);
+    band.appendChild(bar);
+    band.appendChild(el('p', 'm-setband__hint',
+        progress.owned + ' / ' + progress.total + ' cartes'
+        + (progress.foils ? ' · ' + progress.foils + ' brillante' + (progress.foils > 1 ? 's' : '') : '')
+        + (progress.complete ? ' · set complet 🏆' : '')));
+}
+
+/* ---------- Poste du maître du jeu ---------- */
+
+function renderMintPanel(view) {
+    const section = $('m-mint-section');
+    if (!state.isGamemaster) { section.style.display = 'none'; return; }
+    section.style.display = 'flex';
+
+    const summary = $('m-mint-state');
+    const scores = state.scores || [];
+    if (!view.set) {
+        summary.textContent = scores.length
+            ? 'Aucun set frappé. ' + scores.length + ' jeux votés attendent de devenir des cartes.'
+            : 'Aucun set, et aucun vote pour en frapper un.';
+    } else {
+        const count = Object.keys(view.setCards).length;
+        summary.textContent = 'Set en cours : « ' + view.set.name + ' », ' + count + ' cartes. En refrapper un en crée un nouveau ; les cartes déjà distribuées restent.';
+    }
+    $('m-mint-set').disabled = !scores.length;
+}
+
+/* Frapper le set : le classement des votes devient les cartes. On ne remplace
+   jamais un set existant — on en crée un nouveau et on pointe dessus, pour que
+   les cartes déjà ouvertes gardent un sens. */
+function mintSet() {
+    const user = state.user;
+    if (!user) return;
+    const cards = buildCardSet(state.scores || []);
+    const count = Object.keys(cards).length;
+    if (!count) { showToast('Aucun vote : rien à frapper.', 'error'); return; }
+
+    const ref = db.ref('lan/tcg/sets').push();
+    ref.set({
+        name: state.settings.lanName || 'LAN Demain',
+        ts: firebase.database.ServerValue.TIMESTAMP,
+        by: user.uid,
+        cards: cards
+    })
+        .then(() => db.ref('lan/tcg/currentSet').set(ref.key))
+        .then(() => showToast(count + ' cartes frappées !', 'success'))
+        .catch(e => showToast('Erreur : ' + e.message, 'error'));
+}
+
+$('m-mint-set').addEventListener('click', mintSet);
+
+$('m-gift-pack').addEventListener('click', () => {
+    if (!tcgCurrentSetId(state.tcg)) { showToast('Frappe d\'abord le set.', 'error'); return; }
+    openSheet('Offrir un booster', (body) => {
+        economyPlayers().forEach(uid => {
+            const row = el('button', 'm-btn m-btn--full', playerName(uid));
+            row.addEventListener('click', () => giftPack(uid));
+            body.appendChild(row);
+        });
+    });
+});
+
+function giftPack(uid) {
+    db.ref('lan/tcg/packs').push().set({
+        uid: uid,
+        setId: tcgCurrentSetId(state.tcg),
+        status: 'sealed',
+        sealedAt: firebase.database.ServerValue.TIMESTAMP,
+        origin: 'gift'
+    }).then(() => {
+        closeSheet();
+        showToast('Booster offert à ' + playerName(uid) + ' !', 'success');
+    }).catch(e => showToast('Erreur : ' + e.message, 'error'));
+}
+
+/* ---------- Sceller ce qui a été acheté ----------
+   Un booster validé par le maître du jeu donne droit à un paquet dont
+   l'identifiant EST celui de la demande : un achat ne peut donc pas donner
+   deux paquets, même si le client insiste. Le sceau, lui, est l'horodatage
+   écrit par le serveur — c'est lui, et rien d'autre, qui décide du contenu. */
+let sealing = false;
+/* Un sceau refusé (règle, set changé, autre appareil plus rapide) ne se
+   retente pas en boucle : on l'oublie jusqu'au prochain chargement. */
+const sealFailures = new Set();
+
+function sealBoughtPacks() {
+    const uid = state.user && state.user.uid;
+    const setId = tcgCurrentSetId(state.tcg);
+    if (!uid || !setId || sealing) return;
+
+    const waiting = unsealedPurchases(state.economy, state.tcg, uid)
+        .filter(purchase => !sealFailures.has(purchase.id));
+    if (!waiting.length) return;
+
+    sealing = true;
+    const purchase = waiting[0];
+    db.ref('lan/tcg/packs/' + purchase.id).set({
+        uid: uid,
+        setId: setId,
+        status: 'sealed',
+        sealedAt: firebase.database.ServerValue.TIMESTAMP,
+        origin: 'shop',
+        label: purchase.itemName || 'Booster'
+    })
+        .then(() => showToast('Ton booster est arrivé !', 'success'))
+        .catch(() => { sealFailures.add(purchase.id); })
+        .finally(() => {
+            sealing = false;
+            /* On enchaîne : trois boosters achetés d'affilée doivent donner
+               trois paquets, pas un seul. */
+            sealBoughtPacks();
+        });
+}
+
+/* ---------- Mes paquets ---------- */
+
+function renderMyPacks(view) {
+    const section = $('m-packs-section');
+    const mount = $('m-packs');
+    const sealed = sealedPacksOf(state.tcg, view.uid);
+    const waiting = unsealedPurchases(state.economy, state.tcg, view.uid).length;
+
+    if (!sealed.length && !waiting) { section.style.display = 'none'; return; }
+    section.style.display = 'flex';
+    mount.innerHTML = '';
+
+    sealed.forEach(pack => {
+        const card = el('article', 'm-card m-card--pack');
+        const top = el('div', 'm-card__top');
+        top.appendChild(el('h3', 'm-card__title', pack.label || 'Booster'));
+        top.appendChild(el('span', 'm-chip m-chip--gold', 'scellé'));
+        card.appendChild(top);
+        card.appendChild(el('p', 'm-card__meta',
+            'Scellé ' + timeAgo(pack.sealedAt) + ' · ' + TCG.PACK_SIZE + ' cartes'));
+
+        const open = el('button', 'm-btn m-btn--solid m-btn--full', 'Ouvrir');
+        open.addEventListener('click', () => openPack(pack));
+        card.appendChild(open);
+        mount.appendChild(card);
+    });
+
+    if (waiting) {
+        mount.appendChild(emptyState(waiting + ' booster' + (waiting > 1 ? 's' : '') + ' en cours de scellage…'));
+    }
+}
+
+/* Le teaser d'accueil : un booster qui attend mérite qu'on le dise. */
+function renderSealedTeaser() {
+    const section = $('m-sealed-teaser-section');
+    const mount = $('m-sealed-teaser');
+    const uid = state.user && state.user.uid;
+    const sealed = uid ? sealedPacksOf(state.tcg, uid) : [];
+    if (!sealed.length) { section.style.display = 'none'; return; }
+
+    section.style.display = 'flex';
+    mount.innerHTML = '';
+    const card = el('article', 'm-card m-card--pack');
+    card.appendChild(el('h3', 'm-card__title',
+        sealed.length > 1 ? sealed.length + ' boosters t\'attendent' : 'Un booster t\'attend'));
+    card.appendChild(el('p', 'm-card__meta', 'Scellé, jamais ouvert. Personne ne sait ce qu\'il y a dedans.'));
+    const go = el('button', 'm-btn m-btn--solid m-btn--full', 'Ouvrir');
+    go.addEventListener('click', () => goto('cartes'));
+    card.appendChild(go);
+    mount.appendChild(card);
+}
+
+/* ---------- L'ouverture ---------- */
+
+let revealQueue = [];
+let revealDone = [];
+/* Ce que le joueur possédait AVANT d'ouvrir : c'est ce qui distingue une
+   nouvelle carte d'un double. Relevé avant l'écriture, parce qu'aussitôt le
+   paquet marqué ouvert, le rejeu compte déjà ses cartes comme possédées. */
+let revealOwned = new Set();
+let opening = false;
+
+/* Ouvrir, c'est écrire l'horodatage d'ouverture puis jouer la révélation. Le
+   contenu se déduit du sceau : il était déjà décidé à l'achat, personne ne
+   peut plus rien y changer — ni le joueur, ni nous. */
+function openPack(pack) {
+    if (opening) return;
+    opening = true;
+
+    /* Ici et pas dans le .then() qui suit : iOS n'accorde le capteur que si la
+       demande part directement du geste de l'utilisateur. Passée l'écriture en
+       base, l'activation transitoire est perdue et la promesse est rejetée. */
+    askTiltPermission();
+
+    const view = tcgSnapshot();
+    const setCards = tcgSetCards(state.tcg, pack.setId);
+    const due = pityCount(state.tcg, pack.uid) >= TCG.PITY;
+    const drawn = drawPack(setCards, packSeed(pack.id, pack), { pity: due });
+
+    if (!drawn.length) {
+        opening = false;
+        showToast('Ce booster appartient à un set introuvable.', 'error');
+        return;
+    }
+
+    const ownedBefore = new Set(view.cards
+        .filter(card => card.owner === pack.uid)
+        .map(card => card.gameKey));
+
+    db.ref('lan/tcg/packs/' + pack.id).update({
+        status: 'opened',
+        openedAt: firebase.database.ServerValue.TIMESTAMP
+    })
+        .then(() => {
+            startReveal(pack, drawn.map(card => Object.assign({}, card, {
+                name: (setCards[card.gameKey] && setCards[card.gameKey].name) || card.gameKey,
+                owner: pack.uid,
+                mintedBy: pack.uid,
+                mintedAt: Date.now(),
+                lineage: [pack.uid]
+            })), ownedBefore);
+        })
+        .catch(e => showToast('Erreur : ' + e.message, 'error'))
+        .finally(() => { opening = false; });
+}
+
+/* On révèle du plus commun au plus rare, et le brillant en dernier à rareté
+   égale : la tension doit monter, pas retomber. */
+function startReveal(pack, cards, ownedBefore) {
+    revealQueue = cards.slice().sort((a, b) =>
+        rarityIndex(b.rarity) - rarityIndex(a.rarity)
+        || (a.foil ? 1 : 0) - (b.foil ? 1 : 0));
+    revealDone = [];
+    revealOwned = ownedBefore;
+
+    const stage = $('m-reveal-stage');
+    stage.innerHTML = '';
+    $('m-reveal-seal').textContent = 'Sceau ' + new Date(pack.sealedAt).toLocaleTimeString('fr-FR')
+        + ' · ' + (pack.label || 'Booster');
+    $('m-reveal-next').textContent = 'Révéler';
+    $('m-reveal').classList.add('is-open');
+    updateRevealFoot();
+}
+
+function updateRevealFoot() {
+    $('m-reveal-count').textContent = revealDone.length + ' / ' + (revealDone.length + revealQueue.length);
+    if (revealQueue.length) return;
+    $('m-reveal-next').textContent = 'Ranger dans ma collection';
+}
+
+$('m-reveal-next').addEventListener('click', () => {
+    if (!revealQueue.length) {
+        $('m-reveal').classList.remove('is-open');
+        $('m-reveal-stage').innerHTML = '';
+        renderAll();
+        return;
+    }
+
+    const card = revealQueue.shift();
+    const stage = $('m-reveal-stage');
+    const isNew = !revealOwned.has(card.gameKey);
+    revealOwned.add(card.gameKey);
+
+    const node = cardNode(card, { badge: isNew ? 'NOUVELLE' : 'double' });
+    node.classList.add('m-tcard--reveal');
+    stage.innerHTML = '';
+    stage.appendChild(node);
+    revealDone.push(card);
+
+    if (card.rarity === 'legendary' || card.foil) {
+        showToast(card.foil ? '✦ Brillante ! ' + card.name : '★ Légendaire ! ' + card.name, 'success');
+    }
+    updateRevealFoot();
+});
+
+/* ==========================================================================
+   LE BRILLANT VIVANT
+   Une carte brillante doit donner envie de la bouger. Trois façons de la
+   bouger selon l'appareil, une seule sortie : les variables CSS --px / --py
+   (position du reflet), --pxn / --pyn (décalage du voile, -0.5 à 0.5),
+   --pfc (distance au centre, qui dose l'intensité) et --rx / --ry
+   (inclinaison de la carte).
+
+   1. Le pointeur — souris, doigt ou stylet. On passe par Pointer Events, qui
+      couvre les trois d'un coup : pas de code séparé pour le tactile.
+   2. Le gyroscope du téléphone, quand il répond.
+   3. Rien du tout : l'animation CSS par défaut prend le relais.
+   ========================================================================== */
+
+const REDUCED_MOTION = window.matchMedia
+    && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* Quelles cartes réagissent au pointeur : les brillantes partout, et la carte
+   mise en scène (révélation, fiche) même ordinaire — c'est là qu'on la
+   regarde vraiment. */
+const LIVE_CARD_SELECTOR = '.m-tcard.is-foil, .m-tcard--reveal, .m-tcard-solo .m-tcard';
+
+let liveCard = null;
+let livePointer = null;
+/* Un booléen posé AVANT la demande d'image, et levé dans le rappel : dans cet
+   ordre, le drapeau ne peut pas rester coincé à « en attente » et figer le
+   reflet pour le reste de la session. */
+let liveScheduled = false;
+
+function paintLiveCard() {
+    const card = liveCard;
+    const event = livePointer;
+    if (!card || !event) return;
+
+    const box = card.getBoundingClientRect();
+    if (!box.width || !box.height) return;
+
+    const x = Math.min(1, Math.max(0, (event.clientX - box.left) / box.width));
+    const y = Math.min(1, Math.max(0, (event.clientY - box.top) / box.height));
+    const dx = x - 0.5;
+    const dy = y - 0.5;
+
+    card.style.setProperty('--px', (x * 100).toFixed(2) + '%');
+    card.style.setProperty('--py', (y * 100).toFixed(2) + '%');
+    card.style.setProperty('--pxn', dx.toFixed(3));
+    card.style.setProperty('--pyn', dy.toFixed(3));
+    card.style.setProperty('--pfc', Math.min(1, Math.hypot(dx, dy) * 2).toFixed(3));
+    card.style.setProperty('--rx', (dy * -12).toFixed(2) + 'deg');
+    card.style.setProperty('--ry', (dx * 12).toFixed(2) + 'deg');
+}
+
+function releaseLiveCard() {
+    if (!liveCard) return;
+    liveCard.classList.remove('is-live');
+    ['--px', '--py', '--pxn', '--pyn', '--pfc', '--rx', '--ry']
+        .forEach(name => liveCard.style.removeProperty(name));
+    liveCard = null;
+    livePointer = null;
+}
+
+/* Un seul écouteur pour toute la page, et un rendu par image : la grille peut
+   afficher cinquante cartes, et cinquante écouteurs qui écrivent du style à
+   chaque pixel parcouru feraient ramer le téléphone bien avant le PC. */
+document.addEventListener('pointermove', (e) => {
+    const card = e.target.closest ? e.target.closest(LIVE_CARD_SELECTOR) : null;
+    if (card !== liveCard) {
+        releaseLiveCard();
+        if (card) {
+            liveCard = card;
+            card.classList.add('is-live');
+        }
+    }
+    if (!liveCard) return;
+    livePointer = e;
+    if (liveScheduled) return;
+    liveScheduled = true;
+    requestAnimationFrame(() => { liveScheduled = false; paintLiveCard(); });
+}, { passive: true });
+
+/* Le doigt quitte l'écran : la carte se repose. Sans ça, elle resterait figée
+   en biais après un glissement sur téléphone. */
+document.addEventListener('pointerup', releaseLiveCard, { passive: true });
+document.addEventListener('pointercancel', releaseLiveCard, { passive: true });
+window.addEventListener('blur', releaseLiveCard);
+
+/* iOS exige que requestPermission() parte d'un geste de l'utilisateur, et la
+   promesse est rejetée si l'appel arrive après un await : il doit être
+   SYNCHRONE dans le gestionnaire de clic, jamais dans un .then(). D'où
+   l'appel en tête d'ouverture de paquet et au toucher d'une carte. */
+let tiltAsked = false;
+
+function askTiltPermission() {
+    if (tiltAsked || REDUCED_MOTION) return;
+    tiltAsked = true;
+    const api = window.DeviceOrientationEvent;
+    if (!api) return;
+    if (typeof api.requestPermission === 'function') {
+        api.requestPermission()
+            .then(result => { if (result === 'granted') listenToTilt(); })
+            .catch(() => { /* refusé : le brillant garde son animation */ });
+    } else {
+        // Android et les navigateurs de bureau n'ont rien à demander.
+        listenToTilt();
+    }
+}
+
+function listenToTilt() {
+    window.addEventListener('deviceorientation', (e) => {
+        /* On n'active le mode inclinaison qu'à la première mesure réelle. Un
+           téléphone sans gyroscope, ou un PC, émet des événements vides : les
+           prendre pour argent comptant figerait le brillant sur une position
+           morte au lieu de le laisser respirer. */
+        if (e.gamma === null || e.beta === null) return;
+        const x = Math.max(-0.5, Math.min(0.5, Number(e.gamma) / 90));
+        const y = Math.max(-0.5, Math.min(0.5, Number(e.beta) / 90));
+        const root = document.documentElement;
+        if (!root.classList.contains('has-tilt')) root.classList.add('has-tilt');
+        root.style.setProperty('--pxn', x.toFixed(3));
+        root.style.setProperty('--pyn', y.toFixed(3));
+    });
+}
+
+/* ---------- La grille du set ---------- */
+
+let setFilter = 'all';
+
+$('m-set-filter').addEventListener('click', () => {
+    const options = ['all', 'missing', 'owned'];
+    setFilter = options[(options.indexOf(setFilter) + 1) % options.length];
+    $('m-set-filter').textContent = setFilter === 'all' ? 'Tout'
+        : (setFilter === 'missing' ? 'Manquantes' : 'Possédées');
+    renderCartes();
+});
+
+function renderSetGrid(view) {
+    const mount = $('m-set-grid');
+    mount.innerHTML = '';
+
+    if (!view.set) {
+        mount.appendChild(emptyState('Le set de la soirée n\'a pas encore été frappé.'));
+        return;
+    }
+
+    const rows = collectionBySet(view.setCards, view.cards, view.uid)
+        .filter(row => setFilter === 'all'
+            || (setFilter === 'missing' && !row.owned)
+            || (setFilter === 'owned' && row.owned));
+
+    if (!rows.length) {
+        mount.appendChild(emptyState(setFilter === 'missing'
+            ? 'Rien ne manque. Set complet.'
+            : 'Aucune carte pour l\'instant. Un booster, et ça commence.'));
+        return;
+    }
+
+    rows.forEach(row => {
+        const best = row.copies.find(copy => copy.foil) || row.copies[0];
+        const card = best || { gameKey: row.gameKey, name: row.name, rarity: row.rarity, foil: false };
+        mount.appendChild(cardNode(card, {
+            missing: !row.owned,
+            badge: row.copies.length > 1 ? '×' + row.copies.length : '',
+            onClick: () => (best ? openCardSheet(best) : showToast(row.name + ' — pas encore dans ta collection.', 'error'))
+        }));
+    });
+}
+
+/* ---------- Les doubles ---------- */
+
+function renderDupes(view) {
+    const section = $('m-dupes-section');
+    const mount = $('m-dupes');
+    const dupes = duplicatesOf(view.cards, view.uid);
+
+    if (!dupes.length) { section.style.display = 'none'; return; }
+    section.style.display = 'flex';
+    mount.innerHTML = '';
+    dupes.forEach(card => mount.appendChild(cardNode(card, {
+        small: true,
+        onClick: () => openCardSheet(card)
+    })));
+}
+
+/* ---------- Les échanges ----------
+   Rien n'est vérifié à l'écriture : les règles Firebase ne savent pas dire qui
+   possède quoi. C'est le rejeu qui tranche, et un échange malhonnête n'est pas
+   refusé — il est sans effet, à la vue de tous dans le journal. */
+
+$('m-trade-new').addEventListener('click', openTradeBuilder);
+
+function openTradeBuilder() {
+    const view = tcgSnapshot();
+    const others = economyPlayers().filter(uid => uid !== view.uid
+        && view.cards.some(card => card.owner === uid));
+
+    if (!others.length) {
+        showToast('Personne d\'autre n\'a encore de cartes.', 'error');
+        return;
+    }
+
+    let target = others[0];
+    const offer = new Set();
+    const request = new Set();
+
+    openSheet('Proposer un échange', (body) => {
+        const who = el('select', 'm-input');
+        others.forEach(uid => {
+            const option = el('option', null, playerName(uid));
+            option.value = uid;
+            who.appendChild(option);
+        });
+        who.value = target;
+        body.appendChild(who);
+
+        const mineTitle = el('p', 'm-shop__cat', 'Je donne');
+        const mineRow = el('div', 'm-cardrow');
+        const theirsTitle = el('p', 'm-shop__cat', 'Je demande');
+        const theirsRow = el('div', 'm-cardrow');
+        const submit = el('button', 'm-btn m-btn--solid m-btn--full', 'Envoyer la proposition');
+
+        const paint = () => {
+            mineRow.innerHTML = '';
+            theirsRow.innerHTML = '';
+
+            /* Les doubles d'abord : c'est ce qu'on troque, le reste on le garde. */
+            const dupes = duplicatesOf(view.cards, view.uid);
+            const dupeIds = new Set(dupes.map(card => card.id));
+            const mine = dupes.concat(collectionOf(view.cards, view.uid).filter(card => !dupeIds.has(card.id)));
+
+            if (!mine.length) mineRow.appendChild(emptyState('Tu n\'as aucune carte à offrir.'));
+            mine.forEach(card => mineRow.appendChild(cardNode(card, {
+                small: true,
+                selected: offer.has(card.id),
+                badge: dupeIds.has(card.id) ? 'double' : '',
+                onClick: () => { togglePick(offer, card.id); paint(); }
+            })));
+
+            const theirs = collectionOf(view.cards, target);
+            if (!theirs.length) theirsRow.appendChild(emptyState('Ce joueur n\'a aucune carte.'));
+            theirs.forEach(card => theirsRow.appendChild(cardNode(card, {
+                small: true,
+                selected: request.has(card.id),
+                onClick: () => { togglePick(request, card.id); paint(); }
+            })));
+
+            submit.disabled = !offer.size && !request.size;
+            submit.textContent = (offer.size || request.size)
+                ? 'Proposer : ' + offer.size + ' contre ' + request.size
+                : 'Choisis au moins une carte';
+        };
+
+        who.addEventListener('change', () => {
+            target = who.value;
+            request.clear();
+            paint();
+        });
+
+        submit.addEventListener('click', () => sendTrade(target, Array.from(offer), Array.from(request)));
+
+        body.append(mineTitle, mineRow, theirsTitle, theirsRow, submit);
+        paint();
+    });
+}
+
+function togglePick(set, id) {
+    if (set.has(id)) { set.delete(id); return; }
+    if (set.size >= TCG.TRADE_MAX) {
+        showToast('Six cartes par côté, pas plus.', 'error');
+        return;
+    }
+    set.add(id);
+}
+
+function sendTrade(toUid, offer, request) {
+    const user = state.user;
+    if (!user) return;
+    db.ref('lan/tcg/trades').push().set({
+        fromUid: user.uid,
+        fromName: user.displayName || 'Un joueur',
+        toUid: toUid,
+        toName: playerName(toUid),
+        offer: serializeCardList(offer),
+        request: serializeCardList(request),
+        status: 'pending',
+        ts: firebase.database.ServerValue.TIMESTAMP
+    }).then(() => {
+        closeSheet();
+        showToast('Proposition envoyée à ' + playerName(toUid) + '.', 'success');
+    }).catch(e => showToast('Erreur : ' + e.message, 'error'));
+}
+
+function resolveTrade(trade, status) {
+    db.ref('lan/tcg/trades/' + trade.id).update({
+        status: status,
+        resolvedAt: firebase.database.ServerValue.TIMESTAMP
+    })
+        .then(() => showToast(status === 'accepted' ? 'Échange conclu !' : 'C\'est noté.', 'success'))
+        .catch(e => showToast('Erreur : ' + e.message, 'error'));
+}
+
+/* Le résumé d'une proposition : deux colonnes de cartes, sans jargon. */
+function tradeCard(trade, view, mine) {
+    const byId = new Map(view.cards.map(card => [card.id, card]));
+    const card = el('article', 'm-card');
+    const top = el('div', 'm-card__top');
+    top.appendChild(el('h3', 'm-card__title',
+        mine ? 'À ' + playerName(trade.toUid) : 'De ' + playerName(trade.fromUid)));
+    top.appendChild(el('span', 'm-chip', timeAgo(trade.ts)));
+    card.appendChild(top);
+
+    const side = (label, ids) => {
+        card.appendChild(el('p', 'm-shop__cat', label));
+        const row = el('div', 'm-cardrow');
+        if (!ids.length) row.appendChild(emptyState('Rien'));
+        ids.forEach(id => {
+            const owned = byId.get(id);
+            row.appendChild(owned
+                ? cardNode(owned, { small: true, onClick: () => openCardSheet(owned) })
+                : emptyState('Carte introuvable'));
+        });
+        card.appendChild(row);
+    };
+
+    side(mine ? 'Je donne' : playerName(trade.fromUid) + ' donne', trade.offer);
+    side(mine ? 'Je demande' : 'En échange de', trade.request);
+
+    if (!tradeStillValid(view.cards, trade)) {
+        card.appendChild(el('p', 'm-card__meta',
+            '⚠️ Caduque : une des cartes a changé de mains depuis. L\'accepter n\'aurait aucun effet.'));
+    }
+
+    return card;
+}
+
+function renderTradesIn(view) {
+    const section = $('m-trade-in-section');
+    const mount = $('m-trade-in');
+    const trades = pendingTradesFor(state.tcg, view.uid);
+    if (!trades.length) { section.style.display = 'none'; return; }
+
+    section.style.display = 'flex';
+    mount.innerHTML = '';
+    trades.forEach(trade => {
+        const card = tradeCard(trade, view, false);
+        const accept = el('button', 'm-btn m-btn--solid m-btn--sm m-btn--full', 'Accepter');
+        accept.disabled = !tradeStillValid(view.cards, trade);
+        accept.addEventListener('click', () => resolveTrade(trade, 'accepted'));
+        card.appendChild(accept);
+        const decline = el('button', 'm-btn m-btn--quiet m-btn--sm', 'Refuser');
+        decline.addEventListener('click', () => resolveTrade(trade, 'declined'));
+        card.appendChild(decline);
+        mount.appendChild(card);
+    });
+}
+
+function renderTradesOut(view) {
+    const section = $('m-trade-out-section');
+    const mount = $('m-trade-out');
+    const trades = pendingTradesFrom(state.tcg, view.uid);
+    if (!trades.length) { section.style.display = 'none'; return; }
+
+    section.style.display = 'flex';
+    mount.innerHTML = '';
+    trades.forEach(trade => {
+        const card = tradeCard(trade, view, true);
+        const cancel = el('button', 'm-btn m-btn--quiet m-btn--sm', 'Annuler');
+        cancel.addEventListener('click', () => resolveTrade(trade, 'cancelled'));
+        card.appendChild(cancel);
+        mount.appendChild(card);
+    });
+}
+
+function renderTcgLeaderboard(view) {
+    const mount = $('m-tcg-leaderboard');
+    mount.innerHTML = '';
+    const board = tcgLeaderboard(view.setCards, view.cards, economyPlayers());
+    if (!board.length) {
+        mount.appendChild(emptyState('Personne n\'a encore ouvert de booster.'));
+        return;
+    }
+    board.slice(0, 10).forEach((row, i) => {
+        const line = el('div', 'm-rank m-rank--' + (i + 1));
+        line.appendChild(el('span', 'm-rank__pos', String(i + 1)));
+        const face = el('img', 'm-rank__face');
+        face.src = playerPhoto(row.uid);
+        face.alt = '';
+        line.appendChild(face);
+        line.appendChild(el('span', 'm-rank__name', playerName(row.uid)));
+        line.appendChild(el('span', 'm-price', row.owned + '/' + row.total));
+        mount.appendChild(line);
+    });
+}
+
+/* Le journal est public, comme le registre des points : entre amis, la
+   transparence fait le travail que les règles ne peuvent pas faire. */
+function renderTradeFeed(view) {
+    const mount = $('m-trade-feed');
+    mount.innerHTML = '';
+    const feed = tcgTrades(state.tcg).filter(trade => trade.status !== 'pending').slice(0, 15);
+    if (!feed.length) {
+        mount.appendChild(emptyState('Aucun échange pour le moment.'));
+        return;
+    }
+    const words = { accepted: 'conclu', declined: 'refusé', cancelled: 'annulé' };
+    feed.forEach(trade => {
+        const row = el('div', 'm-move');
+        const who = el('span', 'm-move__who', playerName(trade.fromUid) + ' → ' + playerName(trade.toUid));
+        /* « Sans effet » se lit dans le rejeu, jamais dans l'état actuel : une
+           fois l'échange conclu, les cartes ne sont plus chez leur émetteur —
+           les recompter dirait le contraire de la vérité. */
+        const effective = view.applied.has(trade.id);
+        who.appendChild(el('span', 'm-move__why',
+            trade.offer.length + ' contre ' + trade.request.length
+            + ' · ' + (words[trade.status] || trade.status)
+            + (trade.status === 'accepted' && !effective ? ' (sans effet)' : '')
+            + ' · ' + timeAgo(trade.resolvedAt || trade.ts)));
+        row.appendChild(who);
+        mount.appendChild(row);
+    });
 }
 
 /* ==========================================================================

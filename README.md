@@ -20,6 +20,25 @@ Ce projet est parti d'une simple idée de tableur Excel pour évoluer vers une a
 * **Correction Intelligente des Typos :** L'application détecte les fautes de frappe (ex: "Valorent" vs "Valorant") et propose de fusionner les votes pour ne pas diviser les scores.
 * **Miniatures de Jeux Automatiques :** Les images des jeux sont récupérées dynamiquement via l'API Steam pour une présentation plus vivante.
 * **Architecture Sécurisée :** Les clés d'API secrètes sont protégées côté serveur grâce à des Fonctions Serverless sur Vercel.
+* **Boutique & Points :** Une économie interne à la soirée. On gagne des points par la présence
+  (une tranche toutes les dix minutes, plafonnée) et par les crédits d'un **maître du jeu**, qui
+  récompense défis et exploits. On les dépense en privilèges, handicaps à jouer sur un autre
+  joueur, et cosmétiques. Aucun solde n'est stocké : il se recalcule depuis un registre public
+  en écriture unique, ce qui rend la triche structurellement impossible (voir [`SECURITY.md`](./SECURITY.md)).
+  Les points ne servent jamais à payer à boire ou à manger : le bar reste gratuit.
+* **Les Cartes de la Soirée :** Un jeu de collection **dont le set est frappé par le vote**. Les
+  jeux que les joueurs ont demandés deviennent les cartes, et leur rareté est leur score : le jeu
+  que tout le monde voulait est la légendaire du set. La rareté ne raconte pas une invention, elle
+  raconte la soirée. On achète des boosters en boutique, on les ouvre carte par carte (le brillant
+  est un traitement holographique qui réagit à l'inclinaison du téléphone), on complète la grille,
+  on troque ses doubles. Chaque carte garde sa **provenance** — qui l'a sortie du paquet, quand, et
+  par combien de mains elle est passée depuis : c'est un souvenir de soirée, pas une ligne
+  d'inventaire. Les points repartent à zéro entre deux LAN, les cartes non.
+* **Un Hasard Sans Serveur :** le contenu d'un booster n'est stocké nulle part — il se recalcule à
+  partir de son *sceau*, l'horodatage écrit par le serveur Firebase au moment de l'achat. C'est la
+  seule valeur de l'application que le client ne choisit pas : le tirage est donc imprévisible
+  (personne ne connaît la milliseconde du serveur) et vérifiable par tout le monde (chacun rejoue
+  le même paquet). Aucune fonction serverless de tirage, aucune dépendance.
 * **Design Responsive :** L'interface est utilisable aussi bien sur ordinateur que sur mobile.
 
 ## 🛠️ Stack Technique

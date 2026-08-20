@@ -99,6 +99,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let globalVotes = {};
     let globalSettings = { isVotingOpen: true, topGamesCount: 10, isLanActive: false };
+    // L'économie de la soirée : carte de la boutique, registre, compteurs de
+    // présence et demandes d'achat. Aucun solde n'y est stocké, il se recalcule.
+    let globalEconomy = {};
+    // Le set, les paquets scellés et le journal des échanges. Aucune
+    // collection n'y est stockée : elle se rejoue depuis les paquets ouverts.
+    let globalTcg = {};
     let globalUsers = {};
     // Fiches durables (nom + avatar). /status disparaît à la déconnexion : sans
     // ce miroir, un joueur qui a voté puis fermé l'onglet n'avait plus de photo.
@@ -556,11 +562,18 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             window.currentUserIsMixologist = (myRole === 'mixologist');
+            // Le maître du jeu tient la boutique. L'admin l'est d'office : une
+            // soirée ne doit pas se bloquer parce qu'il est parti dormir.
+            window.currentUserIsGamemaster = isGamemaster(myRole, user.uid, ADMIN_UID);
 
             // Update UI based on roles
             const lanAdminNav = document.getElementById('lan-nav-admin');
             if (lanAdminNav) lanAdminNav.style.display = window.currentUserIsAdmin ? 'block' : 'none';
             updateVotingUIState();
+            // Le poste « frapper le set » n'apparaît qu'au maître du jeu : le
+            // rôle arrive après le premier rendu, il faut redessiner.
+            renderBoutique();
+            renderCollection();
         });
 
         // Une clé par session ouverte : le même compte tourne souvent sur le PC
@@ -627,6 +640,24 @@ document.addEventListener('DOMContentLoaded', () => {
             window._latestCocktailsData = cocktailsData;
             renderCocktails(cocktailsData, user);
             renderCocktailSummary(cocktailsData);
+        });
+
+        watchValue(db.ref('lan/economy'), (snapshot) => {
+            globalEconomy = snapshot.val() || {};
+            renderBoutique();
+            // Une demande de booster validée devient un paquet scellé : le
+            // rejeu des cartes en dépend, donc on l'invalide aussi.
+            tcgViewCache = null;
+            sealBoughtPacks();
+            renderCollection();
+        });
+        startTickEngine();
+
+        watchValue(db.ref('lan/tcg'), (snapshot) => {
+            globalTcg = snapshot.val() || {};
+            tcgViewCache = null;
+            sealBoughtPacks();
+            renderCollection();
         });
 
         watchValue(notificationsRef, (snapshot) => {
@@ -2322,12 +2353,21 @@ document.addEventListener('DOMContentLoaded', () => {
         // Tout ce qui appartient à une soirée est archivé avec elle, puis effacé :
         // sans ça, la nouvelle LAN héritait des événements et des kocktails
         // de la précédente.
-        const [eventsSnap, cocktailsSnap] = await Promise.all([
+        const [eventsSnap, cocktailsSnap, economySnap] = await Promise.all([
             db.ref('lan/events').once('value'),
-            db.ref('lan/cocktails/oneshot').once('value')
+            db.ref('lan/cocktails/oneshot').once('value'),
+            db.ref('lan/economy').once('value')
         ]);
 
-        const hadContent = sortedGames.length > 0 || eventsSnap.exists() || cocktailsSnap.exists();
+        // Le classement des fortunes part avec la soirée : c'est un palmarès,
+        // pas un solde. On l'archive avant d'effacer, sinon il n'en resterait
+        // aucune trace nulle part.
+        const previousEconomy = economySnap.val() || {};
+        const finalStandings = economyLeaderboard(previousEconomy, economyPlayers())
+            .map(row => ({ name: playerLabel(row.uid), balance: row.balance }));
+
+        const hadContent = sortedGames.length > 0 || eventsSnap.exists() || cocktailsSnap.exists()
+            || finalStandings.length > 0;
 
         if (hadContent) {
             await db.ref('lan/history').push().set({
@@ -2337,13 +2377,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 topGames: sortedGames.slice(0, globalSettings.topGamesCount || 10),
                 votes: globalVotes,
                 events: eventsSnap.val() || null,
-                oneshotCocktails: cocktailsSnap.val() || null
+                oneshotCocktails: cocktailsSnap.val() || null,
+                economyStandings: finalStandings.length ? finalStandings : null
             });
         }
 
         // Seule la carte officielle des kocktails survit : c'est un acquis
         // curé par les admins. Les bibliothèques, elles, bougent entre deux
         // soirées (achats, abonnements), donc on repart d'une liste fraîche.
+        // La boutique suit la même règle que le bar : la carte des articles
+        // reste — elle s'est construite au fil des soirées — mais les soldes,
+        // le registre, les compteurs de présence et les demandes repartent de
+        // zéro. Une fortune se gagne dans une soirée, elle ne se transporte pas.
         await Promise.all([
             db.ref('lan/votes').remove(),
             db.ref('lan/events').remove(),
@@ -2351,7 +2396,10 @@ document.addEventListener('DOMContentLoaded', () => {
             db.ref('lan/cocktails/orders').remove(),
             db.ref('lan/polls').remove(),
             db.ref('lan/foodRuns').remove(),
-            db.ref('lan/steamLibraries').remove()
+            db.ref('lan/steamLibraries').remove(),
+            db.ref('lan/economy/ledger').remove(),
+            db.ref('lan/economy/ticks').remove(),
+            db.ref('lan/economy/purchases').remove()
         ]);
 
         // lanFinished doit retomber ici : sinon la nouvelle soirée s'ouvrirait
@@ -2368,7 +2416,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const newName = (input?.value || '').trim();
 
         const ok = await askConfirm(
-            "Archiver la soirée en cours (classement, événements, créations kocktails, sondages, commandes) puis repartir de zéro ? Les bibliothèques Steam sont également effacées. Seule la carte officielle des kocktails est conservée.",
+            "Archiver la soirée en cours (classement, événements, créations kocktails, sondages, commandes) puis repartir de zéro ? Les bibliothèques Steam sont également effacées. La carte officielle des kocktails est conservée, ainsi que les cartes à collectionner : une collection ne se réinitialise pas.",
             { title: '🎉 Nouvelle LAN', danger: true, confirmLabel: 'Démarrer' }
         );
         if (!ok) return;
@@ -4148,6 +4196,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (targetId === 'lan-events' && window._latestEventsData) {
                 renderEvents(window._latestEventsData, auth.currentUser);
             }
+            if (targetId === 'lan-boutique') {
+                renderBoutique();
+            }
+            if (targetId === 'lan-tcg') {
+                renderCollection();
+            }
             if (targetId === 'lan-calendar') {
                 renderWhenWhere();
                 renderAgenda();
@@ -5223,4 +5277,1428 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+
+    /* ======================================================================
+       BOUTIQUE
+       Aucun solde n'est stocké : il se recalcule à chaque rendu depuis le
+       registre et le compteur de présence (core.js). Un joueur n'écrit ici
+       que deux choses — une tranche de présence, plafonnée par les règles
+       Firebase, et une demande d'achat, qu'un maître du jeu doit trancher.
+       Le registre lui-même est en écriture unique et réservé aux maîtres du
+       jeu : c'est ce qui empêche quiconque de s'enrichir tout seul.
+       ====================================================================== */
+
+    let tickTimer = null;
+
+    /* Le gain passif. Les règles imposent le rythme (une tranche par dix
+       minutes) et le plafond ; ce minuteur ne fait que proposer la tranche
+       quand elle est due. Un refus est normal : c'est le second appareil du
+       même joueur qui arrive après le premier. On gagne par joueur, jamais
+       par écran ouvert. */
+    function claimTick() {
+        const user = auth.currentUser;
+        if (!user || !globalSettings.isLanActive) return;
+
+        const node = (globalEconomy.ticks || {})[user.uid] || null;
+        const count = Number(node && node.count) || 0;
+        if (count >= ECONOMY.MAX_TICKS) return;
+
+        const last = Number(node && node.lastTick) || 0;
+        // Marge de deux secondes : l'horloge du PC n'est pas celle du serveur,
+        // et une tentative en avance serait rejetée pour rien.
+        if (last && Date.now() - last < ECONOMY.TICK_INTERVAL_MS + 2000) return;
+
+        db.ref('lan/economy/ticks/' + user.uid).set({
+            count: count + 1,
+            lastTick: firebase.database.ServerValue.TIMESTAMP
+        }).catch(() => { /* trop tôt, ou un autre appareil a pris la tranche */ });
+    }
+
+    function startTickEngine() {
+        clearInterval(tickTimer);
+        // On sonde plus souvent que l'intervalle : le joueur arrive au milieu
+        // d'une tranche et attendre dix minutes pleines ressemblerait à une panne.
+        tickTimer = setInterval(claimTick, 60000);
+        claimTick();
+    }
+
+    // Tous ceux qu'on connaît : connectés, votants, ou simplement déjà venus.
+    // Un joueur parti se coucher reste une cible valable pour un handicap.
+    function economyPlayers() {
+        const seen = {};
+        [globalUsers, globalVotes, globalProfiles].forEach(source => {
+            Object.keys(source || {}).forEach(uid => { seen[uid] = true; });
+        });
+        return Object.keys(seen);
+    }
+
+    function playerLabel(uid) {
+        if (globalVotes[uid] && globalVotes[uid].name) return globalVotes[uid].name;
+        const identity = statusIdentity(globalUsers[uid]);
+        if (identity && identity.name) return identity.name;
+        if (globalProfiles[uid] && globalProfiles[uid].name) return globalProfiles[uid].name;
+        return 'Un joueur';
+    }
+
+    function renderBoutique() {
+        const user = auth.currentUser;
+        if (!user || !document.getElementById('lan-boutique')) return;
+
+        const isGm = !!window.currentUserIsGamemaster;
+        const balance = economyBalance(globalEconomy, user.uid);
+        const reserved = balance - availablePoints(globalEconomy, user.uid);
+
+        const value = document.getElementById('wallet-value');
+        if (value) value.textContent = formatPoints(balance);
+
+        const hint = document.getElementById('wallet-hint');
+        if (hint) {
+            if (reserved > 0) {
+                hint.textContent = `dont ${formatPoints(reserved)} réservés par une demande en attente`;
+            } else if (globalSettings.isLanActive) {
+                const ticks = Number(((globalEconomy.ticks || {})[user.uid] || {}).count) || 0;
+                hint.textContent = ticks >= ECONOMY.MAX_TICKS
+                    ? 'Présence : plafond atteint. Les points se gagnent autrement, maintenant.'
+                    : `+${ECONOMY.TICK_VALUE} ${ECONOMY.CURRENCY} toutes les 10 minutes de présence`;
+            } else {
+                hint.textContent = 'Les points se gagnent une fois la LAN lancée.';
+            }
+        }
+
+        document.getElementById('shop-gm-panel').style.display = isGm ? 'block' : 'none';
+        document.getElementById('shop-grant-panel').style.display = isGm ? 'block' : 'none';
+        document.getElementById('btn-add-shop-item').style.display = isGm ? 'block' : 'none';
+
+        renderShopQueue(isGm);
+        renderShopCatalog(user);
+        renderShopFeed();
+        renderShopLeaderboard();
+        renderMyShopRequests(user);
+        fillGrantSelect();
+        updateShopBadge(isGm);
+    }
+
+    // La pastille de navigation ne parle qu'au maître du jeu : pour les autres,
+    // une file d'attente n'est pas une nouvelle à traiter.
+    function updateShopBadge(isGm) {
+        const badge = document.getElementById('shop-nav-badge');
+        if (!badge) return;
+        const waiting = isGm ? pendingPurchases(globalEconomy).length : 0;
+        badge.style.display = waiting ? 'inline-block' : 'none';
+        badge.textContent = waiting;
+    }
+
+    /* --- File d'attente du maître du jeu -------------------------------- */
+
+    function renderShopQueue(isGm) {
+        const mount = document.getElementById('shop-gm-queue');
+        if (!mount || !isGm) return;
+        mount.innerHTML = '';
+
+        const queue = pendingPurchases(globalEconomy);
+        if (!queue.length) {
+            mount.innerHTML = '<p style="color:var(--secondary-text); font-style:italic;">Aucune demande en attente.</p>';
+            return;
+        }
+
+        queue.forEach(p => {
+            const buyerBalance = economyBalance(globalEconomy, p.uid);
+            const card = document.createElement('div');
+            card.className = 'shop-request';
+
+            let meta = `${escapeHtml(p.userName || playerLabel(p.uid))} — solde ${escapeHtml(formatPoints(buyerBalance))}`;
+            if (p.targetName) meta += ` — visé : ${escapeHtml(p.targetName)}`;
+
+            card.innerHTML = `
+                <div class="shop-card__head">
+                    <h4 class="shop-card__name">${escapeHtml(p.itemName || 'Article')}</h4>
+                    <span class="shop-card__price">${escapeHtml(formatPoints(p.price))}</span>
+                </div>
+                <p class="shop-card__meta">${meta}</p>
+            `;
+
+            // Le solde s'affiche au moment de trancher : c'est le garde-fou
+            // contre un client bricolé, puisque les règles Firebase ne savent
+            // pas additionner un registre.
+            if (buyerBalance < (Number(p.price) || 0)) {
+                const warn = document.createElement('p');
+                warn.className = 'shop-request__warn';
+                warn.textContent = '⚠️ Solde insuffisant : valider le ferait passer en négatif.';
+                card.appendChild(warn);
+            }
+
+            const actions = document.createElement('div');
+            actions.className = 'shop-card__actions';
+
+            const grant = document.createElement('button');
+            grant.className = 'gold-btn';
+            grant.style.padding = '8px 18px';
+            grant.textContent = 'Valider';
+            grant.addEventListener('click', () => resolvePurchase(p, 'granted'));
+            actions.appendChild(grant);
+
+            const refuse = document.createElement('button');
+            refuse.className = 'gold-link-btn';
+            refuse.textContent = 'Refuser';
+            refuse.addEventListener('click', () => resolvePurchase(p, 'refused'));
+            actions.appendChild(refuse);
+
+            card.appendChild(actions);
+            mount.appendChild(card);
+        });
+    }
+
+    /* Valider, c'est écrire deux choses : la ligne du registre qui débite, puis
+       le sort de la demande. Le registre en premier — si la seconde écriture
+       échoue, le joueur est débité d'un article qu'il recevra quand même, ce
+       qui se rattrape à la main ; l'ordre inverse offrirait l'article. */
+    function resolvePurchase(purchase, status) {
+        const user = auth.currentUser;
+        if (!user) return;
+
+        const close = () => db.ref('lan/economy/purchases/' + purchase.id).update({
+            status: status,
+            resolvedBy: user.uid,
+            resolvedByName: user.displayName || 'Maître du jeu',
+            resolvedAt: firebase.database.ServerValue.TIMESTAMP
+        });
+
+        if (status === 'refused') {
+            close()
+                .then(() => {
+                    sendNotification(purchase.uid, `Demande refusée : ${purchase.itemName}`, 'info');
+                    showToast('Demande refusée.', 'success');
+                })
+                .catch(err => showToast('Erreur : ' + err.message, 'error'));
+            return;
+        }
+
+        writeLedger({
+            uid: purchase.uid,
+            delta: -(Number(purchase.price) || 0),
+            type: 'purchase',
+            reason: purchase.itemName || 'Achat',
+            refId: purchase.id
+        })
+            .then(close)
+            .then(() => {
+                sendNotification(purchase.uid, `${purchase.itemName} : c'est validé !`, 'success');
+                showToast('Achat validé.', 'success');
+            })
+            .catch(err => showToast('Erreur : ' + err.message, 'error'));
+    }
+
+    function writeLedger(entry) {
+        const user = auth.currentUser;
+        return db.ref('lan/economy/ledger').push().set(Object.assign({
+            by: user ? user.uid : null,
+            byName: user ? (user.displayName || 'Maître du jeu') : null,
+            ts: firebase.database.ServerValue.TIMESTAMP
+        }, entry));
+    }
+
+    /* --- La carte ------------------------------------------------------- */
+
+    function renderShopCatalog(user) {
+        const mount = document.getElementById('shop-catalog');
+        if (!mount) return;
+        mount.innerHTML = '';
+
+        const catalog = Object.entries(globalEconomy.catalog || {})
+            .filter(([, item]) => item && item.active !== false);
+
+        if (!catalog.length) {
+            mount.innerHTML = window.currentUserIsGamemaster
+                ? '<p style="color:var(--secondary-text); font-style:italic;">La boutique est vide. Ajoutez un premier article.</p>'
+                : '<p style="color:var(--secondary-text); font-style:italic;">La boutique n\'a pas encore ouvert.</p>';
+            return;
+        }
+
+        // Groupé par rayon : une liste à plat de vingt articles ne se lit pas.
+        ECONOMY.CATEGORIES.forEach(cat => {
+            const items = catalog.filter(([, item]) => (item.category || 'fun') === cat.key);
+            if (!items.length) return;
+
+            const title = document.createElement('p');
+            title.className = 'shop-cat-title';
+            title.textContent = `${cat.icon} ${cat.label}`;
+            mount.appendChild(title);
+
+            const grid = document.createElement('div');
+            grid.className = 'card-grid';
+            items
+                .sort((a, b) => (Number(a[1].price) || 0) - (Number(b[1].price) || 0))
+                .forEach(([id, item]) => grid.appendChild(buildShopCard(id, item, user)));
+            mount.appendChild(grid);
+        });
+    }
+
+    function buildShopCard(id, item, user) {
+        const verdict = canBuy(globalEconomy, user.uid, id, item);
+        const card = document.createElement('div');
+        card.className = verdict.ok ? 'shop-card' : 'shop-card is-unaffordable';
+
+        const left = itemStockLeft(globalEconomy, id, item);
+        const stockLine = left === null
+            ? ''
+            : `<p class="shop-card__meta">${left ? `${left} restant${left > 1 ? 's' : ''}` : 'Épuisé'}</p>`;
+
+        // Un booster se reconnaît au premier coup d'oeil : ce n'est pas un
+        // privilège qu'on joue, c'est un paquet qu'on ouvre.
+        const packLine = isPackItem(item)
+            ? `<p class="shop-card__meta">🎴 ${TCG.PACK_SIZE} cartes du set de la soirée, dont au moins une peu commune.</p>`
+            : '';
+        if (isPackItem(item)) card.classList.add('shop-card--pack');
+
+        card.innerHTML = `
+            <div class="shop-card__head">
+                <h4 class="shop-card__name">${escapeHtml(item.name || 'Article')}</h4>
+                <span class="shop-card__price">${escapeHtml(formatPoints(item.price))}</span>
+            </div>
+            ${packLine}
+            <p class="shop-card__desc">${escapeHtml(item.description || '')}</p>
+            ${stockLine}
+        `;
+
+        const actions = document.createElement('div');
+        actions.className = 'shop-card__actions';
+
+        const buy = document.createElement('button');
+        buy.className = 'gold-btn';
+        buy.style.padding = '8px 18px';
+        buy.textContent = verdict.ok ? 'Acheter' : verdict.why;
+        buy.disabled = !verdict.ok;
+        buy.addEventListener('click', () => requestPurchase(id, item));
+        actions.appendChild(buy);
+
+        if (window.currentUserIsGamemaster) {
+            const del = document.createElement('button');
+            del.className = 'gold-link-btn';
+            del.style.color = 'var(--danger-color)';
+            del.textContent = 'Retirer';
+            del.addEventListener('click', () => {
+                askConfirm(`Retirer « ${item.name} » de la carte ?`, { danger: true }).then(ok => {
+                    if (!ok) return;
+                    db.ref('lan/economy/catalog/' + id).remove()
+                        .then(() => showToast('Article retiré.', 'success'))
+                        .catch(err => showToast('Erreur : ' + err.message, 'error'));
+                });
+            });
+            actions.appendChild(del);
+        }
+
+        card.appendChild(actions);
+        return card;
+    }
+
+    /* Acheter, c'est déposer une demande — jamais se débiter soi-même. Le
+       maître du jeu tranche, et c'est seulement là que le registre bouge. */
+    function requestPurchase(itemId, item) {
+        const user = auth.currentUser;
+        if (!user) return;
+
+        const send = (targetUid, targetName) => {
+            db.ref('lan/economy/purchases').push().set({
+                itemId: itemId,
+                itemName: item.name || 'Article',
+                price: Number(item.price) || 0,
+                uid: user.uid,
+                userName: user.displayName || 'Un joueur',
+                targetUid: targetUid || null,
+                targetName: targetName || null,
+                status: 'pending',
+                ts: firebase.database.ServerValue.TIMESTAMP
+            }).then(() => showToast('Demande envoyée au maître du jeu !', 'success'))
+                .catch(err => showToast('Erreur : ' + err.message, 'error'));
+        };
+
+        // Un handicap sans cible serait du sabotage anonyme : on demande sur
+        // qui, et le nom restera visible dans le registre.
+        if (!item.needsTarget) {
+            askConfirm(`Demander « ${item.name} » pour ${formatPoints(item.price)} ?`,
+                { title: '🛍️ Boutique' }).then(ok => { if (ok) send(null, null); });
+            return;
+        }
+
+        const others = economyPlayers().filter(uid => uid !== user.uid);
+        if (!others.length) {
+            showToast('Aucun autre joueur à viser pour le moment.', 'error');
+            return;
+        }
+
+        const choice = window.prompt(
+            `Sur qui jouer « ${item.name} » ?\n\n` +
+            others.map((uid, i) => `${i + 1}. ${playerLabel(uid)}`).join('\n') +
+            '\n\nEntrez le numéro :');
+        if (choice === null) return;
+
+        const index = parseInt(choice, 10) - 1;
+        if (!(index >= 0 && index < others.length)) {
+            showToast('Numéro invalide.', 'error');
+            return;
+        }
+        send(others[index], playerLabel(others[index]));
+    }
+
+    /* --- Registre, fortunes, mes demandes -------------------------------- */
+
+    // Le registre est public : c'est lui qui rend l'économie honnête. Chacun
+    // voit qui a reçu quoi, et pourquoi.
+    function renderShopFeed() {
+        const mount = document.getElementById('shop-feed');
+        if (!mount) return;
+        mount.innerHTML = '';
+
+        const feed = economyFeed(globalEconomy, 40);
+        if (!feed.length) {
+            mount.innerHTML = '<p style="color:var(--secondary-text); font-style:italic;">Aucun mouvement pour le moment.</p>';
+            return;
+        }
+
+        feed.forEach(entry => {
+            const delta = Number(entry.delta) || 0;
+            const row = document.createElement('div');
+            row.className = 'shop-move';
+            row.innerHTML = `
+                <span class="shop-move__text">${escapeHtml(playerLabel(entry.uid))}
+                    <span class="shop-move__why">${escapeHtml(entry.reason || 'Mouvement')}${entry.byName ? ` · par ${escapeHtml(entry.byName)}` : ''}</span>
+                </span>
+                <span class="shop-move__delta ${delta >= 0 ? 'is-up' : 'is-down'}">${delta >= 0 ? '+' : ''}${delta}</span>
+            `;
+            mount.appendChild(row);
+        });
+    }
+
+    function renderShopLeaderboard() {
+        const mount = document.getElementById('shop-leaderboard');
+        if (!mount) return;
+        mount.innerHTML = '';
+
+        const board = economyLeaderboard(globalEconomy, economyPlayers());
+        if (!board.length) {
+            mount.innerHTML = '<p style="color:var(--secondary-text); font-style:italic;">Personne n\'a encore gagné de points.</p>';
+            return;
+        }
+
+        board.slice(0, 10).forEach((entry, i) => {
+            const row = document.createElement('div');
+            row.className = 'rank-row';
+            row.innerHTML = `
+                <span style="color: var(--secondary-text); min-width: 24px;">${i + 1}</span>
+                <span style="flex: 1; color: var(--primary-text);">${escapeHtml(playerLabel(entry.uid))}</span>
+                <span class="shop-card__price">${escapeHtml(formatPoints(entry.balance))}</span>
+            `;
+            mount.appendChild(row);
+        });
+    }
+
+    function renderMyShopRequests(user) {
+        const panel = document.getElementById('shop-my-purchases-panel');
+        const mount = document.getElementById('shop-my-purchases');
+        if (!panel || !mount) return;
+
+        const mine = Object.entries(globalEconomy.purchases || {})
+            .map(([id, p]) => Object.assign({ id: id }, p))
+            .filter(p => p.uid === user.uid && p.status === 'pending')
+            .sort((a, b) => (a.ts || 0) - (b.ts || 0));
+
+        if (!mine.length) { panel.style.display = 'none'; return; }
+        panel.style.display = 'block';
+        mount.innerHTML = '';
+
+        mine.forEach(p => {
+            const row = document.createElement('div');
+            row.className = 'shop-move';
+            row.innerHTML = `
+                <span class="shop-move__text">${escapeHtml(p.itemName || 'Article')}
+                    <span class="shop-move__why">${escapeHtml(formatPoints(p.price))} réservés${p.targetName ? ` · visé : ${escapeHtml(p.targetName)}` : ''}</span>
+                </span>
+            `;
+            const cancel = document.createElement('button');
+            cancel.className = 'gold-link-btn';
+            cancel.textContent = 'Annuler';
+            cancel.addEventListener('click', () => {
+                db.ref('lan/economy/purchases/' + p.id).remove()
+                    .then(() => showToast('Demande annulée.', 'success'))
+                    .catch(err => showToast('Erreur : ' + err.message, 'error'));
+            });
+            row.appendChild(cancel);
+            mount.appendChild(row);
+        });
+    }
+
+    /* --- Créditer (maître du jeu) ---------------------------------------- */
+
+    function fillGrantSelect() {
+        const select = document.getElementById('grant-user-select');
+        if (!select || !window.currentUserIsGamemaster) return;
+        // Ne pas écraser une sélection en cours : les mises à jour temps réel
+        // arrivent pendant que le maître du jeu remplit le formulaire.
+        const previous = select.value;
+        select.innerHTML = '<option value="">Sélectionner un joueur...</option>';
+        economyPlayers()
+            .map(uid => ({ uid, name: playerLabel(uid) }))
+            .sort((a, b) => a.name.localeCompare(b.name))
+            .forEach(player => {
+                const option = document.createElement('option');
+                option.value = player.uid;
+                option.textContent = `${player.name} — ${formatPoints(economyBalance(globalEconomy, player.uid))}`;
+                select.appendChild(option);
+            });
+        if (previous) select.value = previous;
+    }
+
+    document.getElementById('btn-grant-points')?.addEventListener('click', () => {
+        const uid = document.getElementById('grant-user-select').value;
+        const amountInput = document.getElementById('grant-amount');
+        const reasonInput = document.getElementById('grant-reason');
+        const amount = Math.round(Number(amountInput.value));
+
+        if (!uid) { showToast('Sélectionnez un joueur.', 'error'); return; }
+        if (!amountInput.value.trim() || !isFinite(amount) || amount === 0) {
+            showToast('Montant invalide.', 'error');
+            return;
+        }
+        const reason = reasonInput.value.trim();
+        if (!reason) { showToast('Dites pourquoi : le registre est public.', 'error'); return; }
+
+        writeLedger({ uid: uid, delta: amount, type: 'grant', reason: reason })
+            .then(() => {
+                sendNotification(uid, `${amount > 0 ? '+' : ''}${amount} ${ECONOMY.CURRENCY} — ${reason}`, 'success');
+                amountInput.value = '';
+                reasonInput.value = '';
+                showToast('Crédité.', 'success');
+            })
+            .catch(err => showToast('Erreur : ' + err.message, 'error'));
+    });
+
+    /* Distribuer la même somme à tout le monde : c'est ainsi qu'on ouvre une
+       soirée. Chacun part avec le même pécule, et les défis redistribuent
+       ensuite — plutôt que de faire tourner la planche à billets. */
+    document.getElementById('btn-seed-all')?.addEventListener('click', () => {
+        const input = document.getElementById('seed-amount');
+        const amount = Math.round(Number(input.value));
+        if (!input.value.trim() || !isFinite(amount) || amount <= 0) {
+            showToast('Montant invalide.', 'error');
+            return;
+        }
+
+        const players = economyPlayers();
+        if (!players.length) { showToast('Aucun joueur connu.', 'error'); return; }
+
+        askConfirm(`Créditer ${formatPoints(amount)} à ${players.length} joueur${players.length > 1 ? 's' : ''} ?`,
+            { title: '🎁 Distribution' }).then(ok => {
+                if (!ok) return;
+                Promise.all(players.map(uid => writeLedger({
+                    uid: uid,
+                    delta: amount,
+                    type: 'grant',
+                    reason: 'Pécule de départ'
+                })))
+                    .then(() => {
+                        input.value = '';
+                        showToast(`${players.length} joueurs crédités.`, 'success');
+                    })
+                    .catch(err => showToast('Erreur : ' + err.message, 'error'));
+            });
+    });
+
+    /* --- Mettre un article en boutique ----------------------------------- */
+
+    document.getElementById('btn-add-shop-item')?.addEventListener('click', () => {
+        const select = document.getElementById('shop-item-category');
+        if (select && !select.options.length) {
+            ECONOMY.CATEGORIES.forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat.key;
+                option.textContent = `${cat.icon} ${cat.label}`;
+                select.appendChild(option);
+            });
+        }
+        document.getElementById('add-shop-item-modal').style.display = 'flex';
+    });
+
+    document.getElementById('cancel-shop-item-btn')?.addEventListener('click', () => {
+        document.getElementById('add-shop-item-modal').style.display = 'none';
+    });
+
+    document.getElementById('add-shop-item-form')?.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const user = auth.currentUser;
+        if (!user) return;
+
+        const name = document.getElementById('shop-item-name').value.trim();
+        const priceField = document.getElementById('shop-item-price');
+        const price = Math.round(Number(priceField.value));
+        const stockField = document.getElementById('shop-item-stock');
+        const stock = Math.round(Number(stockField.value));
+
+        if (!name) { showToast('Il manque le nom.', 'error'); return; }
+        if (!priceField.value.trim() || !isFinite(price) || price < 0) {
+            showToast('Prix invalide.', 'error');
+            return;
+        }
+
+        db.ref('lan/economy/catalog').push().set({
+            name: name,
+            description: document.getElementById('shop-item-desc').value.trim(),
+            price: price,
+            category: document.getElementById('shop-item-category').value || 'fun',
+            stock: stockField.value.trim() && isFinite(stock) && stock > 0 ? stock : null,
+            needsTarget: document.getElementById('shop-item-target').checked,
+            kind: document.getElementById('shop-item-pack').checked ? 'pack' : null,
+            active: true,
+            createdBy: user.uid,
+            createdAt: firebase.database.ServerValue.TIMESTAMP
+        }).then(() => {
+            document.getElementById('add-shop-item-form').reset();
+            document.getElementById('add-shop-item-modal').style.display = 'none';
+            showToast(`"${name}" est en boutique !`, 'success');
+        }).catch(err => showToast('Erreur : ' + err.message, 'error'));
+    });
+
+
+    /* ======================================================================
+       LA COLLECTION
+       Un jeu de cartes dont le set est frappé par le vote : les jeux que les
+       joueurs ont demandés deviennent les cartes, et leur rareté est leur
+       score. La rareté ne raconte donc pas une invention, elle raconte la
+       soirée.
+
+       Comme pour les points, rien de ce qui a de la valeur n'est stocké :
+       la collection se REJOUE (core.js) depuis les paquets ouverts et les
+       échanges acceptés. Le contenu d'un paquet ne l'est pas davantage — il
+       se recalcule depuis son sceau, l'horodatage écrit par le serveur au
+       moment de l'achat. C'est la seule valeur de cette application que le
+       client ne choisit pas : le tirage est donc à la fois imprévisible et
+       vérifiable par tout le monde, sans serveur de tirage à écrire.
+       ====================================================================== */
+
+    // Le rejeu parcourt tous les paquets : on ne le refait pas huit fois par
+    // rendu. Invalidé dès que lan/tcg change.
+    let tcgViewCache = null;
+
+    function tcgView() {
+        if (tcgViewCache) return tcgViewCache;
+        const set = tcgCurrentSet(globalTcg);
+        const replay = tcgReplay(globalTcg);
+        tcgViewCache = {
+            cards: replay.cards,
+            applied: replay.applied,
+            set: set,
+            setCards: (set && set.cards) || {},
+            uid: (auth.currentUser && auth.currentUser.uid) || ''
+        };
+        return tcgViewCache;
+    }
+
+    // Un échange se lit à l'échelle de la soirée, pas du calendrier :
+    // formatAge() compte en jours, ce qui dirait « aujourd'hui » toute la nuit.
+    function timeSince(ts) {
+        if (!ts) return '';
+        const minutes = Math.floor((Date.now() - ts) / 60000);
+        if (minutes < 1) return "à l'instant";
+        if (minutes < 60) return `il y a ${minutes} min`;
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) return `il y a ${hours} h`;
+        return `il y a ${Math.floor(hours / 24)} j`;
+    }
+
+    /* Illustration : le dessin s'il existe, sinon la jaquette Steam. Le set est
+       donc illustré dès le premier soir et se bonifie carte par carte. */
+    function paintCardArt(imgEl, gameKey, name) {
+        const drawn = cardArt(gameKey);
+        if (drawn) { imgEl.src = drawn; return; }
+        const cached = getCachedGameImage(name || gameKey);
+        imgEl.src = cached || DEFAULT_GAME_ICON;
+        if (!cached) getGameImage(name || gameKey).then(url => { if (url) imgEl.src = url; });
+    }
+
+    /* Une seule fabrique de carte pour la grille, les doubles, l'échange et la
+       révélation : une carte doit se ressembler partout. */
+    function buildCard(card, options) {
+        const opts = options || {};
+        const rarity = rarityMeta(card.rarity);
+        const node = document.createElement('article');
+        node.className = `tcard tcard--${rarity.key}`;
+        if (card.foil) node.classList.add('is-foil');
+        if (opts.missing) node.classList.add('is-missing');
+        if (opts.selected) node.classList.add('is-picked');
+
+        // Le reflet couvre la carte entière et se pose en dernier, donc au-dessus
+        // de tout le reste. Il reste invisible tant qu'aucun pointeur ne la touche.
+        node.innerHTML = `
+            <div class="tcard__art">
+                <img class="tcard__img" alt="" loading="lazy">
+                ${card.foil ? '<span class="tcard__foil"></span>' : ''}
+            </div>
+            <h4 class="tcard__name">${escapeHtml(card.name || card.gameKey)}</h4>
+            <div class="tcard__foot">
+                <span class="tcard__rarity">${escapeHtml(card.foil ? rarity.short + ' ✦' : rarity.short)}</span>
+                <span class="tcard__badge">${escapeHtml(opts.badge || '')}</span>
+            </div>
+            <span class="tcard__glare"></span>
+        `;
+        paintCardArt(node.querySelector('.tcard__img'), card.gameKey, card.name);
+
+        if (opts.onClick) {
+            node.setAttribute('role', 'button');
+            node.tabIndex = 0;
+            node.addEventListener('click', opts.onClick);
+        }
+        return node;
+    }
+
+    /* --- Le brillant vivant -----------------------------------------------
+       Une carte brillante doit donner envie de la bouger. À la souris, le
+       pointeur pilote deux choses : la position du reflet (--px / --py, plus
+       --pfc pour son intensité) et le décalage du voile arc-en-ciel
+       (--pxn / --pyn), le tout sur une carte légèrement inclinée vers le
+       curseur (--rx / --ry). C'est la même mécanique que les cartes
+       holographiques de Simon Goellner : une couche de couleur en color-dodge,
+       une couche de lumière en overlay, les deux suivant le pointeur.
+
+       On passe par Pointer Events plutôt que mousemove : le même code sert au
+       doigt et au stylet, sans branche tactile séparée. */
+
+    const REDUCED_MOTION = window.matchMedia
+        && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    // Les brillantes partout, et la carte mise en scène (révélation, fiche)
+    // même ordinaire — c'est là qu'on la regarde vraiment.
+    const LIVE_CARD_SELECTOR = '.tcard.is-foil, .tcard--reveal, .card-solo .tcard';
+
+    let liveCard = null;
+    let livePointer = null;
+    // Un booléen posé AVANT la demande d'image, et levé dans le rappel : dans
+    // cet ordre, le drapeau ne peut pas rester coincé à « en attente » et figer
+    // le reflet pour le reste de la session.
+    let liveScheduled = false;
+
+    function paintLiveCard() {
+        const card = liveCard;
+        const event = livePointer;
+        if (!card || !event) return;
+
+        const box = card.getBoundingClientRect();
+        if (!box.width || !box.height) return;
+
+        const x = Math.min(1, Math.max(0, (event.clientX - box.left) / box.width));
+        const y = Math.min(1, Math.max(0, (event.clientY - box.top) / box.height));
+        const dx = x - 0.5;
+        const dy = y - 0.5;
+
+        card.style.setProperty('--px', `${(x * 100).toFixed(2)}%`);
+        card.style.setProperty('--py', `${(y * 100).toFixed(2)}%`);
+        card.style.setProperty('--pxn', dx.toFixed(3));
+        card.style.setProperty('--pyn', dy.toFixed(3));
+        card.style.setProperty('--pfc', Math.min(1, Math.hypot(dx, dy) * 2).toFixed(3));
+        card.style.setProperty('--rx', `${(dy * -12).toFixed(2)}deg`);
+        card.style.setProperty('--ry', `${(dx * 12).toFixed(2)}deg`);
+    }
+
+    function releaseLiveCard() {
+        if (!liveCard) return;
+        liveCard.classList.remove('is-live');
+        ['--px', '--py', '--pxn', '--pyn', '--pfc', '--rx', '--ry']
+            .forEach(name => liveCard.style.removeProperty(name));
+        liveCard = null;
+        livePointer = null;
+    }
+
+    /* Un seul écouteur pour toute la page, et un rendu par image : la grille
+       peut afficher cinquante cartes, et cinquante écouteurs qui écrivent du
+       style à chaque pixel parcouru coûteraient plus cher que le reflet. */
+    document.addEventListener('pointermove', (e) => {
+        if (REDUCED_MOTION) return;
+        const card = e.target.closest ? e.target.closest(LIVE_CARD_SELECTOR) : null;
+        if (card !== liveCard) {
+            releaseLiveCard();
+            if (card) {
+                liveCard = card;
+                card.classList.add('is-live');
+            }
+        }
+        if (!liveCard) return;
+        livePointer = e;
+        if (liveScheduled) return;
+        liveScheduled = true;
+        requestAnimationFrame(() => { liveScheduled = false; paintLiveCard(); });
+    }, { passive: true });
+
+    document.addEventListener('pointerup', releaseLiveCard, { passive: true });
+    document.addEventListener('pointercancel', releaseLiveCard, { passive: true });
+    window.addEventListener('blur', releaseLiveCard);
+
+    /* --- La fiche d'une carte -------------------------------------------- */
+
+    /* Ce qui rend une carte irremplaçable n'est pas son jeu, c'est sa
+       provenance : qui l'a sortie du paquet, quand, et par combien de mains
+       elle est passée depuis. C'est le souvenir de soirée, pas l'inventaire. */
+    function openCardModal(card) {
+        const modal = document.getElementById('card-modal');
+        const stage = document.getElementById('card-modal-stage');
+        const body = document.getElementById('card-modal-body');
+        if (!modal) return;
+
+        stage.innerHTML = '';
+        stage.appendChild(buildCard(card, {}));
+
+        const rarity = rarityMeta(card.rarity);
+        const setCard = tcgView().setCards[card.gameKey];
+        const hands = (card.lineage || []).length - 1;
+        const lines = [`<p class="shop-card__meta">${escapeHtml(rarity.label)}${card.foil ? ' · brillante ✦' : ''}</p>`];
+        if (setCard) {
+            lines.push(`<p class="shop-card__meta">Rareté méritée : ${setCard.score} point${setCard.score > 1 ? 's' : ''} au vote de la soirée.</p>`);
+        }
+        if (card.mintedBy) {
+            const when = card.mintedAt ? ` · ${new Date(card.mintedAt).toLocaleString('fr-FR')}` : '';
+            lines.push(`<p class="shop-card__meta">Sortie du paquet par ${escapeHtml(playerLabel(card.mintedBy))}${escapeHtml(when)}</p>`);
+        }
+        if (hands > 0) {
+            lines.push(`<p class="shop-card__meta">Échangée ${hands} fois : ${escapeHtml(card.lineage.map(playerLabel).join(' → '))}</p>`);
+        }
+        body.innerHTML = lines.join('');
+        modal.style.display = 'flex';
+    }
+
+    document.getElementById('card-modal-close')?.addEventListener('click', () => {
+        document.getElementById('card-modal').style.display = 'none';
+    });
+
+    /* --- Le rendu global -------------------------------------------------- */
+
+    function renderCollection() {
+        const user = auth.currentUser;
+        if (!user || !document.getElementById('lan-tcg')) return;
+        const view = tcgView();
+
+        renderSetBanner(view);
+        renderTcgGmPanel(view);
+        renderMyPacks(view);
+        renderTradesIn(view);
+        renderSetGrid(view);
+        renderDupes(view);
+        renderTradesOut(view);
+        renderTcgLeaderboard(view);
+        renderTradeFeed(view);
+        renderTcgBadge(view);
+    }
+
+    function renderSetBanner(view) {
+        const name = document.getElementById('tcg-set-name');
+        const value = document.getElementById('tcg-progress');
+        const fill = document.getElementById('tcg-progress-fill');
+        const hint = document.getElementById('tcg-hint');
+        if (!name) return;
+
+        if (!view.set) {
+            name.textContent = 'Pas encore de set';
+            value.textContent = '—';
+            fill.style.width = '0%';
+            hint.textContent = 'Les cartes sont frappées à partir du vote : elles apparaîtront quand le maître du jeu aura ouvert la soirée.';
+            return;
+        }
+
+        const progress = setProgress(view.setCards, view.cards, view.uid);
+        name.textContent = view.set.name;
+        value.textContent = `${progress.owned} / ${progress.total}`;
+        fill.style.width = `${progress.percent}%`;
+        hint.textContent = `${progress.percent} % du set`
+            + (progress.foils ? ` · ${progress.foils} brillante${progress.foils > 1 ? 's' : ''}` : '')
+            + (progress.complete ? ' · set complet 🏆' : '');
+    }
+
+    function renderTcgBadge(view) {
+        const badge = document.getElementById('tcg-nav-badge');
+        if (!badge) return;
+        // Ce qui demande une action : un booster fermé, une proposition reçue.
+        const waiting = sealedPacksOf(globalTcg, view.uid).length
+            + pendingTradesFor(globalTcg, view.uid).length;
+        badge.style.display = waiting ? 'inline-flex' : 'none';
+        badge.textContent = waiting;
+    }
+
+    /* --- Frapper le set (maître du jeu) ----------------------------------- */
+
+    function renderTcgGmPanel(view) {
+        const panel = document.getElementById('tcg-gm-panel');
+        if (!panel) return;
+        const isGm = !!window.currentUserIsGamemaster;
+        panel.style.display = isGm ? 'block' : 'none';
+        if (!isGm) return;
+
+        const scores = calculateScores(globalVotes);
+        const state = document.getElementById('tcg-mint-state');
+        if (!view.set) {
+            state.textContent = scores.length
+                ? `Aucun set frappé. ${scores.length} jeux votés attendent de devenir des cartes.`
+                : 'Aucun set, et aucun vote pour en frapper un.';
+        } else {
+            state.textContent = `Set en cours : « ${view.set.name} », ${Object.keys(view.setCards).length} cartes. `
+                + 'En refrapper un en crée un nouveau ; les cartes déjà distribuées gardent leur set.';
+        }
+        document.getElementById('btn-mint-set').disabled = !scores.length;
+
+        const select = document.getElementById('tcg-gift-user');
+        const previous = select.value;
+        select.innerHTML = '<option value="">Offrir un booster à...</option>';
+        economyPlayers()
+            .map(uid => ({ uid, name: playerLabel(uid) }))
+            .sort((a, b) => a.name.localeCompare(b.name))
+            .forEach(player => {
+                const option = document.createElement('option');
+                option.value = player.uid;
+                option.textContent = player.name;
+                select.appendChild(option);
+            });
+        if (previous) select.value = previous;
+    }
+
+    /* On ne remplace jamais un set : on en frappe un nouveau et on pointe
+       dessus. Les cartes déjà ouvertes gardent le leur, et donc leur sens. */
+    document.getElementById('btn-mint-set')?.addEventListener('click', async () => {
+        const user = auth.currentUser;
+        if (!user) return;
+        const cards = buildCardSet(calculateScores(globalVotes));
+        const count = Object.keys(cards).length;
+        if (!count) { showToast('Aucun vote : rien à frapper.', 'error'); return; }
+
+        const ok = await askConfirm(
+            `Frapper le set de « ${globalSettings.lanName || 'LAN Demain'} » : ${count} cartes, réparties par score de vote. `
+            + 'Les boosters achetés ensuite tireront dans ce set.',
+            { title: '🎴 Les cartes', confirmLabel: 'Frapper' });
+        if (!ok) return;
+
+        const ref = db.ref('lan/tcg/sets').push();
+        ref.set({
+            name: globalSettings.lanName || 'LAN Demain',
+            ts: firebase.database.ServerValue.TIMESTAMP,
+            by: user.uid,
+            cards: cards
+        })
+            .then(() => db.ref('lan/tcg/currentSet').set(ref.key))
+            .then(() => showToast(`${count} cartes frappées !`, 'success'))
+            .catch(err => showToast('Erreur : ' + err.message, 'error'));
+    });
+
+    document.getElementById('btn-gift-pack')?.addEventListener('click', () => {
+        const uid = document.getElementById('tcg-gift-user').value;
+        const setId = tcgCurrentSetId(globalTcg);
+        if (!uid) { showToast('Choisis un joueur.', 'error'); return; }
+        if (!setId) { showToast('Frappe d\'abord le set.', 'error'); return; }
+
+        db.ref('lan/tcg/packs').push().set({
+            uid: uid,
+            setId: setId,
+            status: 'sealed',
+            sealedAt: firebase.database.ServerValue.TIMESTAMP,
+            origin: 'gift'
+        })
+            .then(() => showToast(`Booster offert à ${playerLabel(uid)} !`, 'success'))
+            .catch(err => showToast('Erreur : ' + err.message, 'error'));
+    });
+
+    /* --- Sceller ce qui a été acheté --------------------------------------
+       Une demande de booster validée donne droit à un paquet dont
+       l'identifiant EST celui de la demande : un achat ne peut donc pas donner
+       deux paquets, même à un client bricolé. Le sceau, lui, est l'horodatage
+       du serveur — c'est lui seul qui décide du contenu. */
+    let sealingPack = false;
+    // Un sceau refusé (règle, set changé, autre appareil plus rapide) ne se
+    // retente pas en boucle : on l'oublie jusqu'au prochain chargement.
+    const sealFailures = new Set();
+
+    function sealBoughtPacks() {
+        const user = auth.currentUser;
+        const setId = tcgCurrentSetId(globalTcg);
+        if (!user || !setId || sealingPack) return;
+
+        const waiting = unsealedPurchases(globalEconomy, globalTcg, user.uid)
+            .filter(purchase => !sealFailures.has(purchase.id));
+        if (!waiting.length) return;
+
+        sealingPack = true;
+        const purchase = waiting[0];
+        db.ref('lan/tcg/packs/' + purchase.id).set({
+            uid: user.uid,
+            setId: setId,
+            status: 'sealed',
+            sealedAt: firebase.database.ServerValue.TIMESTAMP,
+            origin: 'shop',
+            label: purchase.itemName || 'Booster'
+        })
+            .then(() => showToast('Ton booster est arrivé !', 'success'))
+            .catch(() => { sealFailures.add(purchase.id); })
+            .finally(() => {
+                sealingPack = false;
+                // On enchaîne : trois boosters achetés d'affilée doivent donner
+                // trois paquets, pas un seul.
+                sealBoughtPacks();
+            });
+    }
+
+    /* --- Mes paquets ------------------------------------------------------ */
+
+    function renderMyPacks(view) {
+        const panel = document.getElementById('tcg-packs-panel');
+        const mount = document.getElementById('tcg-packs');
+        if (!panel) return;
+
+        const sealed = sealedPacksOf(globalTcg, view.uid);
+        const waiting = unsealedPurchases(globalEconomy, globalTcg, view.uid).length;
+        if (!sealed.length && !waiting) { panel.style.display = 'none'; return; }
+
+        panel.style.display = 'block';
+        mount.innerHTML = '';
+        sealed.forEach(pack => {
+            const row = document.createElement('div');
+            row.className = 'shop-card shop-card--pack';
+            row.innerHTML = `
+                <div class="shop-card__head">
+                    <h4 class="shop-card__name">${escapeHtml(pack.label || 'Booster')}</h4>
+                    <span class="shop-card__price">${TCG.PACK_SIZE} cartes</span>
+                </div>
+                <p class="shop-card__meta">Scellé le ${escapeHtml(new Date(pack.sealedAt).toLocaleString('fr-FR'))}. Personne ne sait encore ce qu'il y a dedans.</p>
+            `;
+            const open = document.createElement('button');
+            open.className = 'gold-btn';
+            open.style.padding = '8px 18px';
+            open.textContent = 'Ouvrir';
+            open.addEventListener('click', () => openPack(pack));
+            const actions = document.createElement('div');
+            actions.className = 'shop-card__actions';
+            actions.appendChild(open);
+            row.appendChild(actions);
+            mount.appendChild(row);
+        });
+
+        if (waiting) {
+            const note = document.createElement('p');
+            note.className = 'shop-card__meta';
+            note.textContent = `${waiting} booster${waiting > 1 ? 's' : ''} en cours de scellage…`;
+            mount.appendChild(note);
+        }
+    }
+
+    /* --- L'ouverture ------------------------------------------------------ */
+
+    let revealQueue = [];
+    let revealDone = [];
+    // Ce que le joueur possédait AVANT d'ouvrir : c'est ce qui distingue une
+    // nouvelle carte d'un double. Relevé avant l'écriture, parce qu'aussitôt
+    // le paquet marqué ouvert, le rejeu compte déjà ses cartes comme acquises.
+    let revealOwned = new Set();
+    let openingPack = false;
+
+    function openPack(pack) {
+        if (openingPack) return;
+        openingPack = true;
+
+        const view = tcgView();
+        const setCards = tcgSetCards(globalTcg, pack.setId);
+        const due = pityCount(globalTcg, pack.uid) >= TCG.PITY;
+        const drawn = drawPack(setCards, packSeed(pack.id, pack), { pity: due });
+
+        if (!drawn.length) {
+            openingPack = false;
+            showToast('Ce booster appartient à un set introuvable.', 'error');
+            return;
+        }
+
+        const ownedBefore = new Set(view.cards
+            .filter(card => card.owner === pack.uid)
+            .map(card => card.gameKey));
+
+        db.ref('lan/tcg/packs/' + pack.id).update({
+            status: 'opened',
+            openedAt: firebase.database.ServerValue.TIMESTAMP
+        })
+            .then(() => startReveal(pack, drawn.map(card => Object.assign({}, card, {
+                name: (setCards[card.gameKey] && setCards[card.gameKey].name) || card.gameKey,
+                owner: pack.uid,
+                mintedBy: pack.uid,
+                mintedAt: Date.now(),
+                lineage: [pack.uid]
+            })), ownedBefore))
+            .catch(err => showToast('Erreur : ' + err.message, 'error'))
+            .finally(() => { openingPack = false; });
+    }
+
+    /* Du plus commun au plus rare, et le brillant en dernier à rareté égale :
+       la tension doit monter, jamais retomber. */
+    function startReveal(pack, cards, ownedBefore) {
+        revealQueue = cards.slice().sort((a, b) =>
+            rarityIndex(b.rarity) - rarityIndex(a.rarity)
+            || (a.foil ? 1 : 0) - (b.foil ? 1 : 0));
+        revealDone = [];
+        revealOwned = ownedBefore;
+
+        document.getElementById('reveal-stage').innerHTML = '';
+        document.getElementById('reveal-seal').textContent =
+            `Sceau ${new Date(pack.sealedAt).toLocaleTimeString('fr-FR')} · ${pack.label || 'Booster'}`;
+        document.getElementById('reveal-next').textContent = 'Révéler';
+        document.getElementById('pack-reveal-overlay').style.display = 'flex';
+        updateRevealFoot();
+    }
+
+    function updateRevealFoot() {
+        document.getElementById('reveal-count').textContent =
+            `${revealDone.length} / ${revealDone.length + revealQueue.length}`;
+        if (!revealQueue.length) {
+            document.getElementById('reveal-next').textContent = 'Ranger dans ma collection';
+        }
+    }
+
+    document.getElementById('reveal-next')?.addEventListener('click', () => {
+        if (!revealQueue.length) {
+            document.getElementById('pack-reveal-overlay').style.display = 'none';
+            document.getElementById('reveal-stage').innerHTML = '';
+            renderCollection();
+            return;
+        }
+
+        const card = revealQueue.shift();
+        const isNew = !revealOwned.has(card.gameKey);
+        revealOwned.add(card.gameKey);
+
+        const node = buildCard(card, { badge: isNew ? 'NOUVELLE' : 'double' });
+        node.classList.add('tcard--reveal');
+        const stage = document.getElementById('reveal-stage');
+        stage.innerHTML = '';
+        stage.appendChild(node);
+        revealDone.push(card);
+
+        if (card.rarity === 'legendary' || card.foil) {
+            showToast(card.foil ? `✦ Brillante ! ${card.name}` : `★ Légendaire ! ${card.name}`, 'success');
+        }
+        updateRevealFoot();
+    });
+
+    /* --- La grille du set ------------------------------------------------- */
+
+    let tcgFilter = 'all';
+    const TCG_FILTERS = [
+        { key: 'all', label: 'Tout le set' },
+        { key: 'missing', label: 'Ce qui manque' },
+        { key: 'owned', label: 'Ce que j\'ai' }
+    ];
+
+    function renderSetGrid(view) {
+        const filters = document.getElementById('tcg-filters');
+        const mount = document.getElementById('tcg-set-grid');
+        if (!mount) return;
+
+        filters.innerHTML = '';
+        TCG_FILTERS.forEach(filter => {
+            const btn = document.createElement('button');
+            btn.className = tcgFilter === filter.key ? 'filter-chip active' : 'filter-chip';
+            btn.textContent = filter.label;
+            btn.addEventListener('click', () => { tcgFilter = filter.key; renderSetGrid(view); });
+            filters.appendChild(btn);
+        });
+
+        mount.innerHTML = '';
+        if (!view.set) {
+            mount.innerHTML = '<p class="tcg-empty">Le set de la soirée n\'a pas encore été frappé.</p>';
+            return;
+        }
+
+        const rows = collectionBySet(view.setCards, view.cards, view.uid)
+            .filter(row => tcgFilter === 'all'
+                || (tcgFilter === 'missing' && !row.owned)
+                || (tcgFilter === 'owned' && row.owned));
+
+        if (!rows.length) {
+            mount.innerHTML = tcgFilter === 'missing'
+                ? '<p class="tcg-empty">Rien ne manque. Set complet.</p>'
+                : '<p class="tcg-empty">Aucune carte pour l\'instant. Un booster, et ça commence.</p>';
+            return;
+        }
+
+        rows.forEach(row => {
+            const best = row.copies.find(copy => copy.foil) || row.copies[0];
+            const card = best || { gameKey: row.gameKey, name: row.name, rarity: row.rarity, foil: false };
+            mount.appendChild(buildCard(card, {
+                missing: !row.owned,
+                badge: row.copies.length > 1 ? `×${row.copies.length}` : '',
+                onClick: () => (best
+                    ? openCardModal(best)
+                    : showToast(`${row.name} — pas encore dans ta collection.`, 'error'))
+            }));
+        });
+    }
+
+    /* --- Les doubles ------------------------------------------------------ */
+
+    function renderDupes(view) {
+        const panel = document.getElementById('tcg-dupes-panel');
+        const mount = document.getElementById('tcg-dupes');
+        if (!panel) return;
+
+        const dupes = duplicatesOf(view.cards, view.uid);
+        if (!dupes.length) { panel.style.display = 'none'; return; }
+        panel.style.display = 'block';
+        mount.innerHTML = '';
+        dupes.forEach(card => mount.appendChild(buildCard(card, { onClick: () => openCardModal(card) })));
+    }
+
+    /* --- Les échanges -----------------------------------------------------
+       Rien n'est vérifié à l'écriture : les règles Firebase ne savent pas dire
+       qui possède quoi. C'est le rejeu qui tranche, et un échange malhonnête
+       n'est pas refusé — il est sans effet, à la vue de tous. */
+
+    let tradeTarget = '';
+    const tradeOffer = new Set();
+    const tradeRequest = new Set();
+
+    document.getElementById('btn-new-trade')?.addEventListener('click', () => {
+        const view = tcgView();
+        const others = economyPlayers().filter(uid => uid !== view.uid
+            && view.cards.some(card => card.owner === uid));
+        if (!others.length) { showToast('Personne d\'autre n\'a encore de cartes.', 'error'); return; }
+
+        tradeOffer.clear();
+        tradeRequest.clear();
+        tradeTarget = others[0];
+
+        const select = document.getElementById('trade-target');
+        select.innerHTML = '';
+        others.forEach(uid => {
+            const option = document.createElement('option');
+            option.value = uid;
+            option.textContent = playerLabel(uid);
+            select.appendChild(option);
+        });
+        select.value = tradeTarget;
+
+        document.getElementById('trade-modal').style.display = 'flex';
+        paintTradePickers();
+    });
+
+    document.getElementById('trade-target')?.addEventListener('change', (e) => {
+        tradeTarget = e.target.value;
+        tradeRequest.clear();
+        paintTradePickers();
+    });
+
+    function paintTradePickers() {
+        const view = tcgView();
+        const mine = document.getElementById('trade-mine');
+        const theirs = document.getElementById('trade-theirs');
+        mine.innerHTML = '';
+        theirs.innerHTML = '';
+
+        // Les doubles d'abord : c'est le surplus qu'on troque, pas la pièce
+        // du souvenir.
+        const dupes = duplicatesOf(view.cards, view.uid);
+        const dupeIds = new Set(dupes.map(card => card.id));
+        const ordered = dupes.concat(collectionOf(view.cards, view.uid).filter(card => !dupeIds.has(card.id)));
+
+        if (!ordered.length) mine.innerHTML = '<p class="tcg-empty">Tu n\'as aucune carte à offrir.</p>';
+        ordered.forEach(card => mine.appendChild(buildCard(card, {
+            selected: tradeOffer.has(card.id),
+            badge: dupeIds.has(card.id) ? 'double' : '',
+            onClick: () => { toggleTradePick(tradeOffer, card.id); paintTradePickers(); }
+        })));
+
+        const theirCards = collectionOf(view.cards, tradeTarget);
+        if (!theirCards.length) theirs.innerHTML = '<p class="tcg-empty">Ce joueur n\'a aucune carte.</p>';
+        theirCards.forEach(card => theirs.appendChild(buildCard(card, {
+            selected: tradeRequest.has(card.id),
+            onClick: () => { toggleTradePick(tradeRequest, card.id); paintTradePickers(); }
+        })));
+
+        const send = document.getElementById('trade-send');
+        send.disabled = !tradeOffer.size && !tradeRequest.size;
+        send.textContent = (tradeOffer.size || tradeRequest.size)
+            ? `Proposer ${tradeOffer.size} contre ${tradeRequest.size}`
+            : 'Choisis au moins une carte';
+    }
+
+    function toggleTradePick(set, id) {
+        if (set.has(id)) { set.delete(id); return; }
+        if (set.size >= TCG.TRADE_MAX) {
+            showToast(`${TCG.TRADE_MAX} cartes par côté, pas plus.`, 'error');
+            return;
+        }
+        set.add(id);
+    }
+
+    document.getElementById('trade-cancel')?.addEventListener('click', () => {
+        document.getElementById('trade-modal').style.display = 'none';
+    });
+
+    document.getElementById('trade-send')?.addEventListener('click', () => {
+        const user = auth.currentUser;
+        if (!user || !tradeTarget) return;
+        db.ref('lan/tcg/trades').push().set({
+            fromUid: user.uid,
+            fromName: user.displayName || 'Un joueur',
+            toUid: tradeTarget,
+            toName: playerLabel(tradeTarget),
+            offer: serializeCardList(Array.from(tradeOffer)),
+            request: serializeCardList(Array.from(tradeRequest)),
+            status: 'pending',
+            ts: firebase.database.ServerValue.TIMESTAMP
+        }).then(() => {
+            document.getElementById('trade-modal').style.display = 'none';
+            showToast(`Proposition envoyée à ${playerLabel(tradeTarget)}.`, 'success');
+        }).catch(err => showToast('Erreur : ' + err.message, 'error'));
+    });
+
+    function resolveTrade(trade, status) {
+        db.ref('lan/tcg/trades/' + trade.id).update({
+            status: status,
+            resolvedAt: firebase.database.ServerValue.TIMESTAMP
+        })
+            .then(() => showToast(status === 'accepted' ? 'Échange conclu !' : 'C\'est noté.', 'success'))
+            .catch(err => showToast('Erreur : ' + err.message, 'error'));
+    }
+
+    function buildTradeRow(trade, view, mine) {
+        const byId = new Map(view.cards.map(card => [card.id, card]));
+        const row = document.createElement('div');
+        row.className = 'trade-row';
+        row.innerHTML = `
+            <div class="shop-card__head">
+                <h4 class="shop-card__name">${escapeHtml(mine ? 'À ' + playerLabel(trade.toUid) : 'De ' + playerLabel(trade.fromUid))}</h4>
+                <span class="shop-card__meta">${escapeHtml(timeSince(trade.ts))}</span>
+            </div>
+        `;
+
+        const side = (label, ids) => {
+            const title = document.createElement('p');
+            title.className = 'shop-cat-title';
+            title.textContent = label;
+            row.appendChild(title);
+            const grid = document.createElement('div');
+            grid.className = 'card-grid card-grid--sm';
+            if (!ids.length) grid.innerHTML = '<p class="tcg-empty">Rien</p>';
+            ids.forEach(id => {
+                const card = byId.get(id);
+                if (card) grid.appendChild(buildCard(card, { onClick: () => openCardModal(card) }));
+                else grid.insertAdjacentHTML('beforeend', '<p class="tcg-empty">Carte introuvable</p>');
+            });
+            row.appendChild(grid);
+        };
+
+        side(mine ? 'Je donne' : `${playerLabel(trade.fromUid)} donne`, trade.offer);
+        side(mine ? 'Je demande' : 'En échange de', trade.request);
+
+        if (!tradeStillValid(view.cards, trade)) {
+            const warn = document.createElement('p');
+            warn.className = 'shop-request__warn';
+            warn.textContent = '⚠️ Caduque : une des cartes a changé de mains depuis. L\'accepter n\'aurait aucun effet.';
+            row.appendChild(warn);
+        }
+        return row;
+    }
+
+    function renderTradesIn(view) {
+        const panel = document.getElementById('tcg-trade-in-panel');
+        const mount = document.getElementById('tcg-trade-in');
+        if (!panel) return;
+
+        const trades = pendingTradesFor(globalTcg, view.uid);
+        if (!trades.length) { panel.style.display = 'none'; return; }
+        panel.style.display = 'block';
+        mount.innerHTML = '';
+
+        trades.forEach(trade => {
+            const row = buildTradeRow(trade, view, false);
+            const actions = document.createElement('div');
+            actions.className = 'shop-card__actions';
+
+            const accept = document.createElement('button');
+            accept.className = 'gold-btn';
+            accept.style.padding = '8px 18px';
+            accept.textContent = 'Accepter';
+            accept.disabled = !tradeStillValid(view.cards, trade);
+            accept.addEventListener('click', () => resolveTrade(trade, 'accepted'));
+            actions.appendChild(accept);
+
+            const decline = document.createElement('button');
+            decline.className = 'gold-link-btn';
+            decline.textContent = 'Refuser';
+            decline.addEventListener('click', () => resolveTrade(trade, 'declined'));
+            actions.appendChild(decline);
+
+            row.appendChild(actions);
+            mount.appendChild(row);
+        });
+    }
+
+    function renderTradesOut(view) {
+        const panel = document.getElementById('tcg-trade-out-panel');
+        const mount = document.getElementById('tcg-trade-out');
+        if (!panel) return;
+
+        const trades = pendingTradesFrom(globalTcg, view.uid);
+        if (!trades.length) { panel.style.display = 'none'; return; }
+        panel.style.display = 'block';
+        mount.innerHTML = '';
+
+        trades.forEach(trade => {
+            const row = buildTradeRow(trade, view, true);
+            const cancel = document.createElement('button');
+            cancel.className = 'gold-link-btn';
+            cancel.textContent = 'Annuler la proposition';
+            cancel.addEventListener('click', () => resolveTrade(trade, 'cancelled'));
+            const actions = document.createElement('div');
+            actions.className = 'shop-card__actions';
+            actions.appendChild(cancel);
+            row.appendChild(actions);
+            mount.appendChild(row);
+        });
+    }
+
+    function renderTcgLeaderboard(view) {
+        const mount = document.getElementById('tcg-leaderboard');
+        if (!mount) return;
+        mount.innerHTML = '';
+
+        const board = tcgLeaderboard(view.setCards, view.cards, economyPlayers());
+        if (!board.length) {
+            mount.innerHTML = '<p class="tcg-empty">Personne n\'a encore ouvert de booster.</p>';
+            return;
+        }
+        board.slice(0, 10).forEach((entry, i) => {
+            const row = document.createElement('div');
+            row.className = `rank-row rank-row--${i + 1}`;
+            row.innerHTML = `
+                <span class="rank-row__pos">${i + 1}</span>
+                <span class="rank-row__name">${escapeHtml(playerLabel(entry.uid))}</span>
+                <span class="shop-card__price">${entry.owned}/${entry.total}${entry.foils ? ` ✦${entry.foils}` : ''}</span>
+            `;
+            mount.appendChild(row);
+        });
+    }
+
+    function renderTradeFeed(view) {
+        const mount = document.getElementById('tcg-trade-feed');
+        if (!mount) return;
+        mount.innerHTML = '';
+
+        const feed = tcgTrades(globalTcg).filter(trade => trade.status !== 'pending').slice(0, 30);
+        if (!feed.length) {
+            mount.innerHTML = '<p class="tcg-empty">Aucun échange pour le moment.</p>';
+            return;
+        }
+        const words = { accepted: 'conclu', declined: 'refusé', cancelled: 'annulé' };
+        feed.forEach(trade => {
+            // « Sans effet » se lit dans le rejeu, jamais dans l'état actuel :
+            // une fois l'échange conclu les cartes ne sont plus chez leur
+            // émetteur, et les recompter dirait le contraire de la vérité.
+            const effective = view.applied.has(trade.id);
+            const row = document.createElement('div');
+            row.className = 'shop-move';
+            row.innerHTML = `
+                <span class="shop-move__text">${escapeHtml(playerLabel(trade.fromUid))} → ${escapeHtml(playerLabel(trade.toUid))}
+                    <span class="shop-move__why">${trade.offer.length} contre ${trade.request.length} · ${escapeHtml(words[trade.status] || trade.status)}${trade.status === 'accepted' && !effective ? ' (sans effet)' : ''} · ${escapeHtml(timeSince(trade.resolvedAt || trade.ts))}</span>
+                </span>
+            `;
+            mount.appendChild(row);
+        });
+    }
 });

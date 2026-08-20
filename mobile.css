@@ -522,7 +522,7 @@ textarea.m-input { resize: vertical; min-height: 84px; }
 .m-tabbar {
     flex: 0 0 auto;
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(6, 1fr);
     border-top: 1px solid var(--line);
     background: rgba(8, 8, 8, .97);
     padding-bottom: env(safe-area-inset-bottom);
@@ -670,3 +670,318 @@ textarea.m-input { resize: vertical; min-height: 84px; }
     font-size: .68rem; letter-spacing: .12em; text-transform: uppercase;
     color: #c96a6a; white-space: nowrap;
 }
+
+/* ==========================================================================
+   Boutique
+   ========================================================================== */
+
+/* Le solde : la seule information qu'on vient chercher en ouvrant l'onglet,
+   donc en haut, seul, et lisible d'un coup d'œil. */
+.m-wallet {
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    padding: 18px 14px;
+    border: 1px solid var(--line);
+    background: linear-gradient(180deg, var(--gold-a08), transparent);
+}
+.m-wallet__label { font-size: .72rem; color: var(--text-3); letter-spacing: .08em; text-transform: uppercase; }
+.m-wallet__value { font-family: var(--fd); font-size: 2rem; color: var(--gold); line-height: 1.1; }
+.m-wallet__hint { font-size: .75rem; color: var(--text-3); text-align: center; }
+
+.m-shop__cat {
+    font-size: .72rem; color: var(--text-3);
+    letter-spacing: .08em; text-transform: uppercase;
+    margin-top: 4px;
+}
+.m-price {
+    flex: 0 0 auto;
+    font-variant-numeric: tabular-nums;
+    color: var(--gold); font-weight: 600; font-size: .88rem;
+}
+.m-card.is-unaffordable { opacity: .55; }
+
+/* Mouvement du registre : le signe porte l'information, donc il est coloré
+   et la ligne reste sobre. */
+.m-move {
+    display: flex; align-items: baseline; gap: 10px;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--line-2);
+}
+.m-move:last-child { border-bottom: 0; }
+.m-move__who { flex: 1; min-width: 0; font-size: .86rem; color: var(--text); }
+.m-move__why { display: block; font-size: .74rem; color: var(--text-3); }
+.m-move__delta { flex: 0 0 auto; font-variant-numeric: tabular-nums; font-weight: 600; font-size: .88rem; }
+.m-move__delta.is-up { color: var(--ok); }
+.m-move__delta.is-down { color: var(--danger); }
+
+.m-rank {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--line-2);
+}
+.m-rank:last-child { border-bottom: 0; }
+.m-rank__pos { width: 20px; font-family: var(--fd); color: var(--text-3); font-size: .9rem; }
+.m-rank__face { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; flex: 0 0 auto; }
+.m-rank__name { flex: 1; min-width: 0; font-size: .88rem; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.m-rank--1 .m-rank__pos { color: var(--gold); }
+.m-rank--2 .m-rank__pos { color: var(--silver); }
+.m-rank--3 .m-rank__pos { color: var(--bronze); }
+
+/* ==========================================================================
+   LES CARTES
+   Le set est frappé par le vote : la rareté d'une carte est le score du jeu.
+   Elle doit donc se lire d'un coup d'œil, sans légende — d'où une couleur de
+   cadre par rareté, et rien d'autre à apprendre.
+   ========================================================================== */
+
+:root {
+    --r-legendary: #d4af37;
+    --r-rare: #8c6fc9;
+    --r-uncommon: #4e8fa8;
+    --r-common: #6b6a67;
+
+    /* Inclinaison du téléphone, posée par mobile.js sur la racine dès que le
+       capteur répond vraiment — les cartes en héritent toutes ensemble. Sans
+       capteur (PC, téléphone sans gyroscope, permission refusée), elles
+       restent neutres et le brillant garde son animation. */
+    --pxn: 0;
+    --pyn: 0;
+}
+
+/* Bandeau du set : où j'en suis, avant tout le reste. */
+.m-setband {
+    display: flex; flex-direction: column; gap: 8px;
+    padding: 16px;
+    background: linear-gradient(180deg, var(--gold-a08), transparent);
+    border: 1px solid var(--line);
+    border-radius: var(--r-sharp);
+}
+.m-setband__title { margin: 0; font-family: var(--fd); font-size: 1.15rem; color: var(--text); }
+.m-setband__hint { margin: 0; font-size: .78rem; color: var(--text-3); }
+.m-setband__bar { height: 4px; background: var(--line-2); border-radius: var(--r-pill); overflow: hidden; }
+.m-setband__fill { display: block; height: 100%; background: var(--gold); transition: width .4s ease; }
+
+/* Un booster ne ressemble pas à un article de boutique : il est fermé. */
+.m-card--pack { border-color: var(--gold-a30); background: linear-gradient(160deg, var(--gold-a08), transparent 60%); }
+
+.m-cardgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+/* Rangée horizontale : sert aux échanges, où l'on compare deux mains. */
+.m-cardrow {
+    display: flex; gap: 8px;
+    overflow-x: auto; padding-bottom: 6px;
+    scrollbar-width: none;
+}
+.m-cardrow::-webkit-scrollbar { display: none; }
+.m-cardrow > * { flex: 0 0 84px; }
+.m-cardrow .m-empty { flex: 1 1 auto; }
+
+.m-tcard {
+    position: relative;
+    display: flex; flex-direction: column; gap: 5px;
+    padding: 5px;
+    background: var(--panel);
+    border: 1px solid var(--line-2);
+    border-radius: 5px;
+    text-align: left;
+    box-shadow: 0 1px 6px rgba(0,0,0,.5);
+    /* Le mélange du brillant reste dans la carte : sans isolation il irait
+       chercher le fond de la page, et le reflet virerait au gris sur Android. */
+    isolation: isolate;
+
+    /* Le cadre porte la rareté : deux variables par modificateur, la couleur
+       pleine (texte) et sa version diluée (bordure). Pas de color-mix() ici —
+       il n'existe que depuis Safari 16.2, et une fonction inconnue fait tomber
+       toute la déclaration : la carte perdrait sa couleur de rareté au lieu de
+       la dégrader. */
+    --rc: var(--r-common);
+    --rc-soft: rgba(107, 106, 103, .45);
+    border-color: var(--rc-soft);
+
+    /* Position du pointeur, posée par mobile.js sur la carte survolée.
+       Valeurs neutres par défaut : la carte est correcte sans une ligne de JS.
+
+       --pxn / --pyn sont volontairement ABSENTS d'ici : ils viennent de la
+       racine, où l'inclinaison du téléphone les écrit pour toutes les cartes à
+       la fois. Les redéclarer sur .m-tcard masquerait la valeur héritée et le
+       gyroscope n'aurait plus aucun effet — le style en ligne du pointeur,
+       lui, l'emporte de toute façon sur l'héritage. */
+    --px: 50%;
+    --py: 50%;
+    --pfc: 0;
+    --rx: 0deg;
+    --ry: 0deg;
+}
+.m-tcard--legendary { --rc: var(--r-legendary); --rc-soft: rgba(212, 175, 55, .5); }
+.m-tcard--rare      { --rc: var(--r-rare);      --rc-soft: rgba(140, 111, 201, .5); }
+.m-tcard--uncommon  { --rc: var(--r-uncommon);  --rc-soft: rgba(78, 143, 168, .5); }
+.m-tcard--common    { --rc: var(--r-common);    --rc-soft: rgba(107, 106, 103, .45); }
+.m-tcard--legendary { box-shadow: 0 0 14px rgba(212,175,55,.28); }
+
+.m-tcard__art {
+    position: relative;
+    aspect-ratio: 5 / 3;
+    overflow: hidden;
+    border-radius: 3px;
+    background: var(--panel-2);
+}
+.m-tcard__img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.m-tcard__name {
+    font-size: .68rem; line-height: 1.25; color: var(--text);
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    min-height: 1.7em;
+}
+.m-tcard__foot { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+.m-tcard__rarity {
+    font-size: .58rem; letter-spacing: .08em; font-weight: 600;
+    color: var(--rc);
+}
+.m-tcard__badge {
+    font-size: .55rem; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--text-3);
+}
+
+/* Manquante : la silhouette dit ce qui reste à trouver sans rien révéler. */
+.m-tcard.is-missing { opacity: .45; }
+.m-tcard.is-missing .m-tcard__img { filter: grayscale(1) brightness(.35) contrast(.8); }
+.m-tcard.is-missing .m-tcard__name { color: var(--text-3); }
+
+/* Choisie pour un échange. */
+.m-tcard.is-picked { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold-a30), 0 0 12px var(--gold-a30); }
+
+.m-tcard--sm .m-tcard__name { -webkit-line-clamp: 1; min-height: 0; }
+
+/* ---------- Le brillant ----------
+   Pas une image : un traitement, en deux couches superposées, comme le font
+   les cartes holographiques réelles.
+
+   1. LE VOILE (--foil) : un arc-en-ciel répété en color-dodge dans la fenêtre
+      d'illustration. C'est lui qui donne la couleur.
+   2. LE REFLET (--glare) : un halo blanc en overlay, posé sur toute la carte à
+      l'endroit exact du pointeur. C'est lui qui donne l'impression qu'une
+      lumière physique balaie la surface.
+
+   Trois sources d'entrée, une seule sortie : le pointeur (souris, doigt ou
+   stylet, via Pointer Events), l'inclinaison du téléphone, ou — si aucune des
+   deux ne répond — une animation lente qui respire toute seule. Une carte
+   brillante doit donner envie de la bouger, quel que soit l'appareil. */
+.m-tcard.is-foil { border-color: var(--gold); }
+
+.m-tcard.is-foil .m-tcard__foil {
+    position: absolute; inset: 0;
+    pointer-events: none;
+    background: linear-gradient(
+        115deg,
+        transparent 20%,
+        rgba(255,0,128,.45) 34%,
+        rgba(0,225,255,.45) 45%,
+        rgba(120,255,150,.42) 55%,
+        rgba(255,215,0,.45) 66%,
+        transparent 80%);
+    background-size: 300% 300%;
+    background-position: 50% 50%;
+    mix-blend-mode: color-dodge;
+    animation: m-foil 4.5s ease-in-out infinite;
+}
+
+/* Le reflet couvre la carte entière, pas seulement l'illustration : sur une
+   vraie carte, le vernis déborde du cadre. */
+.m-tcard__glare {
+    position: absolute; inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background: radial-gradient(farthest-corner circle at var(--px) var(--py),
+        rgba(255,255,255,.5) 5%,
+        rgba(255,255,255,.12) 28%,
+        rgba(0,0,0,.45) 90%);
+    mix-blend-mode: overlay;
+    opacity: 0;
+    transition: opacity .3s ease;
+}
+
+.m-tcard.is-foil::after {
+    content: '';
+    position: absolute; inset: 0;
+    border-radius: 5px;
+    pointer-events: none;
+    box-shadow: inset 0 0 12px rgba(255,255,255,.18);
+}
+
+@keyframes m-foil {
+    0%, 100% { background-position: 0% 50%; }
+    50%      { background-position: 100% 50%; }
+}
+
+/* Pointeur posé sur la carte, ou capteur d'inclinaison actif : la position
+   prend la main sur l'animation. Les deux chemins écrivent les mêmes
+   variables, donc ils partagent ces règles — un seul comportement à régler. */
+.m-tcard.is-live.is-foil .m-tcard__foil,
+.has-tilt .m-tcard.is-foil .m-tcard__foil {
+    animation: none;
+    background-position: calc(50% + (var(--pxn) * 60%)) calc(50% + (var(--pyn) * 60%));
+    filter: brightness(1.15) contrast(1.15) saturate(1.35);
+}
+
+/* Le reflet ne s'allume qu'au pointeur : sur téléphone il suivrait
+   l'inclinaison de douze cartes à la fois, ce qui ne ressemble à rien. */
+.m-tcard.is-live .m-tcard__glare { opacity: calc(.3 + var(--pfc) * .45); }
+
+/* La carte s'incline vers le doigt (ou la souris, sur un écran tactile posé
+   sur un bureau). Uniquement celle qu'on touche.
+
+   Aucune transition tant que le pointeur pilote — elle traînerait derrière le
+   doigt. Elle revient en douceur au relâchement, quand .m-tcard reprend la
+   sienne. */
+.m-tcard { transition: transform .2s ease; }
+.m-tcard.is-live {
+    transform: perspective(700px) rotateX(var(--rx)) rotateY(var(--ry)) scale(1.03);
+    transition: none;
+    z-index: 2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .m-tcard.is-foil .m-tcard__foil { animation: none; }
+    .m-tcard.is-live { transform: none; }
+}
+
+/* ---------- Ouverture d'un booster ----------
+   Plein écran, fond opaque : c'est le moment du produit, il ne partage rien. */
+.m-reveal {
+    position: fixed; inset: 0; z-index: 60;
+    display: none;
+    flex-direction: column; align-items: center; justify-content: center;
+    gap: 18px;
+    padding: 24px 20px calc(24px + env(safe-area-inset-bottom));
+    background: radial-gradient(70% 50% at 50% 40%, #14120c 0%, #050505 75%);
+}
+.m-reveal.is-open { display: flex; }
+.m-reveal__seal {
+    font-size: .68rem; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--text-3); text-align: center;
+}
+.m-reveal__stage {
+    flex: 1 1 auto;
+    display: flex; align-items: center; justify-content: center;
+    width: 100%;
+}
+.m-reveal__foot { width: 100%; display: flex; flex-direction: column; gap: 10px; align-items: center; }
+.m-reveal__count { font-size: .74rem; color: var(--text-3); font-variant-numeric: tabular-nums; }
+
+/* La carte révélée occupe l'écran : c'est elle qu'on regarde, pas l'interface. */
+.m-tcard--reveal {
+    width: min(72vw, 260px);
+    padding: 10px;
+    animation: m-flip .45s cubic-bezier(.2,.8,.2,1);
+}
+.m-tcard--reveal .m-tcard__name { font-size: 1rem; -webkit-line-clamp: 2; }
+.m-tcard--reveal .m-tcard__rarity { font-size: .72rem; }
+.m-tcard--reveal .m-tcard__badge { font-size: .66rem; }
+@keyframes m-flip {
+    from { transform: rotateY(90deg) scale(.9); opacity: 0; }
+    to   { transform: rotateY(0) scale(1); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .m-tcard--reveal { animation: none; }
+}
+
+/* Carte seule dans la feuille glissante. */
+.m-tcard-solo { display: flex; justify-content: center; }
+.m-tcard-solo .m-tcard { width: min(60vw, 200px); }

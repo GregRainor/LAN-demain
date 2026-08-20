@@ -424,3 +424,636 @@ function buildLanIcs(settings) {
     // Le format impose des fins de ligne CRLF.
     return lines.join('\r\n') + '\r\n';
 }
+
+/* ==========================================================================
+   Économie de la soirée : points, boutique, achats
+   Aucun solde n'est stocké. Un solde est toujours recalculé à partir du
+   registre (lan/economy/ledger) et du compteur de présence (lan/economy/ticks).
+   C'est ce qui rend la triche structurellement impossible : le registre est en
+   écriture unique et réservé aux maîtres du jeu, et le compteur est plafonné
+   par les règles Firebase, pas par le client.
+   ========================================================================== */
+
+const ECONOMY = {
+    /* Un point toutes les dix minutes de présence, pendant la LAN seulement.
+       Ce filet n'est pas une stratégie : plafonné à dix heures, il garantit
+       juste que celui qui ne court pas après les défis a de quoi dépenser.
+
+       ATTENTION : ces deux nombres sont aussi écrits en dur dans
+       database.rules.json (600000 ms et 60 tranches), parce qu'un fichier de
+       règles ne peut ni importer ni commenter. Ce sont les règles qui font
+       foi — elles seules empêchent un client bricolé d'accélérer le compteur.
+       Changer l'un sans l'autre rend le plafond affiché faux, ou fait échouer
+       silencieusement chaque tranche. */
+    TICK_INTERVAL_MS: 10 * 60 * 1000,
+    TICK_VALUE: 5,
+    MAX_TICKS: 60,
+    CURRENCY: 'PO',
+    CATEGORIES: [
+        { key: 'privilege', label: 'Privilèges', icon: '👑' },
+        { key: 'handicap', label: 'Handicaps', icon: '🎯' },
+        { key: 'cosmetic', label: 'Cosmétiques', icon: '✨' },
+        { key: 'fun', label: 'Divers', icon: '🎲' }
+    ]
+};
+
+function categoryLabel(key) {
+    const found = ECONOMY.CATEGORIES.find(c => c.key === key);
+    return found ? found.label : 'Divers';
+}
+
+function categoryIcon(key) {
+    const found = ECONOMY.CATEGORIES.find(c => c.key === key);
+    return found ? found.icon : '🎲';
+}
+
+function formatPoints(value) {
+    const n = Math.round(Number(value) || 0);
+    return `${n} ${ECONOMY.CURRENCY}`;
+}
+
+/* Points gagnés passivement. Le compteur ne retient que le nombre de tranches
+   validées par les règles : le client ne choisit jamais leur valeur. */
+function tickPoints(economy, uid) {
+    const node = (economy && economy.ticks && economy.ticks[uid]) || null;
+    if (!node) return 0;
+    const count = Math.max(0, Math.min(Number(node.count) || 0, ECONOMY.MAX_TICKS));
+    return count * ECONOMY.TICK_VALUE;
+}
+
+function ledgerTotal(economy, uid) {
+    const ledger = (economy && economy.ledger) || {};
+    let total = 0;
+    Object.values(ledger).forEach(entry => {
+        if (entry && entry.uid === uid) total += Number(entry.delta) || 0;
+    });
+    return total;
+}
+
+/* Le solde qui fait foi : registre + présence. */
+function economyBalance(economy, uid) {
+    if (!uid) return 0;
+    return ledgerTotal(economy, uid) + tickPoints(economy, uid);
+}
+
+/* Ce qui est déjà engagé dans des achats non tranchés. Un achat ne débite
+   qu'une fois validé par le maître du jeu, sinon un refus laisserait le joueur
+   débité ; en attendant, la somme reste réservée pour qu'il ne la dépense pas
+   deux fois. */
+function pendingSpend(economy, uid) {
+    const purchases = (economy && economy.purchases) || {};
+    let total = 0;
+    Object.values(purchases).forEach(p => {
+        if (p && p.uid === uid && p.status === 'pending') total += Number(p.price) || 0;
+    });
+    return total;
+}
+
+/* Ce que le joueur peut réellement engager maintenant. */
+function availablePoints(economy, uid) {
+    return economyBalance(economy, uid) - pendingSpend(economy, uid);
+}
+
+/* Un article épuisé ne se commande plus. Les achats refusés ne consomment pas
+   de stock : seuls ceux qui tiennent encore comptent. */
+function itemStockLeft(economy, itemId, item) {
+    const stock = Number(item && item.stock);
+    if (!Number.isFinite(stock) || stock <= 0) return null; // illimité
+    const purchases = (economy && economy.purchases) || {};
+    const taken = Object.values(purchases).filter(p =>
+        p && p.itemId === itemId && (p.status === 'pending' || p.status === 'granted')).length;
+    return Math.max(0, stock - taken);
+}
+
+function canBuy(economy, uid, itemId, item) {
+    if (!item || item.active === false) return { ok: false, why: 'Article retiré de la boutique.' };
+    const left = itemStockLeft(economy, itemId, item);
+    if (left === 0) return { ok: false, why: 'Épuisé.' };
+    const price = Number(item.price) || 0;
+    if (availablePoints(economy, uid) < price) return { ok: false, why: 'Pas assez de points.' };
+    return { ok: true, why: '' };
+}
+
+/* Le registre, du plus récent au plus ancien. */
+function economyFeed(economy, limit) {
+    const ledger = (economy && economy.ledger) || {};
+    const rows = Object.entries(ledger)
+        .map(([id, entry]) => Object.assign({ id }, entry))
+        .filter(entry => entry && entry.uid)
+        .sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    return limit ? rows.slice(0, limit) : rows;
+}
+
+/* Classement des fortunes. On ne montre que les joueurs qui ont bougé : une
+   liste de zéros n'apprend rien. */
+function economyLeaderboard(economy, uids) {
+    return (uids || [])
+        .map(uid => ({ uid, balance: economyBalance(economy, uid) }))
+        .filter(row => row.balance !== 0)
+        .sort((a, b) => b.balance - a.balance);
+}
+
+function pendingPurchases(economy) {
+    const purchases = (economy && economy.purchases) || {};
+    return Object.entries(purchases)
+        .map(([id, p]) => Object.assign({ id }, p))
+        .filter(p => p.status === 'pending')
+        .sort((a, b) => (a.ts || 0) - (b.ts || 0));
+}
+
+/* Un rôle qui peut créditer, valider un achat et tenir la boutique. L'admin
+   l'est toujours : il ne faut pas qu'une soirée se bloque parce que le maître
+   du jeu est parti dormir. */
+function isGamemaster(role, uid, adminUid) {
+    return role === 'admin' || role === 'gamemaster' || uid === adminUid;
+}
+
+/* ==========================================================================
+   LES CARTES DE LA SOIRÉE
+   Un jeu de collection dont le set est frappé par le vote : les jeux que les
+   joueurs ont demandés deviennent les cartes, et leur rareté est leur score.
+   La rareté ne raconte donc pas une invention, elle raconte la soirée.
+
+   Trois principes, hérités de l'économie :
+
+   1. Aucune collection n'est stockée. Elle est REJOUÉE depuis les paquets
+      ouverts et les échanges acceptés. Un inventaire modifiable serait un
+      inventaire qu'on se fabrique.
+   2. Le contenu d'un paquet n'est pas stocké non plus : il se recalcule à
+      partir de son sceau. Le sceau, c'est l'horodatage écrit par le serveur
+      Firebase à l'achat — la seule valeur de cette application que le client
+      ne choisit pas. Le tirage est donc à la fois imprévisible (personne ne
+      connaît la milliseconde du serveur) et vérifiable (tout le monde
+      recalcule le même paquet). Pas de serveur de tirage à écrire.
+   3. Un échange malhonnête n'est pas refusé, il est SANS EFFET. Les règles
+      Firebase ne savent pas vérifier qui possède quoi ; le rejeu, si. Ce qui
+      compte n'est pas ce qu'on écrit, c'est l'interprétation — et
+      l'interprétation est déterministe, partagée et publique.
+   ========================================================================== */
+
+const TCG = {
+    /* Cinq cartes, dont la dernière au moins peu commune. */
+    PACK_SIZE: 5,
+    /* Le brillant est un tirage indépendant de la rareté : n'importe quelle
+       carte peut sortir brillante, même une commune. C'est ce qui rend chaque
+       ouverture tendue jusqu'à la dernière. */
+    FOIL_RATE: 0.05,
+    /* Filet de consolation : une légendaire garantie au bout de N paquets
+       ouverts sans. Sur un set de vingt jeux, N paquets sans légendaire est
+       rare mais arrive, et c'est le genre de malchance qui fait décrocher. */
+    PITY: 8,
+    /* Plafond par côté d'un échange. Six cartes tiennent sur un écran de
+       téléphone, et une proposition qu'on ne lit pas ne s'accepte pas. */
+    TRADE_MAX: 6,
+
+    /* Du plus rare au plus commun. `share` est la part du set (cumulée en
+       descendant le classement des votes), `weight` la chance qu'un
+       emplacement de booster tire cette rareté. */
+    RARITIES: [
+        { key: 'legendary', label: 'Légendaire',  short: 'LÉG', share: 0.10, weight: 3 },
+        { key: 'rare',      label: 'Rare',        short: 'RAR', share: 0.25, weight: 12 },
+        { key: 'uncommon',  label: 'Peu commune', short: 'PCO', share: 0.30, weight: 30 },
+        { key: 'common',    label: 'Commune',     short: 'COM', share: 0.35, weight: 55 }
+    ],
+
+    /* Illustrations dessinées, quand il y en aura. Tant qu'un jeu n'est pas
+       listé ici, sa carte porte sa jaquette Steam (api/get-game-image) : le
+       set est illustré dès le premier soir, et se bonifie carte par carte.
+       Clé = normalizeGameName(nom), valeur = fichier dans cards/. */
+    ART: {}
+};
+
+function rarityIndex(key) {
+    const found = TCG.RARITIES.findIndex(r => r.key === key);
+    return found < 0 ? TCG.RARITIES.length - 1 : found;
+}
+
+function rarityMeta(key) {
+    return TCG.RARITIES[rarityIndex(key)];
+}
+
+/* L'identité d'une carte, et la clé Firebase de son nœud dans le set.
+   Une clé Firebase ne supporte ni « . » ni « $ # [ ] / » : « S.T.A.L.K.E.R. »
+   passé tel quel rendrait le chemin invalide et la frappe du set échouerait
+   sans le moindre message. On part de normalizeGameName pour que deux
+   orthographes du même jeu restent une seule carte, puis on neutralise ce qui
+   gênerait le chemin. */
+function cardKey(name) {
+    const normalized = normalizeGameName(name).replace(/[.$#[\]/]/g, '_').trim();
+    return normalized;
+}
+
+/* Chemin de l'illustration dessinée, ou null pour retomber sur Steam. */
+function cardArt(gameKey) {
+    const file = TCG.ART[gameKey];
+    return file ? 'cards/' + file : null;
+}
+
+/* --------------------------------------------------------------------------
+   Frapper le set
+   -------------------------------------------------------------------------- */
+
+/* Le classement des votes découpé en raretés. Deux jeux à égalité ne peuvent
+   pas tomber dans deux raretés différentes : ils prennent tous la plus basse
+   du groupe. Sans cette règle, un set où tout le monde a un point deviendrait
+   entièrement légendaire, et la rareté ne dirait plus rien du vote. */
+function buildCardSet(scores) {
+    const ranked = (scores || [])
+        .filter(game => game && game.name)
+        .map(game => ({ name: String(game.name).trim(), score: Number(game.score) || 0 }))
+        .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name, 'fr'));
+
+    const total = ranked.length;
+    if (!total) return {};
+
+    const bands = new Array(total);
+    let index = 0;
+    let cumulative = 0;
+    TCG.RARITIES.forEach((rarity, i) => {
+        cumulative += rarity.share;
+        const isLast = i === TCG.RARITIES.length - 1;
+        /* On réserve une place à chacune des raretés qui suivent : sur un set
+           de six jeux, un arrondi naïf laisserait des raretés vides et les
+           boosters n'auraient plus rien à tirer. */
+        const room = total - (TCG.RARITIES.length - 1 - i);
+        const upTo = isLast ? total : Math.max(index + 1, Math.min(room, Math.round(total * cumulative)));
+        while (index < upTo) bands[index++] = i;
+    });
+
+    let start = 0;
+    for (let i = 1; i <= total; i++) {
+        if (i === total || ranked[i].score !== ranked[start].score) {
+            const band = bands[i - 1];
+            for (let j = start; j < i; j++) bands[j] = band;
+            start = i;
+        }
+    }
+
+    const cards = {};
+    ranked.forEach((game, i) => {
+        const key = cardKey(game.name);
+        if (key) cards[key] = { name: game.name, rarity: TCG.RARITIES[bands[i]].key, score: game.score };
+    });
+    return cards;
+}
+
+/* --------------------------------------------------------------------------
+   Le tirage
+   Déterministe à partir du sceau, donc rejouable par n'importe qui, et
+   imprévisible parce que le sceau vient du serveur.
+   -------------------------------------------------------------------------- */
+
+// FNV-1a 32 bits : court, sans dépendance, et suffisant pour semer un tirage.
+function tcgHash(text) {
+    const str = String(text);
+    let hash = 0x811c9dc5;
+    for (let i = 0; i < str.length; i++) {
+        hash ^= str.charCodeAt(i);
+        hash = Math.imul(hash, 0x01000193);
+    }
+    return hash >>> 0;
+}
+
+// mulberry32 : générateur semé, identique sur tous les navigateurs.
+function tcgRandom(seed) {
+    let state = seed >>> 0;
+    return function () {
+        state = (state + 0x6D2B79F5) >>> 0;
+        let t = Math.imul(state ^ (state >>> 15), 1 | state);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+}
+
+/* Le sceau d'un paquet : son identifiant, l'horodatage serveur de son achat,
+   et son propriétaire. Aucun des trois ne peut être rejoué à volonté — le
+   nœud du paquet est en écriture unique. */
+function packSeed(packId, pack) {
+    return tcgHash(packId + '|' + ((pack && pack.sealedAt) || 0) + '|' + ((pack && pack.uid) || ''));
+}
+
+/* Cinq cartes tirées du set. Le dernier emplacement est au moins peu commun,
+   et devient une légendaire quand le filet de consolation est dû. */
+function drawPack(setCards, seed, options) {
+    const opts = options || {};
+    const pool = {};
+    Object.entries(setCards || {}).forEach(([key, card]) => {
+        const rarity = rarityMeta(card && card.rarity).key;
+        (pool[rarity] = pool[rarity] || []).push(key);
+    });
+    /* Firebase ne promet pas l'ordre de lecture d'un objet : sans tri, deux
+       clients tireraient deux paquets différents avec la même graine. */
+    Object.values(pool).forEach(list => list.sort());
+
+    const available = TCG.RARITIES.filter(rarity => (pool[rarity.key] || []).length);
+    if (!available.length) return [];
+
+    const rand = tcgRandom(seed);
+    const pick = (worstAllowed, exact) => {
+        const choices = available.filter(rarity => {
+            const i = rarityIndex(rarity.key);
+            return exact === undefined ? i <= worstAllowed : i === exact;
+        });
+        if (!choices.length) return available[available.length - 1];
+        const totalWeight = choices.reduce((sum, rarity) => sum + rarity.weight, 0);
+        let roll = rand() * totalWeight;
+        for (const rarity of choices) {
+            roll -= rarity.weight;
+            if (roll <= 0) return rarity;
+        }
+        return choices[choices.length - 1];
+    };
+
+    const worst = TCG.RARITIES.length - 1;
+    const uncommon = rarityIndex('uncommon');
+    const cards = [];
+    for (let slot = 0; slot < TCG.PACK_SIZE; slot++) {
+        const isLast = slot === TCG.PACK_SIZE - 1;
+        let rarity;
+        if (isLast && opts.pity) rarity = pick(worst, rarityIndex('legendary'));
+        else if (isLast) rarity = pick(uncommon);
+        else rarity = pick(worst);
+
+        const list = pool[rarity.key];
+        const gameKey = list[Math.min(list.length - 1, Math.floor(rand() * list.length))];
+        // Le brillant se tire après la carte, et pour chaque carte : c'est un
+        // second dé, pas une rareté supplémentaire.
+        cards.push({ slot, gameKey, rarity: rarity.key, foil: rand() < TCG.FOIL_RATE });
+    }
+    return cards;
+}
+
+/* --------------------------------------------------------------------------
+   Le rejeu de la collection
+   -------------------------------------------------------------------------- */
+
+function tcgSetCards(tcg, setId) {
+    const node = ((tcg && tcg.sets) || {})[setId];
+    return (node && node.cards) || {};
+}
+
+function tcgCurrentSetId(tcg) {
+    return (tcg && tcg.currentSet) || '';
+}
+
+function tcgCurrentSet(tcg) {
+    const id = tcgCurrentSetId(tcg);
+    const node = ((tcg && tcg.sets) || {})[id];
+    return node ? Object.assign({ id }, node) : null;
+}
+
+function tcgPacks(tcg) {
+    return Object.entries((tcg && tcg.packs) || {})
+        .map(([id, pack]) => Object.assign({ id }, pack))
+        .filter(pack => pack && pack.uid && pack.sealedAt);
+}
+
+function sealedPacksOf(tcg, uid) {
+    return tcgPacks(tcg)
+        .filter(pack => pack.uid === uid && pack.status !== 'opened')
+        .sort((a, b) => (a.sealedAt || 0) - (b.sealedAt || 0));
+}
+
+/* Combien de paquets ce joueur a ouverts depuis sa dernière légendaire. Sert
+   au filet de consolation, et se recalcule comme tout le reste. */
+function pityCount(tcg, uid) {
+    let streak = 0;
+    openedPacks(tcg).filter(pack => pack.uid === uid).forEach(pack => {
+        const drawn = drawPack(tcgSetCards(tcg, pack.setId), packSeed(pack.id, pack), { pity: streak >= TCG.PITY });
+        streak = drawn.some(card => card.rarity === 'legendary') ? 0 : streak + 1;
+    });
+    return streak;
+}
+
+/* L'ordre d'ouverture fait foi et vient du serveur : deux clients rejouent
+   donc exactement la même suite de paquets. */
+function openedPacks(tcg) {
+    return tcgPacks(tcg)
+        .filter(pack => pack.status === 'opened')
+        .sort((a, b) => (a.openedAt || 0) - (b.openedAt || 0) || (a.id < b.id ? -1 : 1));
+}
+
+/* Toutes les cartes frappées à ce jour, avant échanges. Une carte est
+   identifiée par son paquet et son emplacement : deux exemplaires du même jeu
+   restent deux objets distincts, et c'est ce qui rend l'échange possible. */
+function mintedCards(tcg) {
+    const streaks = {};
+    const cards = [];
+    openedPacks(tcg).forEach(pack => {
+        const set = tcgSetCards(tcg, pack.setId);
+        const streak = streaks[pack.uid] || 0;
+        const drawn = drawPack(set, packSeed(pack.id, pack), { pity: streak >= TCG.PITY });
+        streaks[pack.uid] = drawn.some(card => card.rarity === 'legendary') ? 0 : streak + 1;
+
+        drawn.forEach(card => {
+            cards.push({
+                id: pack.id + '#' + card.slot,
+                packId: pack.id,
+                setId: pack.setId || '',
+                slot: card.slot,
+                gameKey: card.gameKey,
+                name: (set[card.gameKey] && set[card.gameKey].name) || card.gameKey,
+                rarity: card.rarity,
+                foil: card.foil,
+                /* La provenance : qui l'a sortie du paquet, et quand. Elle ne
+                   change jamais de main, même quand la carte, elle, change.
+                   C'est ce qui fait qu'une carte est un souvenir de soirée et
+                   pas une ligne d'inventaire. */
+                mintedBy: pack.uid,
+                mintedAt: pack.openedAt || pack.sealedAt || 0,
+                owner: pack.uid,
+                lineage: [pack.uid]
+            });
+        });
+    });
+    return cards;
+}
+
+function acceptedTrades(tcg) {
+    return tcgTrades(tcg)
+        .filter(trade => trade.status === 'accepted')
+        .sort((a, b) => (a.resolvedAt || a.ts || 0) - (b.resolvedAt || b.ts || 0) || (a.id < b.id ? -1 : 1));
+}
+
+/* L'état du monde : toutes les cartes, chacune chez son propriétaire actuel,
+   et la liste des échanges qui ont réellement eu un effet.
+
+   Un échange dont l'émetteur ne possédait pas ce qu'il offrait est ignoré —
+   pas refusé, ignoré. Il reste visible dans le journal public, marqué « sans
+   effet », ce qui est la punition suffisante entre amis. */
+function tcgReplay(tcg) {
+    const cards = mintedCards(tcg);
+    const byId = new Map(cards.map(card => [card.id, card]));
+    const applied = new Set();
+
+    acceptedTrades(tcg).forEach(trade => {
+        const offer = (trade.offer || []).map(id => byId.get(id));
+        const request = (trade.request || []).map(id => byId.get(id));
+        if (!offer.length && !request.length) return;
+        if (offer.some(card => !card || card.owner !== trade.fromUid)) return;
+        if (request.some(card => !card || card.owner !== trade.toUid)) return;
+
+        offer.forEach(card => { card.owner = trade.toUid; card.lineage.push(trade.toUid); });
+        request.forEach(card => { card.owner = trade.fromUid; card.lineage.push(trade.fromUid); });
+        applied.add(trade.id);
+    });
+
+    return { cards, applied };
+}
+
+function tcgCards(tcg) {
+    return tcgReplay(tcg).cards;
+}
+
+function collectionOf(cards, uid) {
+    return (cards || [])
+        .filter(card => card.owner === uid)
+        .sort((a, b) => rarityIndex(a.rarity) - rarityIndex(b.rarity)
+            || a.name.localeCompare(b.name, 'fr')
+            || (b.foil ? 1 : 0) - (a.foil ? 1 : 0));
+}
+
+/* Ce qu'on possède d'un set donné, jeu par jeu. Les exemplaires en trop
+   restent listés : ce sont eux qui alimentent l'échange. */
+function collectionBySet(setCards, cards, uid) {
+    const mine = collectionOf(cards, uid);
+    return Object.entries(setCards || {})
+        .map(([gameKey, card]) => {
+            const copies = mine.filter(owned => owned.gameKey === gameKey);
+            return {
+                gameKey,
+                name: card.name || gameKey,
+                rarity: card.rarity || 'common',
+                score: Number(card.score) || 0,
+                copies,
+                owned: copies.length > 0,
+                foil: copies.some(copy => copy.foil)
+            };
+        })
+        .sort((a, b) => rarityIndex(a.rarity) - rarityIndex(b.rarity)
+            || b.score - a.score
+            || a.name.localeCompare(b.name, 'fr'));
+}
+
+function setProgress(setCards, cards, uid) {
+    const keys = Object.keys(setCards || {});
+    const owned = new Set();
+    const foils = new Set();
+    (cards || []).forEach(card => {
+        if (card.owner !== uid || !setCards[card.gameKey]) return;
+        owned.add(card.gameKey);
+        if (card.foil) foils.add(card.gameKey);
+    });
+    return {
+        total: keys.length,
+        owned: owned.size,
+        foils: foils.size,
+        percent: keys.length ? Math.round(owned.size * 100 / keys.length) : 0,
+        complete: keys.length > 0 && owned.size === keys.length
+    };
+}
+
+/* Les exemplaires en trop. On garde le brillant et la plus ancienne : ce
+   qu'on propose à l'échange, c'est le surplus, jamais la pièce du souvenir. */
+function duplicatesOf(cards, uid) {
+    const kept = new Set();
+    return (cards || [])
+        .filter(card => card.owner === uid)
+        .sort((a, b) => (b.foil ? 1 : 0) - (a.foil ? 1 : 0) || (a.mintedAt || 0) - (b.mintedAt || 0))
+        .filter(card => {
+            if (!kept.has(card.gameKey)) { kept.add(card.gameKey); return false; }
+            return true;
+        })
+        .sort((a, b) => rarityIndex(a.rarity) - rarityIndex(b.rarity) || a.name.localeCompare(b.name, 'fr'));
+}
+
+function tcgLeaderboard(setCards, cards, uids) {
+    return (uids || [])
+        .map(uid => Object.assign({ uid }, setProgress(setCards, cards, uid)))
+        .filter(row => row.owned > 0)
+        .sort((a, b) => b.owned - a.owned || b.foils - a.foils);
+}
+
+/* --------------------------------------------------------------------------
+   Les échanges
+   -------------------------------------------------------------------------- */
+
+/* Les deux côtés d'un échange sont stockés en une chaîne d'identifiants
+   séparés par des virgules, et non en liste. C'est ce qui permet aux règles
+   Firebase de les figer d'une seule comparaison à l'acceptation : sans ça,
+   celui qui accepte pourrait réécrire l'offre en sa faveur avant de signer.
+   Les identifiants de carte sont des clés Firebase et un numéro, jamais de
+   virgule. */
+function serializeCardList(ids) {
+    return (ids || []).filter(id => typeof id === 'string' && id).join(',');
+}
+
+function parseCardList(value) {
+    if (Array.isArray(value)) return value.filter(id => typeof id === 'string' && id);
+    return String(value || '').split(',').map(id => id.trim()).filter(Boolean);
+}
+
+function tcgTrades(tcg) {
+    return Object.entries((tcg && tcg.trades) || {})
+        .map(([id, trade]) => Object.assign({ id }, trade, {
+            offer: parseCardList(trade && trade.offer),
+            request: parseCardList(trade && trade.request)
+        }))
+        .filter(trade => trade && trade.fromUid && trade.toUid)
+        .sort((a, b) => (b.ts || 0) - (a.ts || 0));
+}
+
+function pendingTradesFor(tcg, uid) {
+    return tcgTrades(tcg).filter(trade => trade.status === 'pending' && trade.toUid === uid);
+}
+
+function pendingTradesFrom(tcg, uid) {
+    return tcgTrades(tcg).filter(trade => trade.status === 'pending' && trade.fromUid === uid);
+}
+
+/* Un échange EN ATTENTE encore recevable : les deux parties possèdent
+   toujours ce qu'elles ont engagé. Une carte déjà partie ailleurs rend la
+   proposition caduque, et il vaut mieux le dire que de laisser accepter dans
+   le vide. À ne pas utiliser sur un échange déjà conclu — les cartes ont
+   changé de mains, la question n'a plus de sens : c'est `applied` du rejeu
+   qui dit s'il a eu un effet. */
+function tradeStillValid(cards, trade) {
+    const byId = new Map((cards || []).map(card => [card.id, card]));
+    const offer = (trade.offer || []).map(id => byId.get(id));
+    const request = (trade.request || []).map(id => byId.get(id));
+    if (!offer.length && !request.length) return false;
+    if (offer.some(card => !card || card.owner !== trade.fromUid)) return false;
+    if (request.some(card => !card || card.owner !== trade.toUid)) return false;
+    return true;
+}
+
+/* --------------------------------------------------------------------------
+   Les boosters dans la boutique
+   Un booster est un article de la boutique comme un autre, marqué kind:'pack'.
+   Une demande validée donne droit à exactement un paquet, dont l'identifiant
+   EST celui de la demande : un achat ne peut donc pas donner deux paquets.
+   -------------------------------------------------------------------------- */
+
+function isPackItem(item) {
+    return !!(item && item.kind === 'pack');
+}
+
+function packItems(economy) {
+    return Object.entries((economy && economy.catalog) || {})
+        .filter(([, item]) => isPackItem(item) && item.active !== false);
+}
+
+/* Les achats de booster validés qui n'ont pas encore leur paquet. Le client du
+   joueur les scelle en arrivant : s'il était hors ligne au moment de la
+   validation, son paquet l'attend au prochain chargement. */
+function unsealedPurchases(economy, tcg, uid) {
+    const packs = (tcg && tcg.packs) || {};
+    const catalog = (economy && economy.catalog) || {};
+    return Object.entries((economy && economy.purchases) || {})
+        .map(([id, purchase]) => Object.assign({ id }, purchase))
+        .filter(purchase => purchase.uid === uid
+            && purchase.status === 'granted'
+            && isPackItem(catalog[purchase.itemId])
+            && !packs[purchase.id])
+        .sort((a, b) => (a.ts || 0) - (b.ts || 0));
+}

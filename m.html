@@ -77,6 +77,12 @@
                     <div id="m-when-where"></div>
                 </div>
 
+                <!-- Un booster qui attend est la seule notification qui vaut
+                     d'être criée sur l'écran d'accueil. -->
+                <div class="m-section" id="m-sealed-teaser-section" style="display:none">
+                    <div id="m-sealed-teaser"></div>
+                </div>
+
                 <div class="m-section" id="m-now-section" style="display:none">
                     <div class="m-section__head">
                         <h2 class="m-section__title">En ce moment</h2>
@@ -163,6 +169,17 @@
                             </svg>
                             <span class="m-list__label">Kocktails</span>
                             <span class="m-list__hint" id="m-plus-kocktails"></span>
+                            <svg class="m-list__chev" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="m9 6 6 6-6 6" />
+                            </svg>
+                        </button>
+                        <button class="m-list__row" data-goto="cartes">
+                            <svg class="m-list__ico" viewBox="0 0 24 24" aria-hidden="true">
+                                <rect x="8" y="3" width="12" height="16" rx="2" />
+                                <path d="M15.5 21H6a2 2 0 0 1-2-2V7.5" />
+                            </svg>
+                            <span class="m-list__label">Mes cartes</span>
+                            <span class="m-list__hint" id="m-plus-cartes"></span>
                             <svg class="m-list__chev" viewBox="0 0 24 24" aria-hidden="true">
                                 <path d="m9 6 6 6-6 6" />
                             </svg>
@@ -341,7 +358,7 @@
                         zéro</button>
                     <p class="m-card__meta">La soirée en cours part dans l'historique. Votes, événements,
                         sondages, commandes, one-shots et bibliothèques sont effacés. La carte des kocktails est
-                        conservée.</p>
+                        conservée, ainsi que les cartes à collectionner : une collection ne se réinitialise pas.</p>
                 </div>
             </section>
 
@@ -377,6 +394,123 @@
                 </div>
             </section>
 
+            <!-- ---------- BOUTIQUE ---------- -->
+            <section class="m-screen" data-screen="boutique">
+                <div class="m-wallet">
+                    <span class="m-wallet__label">Mon solde</span>
+                    <strong class="m-wallet__value" id="m-wallet-value">0 PO</strong>
+                    <span class="m-wallet__hint" id="m-wallet-hint"></span>
+                </div>
+
+                <!-- File du maître du jeu : son écran de travail, comme le bar
+                     pour le mixologue. -->
+                <div class="m-section" id="m-gm-section" style="display:none">
+                    <div class="m-section__head">
+                        <h2 class="m-section__title">À valider</h2>
+                    </div>
+                    <div id="m-gm-queue"></div>
+                </div>
+
+                <div class="m-section" id="m-my-purchases-section" style="display:none">
+                    <div class="m-section__head">
+                        <h2 class="m-section__title">Mes demandes</h2>
+                    </div>
+                    <div id="m-my-purchases"></div>
+                </div>
+
+                <div class="m-section">
+                    <div class="m-section__head">
+                        <h2 class="m-section__title">La boutique</h2>
+                        <button class="m-section__link" id="m-shop-new" style="display:none">+ Article</button>
+                    </div>
+                    <div id="m-shop-list"></div>
+                </div>
+
+                <div class="m-section">
+                    <div class="m-section__head">
+                        <h2 class="m-section__title">Fortunes</h2>
+                    </div>
+                    <div id="m-shop-leaderboard"></div>
+                </div>
+
+                <div class="m-section">
+                    <div class="m-section__head">
+                        <h2 class="m-section__title">Derniers mouvements</h2>
+                    </div>
+                    <div id="m-shop-feed"></div>
+                </div>
+            </section>
+
+            <!-- ---------- CARTES ---------- -->
+            <!-- Le set est frappé par le vote : les jeux demandés deviennent
+                 les cartes, et leur rareté est leur score. Rien n'est stocké
+                 ici — la collection se rejoue depuis les paquets ouverts. -->
+            <section class="m-screen" data-screen="cartes">
+                <div class="m-setband" id="m-set-band"></div>
+
+                <!-- Poste du maître du jeu : frapper le set au démarrage de la
+                     soirée, et offrir un booster (récompense, ou test). -->
+                <div class="m-section" id="m-mint-section" style="display:none">
+                    <div class="m-section__head">
+                        <h2 class="m-section__title">Maître du jeu</h2>
+                    </div>
+                    <p class="m-card__meta" id="m-mint-state"></p>
+                    <button class="m-btn m-btn--full" id="m-mint-set">Frapper le set de la soirée</button>
+                    <button class="m-btn m-btn--quiet m-btn--full" id="m-gift-pack">Offrir un booster</button>
+                </div>
+
+                <div class="m-section" id="m-packs-section" style="display:none">
+                    <div class="m-section__head">
+                        <h2 class="m-section__title">Mes boosters</h2>
+                    </div>
+                    <div id="m-packs"></div>
+                </div>
+
+                <div class="m-section" id="m-trade-in-section" style="display:none">
+                    <div class="m-section__head">
+                        <h2 class="m-section__title">Échanges reçus</h2>
+                    </div>
+                    <div id="m-trade-in"></div>
+                </div>
+
+                <div class="m-section">
+                    <div class="m-section__head">
+                        <h2 class="m-section__title">Le set</h2>
+                        <button class="m-section__link" id="m-set-filter">Tout</button>
+                    </div>
+                    <div class="m-cardgrid" id="m-set-grid"></div>
+                </div>
+
+                <div class="m-section" id="m-dupes-section" style="display:none">
+                    <div class="m-section__head">
+                        <h2 class="m-section__title">Mes doubles</h2>
+                        <button class="m-section__link" id="m-trade-new">Proposer</button>
+                    </div>
+                    <div class="m-cardgrid" id="m-dupes"></div>
+                </div>
+
+                <div class="m-section" id="m-trade-out-section" style="display:none">
+                    <div class="m-section__head">
+                        <h2 class="m-section__title">Mes propositions</h2>
+                    </div>
+                    <div id="m-trade-out"></div>
+                </div>
+
+                <div class="m-section">
+                    <div class="m-section__head">
+                        <h2 class="m-section__title">Complétion</h2>
+                    </div>
+                    <div id="m-tcg-leaderboard"></div>
+                </div>
+
+                <div class="m-section">
+                    <div class="m-section__head">
+                        <h2 class="m-section__title">Journal des échanges</h2>
+                    </div>
+                    <div id="m-trade-feed"></div>
+                </div>
+            </section>
+
             <!-- ---------- BILAN ---------- -->
             <section class="m-screen" data-screen="bilan">
                 <div id="m-recap"></div>
@@ -400,6 +534,14 @@
                     <circle cx="18.1" cy="13.8" r=".9" fill="currentColor" stroke="none" />
                 </svg>
                 <span class="m-tab__label">Jeux</span>
+            </button>
+            <button class="m-tab" data-goto="boutique">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M4.5 8h15l-1.1 11.1A2 2 0 0 1 16.4 21H7.6a2 2 0 0 1-2-1.9z" />
+                    <path d="M9 8V6.2a3 3 0 0 1 6 0V8" />
+                </svg>
+                <span class="m-tab__label">Boutique</span>
+                <span class="m-tab__dot" id="m-tab-shop" style="display:none">0</span>
             </button>
             <button class="m-tab" data-goto="miam">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -441,6 +583,18 @@
                 </button>
             </div>
             <div class="m-sheet__body" id="m-sheet-body"></div>
+        </div>
+    </div>
+
+    <!-- ===================== OUVERTURE D'UN BOOSTER =====================
+         Plein écran : c'est le moment du produit, il ne partage l'écran avec
+         rien. On révèle carte par carte, de la plus commune à la plus rare. -->
+    <div class="m-reveal" id="m-reveal" role="dialog" aria-modal="true" aria-label="Ouverture d'un booster">
+        <div class="m-reveal__seal" id="m-reveal-seal"></div>
+        <div class="m-reveal__stage" id="m-reveal-stage"></div>
+        <div class="m-reveal__foot">
+            <span class="m-reveal__count" id="m-reveal-count"></span>
+            <button class="m-btn m-btn--solid m-btn--full" id="m-reveal-next">Révéler</button>
         </div>
     </div>
 
