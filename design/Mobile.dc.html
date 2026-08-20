@@ -36,7 +36,7 @@
   </style>
 </helmet>
 
-<div style="display: grid; grid-template-rows: auto auto 1fr auto; height: 844px;">
+<div style="display: grid; grid-template-rows: auto auto auto 1fr auto; height: 844px;">
 
   <!-- Le HUD suit le joueur sur téléphone aussi : plus de bannière de solde -->
   <div style="display: flex; align-items: center; gap: 12px; padding: 12px 14px 10px; border-bottom: 1px solid var(--line);">
@@ -52,6 +52,20 @@
       <span style="width: 30px; height: 30px; border-radius: var(--r-pill); background: linear-gradient(140deg, #3a3a3a, #1a1a1a); border: 1px solid var(--gold-a30);"></span>
       <span style="position: absolute; top: 4px; right: 2px; min-width: 15px; height: 15px; padding: 0 4px; display: grid; place-items: center; border-radius: var(--r-pill); background: var(--gold); color: #0a0a0a; font-size: 0.59rem; font-weight: 600; border: 2px solid #080808;">2</span>
     </button>
+  </div>
+
+  <!-- Qui est là, en bande compacte : le rail du bureau n'existe pas ici,
+       mais la tablée doit rester lisible sans ouvrir un écran de plus. -->
+  <div style="display: flex; align-items: center; gap: 10px; padding: 9px 14px 0;">
+    <div style="display: flex; align-items: center;">
+      <sc-for list="{{players}}" as="p" hint-placeholder-count="5">
+        <span style="position: relative; display: block; margin-left: {{p.overlap}};">
+          <span style="display: grid; place-items: center; width: 26px; height: 26px; border-radius: var(--r-pill); background: linear-gradient(140deg, #3a3a3a, #1a1a1a); border: 2px solid #0b0b0b; font-size: 0.66rem; color: {{p.ink}}; opacity: {{p.opacity}}; filter: {{p.filter}};">{{p.initial}}</span>
+          <span style="position: absolute; right: -1px; bottom: -1px; width: 9px; height: 9px; border-radius: var(--r-pill); border: 2px solid #0b0b0b; background: {{p.dot}}; box-shadow: {{p.glow}};"></span>
+        </span>
+      </sc-for>
+    </div>
+    <span style="font-size: 0.76rem; color: var(--text-3);">5 autour de la table</span>
   </div>
 
   <!-- Un seul rang de filtres, il défile horizontalement -->
@@ -101,13 +115,12 @@
 
     <div style="position: relative; min-height: 58px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: var(--text-3);">
       <svg viewBox="0 0 24 24" width="22" height="22"><rect x="3" y="5" width="18" height="16" rx="1"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>
-      <span style="font-size: 0.64rem;">Soir&eacute;e</span>
+      <span style="font-size: 0.64rem;">&Eacute;v&eacute;nem.</span>
     </div>
 
     <div style="position: relative; min-height: 58px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: var(--text-3);">
-      <svg viewBox="0 0 24 24" width="22" height="22"><path d="M12 3s5 4.6 5 9.2a5 5 0 0 1-10 0c0-1.9 1-3.4 1-3.4s.6 1.7 1.6 2.4c-.2-3.2 2.4-8.2 2.4-8.2Z"></path></svg>
-      <span style="font-size: 0.64rem;">D&eacute;fis</span>
-      <span style="position: absolute; top: 8px; right: 13px; min-width: 15px; height: 15px; padding: 0 4px; display: grid; place-items: center; border-radius: var(--r-pill); background: var(--gold); color: #0a0a0a; font-size: 0.59rem; font-weight: 600; border: 2px solid #080808;">3</span>
+      <svg viewBox="0 0 24 24" width="22" height="22"><rect x="2.5" y="8" width="19" height="10" rx="4"></rect><path d="M7 11v4M5 13h4M15.6 12.6h.01M18 15.2h.01"></path></svg>
+      <span style="font-size: 0.64rem;">Jeux</span>
     </div>
 
     <div style="position: relative; min-height: 58px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: var(--gold);">
@@ -117,16 +130,19 @@
     </div>
 
     <div style="position: relative; min-height: 58px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: var(--text-3);">
-      <svg viewBox="0 0 24 24" width="22" height="22"><rect x="8.5" y="3.5" width="11" height="15" rx="1.5"></rect><path d="M5.5 7v11.5A2.5 2.5 0 0 0 8 21h8"></path></svg>
-      <span style="font-size: 0.64rem;">Cartes</span>
-      <span style="position: absolute; top: 8px; right: 11px; min-width: 15px; height: 15px; padding: 0 4px; display: grid; place-items: center; border-radius: var(--r-pill); background: var(--gold); color: #0a0a0a; font-size: 0.59rem; font-weight: 600; border: 2px solid #080808;">2</span>
+      <svg viewBox="0 0 24 24" width="22" height="22"><path d="M12 3s5 4.6 5 9.2a5 5 0 0 1-10 0c0-1.9 1-3.4 1-3.4s.6 1.7 1.6 2.4c-.2-3.2 2.4-8.2 2.4-8.2Z"></path></svg>
+      <span style="font-size: 0.64rem;">D&eacute;fis</span>
+      <span style="position: absolute; top: 8px; right: 13px; min-width: 15px; height: 15px; padding: 0 4px; display: grid; place-items: center; border-radius: var(--r-pill); background: var(--gold); color: #0a0a0a; font-size: 0.59rem; font-weight: 600; border: 2px solid #080808;">3</span>
     </div>
 
     <div style="position: relative; min-height: 58px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: var(--text-3);">
-      <svg viewBox="0 0 24 24" width="22" height="22"><path d="M6 4h11v5a5.5 5.5 0 0 1-11 0V4Z"></path><path d="M17 5.5h2.1a2.3 2.3 0 0 1 0 4.6H17"></path><path d="M8 20.5h7"></path></svg>
-      <span style="font-size: 0.64rem;">Table</span>
+      <svg viewBox="0 0 24 24" width="22" height="22"><rect x="8.5" y="3.5" width="11" height="15" rx="1.5"></rect><path d="M5.5 7v11.5A2.5 2.5 0 0 0 8 21h8"></path></svg>
+      <span style="font-size: 0.64rem;">Collect.</span>
+      <span style="position: absolute; top: 8px; right: 11px; min-width: 15px; height: 15px; padding: 0 4px; display: grid; place-items: center; border-radius: var(--r-pill); background: var(--gold); color: #0a0a0a; font-size: 0.59rem; font-weight: 600; border: 2px solid #080808;">2</span>
     </div>
 
+    <!-- Les Fins Gourmets et le panneau admin vivent ici : sur six onglets,
+         c'est la place qui reste, et ce sont les deux qu'on ouvre le moins. -->
     <div style="position: relative; min-height: 58px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: var(--text-3);">
       <svg viewBox="0 0 24 24" width="22" height="22"><path d="M5 12h.01M12 12h.01M19 12h.01"></path></svg>
       <span style="font-size: 0.64rem;">Plus</span>
@@ -155,7 +171,21 @@ class Component extends DCLogic {
       ["Joker", 150, "boost", "Refuse un défi imposé, une fois, sans te justifier."]
     ];
 
+    /* Mêmes valeurs de présence que .presence-dot dans style.css :
+       #57b368 et son halo pour qui est là, #6e6e6e pour qui a filé. */
+    const players = [["K", true], ["S", true], ["T", true], ["L", true], ["M", false]]
+      .map((p, i) => ({
+        initial: p[0],
+        overlap: i === 0 ? "0" : "-8px",
+        ink: p[1] ? "#f4f0ec" : "#7d7b77",
+        opacity: p[1] ? "1" : "0.5",
+        filter: p[1] ? "none" : "grayscale(100%)",
+        dot: p[1] ? "#57b368" : "#6e6e6e",
+        glow: p[1] ? "0 0 7px rgba(87,179,104,0.65)" : "none"
+      }));
+
     return {
+      players: players,
       items: LIST.map((c) => {
         const f = FAM[c[2]];
         return { name: c[0], price: c[1], desc: c[3], fam: f.tag, si: f.si, soft: f.soft, wash: f.wash };

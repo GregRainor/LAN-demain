@@ -87,7 +87,7 @@
         <span style="width: 7px; height: 7px; transform: rotate(45deg); background: #d96a6a;"></span>
         <span style="font-size: 11px; letter-spacing: 2.4px; text-transform: uppercase; color: #d96a6a;">Piloter</span>
       </div>
-      <h3 style="font-family: var(--fd); font-size: 22px; color: var(--primary-text); font-weight: 400;">&Agrave; trancher</h3>
+      <h3 style="font-family: var(--fd); font-size: 22px; color: var(--primary-text); font-weight: 400;">Panneau admin</h3>
       <p style="font-size: 13px; line-height: 1.55; color: var(--secondary-text);">Valider une r&eacute;clamation, cr&eacute;diter, frapper le set, offrir un booster. Un seul poste, en bas du rail, avec le nombre en attente.</p>
       <span style="margin-top: 4px; font-size: 12px; color: var(--muted-text);">Quatre panneaux quittent les pages joueur.</span>
     </div>
@@ -182,14 +182,16 @@ class Component extends DCLogic {
       "Collection", "Miam", "Sondages", "Bibliothèques", "Historique des votes", "Panneau admin"
     ];
 
+    /* L'ordre est celui d'une LAN : les jeux avant l'économie, et le poste
+       du maître du jeu tout en bas. */
     const after = [
-      { label: "Soirée", holds: "— programme, événements, sondages", on: true },
-      { label: "Défis", holds: "", on: true },
+      { label: "Événements", holds: "— programme, sondages", on: true },
+      { label: "Jeux", holds: "— jeux de la LAN, bibliothèques, votes", on: true },
       { label: "Boutique", holds: "", on: true },
+      { label: "Défis", holds: "", on: true },
       { label: "Collection", holds: "", on: true },
-      { label: "Table", holds: "— kocktails, miam", on: true },
-      { label: "Jeux", holds: "— bibliothèques, historique", on: true },
-      { label: "À trancher", holds: "— le poste du maître du jeu", on: false }
+      { label: "Les Fins Gourmets", holds: "— kocktails, miam", on: true },
+      { label: "Panneau admin", holds: "— le poste du maître du jeu", on: false }
     ].map((a) => ({
       label: a.label,
       holds: a.holds,
@@ -221,7 +223,7 @@ class Component extends DCLogic {
       { from: "Mes demandes", to: "Profil", color: "#d4af37" },
       { from: "Registre", to: "Tiroir « Activité »", color: "#4e8fa8" },
       { from: "Fortunes", to: "Tiroir « Activité »", color: "#4e8fa8" },
-      { from: "Créditer / valider", to: "À trancher", color: "#d96a6a" }
+      { from: "Créditer / valider", to: "Panneau admin", color: "#d96a6a" }
     ];
 
     return { before: before, after: after, bars: bars, moves: moves };
