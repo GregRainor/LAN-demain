@@ -1,0 +1,299 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap">
+  <style>
+    :root {
+      --dark-bg: #080808; --darker-bg: #030303; --card-bg: rgba(20, 20, 20, 0.75);
+      --primary-text: #f4f0ec; --secondary-text: #a8a6a1; --muted-text: #7d7b77;
+      --accent: #d4af37;
+      --accent-a08: rgba(212, 175, 55, 0.08); --accent-a15: rgba(212, 175, 55, 0.15);
+      --accent-a25: rgba(212, 175, 55, 0.25); --accent-a40: rgba(212, 175, 55, 0.4);
+      --border: rgba(212, 175, 55, 0.15); --border-subtle: rgba(255, 255, 255, 0.08);
+      --danger: #9e3636;
+      --r-signature: #ff8a3d; --r-showcase: #d4af37; --r-epic: #c264d8;
+      --r-rare: #8c6fc9; --r-uncommon: #4e8fa8; --r-common: #6b6a67;
+      --fd: 'Playfair Display', Georgia, serif;
+      --fb: 'Outfit', system-ui, -apple-system, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; width: 1440px; height: 900px; overflow: hidden;
+      font-family: var(--fb); font-size: 15px; line-height: 1.5;
+      color: var(--secondary-text);
+      background: radial-gradient(circle at 50% 0%, var(--dark-bg) 0%, var(--darker-bg) 100%);
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { color: #e6c65a; }
+    h1, h2, h3, h4, p { margin: 0; }
+    svg { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  </style>
+</helmet>
+
+<div style="display: grid; grid-template-rows: 56px 1fr; height: 900px;">
+
+  <div style="display: flex; align-items: center; gap: 24px; padding: 0 24px; border-bottom: 1px solid var(--border); background: rgba(8,8,8,0.92);">
+    <div style="display: flex; align-items: baseline; gap: 12px;">
+      <span style="font-family: var(--fd); font-size: 19px; color: var(--accent); letter-spacing: 1.5px;">LAN Demain</span>
+      <span style="font-size: 12px; color: var(--muted-text); letter-spacing: 1px; text-transform: uppercase;">Nuit du 14 mars &middot; chez Kevin</span>
+    </div>
+    <div style="flex-grow: 1;"></div>
+    <div style="display: flex; align-items: center; gap: 18px; padding: 6px 8px 6px 16px; border: 1px solid var(--border); background: rgba(20,20,20,0.75);">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="font-size: 11px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted-text);">Niv.</span>
+        <span style="font-family: var(--fd); font-size: 19px; color: var(--primary-text); font-variant-numeric: tabular-nums;">6</span>
+        <div style="display: grid; grid-template-columns: repeat(12, 1fr); gap: 2px; width: 96px;">
+          <span style="height: 8px; background: var(--accent);"></span><span style="height: 8px; background: var(--accent);"></span>
+          <span style="height: 8px; background: var(--accent);"></span><span style="height: 8px; background: var(--accent);"></span>
+          <span style="height: 8px; background: var(--accent);"></span><span style="height: 8px; background: var(--accent);"></span>
+          <span style="height: 8px; background: var(--accent);"></span><span style="height: 8px; background: rgba(212,175,55,0.55);"></span>
+          <span style="height: 8px; background: rgba(255,255,255,0.07);"></span><span style="height: 8px; background: rgba(255,255,255,0.07);"></span>
+          <span style="height: 8px; background: rgba(255,255,255,0.07);"></span><span style="height: 8px; background: rgba(255,255,255,0.07);"></span>
+        </div>
+      </div>
+      <span style="width: 1px; height: 26px; background: var(--border-subtle);"></span>
+      <div style="display: flex; align-items: baseline; gap: 6px;">
+        <span style="font-family: var(--fd); font-size: 22px; color: var(--accent); font-variant-numeric: tabular-nums;">940</span>
+        <span style="font-size: 13px; color: var(--accent); opacity: 0.7;">z&#322;</span>
+      </div>
+      <span style="width: 1px; height: 26px; background: var(--border-subtle);"></span>
+      <button style="position: relative; display: grid; place-items: center; width: 36px; height: 36px; border: 0; background: transparent; color: var(--secondary-text); cursor: pointer;">
+        <svg viewBox="0 0 24 24" width="19" height="19"><path d="M18 8a6 6 0 1 0-12 0c0 5-2 6-2 6h16s-2-1-2-6Z"></path><path d="M10.3 20a2 2 0 0 0 3.4 0"></path></svg>
+      </button>
+      <button style="display: flex; align-items: center; gap: 9px; padding: 4px 10px 4px 4px; border: 0; background: transparent; cursor: pointer;">
+        <span style="width: 30px; height: 30px; border-radius: 999px; background: linear-gradient(140deg, #3a3a3a, #1a1a1a); border: 1px solid var(--accent-a25);"></span>
+        <span style="font-size: 14px; color: var(--primary-text);">Gr&eacute;gory</span>
+      </button>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 216px 1fr; height: 844px; overflow: hidden;">
+
+    <div style="display: flex; flex-direction: column; padding: 20px 0; border-right: 1px solid var(--border); background: rgba(6,6,6,0.6);">
+      <div style="display: flex; flex-direction: column;">
+        <div style="display: flex; align-items: center; gap: 13px; padding: 12px 22px; color: var(--secondary-text); border-left: 3px solid transparent;">
+          <svg viewBox="0 0 24 24" width="19" height="19"><rect x="3" y="5" width="18" height="16" rx="1"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>
+          <span style="font-size: 14.5px;">Soir&eacute;e</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 13px; padding: 12px 22px; color: var(--secondary-text); border-left: 3px solid transparent;">
+          <svg viewBox="0 0 24 24" width="19" height="19"><path d="M12 3s5 4.6 5 9.2a5 5 0 0 1-10 0c0-1.9 1-3.4 1-3.4s.6 1.7 1.6 2.4c-.2-3.2 2.4-8.2 2.4-8.2Z"></path></svg>
+          <span style="font-size: 14.5px;">D&eacute;fis</span>
+          <span style="margin-left: auto; min-width: 19px; height: 19px; padding: 0 5px; display: grid; place-items: center; border-radius: 999px; background: var(--accent); color: #0a0a0a; font-size: 11px; font-weight: 600;">3</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 13px; padding: 12px 22px; color: var(--secondary-text); border-left: 3px solid transparent;">
+          <svg viewBox="0 0 24 24" width="19" height="19"><path d="M4 8h16l-1.2 12H5.2L4 8Z"></path><path d="M8.5 8V6a3.5 3.5 0 0 1 7 0v2"></path></svg>
+          <span style="font-size: 14.5px;">Boutique</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 13px; padding: 12px 22px; color: var(--accent); font-weight: 600; background: var(--accent-a08); border-left: 3px solid var(--accent);">
+          <svg viewBox="0 0 24 24" width="19" height="19"><rect x="8.5" y="3.5" width="11" height="15" rx="1.5"></rect><path d="M5.5 7v11.5A2.5 2.5 0 0 0 8 21h8"></path></svg>
+          <span style="font-size: 14.5px;">Collection</span>
+          <span style="margin-left: auto; min-width: 19px; height: 19px; padding: 0 5px; display: grid; place-items: center; border-radius: 999px; background: var(--accent); color: #0a0a0a; font-size: 11px; font-weight: 600;">2</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 13px; padding: 12px 22px; color: var(--secondary-text); border-left: 3px solid transparent;">
+          <svg viewBox="0 0 24 24" width="19" height="19"><path d="M6 4h11v5a5.5 5.5 0 0 1-11 0V4Z"></path><path d="M17 5.5h2.1a2.3 2.3 0 0 1 0 4.6H17"></path><path d="M8 20.5h7"></path></svg>
+          <span style="font-size: 14.5px;">Table</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 13px; padding: 12px 22px; color: var(--secondary-text); border-left: 3px solid transparent;">
+          <svg viewBox="0 0 24 24" width="19" height="19"><rect x="2.5" y="8" width="19" height="10" rx="4"></rect><path d="M7 11v4M5 13h4M15.6 12.6h.01M18 15.2h.01"></path></svg>
+          <span style="font-size: 14.5px;">Jeux</span>
+        </div>
+      </div>
+      <div style="flex-grow: 1;"></div>
+      <div style="padding: 0 22px;">
+        <div style="height: 1px; background: var(--border-subtle); margin-bottom: 14px;"></div>
+        <div style="display: flex; align-items: center; gap: 13px; padding: 11px 0; color: var(--accent);">
+          <svg viewBox="0 0 24 24" width="19" height="19"><path d="M4 7h9M18.5 7H20M4 17h4.5M14 17h6"></path><circle cx="15.5" cy="7" r="2.2"></circle><circle cx="11" cy="17" r="2.2"></circle></svg>
+          <span style="font-size: 14.5px;">&Agrave; trancher</span>
+          <span style="margin-left: auto; min-width: 19px; height: 19px; padding: 0 5px; display: grid; place-items: center; border-radius: 999px; background: var(--danger); color: #fff; font-size: 11px; font-weight: 600;">5</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ LE PANNEAU COLLECTION ============ -->
+    <div style="display: grid; grid-template-rows: auto 1fr; overflow: hidden;">
+
+      <div style="padding: 22px 28px 0; border-bottom: 1px solid var(--border-subtle);">
+        <div style="display: flex; align-items: baseline; gap: 18px; margin-bottom: 14px;">
+          <h2 style="font-family: var(--fd); font-size: 27px; color: var(--accent); letter-spacing: 1.2px; font-weight: 400;">Collection</h2>
+          <span style="font-size: 13px; color: var(--secondary-text);">Set &laquo;&nbsp;Premi&egrave;re Nuit&nbsp;&raquo;</span>
+          <!-- La progression tient dans la ligne de titre : plus de bannière -->
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="width: 150px; height: 4px; background: rgba(255,255,255,0.07);">
+              <span style="display: block; width: 65%; height: 4px; background: var(--accent); box-shadow: 0 0 8px var(--accent-a40);"></span>
+            </div>
+            <span style="font-family: var(--fd); font-size: 16px; color: var(--primary-text); font-variant-numeric: tabular-nums;">28 / 43</span>
+          </div>
+          <div style="flex-grow: 1;"></div>
+          <span style="font-size: 12px; color: var(--muted-text);">Brouillon &mdash; le set peut encore &ecirc;tre recompos&eacute;</span>
+        </div>
+
+        <!-- Les six panneaux d'avant deviennent quatre onglets -->
+        <div style="display: flex; align-items: flex-end; gap: 26px;">
+          <span style="padding-bottom: 11px; font-size: 14px; color: var(--accent); border-bottom: 2px solid var(--accent); cursor: pointer;">Le set <span style="opacity: 0.55; font-variant-numeric: tabular-nums;">43</span></span>
+          <span style="padding-bottom: 11px; font-size: 14px; color: var(--secondary-text); border-bottom: 2px solid transparent; cursor: pointer;">Mes doubles <span style="opacity: 0.55; font-variant-numeric: tabular-nums;">11</span></span>
+          <span style="padding-bottom: 11px; font-size: 14px; color: var(--secondary-text); border-bottom: 2px solid transparent; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;">&Eacute;changes <span style="min-width: 18px; height: 18px; padding: 0 5px; display: grid; place-items: center; border-radius: 999px; background: var(--accent); color: #0a0a0a; font-size: 10.5px; font-weight: 600;">2</span></span>
+          <span style="padding-bottom: 11px; font-size: 14px; color: var(--secondary-text); border-bottom: 2px solid transparent; cursor: pointer;">Journal</span>
+          <div style="flex-grow: 1;"></div>
+          <div style="display: flex; align-items: center; gap: 8px; padding-bottom: 9px;">
+            <sc-for list="{{rarities}}" as="r" hint-placeholder-count="6">
+              <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 11px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.08); font-size: 11.5px; color: var(--secondary-text); cursor: pointer;">
+                <span style="width: 7px; height: 7px; border-radius: 999px; background: {{r.color}}; box-shadow: 0 0 7px {{r.color}};"></span>{{r.n}}
+              </span>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 296px; gap: 22px; padding: 18px 28px 0; overflow: hidden;">
+
+        <!-- La planche : tout le set d'un coup d'œil -->
+        <div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; align-content: start; overflow: hidden;">
+          <sc-for list="{{cards}}" as="c" hint-placeholder-count="24">
+            <div style="display: flex; flex-direction: column; gap: 6px; padding: 7px; border: 1px solid {{c.soft}}; border-radius: 6px; background: var(--card-bg); box-shadow: {{c.glow}}; opacity: {{c.opacity}}; cursor: pointer;">
+              <div style="position: relative; aspect-ratio: 5 / 3; border-radius: 4px; overflow: hidden; background: {{c.art}}; display: grid; place-items: center;">
+                <span style="font-family: var(--fd); font-size: 26px; color: rgba(255,255,255,0.18); font-style: italic;">{{c.initial}}</span>
+                <span style="position: absolute; top: 5px; right: 5px; width: 7px; height: 7px; border-radius: 999px; background: {{c.dot}};"></span>
+              </div>
+              <p style="font-size: 11.5px; line-height: 1.25; color: {{c.nameColor}}; min-height: 2.5em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">{{c.name}}</p>
+              <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px;">
+                <span style="font-size: 9px; font-weight: 600; letter-spacing: 1px; color: {{c.color}};">{{c.rarity}}</span>
+                <span style="font-size: 9px; letter-spacing: 0.5px; text-transform: uppercase; color: var(--muted-text);">{{c.owned}}</span>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+
+        <!-- Colonne de droite : ce que j'ai à faire, rien de plus -->
+        <div style="display: flex; flex-direction: column; gap: 16px; overflow: hidden;">
+
+          <div style="padding: 18px; border: 1px solid rgba(255,138,61,0.45); background: linear-gradient(150deg, rgba(255,138,61,0.11) 0%, rgba(0,0,0,0.55) 62%);">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 13px;">
+              <svg viewBox="0 0 24 24" width="22" height="22" style="color: #ff8a3d;"><path d="M12 3.5 3.5 7v10L12 20.5 20.5 17V7L12 3.5Z"></path><path d="M3.5 7 12 10.5 20.5 7M12 10.5v10"></path></svg>
+              <h3 style="font-family: var(--fd); font-size: 19px; color: var(--primary-text); font-weight: 400;">2 boosters &agrave; ouvrir</h3>
+            </div>
+            <p style="font-size: 12.5px; color: var(--secondary-text); margin-bottom: 14px;">Offert par le ma&icirc;tre du jeu &agrave; 22 h 41, et un achet&eacute; &agrave; 23 h 05.</p>
+            <button style="width: 100%; padding: 12px; border: 1px solid rgba(255,138,61,0.5); background: rgba(255,138,61,0.14); color: #ff8a3d; font-family: var(--fb); font-size: 13px; font-weight: 600; letter-spacing: 1.4px; text-transform: uppercase; border-radius: 3px; cursor: pointer;">D&eacute;chirer le paquet</button>
+          </div>
+
+          <div style="padding: 18px; border: 1px solid var(--accent-a25); background: var(--card-bg);">
+            <h3 style="font-size: 12px; letter-spacing: 1.6px; text-transform: uppercase; color: var(--accent); margin-bottom: 13px;">&Eacute;change re&ccedil;u</h3>
+            <p style="font-size: 13px; color: var(--primary-text); line-height: 1.45; margin-bottom: 6px;">Kevin te propose <em style="color: var(--r-epic); font-style: normal;">Deep Rock Galactic</em></p>
+            <p style="font-size: 12.5px; color: var(--secondary-text); margin-bottom: 14px;">contre ton double de <em style="color: var(--r-uncommon); font-style: normal;">Trackmania</em>.</p>
+            <div style="display: flex; gap: 9px;">
+              <button style="flex-grow: 1; padding: 9px; border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; background: linear-gradient(135deg, rgba(212,175,55,0.85), rgba(150,120,30,0.9)); color: var(--darker-bg); font-family: var(--fb); font-size: 12.5px; font-weight: 600; cursor: pointer;">Accepter</button>
+              <button style="padding: 9px 14px; border: 1px solid rgba(158,54,54,0.5); border-radius: 999px; background: rgba(20,20,20,0.85); color: var(--danger); font-family: var(--fb); font-size: 12.5px; cursor: pointer;">Refuser</button>
+            </div>
+          </div>
+
+          <div style="padding: 18px; border: 1px solid var(--border); background: var(--card-bg); overflow: hidden;">
+            <h3 style="font-size: 12px; letter-spacing: 1.6px; text-transform: uppercase; color: var(--muted-text); margin-bottom: 14px;">Compl&eacute;tion</h3>
+            <div style="display: flex; flex-direction: column; gap: 11px;">
+              <sc-for list="{{board}}" as="p" hint-placeholder-count="5">
+                <div style="display: flex; align-items: center; gap: 11px;">
+                  <span style="font-family: var(--fd); font-size: 14px; color: {{p.rankColor}}; width: 14px; font-variant-numeric: tabular-nums;">{{p.rank}}</span>
+                  <span style="width: 24px; height: 24px; border-radius: 999px; background: linear-gradient(140deg, #3a3a3a, #1a1a1a); border: 1px solid rgba(255,255,255,0.1); flex-shrink: 0;"></span>
+                  <span style="font-size: 13px; color: var(--primary-text); flex-grow: 1;">{{p.name}}</span>
+                  <span style="font-size: 12.5px; color: var(--secondary-text); font-variant-numeric: tabular-nums;">{{p.n}}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const R = {
+      signature: { label: "SIGNATURE", color: "#ff8a3d", soft: "rgba(255,138,61,0.6)", glow: "0 0 20px rgba(255,138,61,0.3)" },
+      showcase:  { label: "BRILLANTE", color: "#d4af37", soft: "rgba(212,175,55,0.55)", glow: "0 0 16px rgba(212,175,55,0.22)" },
+      epic:      { label: "ÉPIQUE",   color: "#c264d8", soft: "rgba(194,100,216,0.55)", glow: "0 0 14px rgba(194,100,216,0.18)" },
+      rare:      { label: "RARE",      color: "#8c6fc9", soft: "rgba(140,111,201,0.55)", glow: "0 2px 8px rgba(0,0,0,0.4)" },
+      uncommon:  { label: "PEU COM.",  color: "#4e8fa8", soft: "rgba(78,143,168,0.55)", glow: "0 2px 8px rgba(0,0,0,0.4)" },
+      common:    { label: "COMMUNE",   color: "#6b6a67", soft: "rgba(107,106,103,0.5)", glow: "0 2px 8px rgba(0,0,0,0.4)" }
+    };
+
+    const ARTS = [
+      "linear-gradient(145deg, #1d2b3a, #0a1018)",
+      "linear-gradient(145deg, #2f1c2c, #120a12)",
+      "linear-gradient(145deg, #1b2f24, #08120c)",
+      "linear-gradient(145deg, #33261a, #140d07)",
+      "linear-gradient(145deg, #232338, #0c0c16)",
+      "linear-gradient(145deg, #2c1f1f, #120909)"
+    ];
+
+    const SET = [
+      ["Counter-Strike 2", "rare", "6 / 6 biblioth."],
+      ["Baldur's Gate 3", "signature", "5 / 6 biblioth."],
+      ["Rocket League", "rare", "6 / 6 biblioth."],
+      ["Deep Rock Galactic", "epic", "4 / 6 biblioth."],
+      ["Helldivers 2", "signature", "4 / 6 biblioth."],
+      ["Lethal Company", "showcase", "5 / 6 biblioth."],
+      ["Overcooked! 2", "epic", "4 / 6 biblioth."],
+      ["Age of Empires II", "rare", "3 / 6 biblioth.", true],
+      ["Trackmania", "uncommon", "3 / 6 biblioth."],
+      ["Phasmophobia", "uncommon", "3 / 6 biblioth."],
+      ["Left 4 Dead 2", "rare", "5 / 6 biblioth."],
+      ["Terraria", "uncommon", "2 / 6 biblioth.", true],
+      ["Stardew Valley", "common", "2 / 6 biblioth."],
+      ["Garry's Mod", "common", "2 / 6 biblioth."],
+      ["Portal 2", "uncommon", "3 / 6 biblioth."],
+      ["Risk of Rain 2", "common", "1 / 6 biblioth."],
+      ["Golf With Your Friends", "uncommon", "3 / 6 biblioth.", true],
+      ["Dead by Daylight", "common", "2 / 6 biblioth."],
+      ["Team Fortress 2", "common", "4 / 6 biblioth."],
+      ["Rust", "common", "1 / 6 biblioth."],
+      ["Valheim", "uncommon", "2 / 6 biblioth."],
+      ["Sea of Thieves", "epic", "3 / 6 biblioth.", true],
+      ["It Takes Two", "common", "1 / 6 biblioth."],
+      ["Warframe", "common", "2 / 6 biblioth."]
+    ];
+
+    const cards = SET.map((c, i) => {
+      const r = R[c[1]];
+      const missing = c[3] === true;
+      return {
+        name: c[0],
+        rarity: r.label,
+        color: missing ? "#6b6a67" : r.color,
+        soft: missing ? "rgba(255,255,255,0.06)" : r.soft,
+        glow: missing ? "none" : r.glow,
+        dot: missing ? "rgba(255,255,255,0.12)" : r.color,
+        art: missing ? "linear-gradient(145deg, #131313, #090909)" : ARTS[i % ARTS.length],
+        initial: c[0].charAt(0),
+        owned: missing ? "manquante" : c[2],
+        opacity: missing ? "0.42" : "1",
+        nameColor: missing ? "#7d7b77" : "#f4f0ec"
+      };
+    });
+
+    const rarities = [
+      { color: "#ff8a3d", n: 2 }, { color: "#d4af37", n: 3 }, { color: "#c264d8", n: 4 },
+      { color: "#8c6fc9", n: 6 }, { color: "#4e8fa8", n: 9 }, { color: "#6b6a67", n: 19 }
+    ];
+
+    const board = [
+      { rank: "1", name: "Kevin", n: "34 / 43", rankColor: "#d4af37" },
+      { rank: "2", name: "Grégory", n: "28 / 43", rankColor: "#b5b7b9" },
+      { rank: "3", name: "Sarah", n: "25 / 43", rankColor: "#b08d57" },
+      { rank: "4", name: "Thomas", n: "19 / 43", rankColor: "#7d7b77" },
+      { rank: "5", name: "Léa", n: "12 / 43", rankColor: "#7d7b77" }
+    ];
+
+    return { cards: cards, rarities: rarities, board: board };
+  }
+}
+</script>
+</body>
+</html>

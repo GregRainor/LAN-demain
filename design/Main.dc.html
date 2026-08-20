@@ -1,0 +1,290 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap">
+  <style>
+    :root {
+      --dark-bg: #080808; --darker-bg: #030303; --card-bg: rgba(20, 20, 20, 0.75);
+      --primary-text: #f4f0ec; --secondary-text: #a8a6a1; --muted-text: #7d7b77;
+      --accent: #d4af37;
+      --accent-a05: rgba(212, 175, 55, 0.05); --accent-a08: rgba(212, 175, 55, 0.08);
+      --accent-a15: rgba(212, 175, 55, 0.15); --accent-a25: rgba(212, 175, 55, 0.25);
+      --accent-a40: rgba(212, 175, 55, 0.4);
+      --border: rgba(212, 175, 55, 0.15); --border-subtle: rgba(255, 255, 255, 0.08);
+      --danger: #9e3636;
+      --fd: 'Playfair Display', Georgia, serif;
+      --fb: 'Outfit', system-ui, -apple-system, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; width: 1440px; height: 900px; overflow: hidden;
+      font-family: var(--fb); font-size: 15px; line-height: 1.5;
+      color: var(--secondary-text);
+      background: radial-gradient(circle at 50% 0%, var(--dark-bg) 0%, var(--darker-bg) 100%);
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { color: #e6c65a; }
+    h1, h2, h3, h4, p { margin: 0; }
+    svg { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  </style>
+</helmet>
+
+<div style="display: grid; grid-template-rows: 56px 1fr; height: 900px;">
+
+  <!-- ============ BARRE HAUTE : identité à gauche, joueur à droite ============ -->
+  <div style="display: flex; align-items: center; gap: 24px; padding: 0 24px; border-bottom: 1px solid var(--border); background: rgba(8,8,8,0.92);">
+    <div style="display: flex; align-items: baseline; gap: 12px;">
+      <span style="font-family: var(--fd); font-size: 19px; color: var(--accent); letter-spacing: 1.5px;">LAN Demain</span>
+      <span style="font-size: 12px; color: var(--muted-text); letter-spacing: 1px; text-transform: uppercase;">Nuit du 14 mars &middot; chez Kevin</span>
+    </div>
+
+    <div style="flex-grow: 1;"></div>
+
+    <!-- Le HUD joueur : solde, niveau et alertes, présents sur TOUS les écrans.
+         C'est ce qui permet à la boutique de ne plus porter ni bannière XP
+         ni bannière de solde. -->
+    <div style="display: flex; align-items: center; gap: 18px; padding: 6px 8px 6px 16px; border: 1px solid var(--border); background: rgba(20,20,20,0.75);">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="font-size: 11px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted-text);">Niv.</span>
+        <span style="font-family: var(--fd); font-size: 19px; color: var(--primary-text); font-variant-numeric: tabular-nums;">6</span>
+        <div style="display: grid; grid-template-columns: repeat(12, 1fr); gap: 2px; width: 96px;">
+          <span style="height: 8px; background: var(--accent); box-shadow: 0 0 5px var(--accent-a40);"></span>
+          <span style="height: 8px; background: var(--accent); box-shadow: 0 0 5px var(--accent-a40);"></span>
+          <span style="height: 8px; background: var(--accent); box-shadow: 0 0 5px var(--accent-a40);"></span>
+          <span style="height: 8px; background: var(--accent); box-shadow: 0 0 5px var(--accent-a40);"></span>
+          <span style="height: 8px; background: var(--accent); box-shadow: 0 0 5px var(--accent-a40);"></span>
+          <span style="height: 8px; background: var(--accent); box-shadow: 0 0 5px var(--accent-a40);"></span>
+          <span style="height: 8px; background: var(--accent); box-shadow: 0 0 5px var(--accent-a40);"></span>
+          <span style="height: 8px; background: rgba(212,175,55,0.55);"></span>
+          <span style="height: 8px; background: rgba(255,255,255,0.07);"></span>
+          <span style="height: 8px; background: rgba(255,255,255,0.07);"></span>
+          <span style="height: 8px; background: rgba(255,255,255,0.07);"></span>
+          <span style="height: 8px; background: rgba(255,255,255,0.07);"></span>
+        </div>
+      </div>
+
+      <span style="width: 1px; height: 26px; background: var(--border-subtle);"></span>
+
+      <div style="display: flex; align-items: baseline; gap: 6px;">
+        <span style="font-family: var(--fd); font-size: 22px; color: var(--accent); font-variant-numeric: tabular-nums;">1 240</span>
+        <span style="font-size: 13px; color: var(--accent); opacity: 0.7;">z&#322;</span>
+      </div>
+
+      <span style="width: 1px; height: 26px; background: var(--border-subtle);"></span>
+
+      <button style="position: relative; display: grid; place-items: center; width: 36px; height: 36px; border: 0; background: transparent; color: var(--secondary-text); cursor: pointer;">
+        <svg viewBox="0 0 24 24" width="19" height="19"><path d="M18 8a6 6 0 1 0-12 0c0 5-2 6-2 6h16s-2-1-2-6Z"></path><path d="M10.3 20a2 2 0 0 0 3.4 0"></path></svg>
+        <span style="position: absolute; top: 4px; right: 3px; min-width: 15px; height: 15px; padding: 0 4px; display: grid; place-items: center; border-radius: 999px; background: var(--accent); color: #0a0a0a; font-size: 10px; font-weight: 600; border: 2px solid #080808;">2</span>
+      </button>
+
+      <button style="display: flex; align-items: center; gap: 9px; padding: 4px 10px 4px 4px; border: 0; background: transparent; cursor: pointer;">
+        <span style="width: 30px; height: 30px; border-radius: 999px; background: linear-gradient(140deg, #3a3a3a, #1a1a1a); border: 1px solid var(--accent-a25);"></span>
+        <span style="font-size: 14px; color: var(--primary-text);">Gr&eacute;gory</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ============ CORPS : rail fixe + un seul panneau qui défile ============ -->
+  <div style="display: grid; grid-template-columns: 216px 1fr; height: 844px; overflow: hidden;">
+
+    <!-- Rail : six destinations au lieu de douze -->
+    <div style="display: flex; flex-direction: column; padding: 20px 0; border-right: 1px solid var(--border); background: rgba(6,6,6,0.6);">
+      <div style="display: flex; flex-direction: column;">
+
+        <div style="display: flex; align-items: center; gap: 13px; padding: 12px 22px; color: var(--secondary-text); border-left: 3px solid transparent; cursor: pointer;">
+          <svg viewBox="0 0 24 24" width="19" height="19"><rect x="3" y="5" width="18" height="16" rx="1"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>
+          <span style="font-size: 14.5px;">Soir&eacute;e</span>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 13px; padding: 12px 22px; color: var(--secondary-text); border-left: 3px solid transparent; cursor: pointer;">
+          <svg viewBox="0 0 24 24" width="19" height="19"><path d="M12 3s5 4.6 5 9.2a5 5 0 0 1-10 0c0-1.9 1-3.4 1-3.4s.6 1.7 1.6 2.4c-.2-3.2 2.4-8.2 2.4-8.2Z"></path></svg>
+          <span style="font-size: 14.5px;">D&eacute;fis</span>
+          <span style="margin-left: auto; min-width: 19px; height: 19px; padding: 0 5px; display: grid; place-items: center; border-radius: 999px; background: var(--accent); color: #0a0a0a; font-size: 11px; font-weight: 600;">3</span>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 13px; padding: 12px 22px; color: var(--accent); font-weight: 600; background: var(--accent-a08); border-left: 3px solid var(--accent); cursor: pointer;">
+          <svg viewBox="0 0 24 24" width="19" height="19"><path d="M4 8h16l-1.2 12H5.2L4 8Z"></path><path d="M8.5 8V6a3.5 3.5 0 0 1 7 0v2"></path></svg>
+          <span style="font-size: 14.5px;">Boutique</span>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 13px; padding: 12px 22px; color: var(--secondary-text); border-left: 3px solid transparent; cursor: pointer;">
+          <svg viewBox="0 0 24 24" width="19" height="19"><rect x="8.5" y="3.5" width="11" height="15" rx="1.5"></rect><path d="M5.5 7v11.5A2.5 2.5 0 0 0 8 21h8"></path></svg>
+          <span style="font-size: 14.5px;">Collection</span>
+          <span style="margin-left: auto; min-width: 19px; height: 19px; padding: 0 5px; display: grid; place-items: center; border-radius: 999px; background: var(--accent); color: #0a0a0a; font-size: 11px; font-weight: 600;">2</span>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 13px; padding: 12px 22px; color: var(--secondary-text); border-left: 3px solid transparent; cursor: pointer;">
+          <svg viewBox="0 0 24 24" width="19" height="19"><path d="M6 4h11v5a5.5 5.5 0 0 1-11 0V4Z"></path><path d="M17 5.5h2.1a2.3 2.3 0 0 1 0 4.6H17"></path><path d="M8 20.5h7"></path></svg>
+          <span style="font-size: 14.5px;">Table</span>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 13px; padding: 12px 22px; color: var(--secondary-text); border-left: 3px solid transparent; cursor: pointer;">
+          <svg viewBox="0 0 24 24" width="19" height="19"><rect x="2.5" y="8" width="19" height="10" rx="4"></rect><path d="M7 11v4M5 13h4M15.6 12.6h.01M18 15.2h.01"></path></svg>
+          <span style="font-size: 14.5px;">Jeux</span>
+        </div>
+      </div>
+
+      <div style="flex-grow: 1;"></div>
+
+      <!-- Le poste du maître du jeu quitte la page joueur : il ne s'ouvre
+           que quand il y a quelque chose à trancher. -->
+      <div style="padding: 0 22px;">
+        <div style="height: 1px; background: var(--border-subtle); margin-bottom: 14px;"></div>
+        <div style="display: flex; align-items: center; gap: 13px; padding: 11px 0; color: var(--accent); cursor: pointer;">
+          <svg viewBox="0 0 24 24" width="19" height="19"><path d="M4 7h9M18.5 7H20M4 17h4.5M14 17h6"></path><circle cx="15.5" cy="7" r="2.2"></circle><circle cx="11" cy="17" r="2.2"></circle></svg>
+          <span style="font-size: 14.5px;">&Agrave; trancher</span>
+          <span style="margin-left: auto; min-width: 19px; height: 19px; padding: 0 5px; display: grid; place-items: center; border-radius: 999px; background: var(--danger); color: #fff; font-size: 11px; font-weight: 600;">5</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ LE PANNEAU BOUTIQUE ============ -->
+    <div style="display: grid; grid-template-rows: auto 1fr; overflow: hidden;">
+
+      <!-- Tête de panneau : titre + filtres sur UNE ligne, pas trois bannières -->
+      <div style="padding: 22px 28px 16px; border-bottom: 1px solid var(--border-subtle);">
+        <div style="display: flex; align-items: baseline; gap: 16px; margin-bottom: 16px;">
+          <h2 style="font-family: var(--fd); font-size: 27px; color: var(--accent); letter-spacing: 1.2px; font-weight: 400;">Boutique</h2>
+          <p style="font-size: 13px; color: var(--muted-text);">On gagne par la pr&eacute;sence et les d&eacute;fis. On d&eacute;pense ici.</p>
+          <div style="flex-grow: 1;"></div>
+          <a href="#" style="font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: var(--secondary-text); display: flex; align-items: center; gap: 7px;">
+            <svg viewBox="0 0 24 24" width="15" height="15"><path d="M4 6h16M4 12h16M4 18h10"></path></svg>
+            Registre
+          </a>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 9px; flex-wrap: wrap;">
+          <span style="font-size: 11px; letter-spacing: 1.4px; text-transform: uppercase; color: var(--muted-text); margin-right: 4px;">Rayon</span>
+          <sc-for list="{{chips}}" as="chip" hint-placeholder-count="6">
+            <span style="padding: 5px 13px; font-size: 12.5px; border-radius: 999px; cursor: pointer; color: {{chip.fg}}; background: {{chip.bg}}; border: 1px solid {{chip.bd}};">{{chip.label}}<span style="margin-left: 6px; opacity: 0.55; font-variant-numeric: tabular-nums;">{{chip.n}}</span></span>
+          </sc-for>
+          <div style="flex-grow: 1;"></div>
+          <span style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--secondary-text); cursor: pointer;">
+            <span style="width: 32px; height: 18px; border-radius: 999px; background: var(--accent-a25); border: 1px solid var(--accent-a40); position: relative; display: block;"><span style="position: absolute; top: 2px; left: 15px; width: 12px; height: 12px; border-radius: 999px; background: var(--accent);"></span></span>
+            Ce que je peux m&#39;offrir
+          </span>
+        </div>
+      </div>
+
+      <!-- Zone défilante : le booster puis la carte -->
+      <div style="overflow: hidden; padding: 20px 28px 0; display: flex; flex-direction: column; gap: 20px;">
+
+        <!-- Le booster garde sa tête de gondole, en bandeau plutôt qu'en panneau -->
+        <div style="display: flex; align-items: center; gap: 22px; padding: 18px 22px; border: 1px solid rgba(255,138,61,0.45); background: linear-gradient(115deg, rgba(255,138,61,0.12) 0%, rgba(10,10,10,0.6) 55%); box-shadow: 0 0 26px rgba(255,138,61,0.14);">
+          <div style="width: 92px; height: 118px; flex-shrink: 0; border-radius: 4px; border: 1px solid rgba(255,138,61,0.5); background: linear-gradient(160deg, #2a1608, #120a04); display: grid; place-items: center; box-shadow: 0 8px 22px rgba(0,0,0,0.6);">
+            <svg viewBox="0 0 24 24" width="34" height="34" style="color: #ff8a3d;"><path d="M12 3.5 3.5 7v10L12 20.5 20.5 17V7L12 3.5Z"></path><path d="M3.5 7 12 10.5 20.5 7M12 10.5v10"></path></svg>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 7px; min-width: 0;">
+            <span style="font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: #ff8a3d;">Le booster</span>
+            <h3 style="font-family: var(--fd); font-size: 24px; color: var(--primary-text); font-weight: 400;">Set &laquo;&nbsp;Premi&egrave;re Nuit&nbsp;&raquo;</h3>
+            <p style="font-size: 13.5px; color: var(--secondary-text); max-width: 460px;">43 cartes tir&eacute;es de vos biblioth&egrave;ques. 14 par paquet, 3 brillantes garanties, 8 Signatures dessin&eacute;es pour ce set.</p>
+          </div>
+          <div style="flex-grow: 1;"></div>
+          <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 11px;">
+            <span style="font-size: 12.5px; color: var(--secondary-text);">2 paquets en r&eacute;serve</span>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <button style="padding: 11px 20px; border: 1px solid rgba(255,138,61,0.5); background: rgba(255,138,61,0.1); color: #ff8a3d; font-family: var(--fb); font-size: 13px; font-weight: 600; letter-spacing: 1.2px; text-transform: uppercase; border-radius: 3px; cursor: pointer;">Ouvrir</button>
+              <button style="padding: 11px 22px; border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; background: linear-gradient(135deg, rgba(212,175,55,0.85), rgba(150,120,30,0.9)); color: var(--darker-bg); font-family: var(--fb); font-size: 13px; font-weight: 600; letter-spacing: 0.6px; cursor: pointer; box-shadow: inset 0 0 10px rgba(255,255,255,0.2), 0 5px 15px rgba(212,175,55,0.3);">Acheter &middot; 300 z&#322;</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- La carte : une grille dense, filtrée par rayon -->
+        <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; align-content: start; overflow: hidden;">
+          <sc-for list="{{items}}" as="item" hint-placeholder-count="12">
+            <div style="display: flex; flex-direction: column; gap: 9px; padding: 15px 16px 13px; border: 1px solid {{item.soft}}; background: linear-gradient(150deg, {{item.wash}} 0%, rgba(0,0,0,0.55) 62%); cursor: pointer;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="width: 6px; height: 6px; transform: rotate(45deg); background: {{item.si}}; flex-shrink: 0;"></span>
+                <span style="font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: {{item.si}};">{{item.fam}}</span>
+                <div style="flex-grow: 1;"></div>
+                <span style="font-family: var(--fd); font-size: 17px; color: var(--accent); font-variant-numeric: tabular-nums;">{{item.price}}</span>
+                <span style="font-size: 11px; color: var(--accent); opacity: 0.7;">z&#322;</span>
+              </div>
+              <h4 style="font-family: var(--fd); font-size: 17px; line-height: 1.2; color: var(--primary-text); font-weight: 400; text-wrap: pretty;">{{item.name}}</h4>
+              <p style="font-size: 12.5px; line-height: 1.45; color: var(--secondary-text); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">{{item.desc}}</p>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"rayon":{"editor":"enum","options":["Tout","Privilèges","Bonus","Handicaps","Cosmétiques","Divers"],"default":"Tout","section":"Boutique"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const FAM = {
+      privilege: { label: "Privilèges", tag: "Privilège", si: "#d4af37", soft: "rgba(212,175,55,0.42)", wash: "rgba(212,175,55,0.09)" },
+      boost:     { label: "Bonus",        tag: "Bonus",       si: "#4e9463", soft: "rgba(78,148,99,0.5)",   wash: "rgba(78,148,99,0.1)" },
+      handicap:  { label: "Handicaps",    tag: "Handicap",    si: "#d96a6a", soft: "rgba(192,74,74,0.45)",  wash: "rgba(192,74,74,0.09)" },
+      cosmetic:  { label: "Cosmétiques", tag: "Cosmétique", si: "#c264d8", soft: "rgba(194,100,216,0.42)", wash: "rgba(194,100,216,0.08)" },
+      fun:       { label: "Divers",       tag: "Divers",      si: "#4e8fa8", soft: "rgba(78,143,168,0.42)", wash: "rgba(78,143,168,0.08)" }
+    };
+
+    const CATALOG = [
+      ["Choisir le prochain jeu", 120, "privilege", "Tu poses le jeu suivant sur la table. Personne ne discute."],
+      ["Droit de veto", 100, "privilege", "Un jeu de ton choix est interdit pendant une heure."],
+      ["Maître de la musique", 60, "privilege", "Trente minutes de règne sans partage sur l'enceinte."],
+      ["Pause imposée", 90, "privilege", "Dix minutes de pause pour tout le monde. Va prendre l'air."],
+      ["Double vote", 200, "privilege", "Ton vote compte double à la prochaine soirée."],
+      ["Choisir les équipes", 110, "privilege", "Tu composes les équipes de la prochaine partie."],
+      ["Bouclier", 200, "boost", "Annule le prochain handicap joué sur toi. Annonce-le quand il tombe."],
+      ["Miroir", 280, "boost", "Le prochain handicap joué sur toi repart chez celui qui l'a acheté."],
+      ["Joker", 150, "boost", "Refuse un défi imposé, une fois, sans avoir à te justifier."],
+      ["Seconde chance", 120, "boost", "Retente un défi qui vient de t'être refusé. Une seule fois."],
+      ["Double ration", 250, "boost", "Ton prochain défi validé paie double, złotych et XP."],
+      ["Assurance booster", 180, "boost", "Ton prochain booster sans aucune Rare t'en fait gagner un autre."],
+      ["Priorité au bar", 90, "boost", "Tu passes devant tout le monde pour la prochaine commande."],
+      ["Immunité de sommeil", 160, "boost", "Personne ne te réveille, ne te filme et ne te dessine dessus. Une nuit."],
+      ["Une seule main", 180, "handicap", "La victime joue une manche entière à une main."],
+      ["Écran à l'envers", 220, "handicap", "Une manche, l'écran retourné. Bon courage."],
+      ["Souris de compétition", 160, "handicap", "Sensibilité multipliée par trois pendant une manche."],
+      ["Silence radio", 120, "handicap", "Dix minutes sans micro. Débrouille-toi avec des gestes."],
+      ["Clavier maudit", 140, "handicap", "AZERTY devient QWERTY, ou l'inverse. Une manche."],
+      ["Personnage imposé", 150, "handicap", "C'est toi qui choisis son perso. Sois cruel."],
+      ["Commentateur imposé", 130, "handicap", "La victime commente sa partie à voix haute, en continu."],
+      ["Titre personnalisé", 400, "cosmetic", "Ton surnom sur ton profil, écrit par toi. À vie."],
+      ["Baptiser un kocktail", 250, "cosmetic", "Un kocktail de la carte portera ton nom."],
+      ["Baptiser le prochain set", 500, "cosmetic", "Le set de cartes de la prochaine LAN portera le nom que tu choisis."],
+      ["Relancer un vote", 80, "fun", "Le vote en cours repart de zéro. Chaos."],
+      ["Lancer un défi", 150, "fun", "Tu imposes un défi de la liste à qui tu veux."]
+    ];
+
+    const pick = this.props.rayon || "Tout";
+    const rows = CATALOG.map((c) => {
+      const f = FAM[c[2]];
+      return { name: c[0], price: c[1], desc: c[3], key: c[2], fam: f.tag, famLabel: f.label, si: f.si, soft: f.soft, wash: f.wash };
+    });
+
+    const counts = { Tout: rows.length };
+    Object.keys(FAM).forEach((k) => { counts[FAM[k].label] = rows.filter((r) => r.key === k).length; });
+
+    const chips = ["Tout"].concat(Object.keys(FAM).map((k) => FAM[k].label)).map((label) => {
+      const on = label === pick;
+      return {
+        label: label,
+        n: counts[label],
+        fg: on ? "#d4af37" : "#a8a6a1",
+        bg: on ? "rgba(212,175,55,0.08)" : "transparent",
+        bd: on ? "#d4af37" : "rgba(255,255,255,0.08)"
+      };
+    });
+
+    const items = pick === "Tout" ? rows : rows.filter((r) => r.famLabel === pick);
+
+    /* Douze tuiles : exactement trois rangs pleins dans la fenêtre. Le compteur
+       de la puce « Tout » dit qu'il y en a plus, sans montrer un rang coupé. */
+    return { chips: chips, items: items.slice(0, 12) };
+  }
+}
+</script>
+</body>
+</html>

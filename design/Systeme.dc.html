@@ -1,0 +1,232 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap">
+  <style>
+    :root {
+      --dark-bg: #080808; --darker-bg: #030303; --card-bg: rgba(20, 20, 20, 0.75);
+      --primary-text: #f4f0ec; --secondary-text: #a8a6a1; --muted-text: #7d7b77;
+      --accent: #d4af37;
+      --accent-a08: rgba(212, 175, 55, 0.08); --accent-a25: rgba(212, 175, 55, 0.25);
+      --border: rgba(212, 175, 55, 0.15); --border-subtle: rgba(255, 255, 255, 0.08);
+      --danger: #9e3636;
+      --fd: 'Playfair Display', Georgia, serif;
+      --fb: 'Outfit', system-ui, -apple-system, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; width: 1440px; height: 1140px; overflow: hidden;
+      font-family: var(--fb); font-size: 15px; line-height: 1.5;
+      color: var(--secondary-text);
+      background: radial-gradient(circle at 50% 0%, var(--dark-bg) 0%, var(--darker-bg) 100%);
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { color: #e6c65a; }
+    h1, h2, h3, h4, p { margin: 0; }
+    svg { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  </style>
+</helmet>
+
+<div style="display: flex; flex-direction: column; gap: 26px; padding: 40px 48px;">
+
+  <div style="display: flex; align-items: flex-end; gap: 24px; padding-bottom: 22px; border-bottom: 1px solid var(--border);">
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <span style="font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: var(--muted-text);">La r&egrave;gle qui tient tout</span>
+      <h1 style="font-family: var(--fd); font-size: 40px; color: var(--accent); font-weight: 400; letter-spacing: 1px;">Quatre natures, quatre endroits</h1>
+    </div>
+    <div style="flex-grow: 1;"></div>
+    <p style="max-width: 520px; font-size: 14px; line-height: 1.6; color: var(--secondary-text); text-wrap: pretty;">
+      La boutique n&#39;est pas trop charg&eacute;e parce qu&#39;elle contient trop de choses. Elle est charg&eacute;e parce
+      qu&#39;elle contient <em style="color: var(--primary-text); font-style: normal;">quatre choses de natures diff&eacute;rentes</em>, empil&eacute;es dans le m&ecirc;me tube.
+      D&egrave;s qu&#39;on les s&eacute;pare, chaque &eacute;cran tient dans une fen&ecirc;tre.
+    </p>
+  </div>
+
+  <!-- Les quatre natures -->
+  <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px;">
+
+    <div style="display: flex; flex-direction: column; gap: 11px; padding: 22px; border: 1px solid rgba(212,175,55,0.42); background: linear-gradient(150deg, rgba(212,175,55,0.09) 0%, rgba(0,0,0,0.55) 62%);">
+      <div style="display: flex; align-items: center; gap: 9px;">
+        <span style="width: 7px; height: 7px; transform: rotate(45deg); background: #d4af37;"></span>
+        <span style="font-size: 11px; letter-spacing: 2.4px; text-transform: uppercase; color: #d4af37;">Moi</span>
+      </div>
+      <h3 style="font-family: var(--fd); font-size: 22px; color: var(--primary-text); font-weight: 400;">Toujours visible</h3>
+      <p style="font-size: 13px; line-height: 1.55; color: var(--secondary-text);">Solde, niveau, alertes : dans le bandeau haut, sur tous les &eacute;crans. Le d&eacute;tail &mdash; hauts faits, titres, mes demandes &mdash; dans le profil, derri&egrave;re l&#39;avatar.</p>
+      <span style="margin-top: 4px; font-size: 12px; color: var(--muted-text);">Lib&egrave;re la boutique de 3 panneaux.</span>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 11px; padding: 22px; border: 1px solid rgba(78,148,99,0.5); background: linear-gradient(150deg, rgba(78,148,99,0.1) 0%, rgba(0,0,0,0.55) 62%);">
+      <div style="display: flex; align-items: center; gap: 9px;">
+        <span style="width: 7px; height: 7px; transform: rotate(45deg); background: #4e9463;"></span>
+        <span style="font-size: 11px; letter-spacing: 2.4px; text-transform: uppercase; color: #4e9463;">Faire</span>
+      </div>
+      <h3 style="font-family: var(--fd); font-size: 22px; color: var(--primary-text); font-weight: 400;">Le panneau courant</h3>
+      <p style="font-size: 13px; line-height: 1.55; color: var(--secondary-text);">Acheter, ouvrir un paquet, r&eacute;clamer un d&eacute;fi, proposer un &eacute;change. Une destination ne contient que ce qu&#39;on y fait, et rien d&#39;autre.</p>
+      <span style="margin-top: 4px; font-size: 12px; color: var(--muted-text);">Une grille filtrable, pas une pile.</span>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 11px; padding: 22px; border: 1px solid rgba(78,143,168,0.42); background: linear-gradient(150deg, rgba(78,143,168,0.08) 0%, rgba(0,0,0,0.55) 62%);">
+      <div style="display: flex; align-items: center; gap: 9px;">
+        <span style="width: 7px; height: 7px; transform: rotate(45deg); background: #4e8fa8;"></span>
+        <span style="font-size: 11px; letter-spacing: 2.4px; text-transform: uppercase; color: #4e8fa8;">Voir</span>
+      </div>
+      <h3 style="font-family: var(--fd); font-size: 22px; color: var(--primary-text); font-weight: 400;">Un seul flux</h3>
+      <p style="font-size: 13px; line-height: 1.55; color: var(--secondary-text);">Registre, journal des &eacute;changes, fortunes, compl&eacute;tion : le m&ecirc;me geste, r&eacute;p&eacute;t&eacute; trois fois. Un tiroir unique, ouvert &agrave; la demande.</p>
+      <span style="margin-top: 4px; font-size: 12px; color: var(--muted-text);">L&#39;&eacute;conomie reste publique, sans occuper l&#39;&eacute;cran.</span>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 11px; padding: 22px; border: 1px solid rgba(158,54,54,0.5); background: linear-gradient(150deg, rgba(158,54,54,0.1) 0%, rgba(0,0,0,0.55) 62%);">
+      <div style="display: flex; align-items: center; gap: 9px;">
+        <span style="width: 7px; height: 7px; transform: rotate(45deg); background: #d96a6a;"></span>
+        <span style="font-size: 11px; letter-spacing: 2.4px; text-transform: uppercase; color: #d96a6a;">Piloter</span>
+      </div>
+      <h3 style="font-family: var(--fd); font-size: 22px; color: var(--primary-text); font-weight: 400;">&Agrave; trancher</h3>
+      <p style="font-size: 13px; line-height: 1.55; color: var(--secondary-text);">Valider une r&eacute;clamation, cr&eacute;diter, frapper le set, offrir un booster. Un seul poste, en bas du rail, avec le nombre en attente.</p>
+      <span style="margin-top: 4px; font-size: 12px; color: var(--muted-text);">Quatre panneaux quittent les pages joueur.</span>
+    </div>
+  </div>
+
+  <!-- Deux démonstrations -->
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 26px;">
+
+    <!-- La navigation -->
+    <div style="padding: 26px 28px; border: 1px solid var(--border); background: var(--card-bg);">
+      <div style="display: flex; align-items: baseline; gap: 14px; margin-bottom: 20px;">
+        <h2 style="font-family: var(--fd); font-size: 24px; color: var(--accent); font-weight: 400;">Douze entr&eacute;es deviennent six</h2>
+        <span style="flex-grow: 1; height: 1px; background: var(--border-subtle);"></span>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 34px 1fr; gap: 18px; align-items: start;">
+
+        <div style="display: flex; flex-direction: column; gap: 7px;">
+          <span style="font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted-text); margin-bottom: 5px;">Aujourd&#39;hui</span>
+          <sc-for list="{{before}}" as="b" hint-placeholder-count="12">
+            <span style="padding: 7px 12px; font-size: 13px; color: var(--secondary-text); background: rgba(255,255,255,0.02); border-left: 2px solid rgba(255,255,255,0.08);">{{b}}</span>
+          </sc-for>
+        </div>
+
+        <div style="display: grid; place-items: center; padding-top: 90px; color: var(--muted-text);">
+          <svg viewBox="0 0 24 24" width="22" height="22"><path d="M4 12h15l-5-5M19 12l-5 5"></path></svg>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 7px;">
+          <span style="font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); margin-bottom: 5px;">Propos&eacute;</span>
+          <sc-for list="{{after}}" as="a" hint-placeholder-count="7">
+            <div style="padding: 7px 12px; background: {{a.bg}}; border-left: 2px solid {{a.bd}};">
+              <span style="font-size: 13px; color: {{a.fg}};">{{a.label}}</span>
+              <span style="font-size: 11.5px; color: var(--muted-text);"> {{a.holds}}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+    <!-- Le défilement -->
+    <div style="display: flex; flex-direction: column; gap: 22px;">
+
+      <div style="padding: 26px 28px; border: 1px solid var(--border); background: var(--card-bg);">
+        <div style="display: flex; align-items: baseline; gap: 14px; margin-bottom: 6px;">
+          <h2 style="font-family: var(--fd); font-size: 24px; color: var(--accent); font-weight: 400;">Le budget de d&eacute;filement</h2>
+          <span style="flex-grow: 1; height: 1px; background: var(--border-subtle);"></span>
+        </div>
+        <p style="font-size: 12.5px; color: var(--muted-text); margin-bottom: 20px;">Hauteur de page, estim&eacute;e sur le balisage actuel. La cible : la fen&ecirc;tre, 844&nbsp;px sous le bandeau.</p>
+
+        <div style="display: flex; flex-direction: column; gap: 15px;">
+          <sc-for list="{{bars}}" as="bar" hint-placeholder-count="3">
+            <div style="display: flex; flex-direction: column; gap: 7px;">
+              <div style="display: flex; align-items: baseline; gap: 10px;">
+                <span style="font-size: 13.5px; color: var(--primary-text); width: 90px;">{{bar.name}}</span>
+                <span style="font-size: 12.5px; color: var(--muted-text); font-variant-numeric: tabular-nums;">{{bar.oldLabel}}</span>
+                <span style="font-size: 12.5px; color: var(--muted-text);">&rarr;</span>
+                <span style="font-size: 12.5px; color: var(--accent); font-variant-numeric: tabular-nums;">{{bar.newLabel}}</span>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 4px;">
+                <span style="display: block; height: 9px; width: {{bar.oldW}}; background: rgba(255,255,255,0.09);"></span>
+                <span style="display: block; height: 9px; width: {{bar.newW}}; background: var(--accent); box-shadow: 0 0 9px rgba(212,175,55,0.35);"></span>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="padding: 24px 28px; border: 1px solid var(--border); background: var(--card-bg);">
+        <div style="display: flex; align-items: baseline; gap: 14px; margin-bottom: 16px;">
+          <h2 style="font-family: var(--fd); font-size: 22px; color: var(--accent); font-weight: 400;">O&ugrave; partent les neuf panneaux de la boutique</h2>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 9px 22px;">
+          <sc-for list="{{moves}}" as="m" hint-placeholder-count="9">
+            <div style="display: flex; align-items: baseline; gap: 9px;">
+              <span style="width: 5px; height: 5px; transform: rotate(45deg); background: {{m.color}}; flex-shrink: 0;"></span>
+              <span style="font-size: 13px; color: var(--secondary-text); flex-grow: 1;">{{m.from}}</span>
+              <span style="font-size: 12.5px; color: {{m.color}}; white-space: nowrap;">{{m.to}}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1440,"height":1140}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const before = [
+      "Tableau de bord", "Programme", "Événements", "Kocktails", "Défis", "Boutique",
+      "Collection", "Miam", "Sondages", "Bibliothèques", "Historique des votes", "Panneau admin"
+    ];
+
+    const after = [
+      { label: "Soirée", holds: "— programme, événements, sondages", on: true },
+      { label: "Défis", holds: "", on: true },
+      { label: "Boutique", holds: "", on: true },
+      { label: "Collection", holds: "", on: true },
+      { label: "Table", holds: "— kocktails, miam", on: true },
+      { label: "Jeux", holds: "— bibliothèques, historique", on: true },
+      { label: "À trancher", holds: "— le poste du maître du jeu", on: false }
+    ].map((a) => ({
+      label: a.label,
+      holds: a.holds,
+      bg: a.on ? "rgba(212,175,55,0.08)" : "rgba(158,54,54,0.09)",
+      bd: a.on ? "#d4af37" : "#9e3636",
+      fg: a.on ? "#f4f0ec" : "#d96a6a"
+    }));
+
+    /* Échelle : 380 px de barre pour 4 400 px de page. */
+    const scale = (px) => Math.round((px / 4400) * 380) + "px";
+    const bars = [
+      { name: "Boutique", old: 4400, now: 844 },
+      { name: "Collection", old: 2700, now: 844 },
+      { name: "Défis", old: 1600, now: 844 }
+    ].map((b) => ({
+      name: b.name,
+      oldLabel: b.old.toLocaleString("fr-FR") + " px",
+      newLabel: b.now.toLocaleString("fr-FR") + " px",
+      oldW: scale(b.old),
+      newW: scale(b.now)
+    }));
+
+    const moves = [
+      { from: "Bannière XP", to: "Bandeau haut", color: "#d4af37" },
+      { from: "Bannière de solde", to: "Bandeau haut", color: "#d4af37" },
+      { from: "Hauts faits", to: "Profil", color: "#d4af37" },
+      { from: "Titres de la soirée", to: "Profil", color: "#d4af37" },
+      { from: "Expérience (classement)", to: "Profil", color: "#d4af37" },
+      { from: "Mes demandes", to: "Profil", color: "#d4af37" },
+      { from: "Registre", to: "Tiroir « Activité »", color: "#4e8fa8" },
+      { from: "Fortunes", to: "Tiroir « Activité »", color: "#4e8fa8" },
+      { from: "Créditer / valider", to: "À trancher", color: "#d96a6a" }
+    ];
+
+    return { before: before, after: after, bars: bars, moves: moves };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,130 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap">
+  <style>
+    :root {
+      --ink: #0a0a0a; --line: rgba(255, 255, 255, 0.18); --bar: rgba(255, 255, 255, 0.13);
+      --text: #d8d5d0; --text-2: #8d8b87; --text-3: #5f5e5b;
+      --gold: #d4af37;
+      --fd: 'Playfair Display', Georgia, serif;
+      --fb: 'Outfit', system-ui, -apple-system, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; width: 900px; height: 620px; overflow: hidden;
+      font-family: var(--fb); font-size: 14px; line-height: 1.5;
+      color: var(--text-2); background: var(--ink);
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: var(--gold); text-decoration: none; }
+    a:hover { color: #e6c65a; }
+    h1, h2, h3, h4, p { margin: 0; }
+    svg { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+  </style>
+</helmet>
+
+<div style="display: flex; flex-direction: column; gap: 16px; padding: 24px 28px; height: 620px;">
+
+  <div style="display: flex; align-items: baseline; gap: 14px;">
+    <span style="font-size: 10px; letter-spacing: 3px; text-transform: uppercase; color: var(--gold);">Piste C</span>
+    <h1 style="font-family: var(--fd); font-size: 25px; color: var(--text); font-weight: 400;">La barre de commande</h1>
+    <span style="flex-grow: 1; height: 1px; background: var(--line);"></span>
+    <span style="font-size: 12px; color: var(--text-3);">Axe&nbsp;: tout au clavier, plus aucun menu</span>
+  </div>
+
+  <div style="position: relative; flex-grow: 1; padding: 14px; border: 1px dashed var(--line); overflow: hidden;">
+
+    <!-- Chrome réduite au minimum : une seule ligne, tout le reste est du contenu -->
+    <div style="display: flex; align-items: center; gap: 11px; padding-bottom: 12px; border-bottom: 1px dashed var(--line);">
+      <span style="width: 70px; height: 8px; background: var(--bar);"></span>
+      <div style="flex-grow: 1;"></div>
+      <span style="display: inline-flex; align-items: center; gap: 8px; padding: 5px 14px; border: 1px solid var(--line); border-radius: 999px; font-size: 11.5px; color: var(--text-3);">
+        <svg viewBox="0 0 24 24" width="13" height="13"><circle cx="11" cy="11" r="6.5"></circle><path d="m16 16 4 4"></path></svg>
+        Tapez une action&hellip;
+        <span style="padding: 1px 6px; border: 1px solid var(--line); border-radius: 3px; font-size: 10px;">&#8984;K</span>
+      </span>
+      <div style="flex-grow: 1;"></div>
+      <span style="padding: 4px 12px; border: 1px solid var(--gold); border-radius: 999px; font-size: 11px; color: var(--gold);">1 240 z&#322;</span>
+    </div>
+
+    <!-- Le contenu occupe tout : ici, la planche de cartes -->
+    <div style="display: grid; grid-template-columns: repeat(8, 1fr); gap: 9px; margin-top: 14px;">
+      <sc-for list="{{slots}}" as="s" hint-placeholder-count="24">
+        <div style="display: flex; flex-direction: column; gap: 5px; padding: 5px; border: 1px solid {{s.border}};">
+          <span style="display: block; aspect-ratio: 5 / 3; background: {{s.art}};"></span>
+          <span style="height: 5px; width: 88%; background: var(--bar);"></span>
+          <span style="height: 5px; width: 55%; background: var(--bar);"></span>
+        </div>
+      </sc-for>
+    </div>
+
+    <!-- La palette, ouverte par-dessus -->
+    <div style="position: absolute; top: 78px; left: 50%; transform: translateX(-50%); width: 420px; border: 1px solid var(--gold); background: #111; box-shadow: 0 24px 60px rgba(0,0,0,0.85);">
+      <div style="padding: 13px 15px; border-bottom: 1px solid var(--line); font-size: 13.5px; color: var(--text);">bou<span style="color: var(--text-3);">|</span></div>
+      <div style="display: flex; flex-direction: column;">
+        <sc-for list="{{results}}" as="r" hint-placeholder-count="4">
+          <div style="display: flex; align-items: center; gap: 11px; padding: 10px 15px; background: {{r.bg}};">
+            <span style="width: 5px; height: 5px; transform: rotate(45deg); background: {{r.dot}}; flex-shrink: 0;"></span>
+            <span style="font-size: 13px; color: {{r.fg}}; flex-grow: 1;">{{r.label}}</span>
+            <span style="font-size: 11.5px; color: var(--text-3);">{{r.meta}}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 22px;">
+    <p style="font-size: 12.5px; line-height: 1.55; color: var(--text-2);">
+      <em style="color: #4e9463; font-style: normal; letter-spacing: 1px; font-size: 10.5px; text-transform: uppercase;">Pour</em><br>
+      La chrome dispara&icirc;t&nbsp;: 100&nbsp;% de l&#39;&eacute;cran pour la planche de cartes ou le catalogue. Acheter un
+      bouclier devient quatre touches. C&#39;est la piste la plus rapide pour qui conna&icirc;t d&eacute;j&agrave; l&#39;appli.
+    </p>
+    <p style="font-size: 12.5px; line-height: 1.55; color: var(--text-2);">
+      <em style="color: #d96a6a; font-style: normal; letter-spacing: 1px; font-size: 10.5px; text-transform: uppercase;">Contre</em><br>
+      Une LAN, c&#39;est six personnes qui d&eacute;couvrent l&#39;appli &agrave; 23&nbsp;h avec une bi&egrave;re. Ce qui ne se voit pas
+      n&#39;existe pas&nbsp;: la boutique et les d&eacute;fis ne seraient jamais trouv&eacute;s. Sans compter le t&eacute;l&eacute;phone,
+      qui n&#39;a pas de clavier.
+    </p>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":900,"height":620}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const ARTS = ["rgba(255,255,255,0.09)", "rgba(255,255,255,0.06)", "rgba(255,255,255,0.11)"];
+    const slots = [];
+    for (let i = 0; i < 24; i++) {
+      const hot = i === 3 || i === 11 || i === 18;
+      slots.push({
+        art: hot ? "rgba(212,175,55,0.16)" : ARTS[i % ARTS.length],
+        border: hot ? "rgba(212,175,55,0.45)" : "rgba(255,255,255,0.12)"
+      });
+    }
+
+    const results = [
+      { label: "Acheter — Bouclier", meta: "200 zł", on: true },
+      { label: "Acheter — Bonus : Double ration", meta: "250 zł", on: false },
+      { label: "Ouvrir — Booster « Première Nuit »", meta: "2 en réserve", on: false },
+      { label: "Boutique — tout le catalogue", meta: "26 articles", on: false }
+    ].map((r) => ({
+      label: r.label,
+      meta: r.meta,
+      bg: r.on ? "rgba(212,175,55,0.1)" : "transparent",
+      fg: r.on ? "#d4af37" : "#8d8b87",
+      dot: r.on ? "#d4af37" : "rgba(255,255,255,0.25)"
+    }));
+
+    return { slots: slots, results: results };
+  }
+}
+</script>
+</body>
+</html>

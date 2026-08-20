@@ -1,0 +1,60 @@
+{
+  "pages": [
+    { "id": "page-1", "name": "Le redesign" },
+    { "id": "page-2", "name": "Le raisonnement" }
+  ],
+  "artboards": [
+    { "file": "Main.dc.html", "title": "Boutique", "x": 0, "y": 0, "w": 1440, "h": 900, "page": "page-1" },
+    { "file": "Collection.dc.html", "title": "Collection", "x": 1560, "y": 0, "w": 1440, "h": 900, "page": "page-1" },
+    { "file": "Defis.dc.html", "title": "Défis", "x": 3120, "y": 0, "w": 1440, "h": 900, "page": "page-1" },
+    { "file": "Profil.dc.html", "title": "Profil & hauts faits", "x": 0, "y": 1040, "w": 1440, "h": 900, "page": "page-1" },
+    { "file": "Mobile.dc.html", "title": "Téléphone", "x": 1560, "y": 1040, "w": 390, "h": 844, "page": "page-1" },
+
+    { "file": "Systeme.dc.html", "title": "Le système", "x": 0, "y": 0, "w": 1440, "h": 1140, "page": "page-2" },
+    { "file": "PisteB.dc.html", "title": "Piste B — Le tableau unique", "x": 1560, "y": 0, "w": 900, "h": 620, "page": "page-2" },
+    { "file": "PisteC.dc.html", "title": "Piste C — La barre de commande", "x": 1560, "y": 760, "w": 900, "h": 620, "page": "page-2" }
+  ],
+  "annotations": [
+    {
+      "id": "note-hud",
+      "x": 0,
+      "y": -170,
+      "w": 560,
+      "page": "page-1",
+      "text": "Le geste central : un HUD joueur dans le bandeau haut (niveau, XP, solde, alertes), présent sur TOUS les écrans.\n\nC'est lui qui permet à la boutique de perdre sa bannière XP et sa bannière de solde, et aux hauts faits d'aller vivre dans le profil."
+    },
+    {
+      "id": "note-scroll",
+      "x": 640,
+      "y": -170,
+      "w": 520,
+      "page": "page-1",
+      "text": "Chaque écran tient dans la fenêtre : 1440 × 900, bandeau 56 px, rail 216 px. Rien ne défile au niveau de la page — seul le panneau central défile, et seulement quand le filtre est sur « Tout »."
+    },
+    {
+      "id": "note-profil",
+      "x": 2050,
+      "y": 1040,
+      "w": 340,
+      "page": "page-1",
+      "text": "Les hauts faits quittent la boutique. Ils n'ont jamais rien eu à y faire : on ne les achète pas, on les gagne. Ici ils ont enfin la place d'être jolis — 21 médaillons, une fenêtre, zéro défilement."
+    },
+    {
+      "id": "note-mobile",
+      "x": 2470,
+      "y": 1040,
+      "w": 340,
+      "page": "page-1",
+      "text": "Le téléphone avait déjà résolu le problème : six onglets, des feuilles glissantes, un HUD compact. Le bureau ne fait que rattraper son retard — et les deux racontent enfin la même histoire."
+    },
+    {
+      "id": "note-pistes",
+      "x": 1560,
+      "y": -170,
+      "w": 560,
+      "page": "page-2",
+      "text": "Deux pistes écartées, gardées pour la discussion. La piste A — rail + panneaux, page « Le redesign » — l'emporte parce qu'elle est la seule qui donne un plein écran aux deux surfaces qui en ont besoin : la planche de 43 cartes et le catalogue de 26 articles."
+    }
+  ],
+  "launch": { "view": "canvas", "page": "page-1" }
+}

@@ -1,0 +1,317 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap">
+  <style>
+    :root {
+      --dark-bg: #080808; --darker-bg: #030303; --card-bg: rgba(20, 20, 20, 0.75);
+      --primary-text: #f4f0ec; --secondary-text: #a8a6a1; --muted-text: #7d7b77;
+      --accent: #d4af37;
+      --accent-a08: rgba(212, 175, 55, 0.08); --accent-a25: rgba(212, 175, 55, 0.25);
+      --accent-a40: rgba(212, 175, 55, 0.4);
+      --border: rgba(212, 175, 55, 0.15); --border-subtle: rgba(255, 255, 255, 0.08);
+      --danger: #9e3636; --success: #3d7a4e;
+      --silver: #b5b7b9; --bronze: #b08d57;
+      --fd: 'Playfair Display', Georgia, serif;
+      --fb: 'Outfit', system-ui, -apple-system, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; width: 1440px; height: 900px; overflow: hidden;
+      font-family: var(--fb); font-size: 15px; line-height: 1.5;
+      color: var(--secondary-text);
+      background: radial-gradient(circle at 50% 0%, var(--dark-bg) 0%, var(--darker-bg) 100%);
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { color: #e6c65a; }
+    h1, h2, h3, h4, p { margin: 0; }
+    svg { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  </style>
+</helmet>
+
+<div style="display: grid; grid-template-rows: 56px 1fr; height: 900px;">
+
+  <div style="display: flex; align-items: center; gap: 24px; padding: 0 24px; border-bottom: 1px solid var(--border); background: rgba(8,8,8,0.92);">
+    <div style="display: flex; align-items: baseline; gap: 12px;">
+      <span style="font-family: var(--fd); font-size: 19px; color: var(--accent); letter-spacing: 1.5px;">LAN Demain</span>
+      <span style="font-size: 12px; color: var(--muted-text); letter-spacing: 1px; text-transform: uppercase;">Nuit du 14 mars &middot; chez Kevin</span>
+    </div>
+    <div style="flex-grow: 1;"></div>
+    <div style="display: flex; align-items: center; gap: 18px; padding: 6px 8px 6px 16px; border: 1px solid var(--accent-a40); background: rgba(20,20,20,0.75); box-shadow: 0 0 16px rgba(212,175,55,0.14);">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="font-size: 11px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted-text);">Niv.</span>
+        <span style="font-family: var(--fd); font-size: 19px; color: var(--primary-text); font-variant-numeric: tabular-nums;">6</span>
+        <div style="display: grid; grid-template-columns: repeat(12, 1fr); gap: 2px; width: 96px;">
+          <span style="height: 8px; background: var(--accent);"></span><span style="height: 8px; background: var(--accent);"></span>
+          <span style="height: 8px; background: var(--accent);"></span><span style="height: 8px; background: var(--accent);"></span>
+          <span style="height: 8px; background: var(--accent);"></span><span style="height: 8px; background: var(--accent);"></span>
+          <span style="height: 8px; background: var(--accent);"></span><span style="height: 8px; background: rgba(212,175,55,0.55);"></span>
+          <span style="height: 8px; background: rgba(255,255,255,0.07);"></span><span style="height: 8px; background: rgba(255,255,255,0.07);"></span>
+          <span style="height: 8px; background: rgba(255,255,255,0.07);"></span><span style="height: 8px; background: rgba(255,255,255,0.07);"></span>
+        </div>
+      </div>
+      <span style="width: 1px; height: 26px; background: var(--border-subtle);"></span>
+      <div style="display: flex; align-items: baseline; gap: 6px;">
+        <span style="font-family: var(--fd); font-size: 22px; color: var(--accent); font-variant-numeric: tabular-nums;">1 240</span>
+        <span style="font-size: 13px; color: var(--accent); opacity: 0.7;">z&#322;</span>
+      </div>
+      <span style="width: 1px; height: 26px; background: var(--border-subtle);"></span>
+      <button style="position: relative; display: grid; place-items: center; width: 36px; height: 36px; border: 0; background: transparent; color: var(--secondary-text); cursor: pointer;">
+        <svg viewBox="0 0 24 24" width="19" height="19"><path d="M18 8a6 6 0 1 0-12 0c0 5-2 6-2 6h16s-2-1-2-6Z"></path><path d="M10.3 20a2 2 0 0 0 3.4 0"></path></svg>
+      </button>
+      <button style="display: flex; align-items: center; gap: 9px; padding: 4px 10px 4px 4px; border: 0; background: transparent; cursor: pointer;">
+        <span style="width: 30px; height: 30px; border-radius: 999px; background: linear-gradient(140deg, #4a3f22, #1a1a1a); border: 1px solid var(--accent);"></span>
+        <span style="font-size: 14px; color: var(--accent);">Gr&eacute;gory</span>
+      </button>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 216px 1fr; height: 844px; overflow: hidden;">
+
+    <div style="display: flex; flex-direction: column; padding: 20px 0; border-right: 1px solid var(--border); background: rgba(6,6,6,0.6);">
+      <div style="display: flex; flex-direction: column;">
+        <div style="display: flex; align-items: center; gap: 13px; padding: 12px 22px; color: var(--secondary-text); border-left: 3px solid transparent;">
+          <svg viewBox="0 0 24 24" width="19" height="19"><rect x="3" y="5" width="18" height="16" rx="1"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>
+          <span style="font-size: 14.5px;">Soir&eacute;e</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 13px; padding: 12px 22px; color: var(--secondary-text); border-left: 3px solid transparent;">
+          <svg viewBox="0 0 24 24" width="19" height="19"><path d="M12 3s5 4.6 5 9.2a5 5 0 0 1-10 0c0-1.9 1-3.4 1-3.4s.6 1.7 1.6 2.4c-.2-3.2 2.4-8.2 2.4-8.2Z"></path></svg>
+          <span style="font-size: 14.5px;">D&eacute;fis</span>
+          <span style="margin-left: auto; min-width: 19px; height: 19px; padding: 0 5px; display: grid; place-items: center; border-radius: 999px; background: var(--accent); color: #0a0a0a; font-size: 11px; font-weight: 600;">3</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 13px; padding: 12px 22px; color: var(--secondary-text); border-left: 3px solid transparent;">
+          <svg viewBox="0 0 24 24" width="19" height="19"><path d="M4 8h16l-1.2 12H5.2L4 8Z"></path><path d="M8.5 8V6a3.5 3.5 0 0 1 7 0v2"></path></svg>
+          <span style="font-size: 14.5px;">Boutique</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 13px; padding: 12px 22px; color: var(--secondary-text); border-left: 3px solid transparent;">
+          <svg viewBox="0 0 24 24" width="19" height="19"><rect x="8.5" y="3.5" width="11" height="15" rx="1.5"></rect><path d="M5.5 7v11.5A2.5 2.5 0 0 0 8 21h8"></path></svg>
+          <span style="font-size: 14.5px;">Collection</span>
+          <span style="margin-left: auto; min-width: 19px; height: 19px; padding: 0 5px; display: grid; place-items: center; border-radius: 999px; background: var(--accent); color: #0a0a0a; font-size: 11px; font-weight: 600;">2</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 13px; padding: 12px 22px; color: var(--secondary-text); border-left: 3px solid transparent;">
+          <svg viewBox="0 0 24 24" width="19" height="19"><path d="M6 4h11v5a5.5 5.5 0 0 1-11 0V4Z"></path><path d="M17 5.5h2.1a2.3 2.3 0 0 1 0 4.6H17"></path><path d="M8 20.5h7"></path></svg>
+          <span style="font-size: 14.5px;">Table</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 13px; padding: 12px 22px; color: var(--secondary-text); border-left: 3px solid transparent;">
+          <svg viewBox="0 0 24 24" width="19" height="19"><rect x="2.5" y="8" width="19" height="10" rx="4"></rect><path d="M7 11v4M5 13h4M15.6 12.6h.01M18 15.2h.01"></path></svg>
+          <span style="font-size: 14.5px;">Jeux</span>
+        </div>
+      </div>
+      <div style="flex-grow: 1;"></div>
+      <div style="padding: 0 22px;">
+        <div style="height: 1px; background: var(--border-subtle); margin-bottom: 14px;"></div>
+        <div style="display: flex; align-items: center; gap: 13px; padding: 11px 0; color: var(--accent);">
+          <svg viewBox="0 0 24 24" width="19" height="19"><path d="M4 7h9M18.5 7H20M4 17h4.5M14 17h6"></path><circle cx="15.5" cy="7" r="2.2"></circle><circle cx="11" cy="17" r="2.2"></circle></svg>
+          <span style="font-size: 14.5px;">&Agrave; trancher</span>
+          <span style="margin-left: auto; min-width: 19px; height: 19px; padding: 0 5px; display: grid; place-items: center; border-radius: 999px; background: var(--danger); color: #fff; font-size: 11px; font-weight: 600;">5</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ LE PANNEAU PROFIL — où vivent désormais les hauts faits ============ -->
+    <div style="display: grid; grid-template-rows: auto 1fr; overflow: hidden;">
+
+      <div style="display: flex; align-items: center; gap: 24px; padding: 22px 28px 20px; border-bottom: 1px solid var(--border-subtle);">
+
+        <!-- L'anneau de niveau : l'XP mérite une forme, pas une barre de plus -->
+        <div style="position: relative; width: 86px; height: 86px; flex-shrink: 0;">
+          <svg viewBox="0 0 100 100" width="86" height="86" style="transform: rotate(-90deg);">
+            <circle cx="50" cy="50" r="44" style="stroke: rgba(255,255,255,0.07); stroke-width: 5;"></circle>
+            <circle cx="50" cy="50" r="44" style="stroke: #d4af37; stroke-width: 5; stroke-dasharray: 276.5; stroke-dashoffset: 88.5; filter: drop-shadow(0 0 5px rgba(212,175,55,0.5));"></circle>
+          </svg>
+          <div style="position: absolute; inset: 0; display: grid; place-items: center;">
+            <span style="width: 62px; height: 62px; border-radius: 999px; background: linear-gradient(140deg, #4a3f22, #141414); border: 1px solid var(--accent-a25);"></span>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 3px;">
+          <div style="display: flex; align-items: baseline; gap: 12px;">
+            <h2 style="font-family: var(--fd); font-size: 30px; color: var(--primary-text); font-weight: 400;">Gr&eacute;gory</h2>
+            <span style="font-family: var(--fd); font-size: 19px; font-style: italic; color: var(--accent);">&laquo;&nbsp;Le Pilier&nbsp;&raquo;</span>
+          </div>
+          <p style="font-size: 13.5px; color: var(--secondary-text);">Niveau 6 &middot; 1 460 XP &middot; 7 soir&eacute;es &middot; il manque <em style="color: var(--primary-text); font-style: normal;">340 XP</em> pour le niveau 7.</p>
+        </div>
+
+        <div style="flex-grow: 1;"></div>
+
+        <div style="display: flex; align-items: flex-end; gap: 32px;">
+          <div style="display: flex; flex-direction: column; align-items: flex-end;">
+            <span style="font-family: var(--fd); font-size: 26px; color: var(--primary-text); font-variant-numeric: tabular-nums;">13<span style="color: var(--muted-text); font-size: 17px;"> / 21</span></span>
+            <span style="font-size: 11px; letter-spacing: 1.4px; text-transform: uppercase; color: var(--muted-text);">Hauts faits</span>
+          </div>
+          <div style="display: flex; flex-direction: column; align-items: flex-end;">
+            <span style="font-family: var(--fd); font-size: 26px; color: var(--primary-text); font-variant-numeric: tabular-nums;">28<span style="color: var(--muted-text); font-size: 17px;"> / 43</span></span>
+            <span style="font-size: 11px; letter-spacing: 1.4px; text-transform: uppercase; color: var(--muted-text);">Cartes</span>
+          </div>
+          <div style="display: flex; flex-direction: column; align-items: flex-end;">
+            <span style="font-family: var(--fd); font-size: 26px; color: var(--primary-text); font-variant-numeric: tabular-nums;">19</span>
+            <span style="font-size: 11px; letter-spacing: 1.4px; text-transform: uppercase; color: var(--muted-text);">Achats</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 296px; gap: 22px; padding: 20px 28px 0; overflow: hidden;">
+
+        <div style="display: flex; flex-direction: column; gap: 16px; overflow: hidden;">
+          <div style="display: flex; align-items: center; gap: 14px;">
+            <h3 style="font-size: 12px; letter-spacing: 1.8px; text-transform: uppercase; color: var(--muted-text);">Hauts faits</h3>
+            <span style="flex-grow: 1; height: 1px; background: var(--border-subtle);"></span>
+            <span style="font-size: 12px; color: var(--muted-text);">Acquis pour toujours &mdash; ils ne se reverrouillent jamais</span>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 14px 10px; align-content: start; overflow: hidden;">
+            <sc-for list="{{achievements}}" as="a" hint-placeholder-count="21">
+              <div style="display: flex; flex-direction: column; align-items: center; gap: 7px; text-align: center; cursor: pointer;">
+                <div style="position: relative; width: 56px; height: 56px; display: grid; place-items: center; border-radius: 999px; border: 1px solid {{a.ring}}; background: {{a.fill}}; box-shadow: {{a.glow}}; color: {{a.ink}};">
+                  <svg viewBox="0 0 24 24" width="24" height="24"><path d="{{a.icon}}"></path></svg>
+                </div>
+                <span style="font-size: 11.5px; line-height: 1.25; color: {{a.labelColor}};">{{a.label}}</span>
+                <span style="font-size: 10px; line-height: 1.2; color: {{a.hintColor}}; font-variant-numeric: tabular-nums;">{{a.hint}}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 16px; overflow: hidden;">
+
+          <div style="padding: 18px; border: 1px solid var(--border); background: var(--card-bg);">
+            <h3 style="font-size: 12px; letter-spacing: 1.6px; text-transform: uppercase; color: var(--muted-text); margin-bottom: 6px;">Titres de la soir&eacute;e</h3>
+            <p style="font-size: 11.5px; color: var(--muted-text); margin-bottom: 14px;">Comparatifs : d&eacute;cern&eacute;s &agrave; la cl&ocirc;ture, puis archiv&eacute;s.</p>
+            <div style="display: flex; flex-direction: column; gap: 11px;">
+              <sc-for list="{{titles}}" as="t" hint-placeholder-count="3">
+                <div style="display: flex; align-items: center; gap: 11px;">
+                  <span style="width: 6px; height: 6px; transform: rotate(45deg); background: {{t.color}}; flex-shrink: 0;"></span>
+                  <span style="font-size: 13px; color: var(--primary-text); flex-grow: 1;">{{t.label}}</span>
+                  <span style="font-size: 12px; color: {{t.color}};">{{t.who}}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="padding: 18px; border: 1px solid var(--border); background: var(--card-bg);">
+            <h3 style="font-size: 12px; letter-spacing: 1.6px; text-transform: uppercase; color: var(--muted-text); margin-bottom: 14px;">Mes demandes</h3>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+              <sc-for list="{{purchases}}" as="p" hint-placeholder-count="3">
+                <div style="display: flex; align-items: flex-start; gap: 11px;">
+                  <span style="width: 5px; height: 5px; border-radius: 999px; background: {{p.color}}; margin-top: 8px; flex-shrink: 0;"></span>
+                  <div style="flex-grow: 1; min-width: 0;">
+                    <p style="font-size: 13px; color: var(--primary-text); line-height: 1.35;">{{p.name}}</p>
+                    <p style="font-size: 11.5px; color: {{p.color}};">{{p.status}}</p>
+                  </div>
+                  <span style="font-size: 12px; color: var(--muted-text); font-variant-numeric: tabular-nums;">{{p.cost}}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="padding: 18px; border: 1px solid var(--border); background: var(--card-bg); overflow: hidden;">
+            <div style="display: flex; align-items: flex-end; gap: 16px; margin-bottom: 15px;">
+              <span style="font-size: 12px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--accent); border-bottom: 1px solid var(--accent); padding-bottom: 5px; cursor: pointer;">Exp&eacute;rience</span>
+              <span style="font-size: 12px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted-text); padding-bottom: 5px; cursor: pointer;">Fortunes</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 11px;">
+              <sc-for list="{{board}}" as="b" hint-placeholder-count="5">
+                <div style="display: flex; align-items: center; gap: 11px;">
+                  <span style="font-family: var(--fd); font-size: 14px; color: {{b.rankColor}}; width: 14px; font-variant-numeric: tabular-nums;">{{b.rank}}</span>
+                  <span style="width: 24px; height: 24px; border-radius: 999px; background: linear-gradient(140deg, #3a3a3a, #1a1a1a); border: 1px solid rgba(255,255,255,0.1); flex-shrink: 0;"></span>
+                  <span style="font-size: 13px; color: {{b.nameColor}}; flex-grow: 1;">{{b.name}}</span>
+                  <span style="font-size: 12.5px; color: var(--secondary-text); font-variant-numeric: tabular-nums;">{{b.n}}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    /* Un seul « d » par icône : les cercles sont tracés en arcs pour qu'une
+       icône entière tienne dans un attribut, et donc dans un {{trou}}. */
+    const ICONS = {
+      cart: "M2.5 3.5h2.6l2.4 11.2h11l1.9-8.2H6.4 M8.2 20a1.3 1.3 0 1 0 2.6 0a1.3 1.3 0 1 0-2.6 0 M16.7 20a1.3 1.3 0 1 0 2.6 0a1.3 1.3 0 1 0-2.6 0",
+      coin: "M3.5 12a8.5 8.5 0 1 0 17 0a8.5 8.5 0 1 0-17 0 M14.6 9.3a3.3 3.3 0 1 0 0 5.4",
+      target: "M3.5 12a8.5 8.5 0 1 0 17 0a8.5 8.5 0 1 0-17 0 M7.6 12a4.4 4.4 0 1 0 8.8 0a4.4 4.4 0 1 0-8.8 0 M11 12a1 1 0 1 0 2 0a1 1 0 1 0-2 0",
+      pack: "M12 3.5 3.5 7v10L12 20.5 20.5 17V7L12 3.5Z M3.5 7 12 10.5 20.5 7 M12 10.5v10",
+      cards: "M10 3.5h8A1.5 1.5 0 0 1 19.5 5v12a1.5 1.5 0 0 1-1.5 1.5h-8A1.5 1.5 0 0 1 8.5 17V5A1.5 1.5 0 0 1 10 3.5Z M5.5 7v11.5A2.5 2.5 0 0 0 8 21h8",
+      spark: "M12 3v4.2 M12 16.8V21 M3 12h4.2 M16.8 12H21 M5.6 5.6l3 3 M15.4 15.4l3 3 M18.4 5.6l-3 3 M8.6 15.4l-3 3",
+      signature: "m12 3.2 2.6 5.8 6.3.6-4.7 4.2 1.4 6.2L12 16.8l-5.6 3.2 1.4-6.2L3.1 9.6l6.3-.6L12 3.2Z",
+      trophy: "M8 4h8v5a4 4 0 0 1-8 0V4Z M16 5.5h2.4a2 2 0 0 1 0 4H16 M8 5.5H5.6a2 2 0 0 0 0 4H8 M10 20.5h4 M12 13v7.5",
+      trade: "M4 8.5h13l-3.2-3.2 M20 15.5H7l3.2 3.2",
+      clock: "M3.5 12a8.5 8.5 0 1 0 17 0a8.5 8.5 0 1 0-17 0 M12 6.8v5.4l3.4 2",
+      flag: "M5.5 21V3.8 M5.5 4.8h11.4l-2.1 3.7 2.1 3.7H5.5"
+    };
+
+    const LIST = [
+      ["cart", "Premier achat", "Acquis", true],
+      ["cart", "Client fidèle", "Acquis", true],
+      ["cart", "Pilier du comptoir", "19 / 20", false],
+      ["coin", "Dépensier", "Acquis", true],
+      ["coin", "Grand train", "1 340 / 2 000", false],
+      ["target", "Sale coup", "Acquis", true],
+      ["pack", "Premier paquet", "Acquis", true],
+      ["pack", "Ouvreur compulsif", "Acquis", true],
+      ["cards", "Collectionneur", "Acquis", true],
+      ["spark", "Ça brille", "7 / 10", false],
+      ["signature", "La Signature", "Acquis", true],
+      ["trophy", "Set complet", "28 / 43", false],
+      ["trade", "Premier échange", "Acquis", true],
+      ["trade", "Négociant", "6 / 10", false],
+      ["clock", "Increvable", "Acquis", true],
+      ["flag", "Habitué", "Acquis", true],
+      ["flag", "Vétéran", "7 / 10", false],
+      ["trophy", "Faker", "Niveau 6 / 10", false],
+      ["pack", "Uzi", "18 / 25", false],
+      ["spark", "ZywOo", "7 / 20", false],
+      ["flag", "Bêta-testeur", "Acquis", true]
+    ];
+
+    const achievements = LIST.map((a) => ({
+      icon: ICONS[a[0]],
+      label: a[1],
+      hint: a[2],
+      ring: a[3] ? "rgba(212,175,55,0.55)" : "rgba(255,255,255,0.08)",
+      fill: a[3] ? "radial-gradient(circle at 34% 28%, rgba(212,175,55,0.22), rgba(20,20,20,0.9))" : "rgba(255,255,255,0.02)",
+      glow: a[3] ? "0 0 14px rgba(212,175,55,0.2)" : "none",
+      ink: a[3] ? "#d4af37" : "#4a4945",
+      labelColor: a[3] ? "#f4f0ec" : "#7d7b77",
+      hintColor: a[3] ? "#d4af37" : "#5f5e5b"
+    }));
+
+    const titles = [
+      { label: "Le plus gros acheteur", who: "Grégory", color: "#d4af37" },
+      { label: "Le plus dépensier", who: "Kevin", color: "#b5b7b9" },
+      { label: "La plus grosse fortune", who: "Sarah", color: "#b08d57" }
+    ];
+
+    const purchases = [
+      { name: "Une seule main → Kevin", status: "En attente du maître du jeu", color: "#d4af37", cost: "180 zł" },
+      { name: "Maître de la musique", status: "Accordé à 23 h 12", color: "#4e9463", cost: "60 zł" },
+      { name: "Double vote", status: "Refusé — hors soirée", color: "#9e3636", cost: "200 zł" }
+    ];
+
+    const board = [
+      { rank: "1", name: "Kevin", n: "2 140 XP", rankColor: "#d4af37", nameColor: "#f4f0ec" },
+      { rank: "2", name: "Grégory", n: "1 460 XP", rankColor: "#b5b7b9", nameColor: "#d4af37" },
+      { rank: "3", name: "Sarah", n: "1 205 XP", rankColor: "#b08d57", nameColor: "#f4f0ec" },
+      { rank: "4", name: "Thomas", n: "880 XP", rankColor: "#7d7b77", nameColor: "#f4f0ec" },
+      { rank: "5", name: "Léa", n: "640 XP", rankColor: "#7d7b77", nameColor: "#f4f0ec" }
+    ];
+
+    return { achievements: achievements, titles: titles, purchases: purchases, board: board };
+  }
+}
+</script>
+</body>
+</html>

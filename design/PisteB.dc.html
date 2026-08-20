@@ -1,0 +1,116 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap">
+  <style>
+    :root {
+      --ink: #0a0a0a; --line: rgba(255, 255, 255, 0.18); --fill: rgba(255, 255, 255, 0.05);
+      --bar: rgba(255, 255, 255, 0.13);
+      --text: #d8d5d0; --text-2: #8d8b87; --text-3: #5f5e5b;
+      --gold: #d4af37;
+      --fd: 'Playfair Display', Georgia, serif;
+      --fb: 'Outfit', system-ui, -apple-system, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; width: 900px; height: 620px; overflow: hidden;
+      font-family: var(--fb); font-size: 14px; line-height: 1.5;
+      color: var(--text-2); background: var(--ink);
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: var(--gold); text-decoration: none; }
+    a:hover { color: #e6c65a; }
+    h1, h2, h3, h4, p { margin: 0; }
+    svg { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+  </style>
+</helmet>
+
+<div style="display: flex; flex-direction: column; gap: 16px; padding: 24px 28px; height: 620px;">
+
+  <div style="display: flex; align-items: baseline; gap: 14px;">
+    <span style="font-size: 10px; letter-spacing: 3px; text-transform: uppercase; color: var(--gold);">Piste B</span>
+    <h1 style="font-family: var(--fd); font-size: 25px; color: var(--text); font-weight: 400;">Le tableau unique</h1>
+    <span style="flex-grow: 1; height: 1px; background: var(--line);"></span>
+    <span style="font-size: 12px; color: var(--text-3);">Axe&nbsp;: tout voir d&#39;un coup, ne rien approfondir</span>
+  </div>
+
+  <!-- Maquette au trait : pas de navigation du tout, six tuiles sur une planche -->
+  <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 11px; padding: 14px; border: 1px dashed var(--line);">
+
+    <div style="display: flex; align-items: center; gap: 11px; padding-bottom: 11px; border-bottom: 1px dashed var(--line);">
+      <span style="width: 22px; height: 22px; border-radius: 999px; background: var(--bar);"></span>
+      <span style="width: 90px; height: 8px; background: var(--bar);"></span>
+      <div style="flex-grow: 1;"></div>
+      <span style="padding: 4px 12px; border: 1px solid var(--gold); border-radius: 999px; font-size: 11px; color: var(--gold);">1 240 z&#322; &middot; niv. 6</span>
+    </div>
+
+    <div style="flex-grow: 1; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); gap: 11px;">
+
+      <sc-for list="{{tiles}}" as="t" hint-placeholder-count="6">
+        <div style="display: flex; flex-direction: column; gap: 9px; padding: 13px; border: 1px solid {{t.border}}; background: {{t.bg}};">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="width: 5px; height: 5px; transform: rotate(45deg); background: {{t.dot}};"></span>
+            <span style="font-size: 11.5px; letter-spacing: 1.2px; text-transform: uppercase; color: {{t.fg}};">{{t.name}}</span>
+            <div style="flex-grow: 1;"></div>
+            <span style="font-size: 10.5px; color: var(--text-3);">{{t.count}}</span>
+          </div>
+          <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 6px;">
+            <span style="height: 7px; width: 100%; background: var(--bar);"></span>
+            <span style="height: 7px; width: 82%; background: var(--bar);"></span>
+            <span style="height: 7px; width: 91%; background: var(--bar);"></span>
+            <span style="height: 7px; width: 64%; background: var(--bar);"></span>
+          </div>
+          <span style="align-self: flex-start; padding: 4px 11px; border: 1px dashed var(--line); font-size: 10.5px; color: var(--text-3);">Ouvrir en grand</span>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 22px;">
+    <p style="font-size: 12.5px; line-height: 1.55; color: var(--text-2);">
+      <em style="color: #4e9463; font-style: normal; letter-spacing: 1px; font-size: 10.5px; text-transform: uppercase;">Pour</em><br>
+      Z&eacute;ro navigation, z&eacute;ro d&eacute;filement, et l&#39;&eacute;conomie de la soir&eacute;e se lit comme un tableau de bord. On voit
+      d&#39;un seul coup qu&#39;il reste deux boosters &agrave; ouvrir et trois d&eacute;fis &agrave; r&eacute;clamer.
+    </p>
+    <p style="font-size: 12.5px; line-height: 1.55; color: var(--text-2);">
+      <em style="color: #d96a6a; font-style: normal; letter-spacing: 1px; font-size: 10.5px; text-transform: uppercase;">Contre</em><br>
+      Aucune tuile n&#39;est assez grande pour son contenu r&eacute;el&nbsp;: la planche de 43 cartes et le catalogue de 26
+      articles ne tiennent pas dans un sixi&egrave;me d&#39;&eacute;cran. Chaque clic ram&egrave;ne au probl&egrave;me d&#39;avant.
+    </p>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":900,"height":620}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const tiles = [
+      { name: "Boutique", count: "26 articles", accent: true },
+      { name: "Collection", count: "28 / 43", accent: true },
+      { name: "Défis", count: "3 en attente", accent: true },
+      { name: "Hauts faits", count: "13 / 21", accent: false },
+      { name: "Registre", count: "48 lignes", accent: false },
+      { name: "Classements", count: "6 joueurs", accent: false }
+    ];
+
+    return {
+      tiles: tiles.map((t) => ({
+        name: t.name,
+        count: t.count,
+        dot: t.accent ? "#d4af37" : "rgba(255,255,255,0.25)",
+        fg: t.accent ? "#d4af37" : "#8d8b87",
+        border: t.accent ? "rgba(212,175,55,0.3)" : "rgba(255,255,255,0.18)",
+        bg: t.accent ? "rgba(212,175,55,0.04)" : "rgba(255,255,255,0.02)"
+      }))
+    };
+  }
+}
+</script>
+</body>
+</html>
