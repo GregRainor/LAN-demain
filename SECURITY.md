@@ -138,6 +138,13 @@ d'autre n'a est banal — il y en a des centaines. Un jeu que tout le monde poss
 c'est en plus celui auquel on peut jouer ce soir sans que personne aille l'acheter. La rareté
 raconte donc quelque chose de vrai, et la fiche d'une carte l'explique en une phrase.
 
+**Un jeu sans illustration n'entre pas dans le set.** La jaquette Steam se déduit
+de l'`appId`, sans le moindre appel réseau : un jeu qui n'en a pas (une entrée
+Game Pass, un nom que Steam ne reconnaît pas) ferait une silhouette grise, et
+une carte grise n'a aucune raison d'exister. Les jeux votés à la main sont
+résolus une fois à la création du set — ce sont les plus réclamés, il serait
+absurde qu'ils soient justement ceux qui manquent.
+
 Écriture réservée aux `admin` / `gamemaster`.
 
 Les **deux raretés de chasse sont réservées** aux cartes qui les méritent : partagée par au moins
@@ -221,11 +228,39 @@ parties ne possédait pas sa mise à cet instant. Un échange malhonnête n'est 
 collection qui se réinitialise ne se collectionne pas. Chaque LAN ajoute son set à une
 collection qui grandit.
 
-> ⚠️ **À REPUBLIER** : la carte du set porte désormais un champ `owners` (combien
-> de bibliothèques possédaient le jeu le jour du set). Le nœud `cards/$game_key`
+> ⚠️ **À REPUBLIER** : la carte du set porte désormais `owners` (combien de
+> bibliothèques possédaient le jeu) et `appId` (sa jaquette Steam), et un nœud
+> `lan/cardArt` reçoit les illustrations générées. Le nœud `cards/$game_key`
 > refuse tout champ non listé : **tant que les règles ne sont pas republiées, la
 > création du set échoue en entier**, avec un `permission_denied` et rien à
-> l'écran. C'est une seule ligne de différence, mais elle est bloquante.
+> l'écran.
+
+## Les illustrations générées (`lan/cardArt`)
+
+Les huit cartes Signature — le sommet du set — reçoivent une illustration
+dessinée pour elles par Nano Banana Pro (`api/generate-card-art.js`). Trois
+choix à connaître :
+
+- **La clé vit dans `GEMINI_API_KEY`**, côté Vercel, jamais côté client. La
+  fonction est protégée comme les autres proxys : contrôle d'origine et
+  rate-limit par IP (`_guard.js`), avec un plafond bien plus bas — douze appels
+  par minute, quand générer un set complet en demande huit. **Limite assumée**,
+  identique à celle de `STEAM_API_KEY` mais avec un enjeu supérieur puisque
+  chaque appel coûte : l'origine est spoofable en curl. Si la facture devait
+  devenir un sujet, la vraie réponse est de vérifier le jeton Firebase du
+  demandeur dans la fonction.
+- **Les images sont stockées en base64 sous `lan/cardArt/{gameKey}`**, écriture
+  réservée aux `admin` / `gamemaster`. Ce nœud est volontairement **à côté** de
+  `lan/tcg` et non dedans : `lan/tcg` est suivi en permanence par tous les
+  clients, et y mettre des images ferait transiter plusieurs mégaoctets à chaque
+  connexion. Les clients lisent `lan/cardArt/{gameKey}` à la demande, carte par
+  carte, et retiennent.
+- **Une illustration est attachée au jeu, pas au set.** Recréer un set ne
+  regénère donc que ce qui manque : une Signature déjà dessinée lors d'une
+  soirée précédente est réutilisée telle quelle.
+
+Sans clé configurée, la fonction répond 503 et les Signature gardent simplement
+leur jaquette Steam. Rien d'autre ne change.
 
 > ⚠️ **Mise à jour requise** : les règles `lan/tcg` ci-dessus sont nouvelles.
 > Tant qu'elles ne sont pas **republiées** avec la procédure ci-dessous, l'écran

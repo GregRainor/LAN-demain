@@ -1210,17 +1210,22 @@
     <div id="pack-reveal-overlay" class="reveal-overlay" style="display:none;">
         <p class="reveal-seal" id="reveal-seal"></p>
 
-        <!-- Le paquet se déchire à la souris : on tire vers le bas, la fente
-             suit, et passé la moitié il cède. Un simple clic ouvre aussi. -->
+        <!-- On tranche la bande du haut d'un glissement latéral : l'entaille
+             suit le curseur, la lumière sort par la fente, puis la bande
+             s'envole et les cartes montent hors du paquet. Un clic ouvre
+             aussi. -->
         <div class="reveal-pack" id="reveal-pack">
             <div class="reveal-wrap" id="reveal-wrap">
-                <span class="reveal-light"></span>
-                <span class="reveal-half reveal-half--top"><span class="reveal-mark">✦</span></span>
-                <span class="reveal-half reveal-half--bottom">
+                <span class="reveal-cards"></span>
+                <span class="reveal-body">
+                    <span class="reveal-mark">✦</span>
                     <span class="reveal-packname" id="reveal-packname">Booster</span>
                 </span>
+                <span class="reveal-strip"></span>
+                <span class="reveal-seam"></span>
+                <span class="reveal-spill"></span>
             </div>
-            <span class="reveal-hint" id="reveal-hint">Tire vers le bas pour déchirer</span>
+            <span class="reveal-hint" id="reveal-hint">Glisse en travers pour ouvrir</span>
         </div>
 
         <div class="reveal-stage" id="reveal-stage">

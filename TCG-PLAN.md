@@ -6,6 +6,30 @@ démarrer cette fonctionnalité sans autre contexte.
 
 ---
 
+## 0 quater. La Signature, et les noms de Riftbound (troisième passe)
+
+- **Les raretés portent les noms de Riftbound** : Common, Uncommon, Rare, Epic,
+  Showcase — c'est le vocabulaire du groupe. Et au-dessus, une rareté de plus,
+  **Signature** (le nom que Riftbound donne à son sommet).
+- **La Signature, c'est la carte illustrée.** Huit cartes par set — le sommet du
+  classement, donc les jeux que tout le groupe possède et réclame — reçoivent
+  une illustration dessinée pour elles par Nano Banana Pro à la création du set.
+  Huit parce que ça reste sous l'euro par set et qu'au-delà ce n'est plus une
+  chasse mais un catalogue. Elle sort une ouverture sur quarante-trois.
+  Une illustration est attachée au JEU : recréer un set ne regénère que ce qui
+  manque. Sans `GEMINI_API_KEY`, les Signature gardent leur jaquette Steam et
+  tout le reste tourne.
+- **Un jeu sans illustration n'entre plus dans le set.** La jaquette se déduit
+  de l'appId Steam, gratuitement — un jeu qui n'en a pas ferait une silhouette
+  grise. Effet de bord heureux : la grille ne déclenche plus AUCUN appel réseau
+  (c'était trois cents avant, puis du chargement paresseux).
+- **Le paquet s'ouvre autrement.** On tranche la bande du haut d'un glissement
+  latéral, l'entaille suit le doigt, la lumière sort par la fente, puis la
+  bande s'envole et **les cartes montent hors du paquet**. C'est ce dernier
+  temps qui manquait : avant, le paquet disparaissait au lieu de s'ouvrir.
+
+---
+
 ## 0 ter. La rareté vient du groupe (deuxième passe)
 
 Idée de Grégory, et c'est elle qui donne son sens au set : **la rareté d'une

@@ -633,11 +633,16 @@ const TCG = {
         'uncommon', 'uncommon', 'uncommon',
         'flex', 'rare', 'foil'
     ],
+    /* La Signature est au-dessus de la Showcase, donc plus rare qu'elle : une
+       ouverture sur cinquante. Avec huit cartes seulement dans cette rareté,
+       c'est une vraie chasse — et c'est le seul endroit du booster où elle
+       peut sortir, avec l'emplacement brillant. */
+    FLEX_SIGNATURE: 0.02,
     FLEX_SHOWCASE: 0.08,
     FLEX_EPIC: 0.25,
     /* L'emplacement brillant penche vers le bas du set : sa surprise est
-       qu'une commune sorte holographique, pas qu'elle sorte prestige. */
-    FOIL_SLOT_WEIGHTS: { common: 60, uncommon: 25, rare: 10, epic: 4, showcase: 1 },
+       qu'une commune sorte holographique, pas qu'elle sorte signature. */
+    FOIL_SLOT_WEIGHTS: { common: 60, uncommon: 25, rare: 10, epic: 4, showcase: 1, signature: 0.3 },
 
     /* Filet de consolation : une prestige garantie au bout de N paquets
        ouverts sans. Riftbound n'en a pas ; entre amis, une longue série sèche
@@ -653,25 +658,37 @@ const TCG = {
     OWNERSHIP_WEIGHT: 10,
     VOTE_WEIGHT: 2,
 
-    /* Du plus rare au plus commun. `share` est la part du set.
+    /* Combien de cartes reçoivent une illustration dessinée pour elles. C'est
+       le sommet du set : les jeux que tout le groupe possède et réclame. Huit,
+       parce que c'est le nombre qu'on peut faire générer à chaque nouveau set
+       sans que ça pèse (moins d'un euro), et que huit cartes de chasse restent
+       une chasse — au-delà, ça devient un catalogue.
+       Les illustrations sont mises en cache par jeu : une signature déjà
+       dessinée lors d'une soirée précédente ne se regénère pas. */
+    SIGNATURE_COUNT: 8,
 
-       C'est le seul endroit où l'on s'écarte d'Origins, et pour une bonne
-       raison. Chez Riftbound les parts sont presque plates (15 % de prestige)
-       parce qu'un set y est DESSINÉ, et que ses prestiges sont des versions
-       alternatives de cartes existantes. Notre set, lui, est un relevé : sur
-       cinq cents jeux de bibliothèques, une quinzaine à peine sont réellement
-       partagés par le groupe. Garder 15 % de prestige remplirait la rareté la
-       plus haute de jeux que personne n'a en commun — et la rareté ne dirait
-       plus rien.
+    /* Les noms sont ceux de Riftbound, parce que c'est le vocabulaire du
+       groupe. `share` est la part du set — sauf pour la signature, dont le
+       nombre est fixe (SIGNATURE_COUNT) : on n'illustre pas un pourcentage,
+       on illustre un nombre de cartes.
+
+       Les parts sont le seul endroit où l'on s'écarte d'Origins, et pour une
+       bonne raison. Chez Riftbound elles sont presque plates (15 % de
+       showcase) parce qu'un set y est DESSINÉ, et que ses showcases sont des
+       versions alternatives de cartes existantes. Notre set, lui, est un
+       relevé : sur cinq cents jeux de bibliothèques, une quinzaine à peine
+       sont réellement partagés par le groupe. Garder 15 % remplirait la rareté
+       la plus haute de jeux que personne n'a en commun.
 
        D'où une pyramide franche. La composition du booster, elle, reste
        exactement celle de Riftbound : c'est elle qui donne la sensation. */
     RARITIES: [
-        { key: 'showcase', label: 'Prestige',    short: 'PRS', share: 0.02 },
-        { key: 'epic',     label: 'Épique',      short: 'EPQ', share: 0.04 },
-        { key: 'rare',     label: 'Rare',        short: 'RAR', share: 0.10 },
-        { key: 'uncommon', label: 'Peu commune', short: 'PCO', share: 0.24 },
-        { key: 'common',   label: 'Commune',     short: 'COM', share: 0.60 }
+        { key: 'signature', label: 'Signature', short: 'SIG', share: 0 },
+        { key: 'showcase',  label: 'Showcase',  short: 'SHO', share: 0.02 },
+        { key: 'epic',      label: 'Epic',      short: 'EPC', share: 0.04 },
+        { key: 'rare',      label: 'Rare',      short: 'RAR', share: 0.10 },
+        { key: 'uncommon',  label: 'Uncommon',  short: 'UNC', share: 0.24 },
+        { key: 'common',    label: 'Common',    short: 'COM', share: 0.60 }
     ],
 
     /* Chez Riftbound, toute rare et au-dessus est brillante d'office. Le
@@ -729,10 +746,32 @@ function rarityReason(setCard, set) {
     return parts.join(' · ') + '.';
 }
 
-/* Chemin de l'illustration dessinée, ou null pour retomber sur Steam. */
+/* Chemin de l'illustration dessinée à la main, ou null. */
 function cardArt(gameKey) {
     const file = TCG.ART[gameKey];
     return file ? 'cards/' + file : null;
+}
+
+/* Où une carte trouve son illustration, dans l'ordre :
+     1. un fichier dessiné à la main et commité dans cards/ ;
+     2. l'illustration générée pour une Signature (lan/cardArt) ;
+     3. la jaquette Steam, déduite de l'appId — sans appel réseau.
+   Il n'y a pas de quatrième cas : un jeu dont on ne sait pas montrer
+   l'illustration n'entre pas dans le set. */
+function cardImage(card, generated) {
+    const drawn = cardArt(card && card.gameKey);
+    if (drawn) return drawn;
+    const made = generated && card && generated[card.gameKey];
+    if (made) return made;
+    return steamHeaderUrl(card && card.appId);
+}
+
+/* Les cartes du set qui méritent une illustration dessinée : les Signature.
+   C'est cette liste qu'on envoie au générateur à la création d'un set. */
+function signatureCards(setCards) {
+    return Object.entries(setCards || {})
+        .filter(([, card]) => card && card.rarity === 'signature')
+        .map(([gameKey, card]) => ({ gameKey, name: card.name || gameKey }));
 }
 
 /* --------------------------------------------------------------------------
@@ -762,8 +801,12 @@ function knownGames(sources) {
             const key = cardKey(game.name);
             if (!key) return;
             const known = games.get(key)
-                || { key, name: String(game.name).trim().replace(/\s+/g, ' '), owners: new Set() };
+                || { key, name: String(game.name).trim().replace(/\s+/g, ' '), owners: new Set(), appId: null };
             known.owners.add(libraryId);
+            /* L'appId est ce qui garantit une illustration : la jaquette Steam
+               s'en déduit sans le moindre appel réseau. On garde le premier
+               rencontré — le catalogue Game Pass, lui, n'en fournit pas. */
+            if (!known.appId && game.appId) known.appId = game.appId;
             games.set(key, known);
         });
     });
@@ -771,8 +814,15 @@ function knownGames(sources) {
     return {
         libraries: Object.keys(libraries).length,
         games: Array.from(games.values())
-            .map(game => ({ name: game.name, owners: game.owners.size }))
+            .map(game => ({ name: game.name, owners: game.owners.size, appId: game.appId }))
     };
+}
+
+/* La jaquette Steam est déterministe : un appId suffit, aucun appel d'API et
+   aucun cache à tenir. C'est la raison pour laquelle un jeu sans appId n'entre
+   pas dans le set — une carte sans illustration n'est pas une carte. */
+function steamHeaderUrl(appId) {
+    return appId ? 'https://cdn.cloudflare.steamstatic.com/steam/apps/' + appId + '/header.jpg' : null;
 }
 
 /* Le poids qui classe une carte, et donc sa rareté. Deux forces, à parts
@@ -801,6 +851,10 @@ function cardWeight(score, owners, libraries) {
 function buildCardSet(scores, pool) {
     const source = Array.isArray(pool) ? { games: pool, libraries: 0 } : (pool || {});
     const libraries = Number(source.libraries) || 0;
+    /* Les appId retrouvés à part, pour les jeux votés à la main qui ne sont
+       dans aucune bibliothèque : sans eux, le jeu que tout le monde réclame
+       serait justement celui qui manquerait au set. */
+    const extraArt = source.appIds || {};
     const byKey = new Map();
 
     (source.games || []).forEach(game => {
@@ -811,7 +865,8 @@ function buildCardSet(scores, pool) {
             key,
             name: String(game.name).trim().replace(/\s+/g, ' '),
             score: 0,
-            owners: Math.max(Number(game.owners) || 0, (byKey.get(key) || {}).owners || 0)
+            owners: Math.max(Number(game.owners) || 0, (byKey.get(key) || {}).owners || 0),
+            appId: game.appId || null
         });
     });
 
@@ -826,8 +881,17 @@ function buildCardSet(scores, pool) {
             known.name = String(game.name).trim().replace(/\s+/g, ' ');
             known.score = Math.max(known.score, score);
         } else {
-            byKey.set(key, { key, name: String(game.name).trim().replace(/\s+/g, ' '), score, owners: 0 });
+            byKey.set(key, { key, name: String(game.name).trim().replace(/\s+/g, ' '), score, owners: 0, appId: null });
         }
+    });
+
+    /* Pas d'illustration, pas de carte. Un jeu dont on ne sait pas montrer la
+       jaquette ferait une silhouette grise dans la grille, et une carte grise
+       n'a aucune raison d'exister. C'est le cas des entrées Game Pass (sans
+       appId) et des jeux mal orthographiés que Steam ne reconnaît pas. */
+    byKey.forEach((game, key) => {
+        if (!game.appId && extraArt[key]) game.appId = extraArt[key];
+        if (!game.appId) byKey.delete(key);
     });
 
     const ranked = Array.from(byKey.values())
@@ -857,15 +921,26 @@ function buildCardSet(scores, pool) {
 
     const bands = new Array(total);
     let index = 0;
+
+    /* La signature se compte en cartes, pas en pourcentage : c'est le nombre
+       d'illustrations qu'on accepte de faire dessiner. Elle prend le sommet du
+       classement, et jamais plus que ce que le set mérite. */
+    const signatures = Math.min(TCG.SIGNATURE_COUNT, deserving, total);
+    while (index < signatures) bands[index++] = 0;
+
+    const rest = total - signatures;
     let cumulative = 0;
     TCG.RARITIES.forEach((rarity, i) => {
+        if (i === 0) return;   // la signature est déjà servie
         cumulative += rarity.share;
         const isLast = i === TCG.RARITIES.length - 1;
         /* On réserve une place à chacune des raretés qui suivent : sur un set
            de six jeux, un arrondi naïf laisserait des raretés vides et les
            boosters n'auraient plus rien à tirer. */
         const room = total - (TCG.RARITIES.length - 1 - i);
-        let upTo = isLast ? total : Math.max(index + 1, Math.min(room, Math.round(total * cumulative)));
+        let upTo = isLast
+            ? total
+            : Math.max(index + 1, Math.min(room, signatures + Math.round(rest * cumulative)));
         if (i <= reservedUpTo) upTo = Math.min(upTo, Math.max(index + 1, deserving));
         while (index < upTo) bands[index++] = i;
     });
@@ -878,7 +953,9 @@ function buildCardSet(scores, pool) {
             score: game.score,
             // Combien de bibliothèques du groupe l'avaient le jour du set.
             // C'est ce qui explique la rareté quand on retourne la carte.
-            owners: game.owners
+            owners: game.owners,
+            // L'illustration se déduit de l'appId : rien à résoudre ensuite.
+            appId: game.appId
         };
     });
     return cards;
@@ -971,9 +1048,11 @@ function drawPack(setCards, seed, options) {
         const roll = rand();
         let rarity;
         if (slot === 'flex') {
+            const showcaseUpTo = TCG.FLEX_SIGNATURE + TCG.FLEX_SHOWCASE;
             if (opts.pity) rarity = nearest('showcase');
-            else if (roll < TCG.FLEX_SHOWCASE) rarity = nearest('showcase');
-            else if (roll < TCG.FLEX_SHOWCASE + TCG.FLEX_EPIC) rarity = nearest('epic');
+            else if (roll < TCG.FLEX_SIGNATURE) rarity = nearest('signature');
+            else if (roll < showcaseUpTo) rarity = nearest('showcase');
+            else if (roll < showcaseUpTo + TCG.FLEX_EPIC) rarity = nearest('epic');
             else rarity = nearest('rare');
         } else if (slot === 'foil') {
             rarity = weightedPick(TCG.FOIL_SLOT_WEIGHTS);
@@ -1029,7 +1108,7 @@ function pityCount(tcg, uid) {
     let streak = 0;
     openedPacks(tcg).filter(pack => pack.uid === uid).forEach(pack => {
         const drawn = drawPack(tcgSetCards(tcg, pack.setId), packSeed(pack.id, pack), { pity: streak >= TCG.PITY });
-        streak = drawn.some(card => card.rarity === 'showcase') ? 0 : streak + 1;
+        streak = drawn.some(card => rarityIndex(card.rarity) <= rarityIndex('showcase')) ? 0 : streak + 1;
     });
     return streak;
 }
@@ -1052,7 +1131,7 @@ function mintedCards(tcg) {
         const set = tcgSetCards(tcg, pack.setId);
         const streak = streaks[pack.uid] || 0;
         const drawn = drawPack(set, packSeed(pack.id, pack), { pity: streak >= TCG.PITY });
-        streaks[pack.uid] = drawn.some(card => card.rarity === 'showcase') ? 0 : streak + 1;
+        streaks[pack.uid] = drawn.some(card => rarityIndex(card.rarity) <= rarityIndex('showcase')) ? 0 : streak + 1;
 
         drawn.forEach(card => {
             cards.push({
@@ -1062,6 +1141,7 @@ function mintedCards(tcg) {
                 slot: card.slot,
                 gameKey: card.gameKey,
                 name: (set[card.gameKey] && set[card.gameKey].name) || card.gameKey,
+                appId: (set[card.gameKey] && set[card.gameKey].appId) || null,
                 rarity: card.rarity,
                 foil: card.foil,
                 /* La provenance : qui l'a sortie du paquet, et quand. Elle ne
@@ -1134,6 +1214,7 @@ function collectionBySet(setCards, cards, uid) {
                 name: card.name || gameKey,
                 rarity: card.rarity || 'common',
                 score: Number(card.score) || 0,
+                appId: card.appId || null,
                 copies,
                 owned: copies.length > 0,
                 foil: copies.some(copy => copy.foil)

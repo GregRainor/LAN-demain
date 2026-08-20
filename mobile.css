@@ -736,6 +736,7 @@ textarea.m-input { resize: vertical; min-height: 84px; }
 :root {
     /* Cinq raretés, comme Riftbound : prestige, épique, rare, peu commune,
        commune. La couleur seule doit suffire à les distinguer de loin. */
+    --r-signature: #ff8a3d;
     --r-showcase: #d4af37;
     --r-epic: #c264d8;
     --r-rare: #8c6fc9;
@@ -813,6 +814,10 @@ textarea.m-input { resize: vertical; min-height: 84px; }
     --rx: 0deg;
     --ry: 0deg;
 }
+/* La Signature est la seule carte dont l'illustration a été dessinée pour
+   elle : son cadre le dit, en orange chaud plutôt qu'en or. */
+.m-tcard--signature { --rc: var(--r-signature); --rc-soft: rgba(255, 138, 61, .6); }
+.m-tcard--signature { box-shadow: 0 0 18px rgba(255, 138, 61, .35); }
 .m-tcard--showcase { --rc: var(--r-showcase); --rc-soft: rgba(212, 175, 55, .5); }
 .m-tcard--epic     { --rc: var(--r-epic);     --rc-soft: rgba(194, 100, 216, .5); }
 .m-tcard--rare     { --rc: var(--r-rare);     --rc-soft: rgba(140, 111, 201, .5); }
@@ -975,62 +980,120 @@ textarea.m-input { resize: vertical; min-height: 84px; }
 .m-reveal.is-spread .m-reveal__spread { display: grid; }
 
 /* 1. LE PAQUET SCELLÉ
-   Il respire sous un reflet qui glisse. On le déchire au doigt : --tear va de
-   0 à 1 au fil du glissement, la moitié haute se soulève, la lumière sort de
-   la fente. Passé la moitié, il cède tout seul. */
+   Le geste est celui du vrai paquet : on tranche la bande du haut d'un
+   glissement latéral. --cut va de 0 à 1 le long du doigt, l'entaille avance,
+   la lumière sort par la fente. Passé les trois quarts, la bande s'envole et
+   les cartes montent hors de l'emballage — c'est ce dernier temps qui manquait,
+   et c'est lui qui fait qu'on a ouvert quelque chose. */
 .m-reveal__pack {
     flex: 1 1 auto;
     flex-direction: column; align-items: center; justify-content: center;
     gap: 18px;
     width: 100%;
-    touch-action: none;   /* le glissement déchire, il ne fait pas défiler */
+    touch-action: none;   /* le glissement tranche, il ne fait pas défiler */
 }
 .m-reveal__wrap {
-    --tear: 0;
+    --cut: 0;
     position: relative;
     width: min(62vw, 220px);
     aspect-ratio: 5 / 7;
-    animation: m-pack-breathe 2.8s ease-in-out infinite;
+    animation: m-pack-float 3.4s ease-in-out infinite;
 }
-.m-reveal__pack.is-tearing .m-reveal__wrap { animation: none; }
+.m-reveal__pack.is-tearing .m-reveal__wrap,
+.m-reveal__pack.is-torn .m-reveal__wrap { animation: none; }
 
-/* Les deux moitiés de l'emballage, séparées par une déchirure en dents. */
-.m-reveal__half {
-    position: absolute; left: 0; right: 0;
-    display: flex; align-items: center; justify-content: center;
+/* Le paquet flotte au lieu de respirer : une légère dérive verticale et une
+   bascule, comme un objet qu'on tient. */
+@keyframes m-pack-float {
+    0%, 100% { transform: translateY(0) rotate(-1.2deg); }
+    50%      { transform: translateY(-10px) rotate(1.2deg); }
+}
+
+/* Le corps de l'emballage. */
+.m-reveal__body {
+    position: absolute; inset: 13% 0 0 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 10px;
     border: 1px solid var(--gold-a30);
+    border-radius: 0 0 6px 6px;
     background:
-        linear-gradient(160deg, rgba(212,175,55,.16), transparent 55%),
-        linear-gradient(#161310, #0b0a08);
+        linear-gradient(160deg, rgba(212,175,55,.18), transparent 55%),
+        repeating-linear-gradient(115deg, rgba(255,255,255,.03) 0 2px, transparent 2px 7px),
+        linear-gradient(#171410, #0b0a08);
     box-shadow: 0 18px 50px rgba(0,0,0,.7), inset 0 0 30px rgba(212,175,55,.08);
     overflow: hidden;
 }
-.m-reveal__half--top {
-    top: 0; height: 38%;
-    border-radius: 6px 6px 0 0;
-    /* Bord inférieur en dents de scie : une vraie déchirure, pas une coupe. */
-    clip-path: polygon(0 0, 100% 0, 100% 86%, 92% 96%, 84% 88%, 76% 97%, 68% 89%,
-        60% 98%, 52% 88%, 44% 97%, 36% 88%, 28% 96%, 20% 87%, 12% 97%, 4% 88%, 0 96%);
-    transform: translateY(calc(var(--tear) * -46px)) rotate(calc(var(--tear) * -7deg));
-    transform-origin: 0 100%;
+/* Le reflet qui balaie l'emballage tant qu'il est fermé. */
+.m-reveal__body::after {
+    content: '';
+    position: absolute; inset: -40% -120%;
+    background: linear-gradient(75deg, transparent 42%, rgba(255,255,255,.2) 50%, transparent 58%);
+    animation: m-pack-glint 3.4s ease-in-out infinite;
 }
-.m-reveal__half--bottom {
-    bottom: 0; height: 64%;
-    border-radius: 0 0 6px 6px;
-    clip-path: polygon(0 4%, 8% 12%, 16% 3%, 24% 11%, 32% 2%, 40% 10%, 48% 2%,
-        56% 11%, 64% 3%, 72% 12%, 80% 4%, 88% 13%, 96% 4%, 100% 11%, 100% 100%, 0 100%);
-    transform: translateY(calc(var(--tear) * 18px)) rotate(calc(var(--tear) * 2deg));
+.m-reveal__pack.is-torn .m-reveal__body::after { animation: none; opacity: 0; }
+@keyframes m-pack-glint {
+    0%, 65% { transform: translateX(-60%); }
+    100%    { transform: translateX(60%); }
 }
 
-/* La lumière qui sort de la fente : c'est elle qui donne envie de continuer. */
-.m-reveal__light {
-    position: absolute; left: -20%; right: -20%; top: 30%;
-    height: 22%;
+/* La bande du haut : celle qu'on tranche. Elle porte les crans de l'emballage. */
+.m-reveal__strip {
+    position: absolute; top: 0; left: 0; right: 0;
+    height: 14%;
+    border: 1px solid var(--gold-a30);
+    border-radius: 6px 6px 0 0;
+    background:
+        repeating-linear-gradient(90deg, rgba(212,175,55,.22) 0 3px, transparent 3px 9px),
+        linear-gradient(#1d1913, #12100c);
+    box-shadow: inset 0 -6px 12px rgba(0,0,0,.6);
+}
+
+/* L'entaille : un trait lumineux qui avance avec le doigt, pointe en tête. */
+.m-reveal__seam {
+    position: absolute; top: 13.4%; left: 0;
+    height: 3px;
+    width: calc(var(--cut) * 100%);
+    background: linear-gradient(90deg, rgba(255,240,200,.25), #fff6d8);
+    box-shadow: 0 0 14px 3px rgba(255,220,130,.85);
+    opacity: min(1, calc(var(--cut) * 20));
+    border-radius: 2px;
+}
+.m-reveal__seam::after {
+    content: '';
+    position: absolute; right: -3px; top: -3px;
+    width: 9px; height: 9px;
     border-radius: 50%;
-    background: radial-gradient(ellipse at center, #fff8e0 0%, rgba(255,215,120,.75) 35%, transparent 72%);
-    opacity: calc(var(--tear) * 1.1);
-    transform: scaleY(calc(.4 + var(--tear) * 1.6));
-    filter: blur(calc(2px + var(--tear) * 6px));
+    background: #fff;
+    box-shadow: 0 0 16px 5px rgba(255,225,150,.95);
+    opacity: min(1, calc(var(--cut) * 20));
+}
+
+/* La lumière qui déborde de la fente, d'autant plus forte que l'entaille est
+   avancée. */
+.m-reveal__spill {
+    position: absolute; left: -15%; right: -15%; top: 6%;
+    height: 20%;
+    border-radius: 50%;
+    pointer-events: none;
+    background: radial-gradient(ellipse at center, #fff8e0 0%, rgba(255,215,120,.7) 38%, transparent 72%);
+    opacity: calc(var(--cut) * .9);
+    transform: scaleY(calc(.3 + var(--cut) * 1.2));
+    filter: blur(calc(3px + var(--cut) * 7px));
+}
+
+/* Les cartes, entrevues à l'intérieur : trois tranches qui dépassent à peine
+   tant que le paquet est fermé, et qui montent quand il s'ouvre. */
+.m-reveal__cards {
+    position: absolute; left: 16%; right: 16%; top: 15%;
+    height: 62%;
+    border-radius: 4px 4px 0 0;
+    background:
+        linear-gradient(#f2ead6, #cdc3ab 60%, #a89e88);
+    box-shadow:
+        0 -2px 0 -1px #8c8474,
+        0 0 0 1px rgba(0,0,0,.4),
+        0 -8px 22px rgba(255,225,160,.35);
+    transform: translateY(6%);
 }
 
 .m-reveal__mark { font-size: 2.2rem; color: var(--gold); line-height: 1; }
@@ -1040,33 +1103,37 @@ textarea.m-input { resize: vertical; min-height: 84px; }
 }
 .m-reveal__hint { font-size: .74rem; color: var(--text-3); }
 
-@keyframes m-pack-breathe {
-    0%, 100% { transform: scale(1) rotate(-.6deg); }
-    50%      { transform: scale(1.035) rotate(.6deg); }
-}
-
-/* La rupture : les deux moitiés partent, l'écran s'éclaire. */
-.m-reveal__pack.is-torn .m-reveal__half--top {
-    animation: m-tear-top .34s cubic-bezier(.4,0,.9,.4) forwards;
-}
-.m-reveal__pack.is-torn .m-reveal__half--bottom {
-    animation: m-tear-bottom .34s cubic-bezier(.4,0,.9,.4) forwards;
-}
-.m-reveal__pack.is-torn .m-reveal__light {
-    animation: m-tear-light .34s ease-out forwards;
-}
+/* L'ouverture. Trois temps en 620 ms : la bande s'envole, la lumière explose,
+   les cartes montent et sortent par le haut. */
+.m-reveal__pack.is-torn .m-reveal__strip { animation: m-strip-fly .42s cubic-bezier(.35,0,.85,.4) forwards; }
+.m-reveal__pack.is-torn .m-reveal__seam { animation: m-seam-flash .3s ease-out forwards; }
+.m-reveal__pack.is-torn .m-reveal__spill { animation: m-spill .6s ease-out forwards; }
+.m-reveal__pack.is-torn .m-reveal__cards { animation: m-cards-rise .62s cubic-bezier(.2,.8,.3,1) forwards; }
+.m-reveal__pack.is-torn .m-reveal__body { animation: m-body-settle .62s ease-out forwards; }
 .m-reveal__pack.is-torn .m-reveal__hint { opacity: 0; }
 
-@keyframes m-tear-top {
-    to { transform: translateY(-150%) rotate(-24deg); opacity: 0; }
+@keyframes m-strip-fly {
+    0%   { transform: translate(0, 0) rotate(0); opacity: 1; }
+    100% { transform: translate(46%, -190%) rotate(38deg); opacity: 0; }
 }
-@keyframes m-tear-bottom {
-    to { transform: translateY(120%) rotate(12deg); opacity: 0; }
+@keyframes m-seam-flash {
+    0%   { width: 100%; opacity: 1; }
+    100% { width: 100%; opacity: 0; box-shadow: 0 0 60px 22px rgba(255,235,180,.9); }
 }
-@keyframes m-tear-light {
-    0%   { opacity: 1; transform: scaleY(1); }
-    60%  { opacity: 1; transform: scaleY(6) scaleX(1.4); }
-    100% { opacity: 0; transform: scaleY(9) scaleX(1.8); }
+@keyframes m-spill {
+    0%   { opacity: .9; transform: scaleY(1.4); }
+    35%  { opacity: 1; transform: scaleY(5) scaleX(1.5); }
+    100% { opacity: 0; transform: scaleY(8) scaleX(2); }
+}
+@keyframes m-cards-rise {
+    0%   { transform: translateY(6%); }
+    55%  { transform: translateY(-58%) scale(1.04); }
+    100% { transform: translateY(-135%) scale(.95); opacity: 0; }
+}
+@keyframes m-body-settle {
+    0%   { transform: translateY(0) scale(1); opacity: 1; }
+    45%  { transform: translateY(4%) scale(.99); opacity: 1; }
+    100% { transform: translateY(22%) scale(.9); opacity: 0; }
 }
 
 /* 2. LES CARTES, UNE À UNE */
@@ -1258,9 +1325,12 @@ textarea.m-input { resize: vertical; min-height: 84px; }
 
 @media (prefers-reduced-motion: reduce) {
     .m-reveal__wrap,
-    .m-reveal__pack.is-torn .m-reveal__half--top,
-    .m-reveal__pack.is-torn .m-reveal__half--bottom,
-    .m-reveal__pack.is-torn .m-reveal__light,
+    .m-reveal__body::after,
+    .m-reveal__pack.is-torn .m-reveal__strip,
+    .m-reveal__pack.is-torn .m-reveal__seam,
+    .m-reveal__pack.is-torn .m-reveal__spill,
+    .m-reveal__pack.is-torn .m-reveal__cards,
+    .m-reveal__pack.is-torn .m-reveal__body,
     .m-reveal__burst.is-firing,
     .m-reveal__rays.is-firing,
     .m-reveal__spark,
@@ -1319,3 +1389,14 @@ textarea.m-input { resize: vertical; min-height: 84px; }
 /* La grille elle-même respire un peu plus entre deux groupes. */
 #m-set-grid { display: block; }
 #m-set-grid .m-cardgrid { margin: 10px 0 4px; }
+
+/* La Signature dans la révélation : l'illustration a été dessinée pour cette
+   carte, l'ouverture doit s'en apercevoir. C'est le seul moment plus fort que
+   la Showcase. */
+.m-reveal__burst.is-signature { --burst: rgba(255, 150, 70, 1); }
+.m-reveal__rays.is-signature { --ray: rgba(255, 170, 90, .6); }
+.m-reveal__burst.is-firing.is-signature { animation-duration: 1.35s; }
+.m-reveal__rays.is-firing.is-signature { animation-duration: 1.8s; }
+.m-reveal.is-flash-signature { --flash: #ffd9b0; }
+.m-reveal__flip.is-in.is-signature { animation: m-flip-in-big .85s cubic-bezier(.14,1.45,.3,1); }
+.m-reveal__dot.is-signature { background: var(--r-signature); box-shadow: 0 0 8px var(--r-signature); }

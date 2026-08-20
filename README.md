@@ -34,6 +34,9 @@ Ce projet est parti d'une simple idée de tableur Excel pour évoluer vers une a
   raconte donc quelque chose de vrai, et la fiche d'une carte l'explique : « Tout le monde l'a
   (6 bibliothèques sur 6) ». Les deux raretés de chasse sont réservées aux jeux réellement
   partagés ou réclamés : rien n'y entre au hasard.
+  Les huit cartes du sommet sont des **Signature** : elles reçoivent une illustration dessinée pour
+  elles par Nano Banana Pro à la création du set, et sortent une ouverture sur quarante-trois. Un
+  jeu dont on ne sait pas montrer l'illustration n'entre pas dans le set du tout.
   La composition du booster est calquée sur **Riftbound** (le JCC League of Legends) : 14 cartes —
   huit communes, trois peu communes, un emplacement rare, un flex qui donne une épique une fois sur
   quatre, un emplacement brillant — et trois brillantes garanties à chaque ouverture. On déchire le
@@ -114,6 +117,8 @@ Voici les étapes pour déployer votre propre instance de "LAN Demain".
     * `GOOGLE_CLOUD_API_KEY` : La clé d'API créée à l'étape 3.
     * `GOOGLE_CLOUD_PROJECT_ID` : L'identifiant de votre projet Google Cloud (ex: `lan-party-planner-qqggx`).
     * `STEAM_API_KEY` : Votre clé d'API Steam personnelle.
+    * `GEMINI_API_KEY` : (optionnel) clé Google AI Studio, pour faire dessiner les illustrations
+      des cartes Signature par Nano Banana Pro. Sans elle, ces cartes gardent leur jaquette Steam.
 5.  Lancez le déploiement. Une fois terminé, votre application sera en ligne !
 
 ## 📖 Comment Utiliser l'Application

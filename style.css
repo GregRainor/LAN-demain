@@ -4484,6 +4484,7 @@ select.luxury-input option:disabled {
 :root {
     /* Cinq raretés, comme Riftbound : prestige, épique, rare, peu commune,
        commune. La couleur seule doit suffire à les distinguer de loin. */
+    --rarity-signature: #ff8a3d;
     --rarity-showcase: #d4af37;
     --rarity-epic: #c264d8;
     --rarity-rare: #8c6fc9;
@@ -4627,6 +4628,14 @@ select.luxury-input option:disabled {
 .tcard[role="button"]:not(.is-live):hover {
     transform: translateY(-3px);
     box-shadow: var(--shadow-md);
+}
+
+/* La Signature est la seule carte dont l'illustration a été dessinée pour
+   elle : son cadre le dit, en orange chaud plutôt qu'en or. */
+.tcard--signature {
+    --rc: var(--rarity-signature);
+    --rc-soft: rgba(255, 138, 61, 0.6);
+    box-shadow: 0 0 22px rgba(255, 138, 61, 0.32);
 }
 
 .tcard--showcase {
@@ -4822,9 +4831,12 @@ select.luxury-input option:disabled {
 .reveal-overlay.is-spread .reveal-spread { display: grid; }
 
 /* 1. LE PAQUET SCELLÉ
-   Il respire sous un reflet qui glisse. On le déchire à la souris : --tear va
-   de 0 à 1 au fil du tiré, la moitié haute se soulève, la lumière sort de la
-   fente. Passé la moitié, il cède tout seul. */
+   Le geste est celui du vrai paquet : on tranche la bande du haut d'un
+   glissement latéral. --cut va de 0 à 1 le long du curseur, l'entaille avance,
+   la lumière sort par la fente. Passé les trois quarts, la bande s'envole et
+   les cartes montent hors de l'emballage — c'est ce dernier temps qui fait
+   qu'on a ouvert quelque chose, et non pas seulement fait disparaître un
+   rectangle. */
 .reveal-pack {
     flex: 1 1 auto;
     flex-direction: column;
@@ -4839,63 +4851,130 @@ select.luxury-input option:disabled {
 .reveal-pack.is-tearing { cursor: grabbing; }
 
 .reveal-wrap {
-    --tear: 0;
+    --cut: 0;
     position: relative;
     width: 240px;
     aspect-ratio: 5 / 7;
-    animation: reveal-breathe 2.8s ease-in-out infinite;
+    animation: reveal-float 3.4s ease-in-out infinite;
 }
 
-.reveal-pack.is-tearing .reveal-wrap { animation: none; }
+.reveal-pack.is-tearing .reveal-wrap,
+.reveal-pack.is-torn .reveal-wrap { animation: none; }
 
-/* Les deux moitiés de l'emballage, séparées par une déchirure en dents. */
-.reveal-half {
+/* Le paquet flotte au lieu de respirer : une légère dérive verticale et une
+   bascule, comme un objet qu'on tient. */
+@keyframes reveal-float {
+    0%, 100% { transform: translateY(0) rotate(-1.2deg); }
+    50% { transform: translateY(-12px) rotate(1.2deg); }
+}
+
+/* Le corps de l'emballage. */
+.reveal-body {
     position: absolute;
-    left: 0;
-    right: 0;
+    inset: 13% 0 0 0;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: var(--space-3);
     border: 1px solid var(--accent-a40);
+    border-radius: 0 0 8px 8px;
     background:
-        linear-gradient(160deg, rgba(212, 175, 55, 0.16), transparent 55%),
-        linear-gradient(#161310, #0b0a08);
+        linear-gradient(160deg, rgba(212, 175, 55, 0.18), transparent 55%),
+        repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.03) 0 2px, transparent 2px 7px),
+        linear-gradient(#171410, #0b0a08);
     box-shadow: var(--shadow-lg), inset 0 0 34px rgba(212, 175, 55, 0.08);
     overflow: hidden;
 }
 
-.reveal-half--top {
-    top: 0;
-    height: 38%;
-    border-radius: 8px 8px 0 0;
-    /* Bord inférieur en dents de scie : une vraie déchirure, pas une coupe. */
-    clip-path: polygon(0 0, 100% 0, 100% 86%, 92% 96%, 84% 88%, 76% 97%, 68% 89%,
-        60% 98%, 52% 88%, 44% 97%, 36% 88%, 28% 96%, 20% 87%, 12% 97%, 4% 88%, 0 96%);
-    transform: translateY(calc(var(--tear) * -52px)) rotate(calc(var(--tear) * -7deg));
-    transform-origin: 0 100%;
-}
-
-.reveal-half--bottom {
-    bottom: 0;
-    height: 64%;
-    border-radius: 0 0 8px 8px;
-    clip-path: polygon(0 4%, 8% 12%, 16% 3%, 24% 11%, 32% 2%, 40% 10%, 48% 2%,
-        56% 11%, 64% 3%, 72% 12%, 80% 4%, 88% 13%, 96% 4%, 100% 11%, 100% 100%, 0 100%);
-    transform: translateY(calc(var(--tear) * 20px)) rotate(calc(var(--tear) * 2deg));
-}
-
-/* La lumière qui sort de la fente : c'est elle qui donne envie de continuer. */
-.reveal-light {
+/* Le reflet qui balaie l'emballage tant qu'il est fermé. */
+.reveal-body::after {
+    content: '';
     position: absolute;
-    left: -20%;
-    right: -20%;
-    top: 30%;
-    height: 22%;
+    inset: -40% -120%;
+    background: linear-gradient(75deg, transparent 42%, rgba(255, 255, 255, 0.2) 50%, transparent 58%);
+    animation: reveal-glint 3.4s ease-in-out infinite;
+}
+
+.reveal-pack.is-torn .reveal-body::after { animation: none; opacity: 0; }
+
+@keyframes reveal-glint {
+    0%, 65% { transform: translateX(-60%); }
+    100% { transform: translateX(60%); }
+}
+
+/* La bande du haut : celle qu'on tranche. Elle porte les crans de l'emballage. */
+.reveal-strip {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 14%;
+    border: 1px solid var(--accent-a40);
+    border-radius: 8px 8px 0 0;
+    background:
+        repeating-linear-gradient(90deg, rgba(212, 175, 55, 0.22) 0 3px, transparent 3px 9px),
+        linear-gradient(#1d1913, #12100c);
+    box-shadow: inset 0 -6px 12px rgba(0, 0, 0, 0.6);
+}
+
+/* L'entaille : un trait lumineux qui avance avec le curseur, pointe en tête. */
+.reveal-seam {
+    position: absolute;
+    top: 13.4%;
+    left: 0;
+    height: 3px;
+    width: calc(var(--cut) * 100%);
+    background: linear-gradient(90deg, rgba(255, 240, 200, 0.25), #fff6d8);
+    box-shadow: 0 0 14px 3px rgba(255, 220, 130, 0.85);
+    opacity: min(1, calc(var(--cut) * 20));
+    border-radius: 2px;
+}
+
+.reveal-seam::after {
+    content: '';
+    position: absolute;
+    right: -3px;
+    top: -3px;
+    width: 9px;
+    height: 9px;
     border-radius: 50%;
-    background: radial-gradient(ellipse at center, #fff8e0 0%, rgba(255, 215, 120, 0.75) 35%, transparent 72%);
-    opacity: calc(var(--tear) * 1.1);
-    transform: scaleY(calc(0.4 + var(--tear) * 1.6));
-    filter: blur(calc(2px + var(--tear) * 6px));
+    background: #fff;
+    box-shadow: 0 0 16px 5px rgba(255, 225, 150, 0.95);
+    opacity: min(1, calc(var(--cut) * 20));
+}
+
+/* La lumière qui déborde de la fente, d'autant plus forte que l'entaille est
+   avancée. */
+.reveal-spill {
+    position: absolute;
+    left: -15%;
+    right: -15%;
+    top: 6%;
+    height: 20%;
+    border-radius: 50%;
+    pointer-events: none;
+    background: radial-gradient(ellipse at center, #fff8e0 0%, rgba(255, 215, 120, 0.7) 38%, transparent 72%);
+    opacity: calc(var(--cut) * 0.9);
+    transform: scaleY(calc(0.3 + var(--cut) * 1.2));
+    filter: blur(calc(3px + var(--cut) * 7px));
+}
+
+/* Les cartes entrevues à l'intérieur : elles dépassent à peine tant que le
+   paquet est fermé, et montent quand il s'ouvre. */
+.reveal-cards {
+    position: absolute;
+    left: 16%;
+    right: 16%;
+    top: 15%;
+    height: 62%;
+    border-radius: 4px 4px 0 0;
+    background: linear-gradient(#f2ead6, #cdc3ab 60%, #a89e88);
+    box-shadow:
+        0 -2px 0 -1px #8c8474,
+        0 0 0 1px rgba(0, 0, 0, 0.4),
+        0 -8px 22px rgba(255, 225, 160, 0.35);
+    transform: translateY(6%);
 }
 
 .reveal-mark {
@@ -4917,29 +4996,41 @@ select.luxury-input option:disabled {
     color: var(--muted-text);
 }
 
-@keyframes reveal-breathe {
-    0%, 100% { transform: scale(1) rotate(-0.6deg); }
-    50% { transform: scale(1.035) rotate(0.6deg); }
-}
-
-/* La rupture : les deux moitiés partent, l'écran s'éclaire. */
-.reveal-pack.is-torn .reveal-half--top { animation: reveal-tear-top 0.34s cubic-bezier(0.4, 0, 0.9, 0.4) forwards; }
-.reveal-pack.is-torn .reveal-half--bottom { animation: reveal-tear-bottom 0.34s cubic-bezier(0.4, 0, 0.9, 0.4) forwards; }
-.reveal-pack.is-torn .reveal-light { animation: reveal-tear-light 0.34s ease-out forwards; }
+/* L'ouverture. Trois temps en 620 ms : la bande s'envole, la lumière explose,
+   les cartes montent et sortent par le haut. */
+.reveal-pack.is-torn .reveal-strip { animation: reveal-strip-fly 0.42s cubic-bezier(0.35, 0, 0.85, 0.4) forwards; }
+.reveal-pack.is-torn .reveal-seam { animation: reveal-seam-flash 0.3s ease-out forwards; }
+.reveal-pack.is-torn .reveal-spill { animation: reveal-spill 0.6s ease-out forwards; }
+.reveal-pack.is-torn .reveal-cards { animation: reveal-cards-rise 0.62s cubic-bezier(0.2, 0.8, 0.3, 1) forwards; }
+.reveal-pack.is-torn .reveal-body { animation: reveal-body-settle 0.62s ease-out forwards; }
 .reveal-pack.is-torn .reveal-hint { opacity: 0; }
 
-@keyframes reveal-tear-top {
-    to { transform: translateY(-150%) rotate(-24deg); opacity: 0; }
+@keyframes reveal-strip-fly {
+    0% { transform: translate(0, 0) rotate(0); opacity: 1; }
+    100% { transform: translate(46%, -190%) rotate(38deg); opacity: 0; }
 }
 
-@keyframes reveal-tear-bottom {
-    to { transform: translateY(120%) rotate(12deg); opacity: 0; }
+@keyframes reveal-seam-flash {
+    0% { width: 100%; opacity: 1; }
+    100% { width: 100%; opacity: 0; box-shadow: 0 0 60px 22px rgba(255, 235, 180, 0.9); }
 }
 
-@keyframes reveal-tear-light {
-    0% { opacity: 1; transform: scaleY(1); }
-    60% { opacity: 1; transform: scaleY(6) scaleX(1.4); }
-    100% { opacity: 0; transform: scaleY(9) scaleX(1.8); }
+@keyframes reveal-spill {
+    0% { opacity: 0.9; transform: scaleY(1.4); }
+    35% { opacity: 1; transform: scaleY(5) scaleX(1.5); }
+    100% { opacity: 0; transform: scaleY(8) scaleX(2); }
+}
+
+@keyframes reveal-cards-rise {
+    0% { transform: translateY(6%); }
+    55% { transform: translateY(-58%) scale(1.04); }
+    100% { transform: translateY(-135%) scale(0.95); opacity: 0; }
+}
+
+@keyframes reveal-body-settle {
+    0% { transform: translateY(0) scale(1); opacity: 1; }
+    45% { transform: translateY(4%) scale(0.99); opacity: 1; }
+    100% { transform: translateY(22%) scale(0.9); opacity: 0; }
 }
 
 /* 2. LES CARTES, UNE À UNE */
@@ -5175,9 +5266,12 @@ select.luxury-input option:disabled {
 
 @media (prefers-reduced-motion: reduce) {
     .reveal-wrap,
-    .reveal-pack.is-torn .reveal-half--top,
-    .reveal-pack.is-torn .reveal-half--bottom,
-    .reveal-pack.is-torn .reveal-light,
+    .reveal-body::after,
+    .reveal-pack.is-torn .reveal-strip,
+    .reveal-pack.is-torn .reveal-seam,
+    .reveal-pack.is-torn .reveal-spill,
+    .reveal-pack.is-torn .reveal-cards,
+    .reveal-pack.is-torn .reveal-body,
     .reveal-burst.is-firing,
     .reveal-rays.is-firing,
     .reveal-spark,
@@ -5245,3 +5339,80 @@ select.luxury-input option:disabled {
     .reveal-stage { min-height: 300px; }
     .tcard--reveal { width: min(72vw, 260px); }
 }
+
+/* Bandeau de rareté dans la grille du set. Cinq cents cartes à plat ne se
+   lisent pas : groupé, chaque rareté annonce sa complétion, et on replie
+   celles dont on n'a que faire. */
+.rarity-bar {
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    width: 100%;
+    padding: var(--space-3) var(--space-2);
+    margin-top: var(--space-4);
+    border: 0;
+    border-bottom: 1px solid var(--border-subtle);
+    background: none;
+    color: inherit;
+    cursor: pointer;
+    text-align: left;
+    font-family: var(--font-body);
+}
+
+.rarity-bar:hover { border-bottom-color: var(--accent-a40); }
+
+.rarity-bar__gem {
+    width: 10px;
+    height: 10px;
+    flex: 0 0 auto;
+    transform: rotate(45deg);
+    background: var(--rb, var(--rarity-common));
+    box-shadow: 0 0 10px var(--rb, var(--rarity-common));
+}
+
+.rarity-bar__label {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.95em;
+    letter-spacing: 0.5px;
+    color: var(--primary-text);
+}
+
+.rarity-bar__count {
+    font-size: 0.85em;
+    color: var(--muted-text);
+    font-variant-numeric: tabular-nums;
+}
+
+.rarity-bar__chev {
+    width: 14px;
+    text-align: center;
+    font-size: 0.8em;
+    color: var(--muted-text);
+}
+
+.rarity-bar--signature { --rb: var(--rarity-signature); }
+.rarity-bar--showcase { --rb: var(--rarity-showcase); }
+.rarity-bar--epic { --rb: var(--rarity-epic); }
+.rarity-bar--rare { --rb: var(--rarity-rare); }
+.rarity-bar--uncommon { --rb: var(--rarity-uncommon); }
+.rarity-bar--common { --rb: var(--rarity-common); }
+
+.rarity-bar--signature .rarity-bar__label,
+.rarity-bar--showcase .rarity-bar__label,
+.rarity-bar--epic .rarity-bar__label { color: var(--rb); }
+
+#tcg-set-grid { display: block; }
+#tcg-set-grid .card-grid { margin: var(--space-4) 0 var(--space-2); }
+
+/* La Signature dans la révélation : l'illustration a été dessinée pour cette
+   carte, l'ouverture doit s'en apercevoir. C'est le seul moment plus fort que
+   la Showcase. */
+.reveal-burst.is-signature { --burst: rgba(255, 150, 70, 1); }
+.reveal-rays.is-signature { --ray: rgba(255, 170, 90, 0.6); }
+.reveal-burst.is-firing.is-signature { animation-duration: 1.35s; }
+.reveal-rays.is-firing.is-signature { animation-duration: 1.8s; }
+.reveal-overlay.is-flash-signature { --flash: #ffd9b0; }
+.reveal-flip.is-in.is-signature { animation: reveal-flip-big 0.85s cubic-bezier(0.14, 1.45, 0.3, 1); }
+.reveal-dot.is-signature { background: var(--rarity-signature); box-shadow: 0 0 9px var(--rarity-signature); }

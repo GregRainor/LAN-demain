@@ -598,20 +598,22 @@
     <div class="m-reveal" id="m-reveal" role="dialog" aria-modal="true" aria-label="Ouverture d'un booster">
         <div class="m-reveal__seal" id="m-reveal-seal"></div>
 
-        <!-- 1. Le paquet scellé. On le déchire au doigt : la fente suit le
-             glissement, la lumière s'en échappe, et passé la moitié il cède
-             tout seul. Un simple toucher marche aussi. -->
+        <!-- 1. Le paquet scellé. On tranche la bande du haut d'un glissement
+             latéral : l'entaille suit le doigt, la lumière sort par la fente,
+             puis la bande s'envole et les cartes montent hors du paquet. Un
+             simple toucher marche aussi. -->
         <div class="m-reveal__pack" id="m-reveal-pack">
             <div class="m-reveal__wrap" id="m-reveal-wrap">
-                <span class="m-reveal__light"></span>
-                <span class="m-reveal__half m-reveal__half--top">
+                <span class="m-reveal__cards"></span>
+                <span class="m-reveal__body">
                     <span class="m-reveal__mark">✦</span>
-                </span>
-                <span class="m-reveal__half m-reveal__half--bottom">
                     <span class="m-reveal__packname" id="m-reveal-packname">Booster</span>
                 </span>
+                <span class="m-reveal__strip"></span>
+                <span class="m-reveal__seam"></span>
+                <span class="m-reveal__spill"></span>
             </div>
-            <span class="m-reveal__hint" id="m-reveal-hint">Glisse pour déchirer</span>
+            <span class="m-reveal__hint" id="m-reveal-hint">Glisse le doigt en travers</span>
         </div>
 
         <!-- 2. Les cartes, une par une. -->

@@ -5932,35 +5932,33 @@ document.addEventListener('DOMContentLoaded', () => {
         return `il y a ${Math.floor(hours / 24)} j`;
     }
 
-    /* Un set tiré des bibliothèques Steam compte plusieurs centaines de cartes.
-       Demander la jaquette de chacune au rendu, c'est trois cents appels réseau
-       d'un coup à l'ouverture de l'onglet. On ne résout l'illustration qu'à
-       l'approche de l'écran. */
-    const artObserver = ('IntersectionObserver' in window)
-        ? new IntersectionObserver((entries, observer) => {
-            entries.forEach(entry => {
-                if (!entry.isIntersecting) return;
-                observer.unobserve(entry.target);
-                const img = entry.target;
-                getGameImage(img.dataset.game || '').then(url => { if (url) img.src = url; });
-            });
-        }, { rootMargin: '320px' })
-        : null;
+    /* Les illustrations générées pour les Signature, chargées à la demande.
+       Elles vivent sous `lan/cardArt`, à côté de `lan/tcg` et non dedans : ce
+       sont des images en base64, et les faire transiter dans la synchro
+       permanente de tous les clients coûterait des mégaoctets par connexion.
+       Huit cartes par set : on les lit une par une, et on retient. */
+    const generatedArt = {};
+    const generatedArtPending = new Set();
 
-    /* Illustration : le dessin s'il existe, sinon la jaquette Steam. Le set est
-       donc illustré dès le premier soir et se bonifie carte par carte. */
-    function paintCardArt(imgEl, gameKey, name) {
-        const drawn = cardArt(gameKey);
-        if (drawn) { imgEl.src = drawn; return; }
+    function ensureGeneratedArt(gameKey) {
+        if (!gameKey || generatedArt[gameKey] !== undefined || generatedArtPending.has(gameKey)) return;
+        generatedArtPending.add(gameKey);
+        db.ref('lan/cardArt/' + gameKey).once('value')
+            .then(snapshot => {
+                const node = snapshot.val();
+                generatedArt[gameKey] = (node && node.data) || null;
+                if (node && node.data) renderCollection();
+            })
+            .catch(() => { generatedArt[gameKey] = null; })
+            .finally(() => generatedArtPending.delete(gameKey));
+    }
 
-        const label = name || gameKey;
-        const cached = getCachedGameImage(label);
-        if (cached) { imgEl.src = cached; return; }
-
-        imgEl.src = DEFAULT_GAME_ICON;
-        imgEl.dataset.game = label;
-        if (artObserver) artObserver.observe(imgEl);
-        else getGameImage(label).then(url => { if (url) imgEl.src = url; });
+    /* Illustration d'une carte. Plus aucun appel à l'API des jaquettes : la
+       carte porte son appId, et l'adresse de la jaquette Steam s'en déduit. Un
+       set de cinq cents cartes ne déclenche donc plus une seule requête. */
+    function paintCardArt(imgEl, card) {
+        if (card.rarity === 'signature') ensureGeneratedArt(card.gameKey);
+        imgEl.src = cardImage(card, generatedArt) || DEFAULT_GAME_ICON;
     }
 
     /* Une seule fabrique de carte pour la grille, les doubles, l'échange et la
@@ -5988,7 +5986,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
             <span class="tcard__glare"></span>
         `;
-        paintCardArt(node.querySelector('.tcard__img'), card.gameKey, card.name);
+        paintCardArt(node.querySelector('.tcard__img'), card);
 
         if (opts.onClick) {
             node.setAttribute('role', 'button');
@@ -6237,16 +6235,22 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const cards = buildCardSet(calculateScores(globalVotes), setPool());
-        const count = Object.keys(cards).length;
-        if (!count) { showToast('Aucun jeu connu : rien à composer.', 'error'); return; }
+        const pool = setPool();
+        const preview = Object.keys(buildCardSet(calculateScores(globalVotes), pool)).length;
 
         const ok = await askConfirm(
             force
-                ? `Recomposer le set : ${count} cartes. Les boosters ouverts jusqu'ici gardent leur set et ne changent pas ; les prochains tireront dans le nouveau.`
-                : `Créer le set de la LAN « ${globalSettings.lanName || 'LAN Demain'} » : ${count} cartes, du vote au fond des bibliothèques Steam.`,
+                ? `Recomposer le set : environ ${preview} cartes. Les boosters ouverts jusqu'ici gardent leur set et ne changent pas ; les prochains tireront dans le nouveau.`
+                : `Créer le set de la LAN « ${globalSettings.lanName || 'LAN Demain'} » : environ ${preview} cartes, du vote au fond des bibliothèques Steam. `
+                  + `Les ${TCG.SIGNATURE_COUNT} cartes du sommet recevront une illustration dessinée pour elles.`,
             { title: '🎴 Les cartes', confirmLabel: force ? 'Recréer' : 'Créer le set' });
         if (!ok) return;
+
+        showToast('Composition du set…', 'success');
+        const appIds = await resolveVotedArt(pool);
+        const cards = buildCardSet(calculateScores(globalVotes), Object.assign({}, pool, { appIds }));
+        const count = Object.keys(cards).length;
+        if (!count) { showToast('Aucun jeu illustrable : rien à composer.', 'error'); return; }
 
         const ref = db.ref('lan/tcg/sets').push();
         ref.set({
@@ -6255,12 +6259,88 @@ document.addEventListener('DOMContentLoaded', () => {
             by: user.uid,
             // Combien de bibliothèques comptaient ce jour-là : sans ce nombre,
             // « possédé par 4 joueurs » ne veut plus rien dire six mois après.
-            libraries: setPool().libraries,
+            libraries: pool.libraries,
             cards: cards
         })
             .then(() => db.ref('lan/tcg/currentSet').set(ref.key))
-            .then(() => showToast(`Set créé : ${count} cartes !`, 'success'))
+            .then(() => {
+                showToast(`Set créé : ${count} cartes !`, 'success');
+                return generateSignatureArt(cards);
+            })
             .catch(err => showToast('Erreur : ' + err.message, 'error'));
+    }
+
+    /* Les jeux votés à la main n'ont pas d'appId : ils ne sont dans aucune
+       bibliothèque, on ne connaît que le nom tapé par le joueur. Sans appId,
+       pas d'illustration, donc pas de carte — or ce sont justement les jeux les
+       plus réclamés. On les résout donc une fois, à la création du set. C'est
+       borné : quelques dizaines de noms, contre plusieurs centaines de jeux de
+       bibliothèque qui, eux, arrivent déjà avec leur appId. */
+    function resolveVotedArt(pool) {
+        const known = new Set(pool.games.map(game => cardKey(game.name)));
+        const missing = calculateScores(globalVotes)
+            .map(game => ({ key: cardKey(game.name), name: game.name }))
+            .filter(game => game.key && !known.has(game.key));
+
+        if (!missing.length) return Promise.resolve({});
+
+        return Promise.all(missing.map(game =>
+            fetch(`/api/get-game-image?name=${encodeURIComponent(game.name)}&fuzzy=1`)
+                .then(res => (res.ok ? res.json() : null))
+                .then(data => (data && data.appId ? [game.key, data.appId] : null))
+                .catch(() => null)
+        )).then(found => Object.fromEntries(found.filter(Boolean)));
+    }
+
+    /* Les huit Signature reçoivent une illustration dessinée pour elles. On les
+       génère une par une, en sautant celles qu'une soirée précédente a déjà fait
+       dessiner : une illustration est attachée au jeu, pas au set. Un échec
+       (pas de clé, quota, refus du modèle) n'est pas grave — la carte garde sa
+       jaquette Steam et tout le reste continue de tourner. */
+    function generateSignatureArt(setCards) {
+        const wanted = signatureCards(setCards);
+        if (!wanted.length) return Promise.resolve();
+
+        let made = 0;
+        let failed = 0;
+
+        const next = (i) => {
+            if (i >= wanted.length) {
+                if (made) showToast(`${made} illustration${made > 1 ? 's' : ''} dessinée${made > 1 ? 's' : ''} !`, 'success');
+                else if (failed) showToast('Illustrations non générées — les Signature gardent leur jaquette.', 'error');
+                renderCollection();
+                return Promise.resolve();
+            }
+
+            const card = wanted[i];
+            showToast(`Illustration ${i + 1}/${wanted.length} : ${card.name}`, 'success');
+
+            return db.ref('lan/cardArt/' + card.gameKey).once('value')
+                .then(snapshot => {
+                    if (snapshot.exists()) return null;   // déjà dessinée, on passe
+                    return fetch('/api/generate-card-art', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name: card.name })
+                    }).then(res => (res.ok ? res.json() : null));
+                })
+                .then(data => {
+                    if (!data || !data.dataUrl) { if (data !== null) failed++; return null; }
+                    return db.ref('lan/cardArt/' + card.gameKey).set({
+                        data: data.dataUrl,
+                        name: card.name,
+                        by: auth.currentUser ? auth.currentUser.uid : null,
+                        ts: firebase.database.ServerValue.TIMESTAMP
+                    }).then(() => {
+                        generatedArt[card.gameKey] = data.dataUrl;
+                        made++;
+                    });
+                })
+                .catch(() => { failed++; })
+                .then(() => next(i + 1));
+        };
+
+        return next(0);
     }
 
     document.getElementById('btn-mint-set')?.addEventListener('click', () => mintSet(false));
@@ -6470,9 +6550,10 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('reveal-spread').innerHTML = '';
         document.getElementById('reveal-sparks').innerHTML = '';
         document.getElementById('reveal-pack').className = 'reveal-pack';
-        document.getElementById('reveal-wrap').style.setProperty('--tear', '0');
-        document.getElementById('reveal-hint').textContent = 'Tire vers le bas pour déchirer';
-        tearFrom = null;
+        document.getElementById('reveal-wrap').style.setProperty('--cut', '0');
+        document.getElementById('reveal-hint').textContent = CUT_HINT;
+        cutFrom = null;
+        cutReached = 0;
 
         const overlay = document.getElementById('pack-reveal-overlay');
         overlay.className = 'reveal-overlay is-pack';
@@ -6513,6 +6594,7 @@ document.addEventListener('DOMContentLoaded', () => {
        l'écran : si la commune fait le même bruit que la prestige, plus rien ne
        compte. */
     const RARITY_FX = {
+        signature: { sparks: 30, rays: true, shake: true, flash: true },
         common: { sparks: 0, rays: false, shake: false, flash: false },
         uncommon: { sparks: 0, rays: false, shake: false, flash: false },
         rare: { sparks: 8, rays: false, shake: false, flash: false },
@@ -6520,7 +6602,7 @@ document.addEventListener('DOMContentLoaded', () => {
         showcase: { sparks: 22, rays: true, shake: true, flash: true }
     };
 
-    const SPARK_COLORS = { rare: '#b79dff', epic: '#e6a2ff', showcase: '#ffd76a' };
+    const SPARK_COLORS = { rare: '#b79dff', epic: '#e6a2ff', showcase: '#ffd76a', signature: '#ffb066' };
 
     /* Les éclats qui giclent du centre. Ils partent en couronne, avec assez de
        désordre pour ne pas ressembler à une horloge. */
@@ -6675,10 +6757,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const pack = document.getElementById('reveal-pack');
         pack.classList.remove('is-tearing');
         pack.classList.add('is-torn');
-        document.getElementById('pack-reveal-overlay').className = 'reveal-overlay is-cards';
-        // Le temps que les deux moitiés s'écartent avant la première carte.
-        setTimeout(revealNextCard, 300);
+        // L'entaille file jusqu'au bord : c'est elle qui déclenche tout le reste.
+        setCut(1);
         paintRevealFoot();
+
+        /* Le paquet reste à l'écran le temps de s'ouvrir en entier — la bande
+           s'envole, la lumière explose, les cartes montent. Basculer tout de
+           suite sur la scène des cartes masquerait le seul moment où l'on voit
+           le paquet céder, c'est-à-dire tout l'intérêt du geste. */
+        setTimeout(() => {
+            document.getElementById('pack-reveal-overlay').className = 'reveal-overlay is-cards';
+            revealNextCard();
+        }, 560);
     }
 
     document.getElementById('reveal-next')?.addEventListener('click', () => {
@@ -6695,46 +6785,53 @@ document.addEventListener('DOMContentLoaded', () => {
        paquet : la fente s'ouvre en proportion, et passé 55 % l'emballage cède.
        Un simple clic (course quasi nulle) ouvre aussi — il ne faut pas obliger
        quelqu'un à découvrir un geste pour ouvrir son booster. */
-    let tearFrom = null;
-    /* La course mesurée une fois, au premier contact : relire la géométrie du
-       paquet à chaque déplacement forcerait un recalcul de mise en page par
-       pixel parcouru. */
-    let tearSpan = 0;
+    /* Le glissement qui tranche. Le geste est LATÉRAL, comme sur un vrai
+       paquet : on entaille la bande du haut d'un bord à l'autre. La course est
+       mesurée une fois, au premier contact — relire la géométrie à chaque
+       déplacement forcerait un recalcul de mise en page par pixel parcouru. */
+    let cutFrom = null;
+    let cutSpan = 0;
+    let cutReached = 0;
+
+    const CUT_HINT = 'Glisse en travers pour ouvrir';
+
+    function setCut(value) {
+        cutReached = value;
+        document.getElementById('reveal-wrap').style.setProperty('--cut', value.toFixed(3));
+    }
 
     document.getElementById('reveal-pack')?.addEventListener('pointerdown', (e) => {
         if (revealPhase !== 'pack') return;
-        tearFrom = e.clientY;
-        // Environ un tiers de la hauteur du paquet suffit à le rompre.
-        tearSpan = Math.max(50, document.getElementById('reveal-wrap').getBoundingClientRect().height * 0.38);
+        cutFrom = e.clientX;
+        // La largeur du paquet : trancher, c'est le traverser.
+        cutSpan = Math.max(60, document.getElementById('reveal-wrap').getBoundingClientRect().width * 0.8);
         document.getElementById('reveal-pack').classList.add('is-tearing');
     });
 
     document.getElementById('reveal-pack')?.addEventListener('pointermove', (e) => {
-        if (tearFrom === null) return;
-        const progress = Math.max(0, Math.min(1, (e.clientY - tearFrom) / tearSpan));
-        document.getElementById('reveal-wrap').style.setProperty('--tear', progress.toFixed(3));
-        document.getElementById('reveal-hint').textContent =
-            progress > 0.2 ? 'Encore…' : 'Tire vers le bas pour déchirer';
-        if (progress >= 0.55) { tearFrom = null; tearPack(); }
+        if (cutFrom === null) return;
+        // La valeur absolue : on tranche de gauche à droite ou l'inverse.
+        const progress = Math.max(0, Math.min(1, Math.abs(e.clientX - cutFrom) / cutSpan));
+        setCut(progress);
+        document.getElementById('reveal-hint').textContent = progress > 0.25 ? 'Encore…' : CUT_HINT;
+        if (progress >= 0.75) { cutFrom = null; tearPack(); }
     }, { passive: true });
 
     document.getElementById('reveal-pack')?.addEventListener('pointerup', () => {
-        if (tearFrom === null) return;
-        tearFrom = null;
-        const wrap = document.getElementById('reveal-wrap');
-        const progress = Number(wrap.style.getPropertyValue('--tear')) || 0;
+        if (cutFrom === null) return;
+        cutFrom = null;
         // Course trop courte : c'était un simple clic, on ouvre quand même.
-        if (progress < 0.12) { tearPack(); return; }
-        // Relâché à mi-chemin : l'emballage se referme.
+        if (cutReached < 0.12) { tearPack(); return; }
+        // Relâché à mi-chemin : l'entaille se referme.
         document.getElementById('reveal-pack').classList.remove('is-tearing');
-        wrap.style.setProperty('--tear', '0');
-        document.getElementById('reveal-hint').textContent = 'Tire vers le bas pour déchirer';
+        setCut(0);
+        document.getElementById('reveal-hint').textContent = CUT_HINT;
     });
 
     document.getElementById('reveal-pack')?.addEventListener('pointercancel', () => {
-        tearFrom = null;
+        cutFrom = null;
         document.getElementById('reveal-pack').classList.remove('is-tearing');
-        document.getElementById('reveal-wrap').style.setProperty('--tear', '0');
+        setCut(0);
     });
 
     /* Le paquet entier d'un coup, pour qui a déjà ouvert dix boosters. */
@@ -6760,6 +6857,9 @@ document.addEventListener('DOMContentLoaded', () => {
     /* --- La grille du set ------------------------------------------------- */
 
     let tcgFilter = 'all';
+    /* Les raretés dépliées. Les deux plus gros groupes restent fermés : personne
+       ne veut faire défiler trois cents silhouettes pour trouver ses Signature. */
+    const openRarities = new Set(['signature', 'showcase', 'epic', 'rare']);
     const TCG_FILTERS = [
         { key: 'all', label: 'Tout le set' },
         { key: 'missing', label: 'Ce qui manque' },
@@ -6782,7 +6882,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         mount.innerHTML = '';
         if (!view.set) {
-            mount.innerHTML = '<p class="tcg-empty">Le set de la soirée n\'a pas encore été frappé.</p>';
+            mount.innerHTML = '<p class="tcg-empty">Le set de la LAN n\'a pas encore été créé.</p>';
             return;
         }
 
@@ -6798,17 +6898,54 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        rows.forEach(row => {
-            const best = row.copies.find(copy => copy.foil) || row.copies[0];
-            const card = best || { gameKey: row.gameKey, name: row.name, rarity: row.rarity, foil: false };
-            mount.appendChild(buildCard(card, {
-                missing: !row.owned,
-                badge: row.copies.length > 1 ? `×${row.copies.length}` : '',
-                onClick: () => (best
-                    ? openCardModal(best)
-                    : showToast(`${row.name} — pas encore dans ta collection.`, 'error'))
-            }));
+        /* Rangé par rareté. Cinq cents cartes à plat, c'est un annuaire : on ne
+           voit ni où on en est, ni ce qui vaut la peine. Groupé, chaque rareté
+           annonce sa complétion et les cartes de chasse sont en tête, là où on
+           les cherche. Les deux plus gros groupes restent repliés. */
+        TCG.RARITIES.forEach(rarity => {
+            const group = rows.filter(row => row.rarity === rarity.key);
+            if (!group.length) return;
+
+            const owned = group.filter(row => row.owned).length;
+            const head = document.createElement('button');
+            head.className = `rarity-bar rarity-bar--${rarity.key}`;
+            head.innerHTML = `
+                <span class="rarity-bar__gem"></span>
+                <span class="rarity-bar__label">${escapeHtml(rarity.label)}</span>
+                <span class="rarity-bar__count">${owned} / ${group.length}</span>
+                <span class="rarity-bar__chev">${openRarities.has(rarity.key) ? '▾' : '▸'}</span>
+            `;
+            head.addEventListener('click', () => {
+                if (openRarities.has(rarity.key)) openRarities.delete(rarity.key);
+                else openRarities.add(rarity.key);
+                renderSetGrid(view);
+            });
+            mount.appendChild(head);
+
+            if (!openRarities.has(rarity.key)) return;
+
+            const grid = document.createElement('div');
+            grid.className = 'card-grid';
+            group.forEach(row => appendSetCard(grid, row));
+            mount.appendChild(grid);
         });
+    }
+
+    function appendSetCard(grid, row) {
+        const best = row.copies.find(copy => copy.foil) || row.copies[0];
+        /* La silhouette d'une carte manquante porte quand même son appId :
+           sans lui, elle n'aurait aucune illustration à griser. */
+        const card = best || {
+            gameKey: row.gameKey, name: row.name, rarity: row.rarity,
+            appId: row.appId, foil: false
+        };
+        grid.appendChild(buildCard(card, {
+            missing: !row.owned,
+            badge: row.copies.length > 1 ? `×${row.copies.length}` : '',
+            onClick: () => (best
+                ? openCardModal(best)
+                : showToast(`${row.name} — pas encore dans ta collection.`, 'error'))
+        }));
     }
 
     /* --- Les doubles ------------------------------------------------------ */

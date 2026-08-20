@@ -69,6 +69,7 @@
                 "rarity": { ".validate": "newData.isString() && newData.val().length <= 20" },
                 "score":  { ".validate": "!newData.exists() || newData.isNumber()" },
                 "owners": { ".validate": "!newData.exists() || newData.isNumber()" },
+                "appId":  { ".validate": "!newData.exists() || newData.isNumber()" },
                 "$other": { ".validate": false }
               }
             }
@@ -106,6 +107,19 @@
             "note":     { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 300)" },
             "$other":   { ".validate": false }
           }
+        }
+      },
+
+      "cardArt": {
+        ".read": "auth != null",
+        ".write": "auth != null && (root.child('lan/roles').child(auth.uid).val() === 'admin' || root.child('lan/roles').child(auth.uid).val() === 'gamemaster' || auth.uid === 'ITe5VPuwewMzO7JnJA5oPWMdfvt2')",
+        "$game_key": {
+          ".validate": "newData.hasChildren(['data', 'ts'])",
+          "data": { ".validate": "newData.isString() && newData.val().length <= 4000000 && newData.val().beginsWith('data:image/')" },
+          "ts":   { ".validate": "newData.isNumber()" },
+          "by":   { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 60)" },
+          "name": { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 200)" },
+          "$other": { ".validate": false }
         }
       },
 
