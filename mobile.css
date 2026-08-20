@@ -1532,6 +1532,7 @@ textarea.m-input { resize: vertical; min-height: 84px; }
     --sc-wash: rgba(212, 175, 55, .07);
 }
 .m-sitem--privilege { --sc: var(--r-showcase); --sc-soft: rgba(212, 175, 55, .4); --sc-wash: rgba(212, 175, 55, .09); }
+.m-sitem--boost     { --sc: #4e9463;           --sc-soft: rgba(78, 148, 99, .5);   --sc-wash: rgba(78, 148, 99, .1); }
 .m-sitem--handicap  { --sc: #d96a6a;           --sc-soft: rgba(192, 74, 74, .45);  --sc-wash: rgba(192, 74, 74, .09); }
 .m-sitem--cosmetic  { --sc: var(--r-epic);     --sc-soft: rgba(194, 100, 216, .4); --sc-wash: rgba(194, 100, 216, .08); }
 .m-sitem--fun       { --sc: var(--r-uncommon); --sc-soft: rgba(78, 143, 168, .4);  --sc-wash: rgba(78, 143, 168, .08); }

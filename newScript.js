@@ -4794,6 +4794,125 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+
+    /* ======================================================================
+       LA MODALE DE SAISIE
+       Elle remplace window.prompt, qui sortait complètement de la charte et,
+       pour créer un seul défi, enchaînait CINQ boîtes grises à la suite —
+       impossible de revenir en arrière, impossible de voir ce qu'on avait déjà
+       saisi. Un formulaire, une fois, avec le style du reste.
+
+       Rend une promesse : les valeurs saisies, ou null si on annule.
+       ====================================================================== */
+
+    function openFormModal(options) {
+        const modal = document.getElementById('form-modal');
+        const mount = document.getElementById('form-modal-fields');
+        const intro = document.getElementById('form-modal-intro');
+        const ok = document.getElementById('form-modal-ok');
+        const cancel = document.getElementById('form-modal-cancel');
+        if (!modal || !mount) return Promise.resolve(null);
+
+        document.getElementById('form-modal-title').textContent = options.title || '';
+        intro.textContent = options.intro || '';
+        intro.style.display = options.intro ? 'block' : 'none';
+        ok.textContent = options.submitLabel || 'Valider';
+
+        mount.innerHTML = '';
+        const inputs = {};
+
+        (options.fields || []).forEach(field => {
+            const group = document.createElement('div');
+            group.className = 'admin-select-group';
+
+            if (field.label) {
+                const label = document.createElement('label');
+                label.textContent = field.label;
+                group.appendChild(label);
+            }
+
+            let input;
+            if (field.type === 'textarea') {
+                input = document.createElement('textarea');
+                input.rows = field.rows || 3;
+                input.style.resize = 'vertical';
+            } else if (field.type === 'select') {
+                input = document.createElement('select');
+                (field.options || []).forEach(opt => {
+                    const node = document.createElement('option');
+                    node.value = opt.value;
+                    node.textContent = opt.label;
+                    input.appendChild(node);
+                });
+            } else {
+                input = document.createElement('input');
+                input.type = field.type === 'number' ? 'number' : 'text';
+                if (field.min !== undefined) input.min = String(field.min);
+                if (field.max !== undefined) input.max = String(field.max);
+            }
+
+            input.className = 'luxury-input shop-field';
+            if (field.placeholder) input.placeholder = field.placeholder;
+            if (field.value !== undefined && field.value !== null) input.value = String(field.value);
+            group.appendChild(input);
+
+            if (field.hint) {
+                const hint = document.createElement('p');
+                hint.className = 'panel-section__hint';
+                hint.style.margin = '4px 0 0';
+                hint.textContent = field.hint;
+                group.appendChild(hint);
+            }
+
+            inputs[field.key] = input;
+            mount.appendChild(group);
+        });
+
+        modal.style.display = 'flex';
+        const first = Object.values(inputs)[0];
+        if (first) { first.focus(); if (first.select) first.select(); }
+
+        return new Promise(resolve => {
+            const close = (value) => {
+                modal.style.display = 'none';
+                /* On remplace les gestionnaires plutôt que d'en empiler : la
+                   modale sert à tout, et deux ouvertures laisseraient deux
+                   écouteurs qui résoudraient deux promesses. */
+                ok.onclick = null;
+                cancel.onclick = null;
+                modal.onclick = null;
+                document.removeEventListener('keydown', onKey);
+                resolve(value);
+            };
+            const submit = () => {
+                const values = {};
+                Object.keys(inputs).forEach(key => { values[key] = inputs[key].value; });
+                close(values);
+            };
+            const onKey = (e) => {
+                if (e.key === 'Escape') close(null);
+                /* Entrée valide, sauf dans une zone de texte où elle sert à
+                   passer à la ligne. */
+                if (e.key === 'Enter' && e.target && e.target.tagName !== 'TEXTAREA') submit();
+            };
+
+            ok.onclick = submit;
+            cancel.onclick = () => close(null);
+            modal.onclick = (e) => { if (e.target === modal) close(null); };
+            document.addEventListener('keydown', onKey);
+        });
+    }
+
+    /* La liste des autres joueurs, prête pour un champ « select ». */
+    function playerOptions(includeNone) {
+        const user = auth.currentUser;
+        const list = includeNone ? [{ value: '', label: 'Personne' }] : [];
+        economyPlayers()
+            .filter(uid => !user || uid !== user.uid)
+            .forEach(uid => list.push({ value: uid, label: playerLabel(uid) }));
+        return list;
+    }
+
     /* ======================================================================
        PROGRAMME : quand & où a lieu la LAN, puis le déroulé de la soirée.
        Le calcul (jour, ordre, compte à rebours) vit dans core.js ; ici on ne
@@ -6392,34 +6511,42 @@ document.addEventListener('DOMContentLoaded', () => {
         card.querySelector('.shop-item__main').appendChild(actions);
         return card;
     }
-
-    /* Réclamer, c'est raconter : le mot du joueur permet à l'admin de trancher
-       sans avoir tout vu. Le montant est FIGÉ dans la réclamation — si l'admin
-       change le prix du défi demain, ce qui a été promis reste promis. */
+    /* Réclamer, c'est raconter : le mot du joueur et le nom d'un témoin
+       permettent à l'admin de trancher sans avoir tout vu. Le montant est FIGÉ
+       dans la réclamation — si l'admin change le prix du défi demain, ce qui a
+       été promis reste promis. */
     function openClaimPrompt(challenge) {
         const user = auth.currentUser;
         if (!user) return;
 
-        const note = window.prompt(
-            `« ${challenge.title} »\n${formatPoints(challenge.zl)} et ${Number(challenge.xp) || 0} XP.\n\n`
-            + 'Comment ça s\'est passé ? (facultatif)');
-        if (note === null) return;
-
-        db.ref('lan/claims').push().set({
-            challengeId: challenge.id,
+        openFormModal({
             title: challenge.title || 'Défi',
-            zl: Number(challenge.zl) || 0,
-            xp: Number(challenge.xp) || 0,
-            uid: user.uid,
-            userName: user.displayName || 'Un joueur',
-            note: (note || '').trim().slice(0, 500),
-            witnessUid: null,
-            witnessName: null,
-            status: 'pending',
-            ts: firebase.database.ServerValue.TIMESTAMP
-        })
-            .then(() => showToast('Envoyé ! L\'admin tranchera.', 'success'))
-            .catch(err => showToast('Erreur : ' + err.message, 'error'));
+            intro: `${formatPoints(challenge.zl)} et ${Number(challenge.xp) || 0} XP, si l'admin valide.`,
+            submitLabel: 'Envoyer à l\'admin',
+            fields: [
+                { key: 'note', type: 'textarea', label: 'Comment ça s\'est passé ?',
+                  placeholder: 'Facultatif, mais ça aide à trancher.' },
+                { key: 'witness', type: 'select', label: 'Un témoin ?',
+                  options: playerOptions(true) }
+            ]
+        }).then(values => {
+            if (!values) return;
+            db.ref('lan/claims').push().set({
+                challengeId: challenge.id,
+                title: challenge.title || 'Défi',
+                zl: Number(challenge.zl) || 0,
+                xp: Number(challenge.xp) || 0,
+                uid: user.uid,
+                userName: user.displayName || 'Un joueur',
+                note: (values.note || '').trim().slice(0, 500),
+                witnessUid: values.witness || null,
+                witnessName: values.witness ? playerLabel(values.witness) : null,
+                status: 'pending',
+                ts: firebase.database.ServerValue.TIMESTAMP
+            })
+                .then(() => showToast('Envoyé ! L\'admin tranchera.', 'success'))
+                .catch(err => showToast('Erreur : ' + err.message, 'error'));
+        });
     }
 
     /* Garnir la liste d'un coup. On n'ajoute que ce qui manque, comparé sur le
@@ -6512,25 +6639,34 @@ document.addEventListener('DOMContentLoaded', () => {
     function replyToSuggestion(item) {
         const user = auth.currentUser;
         if (!user) return;
-        const value = window.prompt(`« ${item.text} »\n\nVotre réponse :`);
-        if (value === null) return;
-        const text = value.trim();
-        if (!text) { showToast('Réponse vide.', 'error'); return; }
 
-        db.ref('lan/suggestions/' + item.id).update({
-            reply: text.slice(0, 1000),
-            repliedBy: user.uid,
-            repliedByName: user.displayName || 'Admin',
-            repliedAt: firebase.database.ServerValue.TIMESTAMP,
-            status: 'done'
-        })
-            .then(() => {
-                if (item.uid !== user.uid) {
-                    sendNotification(item.uid, 'Réponse à votre idée : ' + text.slice(0, 80), 'info');
-                }
-                showToast('Répondu.', 'success');
+        openFormModal({
+            title: 'Répondre à ' + (item.userName || 'un joueur'),
+            intro: '« ' + item.text + ' »',
+            submitLabel: 'Répondre',
+            fields: [
+                { key: 'reply', type: 'textarea', label: 'Votre réponse', rows: 3 }
+            ]
+        }).then(values => {
+            if (!values) return;
+            const text = (values.reply || '').trim();
+            if (!text) { showToast('Réponse vide.', 'error'); return; }
+
+            db.ref('lan/suggestions/' + item.id).update({
+                reply: text.slice(0, 1000),
+                repliedBy: user.uid,
+                repliedByName: user.displayName || 'Admin',
+                repliedAt: firebase.database.ServerValue.TIMESTAMP,
+                status: 'done'
             })
-            .catch(err => showToast('Erreur : ' + err.message, 'error'));
+                .then(() => {
+                    if (item.uid !== user.uid) {
+                        sendNotification(item.uid, 'Réponse à votre idée : ' + text.slice(0, 80), 'info');
+                    }
+                    showToast('Répondu.', 'success');
+                })
+                .catch(err => showToast('Erreur : ' + err.message, 'error'));
+        });
     }
 
     document.getElementById('btn-suggest')?.addEventListener('click', () => {
@@ -6555,53 +6691,58 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     /* Proposer un défi. Un admin l'ouvre directement ; un joueur le propose, et
-       il attend l'approbation — les règles plafonnent d'ailleurs sa récompense. */
+       il attend l'approbation — les règles plafonnent d'ailleurs sa récompense.
+       Un seul formulaire : avant, c'étaient cinq boîtes grises à la suite, sans
+       retour possible et sans voir ce qu'on venait de saisir. */
     document.getElementById('btn-new-challenge')?.addEventListener('click', () => {
         const user = auth.currentUser;
         if (!user) return;
         const isGm = !!window.currentUserIsGamemaster;
 
-        const title = window.prompt('Le défi, en une ligne :');
-        if (title === null) return;
-        const value = title.trim();
-        if (!value) { showToast('Il manque le titre.', 'error'); return; }
+        openFormModal({
+            title: isGm ? 'Créer un défi' : 'Proposer un défi',
+            intro: isGm
+                ? 'Il sera ouvert à tout le monde immédiatement.'
+                : `L'admin décidera. Au maximum ${CHALLENGES.MAX_PROPOSED_ZL} ${ECONOMY.CURRENCY} et ${CHALLENGES.MAX_PROPOSED_XP} XP.`,
+            submitLabel: isGm ? 'Ouvrir le défi' : 'Proposer à l\'admin',
+            fields: [
+                { key: 'title', type: 'text', label: 'Le défi, en une ligne',
+                  placeholder: 'Ex : 10 pompes d\'affilée' },
+                { key: 'description', type: 'textarea', label: 'Les règles exactes',
+                  placeholder: 'Ce qui compte, ce qui ne compte pas.', rows: 2 },
+                { key: 'category', type: 'select', label: 'Catégorie',
+                  options: CHALLENGES.CATEGORIES.map(c => ({ value: c.key, label: `${c.icon} ${c.label}` })) },
+                { key: 'zl', type: 'number', label: `Récompense en ${ECONOMY.CURRENCY}`,
+                  value: 80, min: 0 },
+                { key: 'xp', type: 'number', label: 'Récompense en XP', value: 50, min: 0 }
+            ]
+        }).then(values => {
+            if (!values) return;
+            const title = (values.title || '').trim();
+            if (!title) { showToast('Il manque le titre.', 'error'); return; }
 
-        const description = window.prompt('Les règles exactes (facultatif) :') || '';
+            let zl = Math.max(0, Math.round(Number(values.zl) || 0));
+            let xp = Math.max(0, Math.round(Number(values.xp) || 0));
+            if (!isGm) {
+                zl = Math.min(zl, CHALLENGES.MAX_PROPOSED_ZL);
+                xp = Math.min(xp, CHALLENGES.MAX_PROPOSED_XP);
+            }
 
-        const cats = CHALLENGES.CATEGORIES.map((c, i) => `${i + 1}. ${c.label}`).join('\n');
-        const catChoice = window.prompt(`Catégorie ?\n\n${cats}\n\nEntrez le numéro :`, '1');
-        if (catChoice === null) return;
-        const catIndex = parseInt(catChoice, 10) - 1;
-        const category = CHALLENGES.CATEGORIES[catIndex] || CHALLENGES.CATEGORIES[4];
-
-        const zlRaw = window.prompt(`Récompense en ${ECONOMY.CURRENCY} ?`
-            + (isGm ? '' : ` (maximum ${CHALLENGES.MAX_PROPOSED_ZL})`), '100');
-        if (zlRaw === null) return;
-        const xpRaw = window.prompt('Récompense en XP ?'
-            + (isGm ? '' : ` (maximum ${CHALLENGES.MAX_PROPOSED_XP})`), '60');
-        if (xpRaw === null) return;
-
-        let zl = Math.max(0, Math.round(Number(zlRaw) || 0));
-        let xp = Math.max(0, Math.round(Number(xpRaw) || 0));
-        if (!isGm) {
-            zl = Math.min(zl, CHALLENGES.MAX_PROPOSED_ZL);
-            xp = Math.min(xp, CHALLENGES.MAX_PROPOSED_XP);
-        }
-
-        db.ref('lan/challenges').push().set({
-            title: value.slice(0, 120),
-            description: description.trim(),
-            category: category.key,
-            zl: zl,
-            xp: xp,
-            repeatable: true,
-            status: isGm ? 'open' : 'proposed',
-            createdBy: user.uid,
-            createdByName: user.displayName || 'Un joueur',
-            createdAt: firebase.database.ServerValue.TIMESTAMP
-        })
-            .then(() => showToast(isGm ? 'Défi ouvert !' : 'Proposé ! L\'admin décidera.', 'success'))
-            .catch(err => showToast('Erreur : ' + err.message, 'error'));
+            db.ref('lan/challenges').push().set({
+                title: title.slice(0, 120),
+                description: (values.description || '').trim(),
+                category: values.category || 'autre',
+                zl: zl,
+                xp: xp,
+                repeatable: true,
+                status: isGm ? 'open' : 'proposed',
+                createdBy: user.uid,
+                createdByName: user.displayName || 'Un joueur',
+                createdAt: firebase.database.ServerValue.TIMESTAMP
+            })
+                .then(() => showToast(isGm ? 'Défi ouvert !' : 'Proposé ! L\'admin décidera.', 'success'))
+                .catch(err => showToast('Erreur : ' + err.message, 'error'));
+        });
     });
 
     function renderXpBanner() {
@@ -6858,28 +6999,26 @@ document.addEventListener('DOMContentLoaded', () => {
     function requestPurchase(itemId, item) {
         const user = auth.currentUser;
         if (!user) return;
-
         // Un handicap sans cible serait du sabotage anonyme : on demande sur
         // qui, et le nom restera visible dans le registre. On n'en achète qu'un
         // à la fois — jouer trois fois le même handicap n'a pas de sens.
         if (item.needsTarget) {
-            const others = economyPlayers().filter(uid => uid !== user.uid);
+            const others = playerOptions(false);
             if (!others.length) {
                 showToast('Aucun autre joueur à viser pour le moment.', 'error');
                 return;
             }
-            const choice = window.prompt(
-                `Sur qui jouer « ${item.name} » ?\n\n` +
-                others.map((uid, i) => `${i + 1}. ${playerLabel(uid)}`).join('\n') +
-                '\n\nEntrez le numéro :');
-            if (choice === null) return;
-
-            const index = parseInt(choice, 10) - 1;
-            if (!(index >= 0 && index < others.length)) {
-                showToast('Numéro invalide.', 'error');
-                return;
-            }
-            buyItem(itemId, item, 1, others[index], playerLabel(others[index]));
+            openFormModal({
+                title: item.name || 'Handicap',
+                intro: `${formatPoints(item.price)}. Son nom restera au registre, à côté du tien.`,
+                submitLabel: 'Jouer sur lui',
+                fields: [
+                    { key: 'target', type: 'select', label: 'Sur qui ?', options: others }
+                ]
+            }).then(values => {
+                if (!values || !values.target) return;
+                buyItem(itemId, item, 1, values.target, playerLabel(values.target));
+            });
             return;
         }
 

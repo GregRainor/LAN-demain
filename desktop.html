@@ -1428,6 +1428,21 @@
         </div>
     </div>
 
+    <!-- Modale de saisie générique. Elle remplace window.prompt, qui sortait
+         complètement de la charte et enchaînait jusqu'à cinq boîtes grises
+         pour créer un seul défi. Les champs sont construits en JS. -->
+    <div id="form-modal" class="modal-overlay" style="display:none;">
+        <div class="luxury-panel modal-content" style="max-width: 520px;">
+            <h3 id="form-modal-title" style="margin-bottom: 6px;">Titre</h3>
+            <p id="form-modal-intro" class="panel-section__hint"></p>
+            <div id="form-modal-fields" class="stack stack--sm"></div>
+            <div class="modal-actions" style="flex-direction: row; margin-top: 18px;">
+                <button type="button" id="form-modal-cancel" style="flex: 1;">Annuler</button>
+                <button type="button" id="form-modal-ok" class="gold-btn" style="flex: 1;">Valider</button>
+            </div>
+        </div>
+    </div>
+
     <div id="toast-container"></div>
 
     <script src="config.js"></script>

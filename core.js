@@ -474,6 +474,10 @@ const ECONOMY = {
     CURRENCY_LONG: 'złotych',
     CATEGORIES: [
         { key: 'privilege', label: 'Privilèges', icon: '👑' },
+        /* Les bonus sont l'inverse des handicaps : ceux-là protègent ou
+           avantagent CELUI QUI LES ACHÈTE, là où un handicap s'inflige à
+           quelqu'un d'autre. Sans eux, la boutique ne savait que nuire. */
+        { key: 'boost', label: 'Bonus', icon: '🛡️' },
         { key: 'handicap', label: 'Handicaps', icon: '🎯' },
         { key: 'cosmetic', label: 'Cosmétiques', icon: '✨' },
         { key: 'fun', label: 'Divers', icon: '🎲' }
@@ -1861,6 +1865,26 @@ const SHOP_STARTER = [
     { name: 'Choisir les équipes', price: 110, category: 'privilege',
       description: 'Tu composes les équipes de la prochaine partie.' },
 
+    /* --- Bonus : ce qui te protège ou t'avantage ---
+       L'exact inverse des handicaps. Un handicap se joue SUR quelqu'un ; un
+       bonus se garde POUR soi, et sert souvent à répondre à un handicap. C'est
+       ce qui rend la guerre des handicaps jouable au lieu d'être subie. */
+    { name: 'Bouclier', price: 200, category: 'boost',
+      description: 'Annule le prochain handicap joué sur toi. Annonce-le au moment où il tombe.' },
+    { name: 'Miroir', price: 280, category: 'boost',
+      description: 'Le prochain handicap joué sur toi repart chez celui qui l\'a acheté.' },
+    { name: 'Joker', price: 150, category: 'boost',
+      description: 'Refuse un défi imposé, une fois, sans avoir à te justifier.' },
+    { name: 'Seconde chance', price: 120, category: 'boost',
+      description: 'Retente un défi qui vient de t\'être refusé. Une seule fois.' },
+    { name: 'Double ration', price: 250, category: 'boost',
+      description: 'Ton prochain défi validé paie double, złotych et XP.' },
+    { name: 'Assurance booster', price: 180, category: 'boost',
+      description: 'Ton prochain booster sans aucune Rare t\'en fait gagner un autre.' },
+    { name: 'Priorité au bar', price: 90, category: 'boost',
+      description: 'Tu passes devant tout le monde pour la prochaine commande.' },
+    { name: 'Immunité de sommeil', price: 160, category: 'boost',
+      description: 'Personne ne te réveille, ne te filme et ne te dessine dessus. Une nuit.' },
     /* --- Handicaps : ce qu'on inflige à quelqu'un --- */
     { name: 'Une seule main', price: 180, category: 'handicap', needsTarget: true,
       description: 'La victime joue une manche entière à une main.' },
@@ -2046,69 +2070,93 @@ function openSuggestions(node) {
    ========================================================================== */
 
 const CHALLENGE_STARTER = [
-    /* --- Sport --- */
-    { title: '30 pompes d\'affilée', category: 'sport', zl: 60, xp: 40,
-      description: 'Sans poser les genoux. Quelqu\'un compte à voix haute.' },
-    { title: '10 tractions', category: 'sport', zl: 80, xp: 50,
-      description: 'Menton au-dessus de la barre, sinon ça ne compte pas.' },
-    { title: '50 abdos', category: 'sport', zl: 50, xp: 30,
-      description: 'D\'affilée, sans pause.' },
-    { title: '40 squats', category: 'sport', zl: 50, xp: 30,
-      description: 'Cuisses parallèles au sol.' },
-    { title: '30 fentes par jambe', category: 'sport', zl: 50, xp: 30,
-      description: 'Les deux jambes, à la suite.' },
+    /* --- Sport ---
+       Volontairement ATTEIGNABLES. Un défi qu'on regarde en se disant « jamais
+       de la vie » ne se relève pas, et une liste que personne ne touche ne
+       rapporte d'expérience à personne. Dix pompes, on les fait ; trente, on
+       les remet à plus tard. */
+    { title: '10 pompes', category: 'sport', zl: 60, xp: 40,
+      description: 'D\'affilée. Quelqu\'un compte à voix haute, et se moque si tu triches.' },
+    { title: '3 tractions', category: 'sport', zl: 70, xp: 45,
+      description: 'Menton au-dessus de la barre. Trois, pas deux et demie.' },
+    { title: '20 abdos', category: 'sport', zl: 50, xp: 30,
+      description: 'Sans pause. Le canapé ne compte pas comme support.' },
+    { title: '20 squats', category: 'sport', zl: 50, xp: 30,
+      description: 'Cuisses parallèles au sol, sinon c\'est de la gymnastique molle.' },
+    { title: 'La chaise, 1 minute', category: 'sport', zl: 70, xp: 45,
+      description: 'Dos au mur, cuisses à l\'horizontale. Une minute complète. Ça paraît court.' },
     { title: 'Gagner un bras de fer', category: 'sport', zl: 70, xp: 45,
-      description: 'Contre un autre joueur de la soirée. Le perdant confirme.' },
-    { title: '5 km en course à pied', category: 'sport', zl: 120, xp: 80,
+      description: 'Contre qui tu veux dans la soirée. Le perdant confirme, la mort dans l\'âme.' },
+    { title: 'Une pompe entre chaque manche', category: 'sport', zl: 120, xp: 80,
+      description: 'Toute une session de jeu. Une pompe après chaque partie perdue. Deux si tu râles.' },
+    { title: 'Un tour du pâté de maisons', category: 'sport', zl: 80, xp: 50,
+      description: 'À pied, dehors, en pleine LAN. Le monde extérieur existe encore.' },
+    { title: '2 km de course', category: 'sport', zl: 110, xp: 70,
       description: 'Pendant la LAN. Capture d\'écran de la montre ou de l\'appli.' },
-    { title: '20 km à vélo', category: 'sport', zl: 120, xp: 80,
-      description: 'Pendant la LAN. Capture d\'écran à l\'appui.' },
-    { title: '20 longueurs de piscine', category: 'sport', zl: 120, xp: 80,
-      description: 'Le style ne compte pas, la distance si.' },
 
     /* --- Jeu --- */
-    { title: 'Run de roguelite sans [au choix]', category: 'jeu', zl: 150, xp: 90,
-      description: 'Finir un run en se privant de quelque chose : une arme, un objet, une touche. Annonce la contrainte avant de lancer.' },
-    { title: 'Roguelite à deux mains, deux joueurs', category: 'jeu', zl: 200, xp: 120,
-      description: 'Un joueur à la souris, l\'autre au clavier. Même run. Les deux touchent la récompense.' },
-    { title: 'Une game de LoL, touches modifiées', category: 'jeu', zl: 180, xp: 110,
-      description: 'Quelqu\'un d\'autre remappe ton clavier avant la partie. Tu joues avec.' },
-    { title: 'Perso choisi par un autre', category: 'jeu', zl: 150, xp: 90,
-      description: 'Un autre joueur choisit ton personnage. Marche dans n\'importe quel jeu.' },
-    { title: 'Runes choisies par un autre', category: 'jeu', zl: 120, xp: 70,
-      description: 'Tu ne touches pas à la page de runes. Quelqu\'un d\'autre la remplit.' },
-    { title: 'Build imposé', category: 'jeu', zl: 120, xp: 70,
+    { title: 'Une manche à une main', category: 'jeu', zl: 90, xp: 55,
+      description: 'L\'autre main reste sur la table. Une manche entière.' },
+    { title: 'Perso choisi par un autre', category: 'jeu', zl: 90, xp: 55,
+      description: 'Quelqu\'un d\'autre choisit ton personnage. Il a le droit d\'être méchant.' },
+    { title: 'Build imposé', category: 'jeu', zl: 110, xp: 70,
       description: 'Un autre joueur choisit tes objets, un par un, pendant la partie.' },
-    { title: 'Une partie entière à une main', category: 'jeu', zl: 150, xp: 90,
-      description: 'L\'autre main reste sur la table. Du début à la fin.' },
-    { title: 'Une partie sans son', category: 'jeu', zl: 100, xp: 60,
-      description: 'Casque débranché, volume à zéro. Une partie complète.' },
+    { title: 'Runes choisies par un autre', category: 'jeu', zl: 90, xp: 55,
+      description: 'Tu ne touches pas à la page. Quelqu\'un d\'autre la remplit à ta place.' },
+    { title: 'Touches remappées', category: 'jeu', zl: 150, xp: 90,
+      description: 'Quelqu\'un échange deux touches de ton choix avant la partie. Tu joues avec.' },
+    { title: 'Roguelite à quatre mains', category: 'jeu', zl: 180, xp: 110,
+      description: 'Un joueur à la souris, l\'autre au clavier, même run. Les deux touchent la récompense.' },
+    { title: 'Run de roguelite sans [au choix]', category: 'jeu', zl: 140, xp: 85,
+      description: 'Finir un run privé de quelque chose : une arme, un objet, une touche. Annonce la contrainte avant.' },
+    { title: 'Une partie sans son', category: 'jeu', zl: 90, xp: 55,
+      description: 'Casque débranché, volume à zéro. Une partie complète, sans râler.' },
+    { title: 'Commentateur en direct', category: 'jeu', zl: 100, xp: 60,
+      description: 'Tu commentes ta propre partie à voix haute, sans t\'arrêter. Ton de match télévisé exigé.' },
+    { title: 'Debout toute la partie', category: 'jeu', zl: 110, xp: 70,
+      description: 'Une partie entière jouée debout. Chaise repoussée, pas de triche.' },
+    { title: 'Chaque mort, une gorgée', category: 'jeu', zl: 100, xp: 60,
+      description: 'Une gorgée à chaque mort, toute la session. De l\'eau compte aussi, on n\'est pas des animaux.' },
 
     /* --- Boisson --- */
     { title: 'Une bière à 9 h du matin', category: 'boisson', zl: 80, xp: 50,
-      description: 'Avec le pain au chocolat. C\'est le petit-déjeuner de la LAN.' },
-    { title: 'Un shot au réveil', category: 'boisson', zl: 100, xp: 60,
-      description: 'Dans les dix minutes qui suivent le lever. Un témoin, obligatoire.' },
-    { title: 'Boire un one-shot inventé ce soir', category: 'boisson', zl: 60, xp: 35,
-      description: 'Un kocktail de la carte « one-shot », bu en entier, sans grimacer.' },
+      description: 'Avec le pain au chocolat. C\'est le petit-déjeuner officiel de la LAN.' },
+    { title: 'Un shot dans les 10 min du réveil', category: 'boisson', zl: 100, xp: 60,
+      description: 'Un témoin obligatoire, et il doit être réveillé aussi.' },
+    { title: 'Boire un one-shot inventé ce soir', category: 'boisson', zl: 70, xp: 45,
+      description: 'Un kocktail de la carte « one-shot ». En entier. Sans grimacer, si possible.' },
+    { title: 'Cul sec de l\'infâme', category: 'boisson', zl: 130, xp: 80,
+      description: 'Quelqu\'un compose le verre avec ce qu\'il trouve. Buvable, mais à peine.' },
     { title: 'Deux litres d\'eau dans la soirée', category: 'boisson', zl: 70, xp: 45,
       description: 'Oui, c\'est un défi. Non, la bière ne compte pas.' },
 
     /* --- Bouffe --- */
     { title: 'Manger un truc que tu détestes', category: 'bouffe', zl: 90, xp: 55,
-      description: 'Choisi par quelqu\'un d\'autre. En entier.' },
+      description: 'Choisi par quelqu\'un d\'autre. En entier, et avec le sourire.' },
     { title: 'Petit-déjeuner à 3 h du matin', category: 'bouffe', zl: 70, xp: 45,
-      description: 'Céréales, tartines, le vrai truc. Pas des chips.' },
-    { title: 'Un repas sans les mains', category: 'bouffe', zl: 110, xp: 65,
-      description: 'Une assiette entière. Les mains restent derrière le dos.' },
+      description: 'Céréales, tartines, le vrai truc. Les chips ne sont pas un petit-déjeuner.' },
+    { title: 'Une assiette sans les mains', category: 'bouffe', zl: 110, xp: 65,
+      description: 'Les mains derrière le dos. L\'assiette entière. Les photos sont obligatoires.' },
+    { title: 'La bouchée mystère', category: 'bouffe', zl: 100, xp: 60,
+      description: 'Les yeux bandés, quelqu\'un choisit. Comestible, mais rien ne t\'est promis.' },
+    { title: 'Un plat entier au piment', category: 'bouffe', zl: 130, xp: 80,
+      description: 'Le dosage est décidé par quelqu\'un d\'autre. Le lait n\'est pas fourni.' },
 
     /* --- Autre --- */
     { title: 'Une heure sans écran', category: 'autre', zl: 100, xp: 60,
-      description: 'Aucun écran. Le téléphone compte comme un écran.' },
-    { title: 'Tenir jusqu\'à 6 h du matin', category: 'autre', zl: 150, xp: 90,
-      description: 'Debout, éveillé, et capable de tenir une conversation.' },
-    { title: 'Se lever avant 8 h', category: 'autre', zl: 120, xp: 70,
-      description: 'Après une nuit de LAN. Un témoin confirme que tu étais debout.' }
+      description: 'Aucun écran. Le téléphone est un écran. La montre aussi.' },
+    { title: 'Tenir jusqu\'à 4 h du matin', category: 'autre', zl: 120, xp: 75,
+      description: 'Debout, éveillé, et capable de tenir une conversation suivie.' },
+    { title: 'Se lever avant 9 h', category: 'autre', zl: 100, xp: 60,
+      description: 'Après une nuit de LAN. Un témoin confirme que tu étais vertical.' },
+    { title: 'Trente minutes sans parler', category: 'autre', zl: 90, xp: 55,
+      description: 'Pas un mot. Les gestes sont autorisés, les bruits de bouche non.' },
+    { title: 'Accent imposé pendant une heure', category: 'autre', zl: 110, xp: 70,
+      description: 'Quelqu\'un choisit l\'accent. Une heure. Y compris au téléphone.' },
+    { title: 'Vouvoyer tout le monde', category: 'autre', zl: 80, xp: 50,
+      description: 'Deux heures. « Vous » à tout le monde, y compris en pleine rage.' },
+    { title: 'Ranger la table de tout le monde', category: 'autre', zl: 90, xp: 55,
+      description: 'Sans rien casser, sans se plaindre. Quelqu\'un valide le résultat.' }
 ];
 
 /* Ce qui manque encore, comparé à la liste de départ. On compare sur le titre :

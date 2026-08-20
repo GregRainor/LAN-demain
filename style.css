@@ -5569,6 +5569,7 @@ select.luxury-input option:disabled {
 .shop-item.is-locked:hover { transform: none; }
 
 .shop-item--privilege { --si: #d4af37; --si-soft: rgba(212, 175, 55, 0.42); --si-wash: rgba(212, 175, 55, 0.09); }
+.shop-item--boost     { --si: #4e9463; --si-soft: rgba(78, 148, 99, 0.5);   --si-wash: rgba(78, 148, 99, 0.1); }
 .shop-item--handicap  { --si: #d96a6a; --si-soft: rgba(192, 74, 74, 0.45);  --si-wash: rgba(192, 74, 74, 0.09); }
 .shop-item--cosmetic  { --si: #c264d8; --si-soft: rgba(194, 100, 216, 0.42); --si-wash: rgba(194, 100, 216, 0.08); }
 .shop-item--fun       { --si: #4e8fa8; --si-soft: rgba(78, 143, 168, 0.42);  --si-wash: rgba(78, 143, 168, 0.08); }
