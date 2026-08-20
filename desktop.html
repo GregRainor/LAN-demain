@@ -1359,6 +1359,25 @@
         </div>
     </div>
 
+    <!-- Combien on en prend : un champ, deux flèches, et « Max ». -->
+    <div id="quantity-modal" class="modal-overlay" style="display:none;">
+        <div class="luxury-panel modal-content" style="max-width: 420px;">
+            <h3 id="quantity-name" style="text-align:center; margin-bottom: 6px;">Acheter</h3>
+            <p id="quantity-hint" class="panel-section__hint" style="text-align:center;"></p>
+            <div class="qty-row">
+                <button type="button" id="quantity-minus" class="qty-step">&minus;</button>
+                <input type="number" id="quantity-input" class="luxury-input qty-field" min="1" value="1">
+                <button type="button" id="quantity-plus" class="qty-step">+</button>
+                <button type="button" id="quantity-max" class="qty-max">Max</button>
+            </div>
+            <p id="quantity-total" class="qty-total"></p>
+            <div class="modal-actions" style="flex-direction: row; margin-top: 10px;">
+                <button type="button" id="quantity-cancel" style="flex: 1;">Annuler</button>
+                <button type="button" id="quantity-go" class="gold-btn" style="flex: 1;">Acheter</button>
+            </div>
+        </div>
+    </div>
+
     <div id="toast-container"></div>
 
     <script src="config.js"></script>

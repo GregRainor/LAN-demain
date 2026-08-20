@@ -1719,3 +1719,47 @@ textarea.m-input { resize: vertical; min-height: 84px; }
 /* Un visage et une ligne de classement s'ouvrent : on le montre. */
 .m-presence__face { cursor: pointer; }
 button.m-podium { width: 100%; text-align: left; }
+
+/* ---------- Choisir une quantité ----------
+   Un champ, deux flèches, et « Max ». Les flèches parce qu'on achète souvent
+   deux ou trois boosters ; le champ parce qu'on en achète parfois dix. */
+.m-qty { display: flex; align-items: stretch; gap: 8px; }
+.m-qty__step {
+    width: var(--tap); flex: 0 0 auto;
+    border: 1px solid var(--gold-a30);
+    background: var(--gold-a08);
+    color: var(--gold);
+    border-radius: var(--r-sharp);
+    font-size: 1.3rem; line-height: 1;
+    display: grid; place-items: center;
+}
+.m-qty__step:active { background: var(--gold-a15); }
+.m-qty__field {
+    flex: 1; min-width: 0;
+    min-height: var(--tap);
+    padding: 0 12px;
+    /* 16 px : en dessous, iOS zoome à chaque mise au point d'un champ. */
+    font-size: 16px;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    background: #0d0d0d;
+    border: 1px solid var(--line-2);
+    border-radius: var(--r-sharp);
+    color: var(--text);
+    font-family: var(--fb);
+}
+.m-qty__field:focus { outline: none; border-color: var(--gold-a30); box-shadow: 0 0 0 3px var(--gold-a08); }
+/* Les flèches natives sont trop petites pour un doigt : les nôtres suffisent. */
+.m-qty__field::-webkit-outer-spin-button,
+.m-qty__field::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.m-qty__field { -moz-appearance: textfield; }
+.m-qty__max {
+    flex: 0 0 auto;
+    min-height: var(--tap); padding: 0 15px;
+    border: 1px solid var(--line-2);
+    border-radius: var(--r-sharp);
+    color: var(--text-2);
+    font-size: .82rem; font-weight: 500;
+}
+.m-qty__max:active { border-color: var(--gold-a30); color: var(--gold); }
+.m-qty__total { font-size: .84rem; color: var(--text-3); text-align: center; font-variant-numeric: tabular-nums; }

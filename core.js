@@ -1418,6 +1418,39 @@ function xpLevel(total) {
 }
 
 /* Le journal d'expérience, tel quel. */
+
+/* ==========================================================================
+   Les paliers
+   « Quelqu'un qui joue à un jeu vidéo pue. » Le niveau 1 sent encore la
+   lessive ; à force de LAN, ça se dégrade. C'est la seule échelle du jeu où
+   monter est une mauvaise nouvelle, et c'est bien pour ça qu'elle est drôle.
+   ========================================================================== */
+
+const LEVEL_TITLES = [
+    'Parfumé',              // 1
+    'Propre sur soi',       // 2
+    'Tiède',                // 3
+    'Moite',                // 4
+    'Suant',                // 5
+    'Fermenté',             // 6
+    'Rance',                // 7
+    'Âcre',                 // 8
+    'Putride',              // 9
+    'Pestilentiel',         // 10
+    'Irrespirable',         // 11
+    'Zone contaminée',      // 12
+    'Arme chimique',        // 13
+    'Crime contre l\'odorat', // 14
+    'Légende olfactive'     // 15
+];
+
+/* Au-delà du dernier palier, on ne peut plus descendre : on reste une légende.
+   Mieux vaut un plafond assumé qu'un niveau sans nom. */
+function levelTitle(level) {
+    const n = Math.max(1, Math.floor(Number(level) || 1));
+    return LEVEL_TITLES[Math.min(n, LEVEL_TITLES.length) - 1];
+}
+
 function xpAwards(xpNode) {
     const awards = (xpNode && xpNode.awards) || {};
     return Object.entries(awards)
@@ -1515,7 +1548,27 @@ const ACHIEVEMENTS = [
     { id: 'lan-3', icon: 'flag', family: 'soirée', xp: 100,
       label: 'Habitué', hint: 'Participer à trois LAN', goal: 3, nickname: 'L\'Habitué' },
     { id: 'lan-10', icon: 'flag', family: 'soirée', xp: 250,
-      label: 'Vétéran', hint: 'Participer à dix LAN', goal: 10, nickname: 'Le Vétéran' }
+      label: 'Vétéran', hint: 'Participer à dix LAN', goal: 10, nickname: 'Le Vétéran' },
+
+    /* --- Les invités d'honneur ---
+       Des noms empruntés à ceux qui ont marqué le jeu, accrochés à ce qui leur
+       ressemble : la longévité, le farm, la précision. Ce sont les hauts faits
+       les plus chers du catalogue, donc ceux qui donnent les surnoms. */
+    { id: 'pro-faker', icon: 'trophy', family: 'légende', xp: 400,
+      label: 'Faker', hint: 'Atteindre le niveau 10', goal: 10, nickname: 'L\'Immortel' },
+    { id: 'pro-uzi', icon: 'pack', family: 'légende', xp: 250,
+      label: 'Uzi', hint: 'Ouvrir vingt-cinq boosters', goal: 25, nickname: 'Le Farmeur' },
+    { id: 'pro-zywoo', icon: 'spark', family: 'légende', xp: 250,
+      label: 'ZywOo', hint: 'Posséder vingt cartes brillantes', goal: 20, nickname: 'Le Sniper' },
+
+    /* --- Le passage ---
+       Celui-là ne se calcule pas sur un compteur mais sur une époque : tant que
+       l'admin laisse `lan/settings/beta` allumé, quiconque participe à une
+       soirée l'obtient. Il s'éteint le jour où la bêta se termine, et devient
+       alors impossible à décrocher — c'est tout l'intérêt. */
+    { id: 'beta', icon: 'flag', family: 'légende', xp: 200,
+      label: 'Bêta-testeur', hint: 'Avoir été là pendant la bêta', goal: 1,
+      nickname: 'Le Pionnier' }
 ];
 
 function achievementById(id) {
@@ -1575,6 +1628,7 @@ function playerCounters(data, uid) {
         if (card.rarity === 'signature') signatures += 1;
     });
 
+    const lans = lanCountFor(data.history, data.votes, uid);
     const myPacks = openedPacks(tcg).filter(pack => pack.uid === uid);
     const myTrades = acceptedTrades(tcg)
         .filter(trade => trade.fromUid === uid || trade.toUid === uid);
@@ -1603,7 +1657,13 @@ function playerCounters(data, uid) {
         setComplete: anyComplete,
         setPercent: bestPercent,
         ticks: Number(((economy.ticks || {})[uid] || {}).count) || 0,
-        lans: lanCountFor(data.history, data.votes, uid)
+        lans: lans,
+        /* Le niveau est un compteur comme un autre : un haut fait peut donc en
+           exiger un. Pas de boucle — la récompense s'écrit une seule fois. */
+        level: xpLevel(xpTotal(data.xp, uid)).level,
+        /* La bêta n'est pas un compteur mais une époque : tant que l'admin la
+           laisse allumée, être venu suffit. */
+        beta: ((data.settings && data.settings.beta) && lans >= 1) ? 1 : 0
     };
 }
 
@@ -1628,7 +1688,11 @@ function achievementProgress(counters, ach) {
         'trade-10': counters.trades,
         'tick-max': counters.ticks,
         'lan-3': counters.lans,
-        'lan-10': counters.lans
+        'lan-10': counters.lans,
+        'pro-faker': counters.level,
+        'pro-uzi': counters.packs,
+        'pro-zywoo': counters.foils,
+        'beta': counters.beta
     }[ach.id];
 
     const current = Math.max(0, Number(value) || 0);
@@ -1756,4 +1820,71 @@ function playerProfile(data, uid) {
             .filter(award => award.uid === uid && award.type === 'title')
             .sort((a, b) => (b.ts || 0) - (a.ts || 0))
     };
+}
+
+/* ==========================================================================
+   La carte de départ
+   Une boutique vide ne donne envie de rien, et personne n'a envie de remplir
+   quinze formulaires à minuit. Voici de quoi ouvrir, en une fois.
+
+   Les prix sont calés sur le plafond de présence (60 tranches × 5 zł = 300 zł
+   pour une LAN entière passée devant l'écran) : un privilège coûte une bonne
+   partie d'une soirée, un handicap se paie cher parce qu'il se joue sur
+   quelqu'un, et les cosmétiques sont des objectifs de plusieurs soirées.
+   ========================================================================== */
+
+const SHOP_STARTER = [
+    /* --- Privilèges : ce qu'on impose à la soirée --- */
+    { name: 'Choisir le prochain jeu', price: 120, category: 'privilege',
+      description: 'Tu poses le jeu suivant sur la table. Personne ne discute.' },
+    { name: 'Droit de veto', price: 100, category: 'privilege',
+      description: 'Un jeu de ton choix est interdit pendant une heure.' },
+    { name: 'Maître de la musique', price: 60, category: 'privilege',
+      description: 'Trente minutes de règne sans partage sur l\'enceinte.' },
+    { name: 'Pause imposée', price: 90, category: 'privilege',
+      description: 'Dix minutes de pause pour tout le monde. Va prendre l\'air.' },
+    { name: 'Double vote', price: 200, category: 'privilege',
+      description: 'Ton vote compte double à la prochaine soirée.' },
+    { name: 'Choisir les équipes', price: 110, category: 'privilege',
+      description: 'Tu composes les équipes de la prochaine partie.' },
+
+    /* --- Handicaps : ce qu'on inflige à quelqu'un --- */
+    { name: 'Une seule main', price: 180, category: 'handicap', needsTarget: true,
+      description: 'La victime joue une manche entière à une main.' },
+    { name: 'Écran à l\'envers', price: 220, category: 'handicap', needsTarget: true,
+      description: 'Une manche, l\'écran retourné. Bon courage.' },
+    { name: 'Souris de compétition', price: 160, category: 'handicap', needsTarget: true,
+      description: 'Sensibilité multipliée par trois pendant une manche.' },
+    { name: 'Silence radio', price: 120, category: 'handicap', needsTarget: true,
+      description: 'Dix minutes sans micro. Débrouille-toi avec des gestes.' },
+    { name: 'Clavier maudit', price: 140, category: 'handicap', needsTarget: true,
+      description: 'AZERTY devient QWERTY, ou l\'inverse. Une manche.' },
+    { name: 'Personnage imposé', price: 150, category: 'handicap', needsTarget: true,
+      description: 'C\'est toi qui choisis son perso. Sois cruel.' },
+    { name: 'Commentateur imposé', price: 130, category: 'handicap', needsTarget: true,
+      description: 'La victime commente sa partie à voix haute, en continu.' },
+
+    /* --- Cosmétiques : ce qui reste --- */
+    { name: 'Titre personnalisé', price: 400, category: 'cosmetic',
+      description: 'Ton surnom sur ton profil, écrit par toi. À vie.' },
+    { name: 'Baptiser un kocktail', price: 250, category: 'cosmetic',
+      description: 'Un kocktail de la carte portera ton nom.' },
+    { name: 'Baptiser le prochain set', price: 500, category: 'cosmetic',
+      description: 'Le set de cartes de la prochaine LAN portera le nom que tu choisis.' },
+
+    /* --- Divers --- */
+    { name: 'Relancer un vote', price: 80, category: 'fun',
+      description: 'Le vote en cours repart de zéro. Chaos.' },
+    { name: 'Lancer un défi', price: 150, category: 'fun',
+      description: 'Tu imposes un défi de la liste à qui tu veux.' }
+];
+
+/* Ce qui manque encore à la boutique, comparé à la carte de départ. On
+   compare sur le nom : regarnir deux fois ne doit pas doubler les articles. */
+function missingStarterItems(economy) {
+    const have = {};
+    Object.values((economy && economy.catalog) || {}).forEach(item => {
+        if (item && item.name) have[normalizeGameName(item.name)] = true;
+    });
+    return SHOP_STARTER.filter(item => !have[normalizeGameName(item.name)]);
 }

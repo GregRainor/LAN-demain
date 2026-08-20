@@ -5871,3 +5871,49 @@ select.luxury-input option:disabled {
 /* Une ligne de classement s'ouvre sur la fiche du joueur. */
 .rank-row--player { width: 100%; background: none; border: 0; cursor: pointer; font: inherit; }
 .rank-row--player:hover { background: rgba(212, 175, 55, 0.06); }
+
+/* ---------- Choisir une quantité ----------
+   Un champ, deux flèches, et « Max ». Les flèches parce qu'on achète souvent
+   deux ou trois boosters ; le champ parce qu'on en achète parfois dix. */
+.qty-row { display: flex; align-items: stretch; gap: var(--space-2); margin: var(--space-4) 0 var(--space-3); }
+
+.qty-step {
+    width: 44px;
+    flex: 0 0 auto;
+    border: 1px solid rgba(212, 175, 55, 0.3);
+    background: rgba(212, 175, 55, 0.08);
+    color: var(--accent-color);
+    border-radius: 3px;
+    font-size: 1.3em;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.qty-step:hover { background: rgba(212, 175, 55, 0.16); }
+
+.qty-field {
+    box-sizing: border-box;
+    flex: 1;
+    min-width: 0;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Les flèches natives sont minuscules : les nôtres suffisent. */
+.qty-field::-webkit-outer-spin-button,
+.qty-field::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.qty-field { -moz-appearance: textfield; }
+
+.qty-max {
+    flex: 0 0 auto;
+    padding: 0 16px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: none;
+    color: var(--secondary-text);
+    border-radius: 3px;
+    font-size: 0.85em;
+    cursor: pointer;
+}
+
+.qty-max:hover { border-color: rgba(212, 175, 55, 0.3); color: var(--accent-color); }
+.qty-total { margin: 0; text-align: center; color: var(--secondary-text); font-variant-numeric: tabular-nums; }

@@ -2666,7 +2666,7 @@ function paintXpBar(levelId, countId, segsId, footId) {
     const uid = state.user && state.user.uid;
     const info = xpLevel(xpTotal(state.xp, uid));
 
-    $(levelId).textContent = String(info.level);
+    $(levelId).textContent = info.level + ' · ' + levelTitle(info.level);
     $(countId).textContent = info.into + ' / ' + info.span + ' XP';
 
     const segs = $(segsId);
@@ -2783,6 +2783,36 @@ function createDefaultPackItem() {
         createdAt: firebase.database.ServerValue.TIMESTAMP
     })
         .then(() => showToast('Le booster est en vente à ' + formatPoints(price) + '.', 'success'))
+        .catch(e => showToast('Erreur : ' + e.message, 'error'));
+}
+
+/* Garnir la boutique d'un coup. On n'ajoute que ce qui manque, comparé sur le
+   nom : regarnir deux fois ne double pas les articles. */
+function stockStarterShop() {
+    const user = state.user;
+    if (!user) return;
+    const missing = missingStarterItems(state.economy);
+    if (!missing.length) { showToast('La boutique a déjà tout.', 'success'); return; }
+
+    const update = {};
+    missing.forEach(item => {
+        const id = db.ref('lan/economy/catalog').push().key;
+        update['lan/economy/catalog/' + id] = {
+            name: item.name,
+            description: item.description || '',
+            price: item.price,
+            category: item.category || 'fun',
+            stock: null,
+            needsTarget: !!item.needsTarget,
+            kind: null,
+            active: true,
+            createdBy: user.uid,
+            createdAt: firebase.database.ServerValue.TIMESTAMP
+        };
+    });
+
+    db.ref().update(update)
+        .then(() => showToast(missing.length + ' articles ajoutés à la boutique.', 'success'))
         .catch(e => showToast('Erreur : ' + e.message, 'error'));
 }
 
@@ -2927,12 +2957,25 @@ function renderShopList() {
         .filter(([, item]) => item && item.active !== false && !isPackItem(item));
 
     if (!catalog.length) {
-        mount.appendChild(emptyState(state.isGamemaster
-            ? 'La boutique est vide. Ajoute un premier article.'
-            : 'La boutique est vide pour le moment.'));
+        if (!state.isGamemaster) {
+            mount.appendChild(emptyState('La boutique est vide pour le moment.'));
+            return;
+        }
+        /* Pour un maître du jeu, une boutique vide est une chose à faire, pas
+           une absence à constater. */
+        const card = el('article', 'm-card');
+        card.appendChild(el('p', 'm-card__body',
+            'La boutique est vide. Une carte de départ existe : privilèges, handicaps à jouer sur quelqu\'un, cosmétiques.'));
+        const go = el('button', 'm-btn m-btn--solid m-btn--full', 'Garnir la boutique');
+        go.addEventListener('click', stockStarterShop);
+        card.appendChild(go);
+        mount.appendChild(card);
         return;
     }
 
+    /* Il reste des articles de la carte de départ à poser : on le propose sans
+       insister, tout en bas. */
+    const missing = state.isGamemaster ? missingStarterItems(state.economy).length : 0;
     /* Groupé par rayon : une liste à plat de vingt articles ne se lit pas sur
        un téléphone. */
     ECONOMY.CATEGORIES.forEach(cat => {
@@ -2943,6 +2986,13 @@ function renderShopList() {
             .sort((a, b) => (Number(a[1].price) || 0) - (Number(b[1].price) || 0))
             .forEach(([id, item]) => mount.appendChild(buildShopCard(id, item, uid)));
     });
+
+    if (missing) {
+        const more = el('button', 'm-btn m-btn--quiet m-btn--sm m-btn--full',
+            'Ajouter les ' + missing + ' articles de la carte de départ');
+        more.addEventListener('click', stockStarterShop);
+        mount.appendChild(more);
+    }
 }
 
 /* Un article de boutique, à la manière d'une carte : jeton de coût, nom gravé,
@@ -3006,28 +3056,40 @@ function iconSvg(path) {
     return svg;
 }
 
-/* Acheter, c'est déposer une demande — jamais se débiter soi-même. Le maître
-   du jeu tranche, et c'est seulement là que le registre bouge. */
-function requestPurchase(itemId, item) {
+/* Combien on peut s'en offrir, sans jamais passer sous zéro ni dépasser le
+   stock. Sert au bouton « Max » comme au plafond du champ. */
+function affordableCount(itemId, item) {
+    const uid = state.user && state.user.uid;
+    const price = Number(item.price) || 0;
+    if (price <= 0) return 1;
+    let max = Math.floor(availablePoints(state.economy, uid) / price);
+    const left = itemStockLeft(state.economy, itemId, item);
+    if (left !== null) max = Math.min(max, left);
+    return Math.max(0, max);
+}
+
+/* Acheter N exemplaires d'un coup. Tout part dans UNE écriture multi-chemins :
+   Firebase applique le lot entier ou rien, donc on ne peut pas être débité de
+   trois boosters et n'en recevoir qu'un.
+
+   Le joueur écrit lui-même ses lignes de registre, ce qu'il ne peut faire nulle
+   part ailleurs. Les règles l'y autorisent parce qu'une ligne de type
+   « purchase » est forcément NÉGATIVE et forcément égale au prix affiché en
+   boutique : elle ne peut qu'appauvrir celui qui la signe. */
+function buyItem(itemId, item, quantity, targetUid, targetName) {
     const user = state.user;
-    if (!user) return;
+    if (!user) return Promise.resolve();
 
-    const send = (targetUid, targetName) => {
-        /* L'achat est immédiat : plus personne à attendre. Le débit et l'achat
-           partent dans la MÊME écriture multi-chemins, donc Firebase les
-           applique ensemble ou pas du tout — impossible d'être débité sans
-           l'article, ou l'inverse.
+    const count = Math.max(1, Math.floor(Number(quantity) || 1));
+    const price = Number(item.price) || 0;
+    const update = {};
+    const purchaseIds = [];
 
-           Le joueur écrit ici sa propre ligne de registre, ce qu'il ne peut
-           faire nulle part ailleurs. Les règles l'y autorisent parce qu'une
-           ligne de type « purchase » est forcément NÉGATIVE et forcément égale
-           au prix affiché en boutique : elle ne peut qu'appauvrir celui qui la
-           signe. */
+    for (let i = 0; i < count; i += 1) {
         const purchaseId = db.ref('lan/economy/purchases').push().key;
         const entryId = db.ref('lan/economy/ledger').push().key;
-        const price = Number(item.price) || 0;
+        purchaseIds.push(purchaseId);
 
-        const update = {};
         update['lan/economy/ledger/' + entryId] = {
             uid: user.uid,
             delta: -price,
@@ -3048,36 +3110,114 @@ function requestPurchase(itemId, item) {
             status: 'granted',
             ts: firebase.database.ServerValue.TIMESTAMP
         };
+    }
 
-        db.ref().update(update)
-            .then(() => {
-                closeSheet();
-                showToast(isPackItem(item)
-                    ? 'Booster acheté ! Il t\'attend dans tes cartes.'
-                    : (item.name || 'Article') + ' : c\'est à toi !', 'success');
-                if (targetUid && targetUid !== user.uid) {
-                    sendNotification(targetUid,
-                        (user.displayName || 'Quelqu\'un') + ' te joue « ' + (item.name || 'un handicap') + ' »', 'info');
-                }
-            })
-            .catch(e => showToast('Erreur : ' + e.message, 'error'));
-    };
+    /* Ces paquets-là s'annoncent tout seuls au moment du clic : le sceau qui
+       suivra restera muet, sinon acheter cinq boosters ferait dix bulles. */
+    if (isPackItem(item)) purchaseIds.forEach(id => sealedQuietly.add(id));
+
+    return db.ref().update(update)
+        .then(() => {
+            closeSheet();
+            /* UN seul message, quel que soit le nombre. */
+            if (isPackItem(item)) {
+                showToast(count > 1
+                    ? count + ' boosters achetés ! Ils t\'attendent dans tes cartes.'
+                    : 'Booster acheté ! Il t\'attend dans tes cartes.', 'success');
+            } else {
+                showToast((item.name || 'Article')
+                    + (count > 1 ? ' ×' + count : '') + ' : c\'est à toi !', 'success');
+            }
+            if (targetUid && targetUid !== user.uid) {
+                sendNotification(targetUid,
+                    (user.displayName || 'Quelqu\'un') + ' te joue « ' + (item.name || 'un handicap') + ' »', 'info');
+            }
+        })
+        .catch(e => showToast('Erreur : ' + e.message, 'error'));
+}
+
+function requestPurchase(itemId, item) {
+    const user = state.user;
+    if (!user) return;
 
     /* Un handicap sans cible serait du sabotage anonyme : on demande sur qui,
-       et le nom restera visible dans le registre. */
-    if (!item.needsTarget) { send(null, null); return; }
-
-    openSheet(item.name + ' — sur qui ?', (body) => {
-        const others = economyPlayers().filter(u => u !== user.uid);
-        if (!others.length) {
-            body.appendChild(emptyState('Aucun autre joueur pour le moment.'));
-            return;
-        }
-        others.forEach(other => {
-            const row = el('button', 'm-btn m-btn--full', playerName(other));
-            row.addEventListener('click', () => send(other, playerName(other)));
-            body.appendChild(row);
+       et le nom restera visible dans le registre. On n'en achète qu'un à la
+       fois — jouer trois fois le même handicap sur quelqu'un n'a pas de sens. */
+    if (item.needsTarget) {
+        openSheet(item.name + ' — sur qui ?', (body) => {
+            const others = economyPlayers().filter(u => u !== user.uid);
+            if (!others.length) {
+                body.appendChild(emptyState('Aucun autre joueur pour le moment.'));
+                return;
+            }
+            others.forEach(other => {
+                const row = el('button', 'm-btn m-btn--full', playerName(other));
+                row.addEventListener('click', () => buyItem(itemId, item, 1, other, playerName(other)));
+                body.appendChild(row);
+            });
         });
+        return;
+    }
+
+    /* Tout le reste s'achète en quantité. Un seul exemplaire possible ? On ne
+       fait pas perdre un écran pour choisir « 1 ». */
+    const max = affordableCount(itemId, item);
+    if (max <= 1) { buyItem(itemId, item, 1, null, null); return; }
+
+    openQuantitySheet(itemId, item, max);
+}
+
+/* Le choix de la quantité : un champ, deux flèches, et « Max ». Le total se
+   met à jour à chaque frappe — on doit voir ce qu'on va payer avant de payer. */
+function openQuantitySheet(itemId, item, max) {
+    const price = Number(item.price) || 0;
+
+    openSheet(item.name || 'Acheter', (body) => {
+        const row = el('div', 'm-qty');
+
+        const minus = el('button', 'm-qty__step', '−');
+        const input = el('input', 'm-qty__field');
+        input.type = 'number';
+        input.inputMode = 'numeric';
+        input.min = '1';
+        input.max = String(max);
+        input.value = '1';
+        const plus = el('button', 'm-qty__step', '+');
+        const maxBtn = el('button', 'm-qty__max', 'Max');
+
+        row.appendChild(minus);
+        row.appendChild(input);
+        row.appendChild(plus);
+        row.appendChild(maxBtn);
+        body.appendChild(row);
+
+        const total = el('p', 'm-qty__total');
+        body.appendChild(total);
+
+        const clamp = (n) => Math.max(1, Math.min(max, Math.floor(Number(n) || 1)));
+        const paint = () => {
+            const n = clamp(input.value);
+            total.textContent = n + ' × ' + formatPoints(price) + ' = ' + formatPoints(n * price);
+            go.textContent = 'Acheter · ' + formatPoints(n * price);
+        };
+        const setN = (n) => { input.value = String(clamp(n)); paint(); };
+
+        minus.addEventListener('click', () => setN(clamp(input.value) - 1));
+        plus.addEventListener('click', () => setN(clamp(input.value) + 1));
+        maxBtn.addEventListener('click', () => setN(max));
+        input.addEventListener('input', paint);
+        /* On ne recale qu'en quittant le champ : corriger pendant la frappe
+           empêcherait d'effacer pour retaper. */
+        input.addEventListener('blur', () => setN(input.value));
+
+        const go = el('button', 'm-btn m-btn--solid m-btn--full');
+        go.addEventListener('click', () => buyItem(itemId, item, clamp(input.value), null, null));
+        body.appendChild(go);
+
+        body.appendChild(el('p', 'm-card__meta',
+            'Tu peux en prendre ' + max + ' au maximum avec ton solde.'));
+
+        paint();
     });
 }
 
@@ -3906,6 +4046,15 @@ let sealing = false;
    retente pas en boucle : on l'oublie jusqu'au prochain chargement. */
 const sealFailures = new Set();
 
+/* Les achats faits dans cette session ont déjà dit ce qu'il fallait dire au
+   moment du clic. Les sceller ne doit pas produire un second message : acheter
+   cinq boosters donnait dix bulles à la suite, et plus personne ne les lisait.
+
+   Un paquet qui arrive SANS avoir été acheté ici — commandé depuis le
+   téléphone, ou offert pendant qu'on était hors ligne — mérite au contraire
+   d'être annoncé. C'est à ça que sert cette liste. */
+const sealedQuietly = new Set();
+
 function sealBoughtPacks() {
     const uid = state.user && state.user.uid;
     const setId = tcgCurrentSetId(state.tcg);
@@ -3917,6 +4066,8 @@ function sealBoughtPacks() {
 
     sealing = true;
     const purchase = waiting[0];
+    const quiet = sealedQuietly.has(purchase.id);
+
     db.ref('lan/tcg/packs/' + purchase.id).set({
         uid: uid,
         setId: setId,
@@ -3925,10 +4076,11 @@ function sealBoughtPacks() {
         origin: 'shop',
         label: purchase.itemName || 'Booster'
     })
-        .then(() => showToast('Ton booster est arrivé !', 'success'))
+        .then(() => { if (!quiet) showToast('Un booster t\'attend !', 'success'); })
         .catch(() => { sealFailures.add(purchase.id); })
         .finally(() => {
             sealing = false;
+            sealedQuietly.delete(purchase.id);
             /* On enchaîne : trois boosters achetés d'affilée doivent donner
                trois paquets, pas un seul. */
             sealBoughtPacks();
@@ -4309,7 +4461,15 @@ function tearPack() {
     }, 560);
 }
 
-$('m-reveal-next').addEventListener('click', () => {
+/* Un seul geste fait tout avancer : le paquet s'ouvre, les cartes défilent,
+   la planche s'affiche, la collection se range. C'est ce que fait le bouton du
+   bas — la scène et la barre d'espace font exactement la même chose, pour
+   qu'on puisse enchaîner les boosters sans jamais viser.
+
+   Le piège d'avant : la scène ne réagissait que s'il RESTAIT des cartes. Sur la
+   dernière, cliquer ne faisait plus rien et il fallait aller chercher le
+   bouton. On avançait quatorze fois d'un geste, puis on butait. */
+function advanceReveal() {
     if (revealPhase === 'pack') { tearPack(); return; }
     if (revealPhase === 'cards') {
         if (revealQueue.length) revealNextCard();
@@ -4317,7 +4477,13 @@ $('m-reveal-next').addEventListener('click', () => {
         return;
     }
     gatherAndClose();
-});
+}
+
+$('m-reveal-next').addEventListener('click', advanceReveal);
+
+/* Toucher la scène avance aussi : on ne vise pas un bouton quatorze fois. */
+$('m-reveal-stage').addEventListener('click', advanceReveal);
+
 
 /* Le paquet entier d'un coup, pour qui a déjà ouvert dix boosters. */
 $('m-reveal-all').addEventListener('click', () => {
@@ -4329,11 +4495,6 @@ $('m-reveal-all').addEventListener('click', () => {
     revealFlipping = false;
     revealPending = false;
     showRevealSpread();
-});
-
-/* Toucher la scène révèle aussi : on ne vise pas un bouton quatorze fois. */
-$('m-reveal-stage').addEventListener('click', () => {
-    if (revealPhase === 'cards' && revealQueue.length) revealNextCard();
 });
 
 /* Le glissement qui déchire. On mesure la course du doigt sur la hauteur du
@@ -4901,7 +5062,8 @@ function achData() {
         cards: tcgSnapshot().cards,
         xp: state.xp,
         history: state.history,
-        votes: state.votes
+        votes: state.votes,
+        settings: state.settings
     };
 }
 
@@ -5024,7 +5186,7 @@ function renderXpBoard() {
         line.appendChild(face);
         const main = el('span', 'm-podium__name', playerFullName(playerName(row.uid), playerNickname(achData(), row.uid)));
         line.appendChild(main);
-        line.appendChild(el('span', 'm-price', 'Niv. ' + row.level));
+        line.appendChild(el('span', 'm-price', levelTitle(row.level)));
         mount.appendChild(line);
     });
 }
@@ -5100,7 +5262,7 @@ function openProfile(uid) {
             ident.appendChild(el('p', 'm-prof__nick', '« ' + profile.nickname + ' »'));
         }
         ident.appendChild(el('p', 'm-prof__lvl',
-            'Niveau ' + profile.level.level + ' · ' + profile.level.total + ' XP'));
+            'Niveau ' + profile.level.level + ' · ' + levelTitle(profile.level.level) + ' · ' + profile.level.total + ' XP'));
         head.appendChild(ident);
         body.appendChild(head);
 
@@ -5189,7 +5351,23 @@ document.addEventListener('click', (e) => {
 });
 
 document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeSheet();
+    if (e.key === 'Escape') { closeSheet(); return; }
+
+    /* Ouvrir un booster au clavier : espace et entrée avancent d'un cran,
+       exactement comme le bouton. C'est ce qui permet d'en enchaîner dix sans
+       jamais lâcher la main. On ne s'en mêle que si la scène est ouverte, et
+       jamais pendant une saisie — sinon on ne pourrait plus taper d'espace. */
+    if (e.key !== ' ' && e.key !== 'Spacebar' && e.key !== 'Enter') return;
+    if (!$('m-reveal').classList.contains('is-open')) return;
+    const tag = (e.target && e.target.tagName) || '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+
+    /* Sur un bouton, la barre d'espace déclenche déjà le clic : réagir en plus
+       ferait avancer de deux cartes d'un coup. */
+    if (tag === 'BUTTON') return;
+
+    e.preventDefault();
+    advanceReveal();
 });
 
 loadThumbStore();

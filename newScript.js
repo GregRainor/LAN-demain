@@ -515,7 +515,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const lvl = document.getElementById('player-prof-lvl');
         if (lvl) {
-            lvl.textContent = `Niveau ${profile.level.level} · ${profile.level.total} XP`
+            lvl.textContent = `Niveau ${profile.level.level} « ${levelTitle(profile.level.level)} » · ${profile.level.total} XP`
                 + ` · ${profile.achievementCount} / ${profile.achievementTotal} hauts faits`;
         }
 
@@ -2507,7 +2507,8 @@ document.addEventListener('DOMContentLoaded', () => {
             cards: tcgCards(globalTcg),
             xp: globalXp,
             history: globalHistory,
-            votes: globalVotes
+            votes: globalVotes,
+            settings: globalSettings
         };
 
         const players = economyPlayers();
@@ -5745,9 +5746,19 @@ document.addEventListener('DOMContentLoaded', () => {
             .filter(([, item]) => item && item.active !== false && !isPackItem(item));
 
         if (!catalog.length) {
-            mount.innerHTML = window.currentUserIsGamemaster
-                ? '<p style="color:var(--secondary-text); font-style:italic;">La boutique est vide. Ajoutez un premier article.</p>'
-                : '<p style="color:var(--secondary-text); font-style:italic;">La boutique n\'a pas encore ouvert.</p>';
+            if (!window.currentUserIsGamemaster) {
+                mount.innerHTML = '<p style="color:var(--secondary-text); font-style:italic;">La boutique n\'a pas encore ouvert.</p>';
+                return;
+            }
+            // Pour un maître du jeu, une boutique vide est une chose à faire,
+            // pas une absence à constater.
+            mount.innerHTML = '<p style="color:var(--secondary-text); font-style:italic; margin-bottom:14px;">La boutique est vide. Une carte de départ existe : privilèges, handicaps à jouer sur quelqu\'un, cosmétiques.</p>';
+            const go = document.createElement('button');
+            go.className = 'gold-btn';
+            go.style.padding = '10px 20px';
+            go.textContent = 'Garnir la boutique';
+            go.addEventListener('click', stockStarterShop);
+            mount.appendChild(go);
             return;
         }
 
@@ -5768,6 +5779,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 .forEach(([id, item]) => grid.appendChild(buildShopCard(id, item, user)));
             mount.appendChild(grid);
         });
+
+        // Il reste des articles de la carte de départ à poser : on le propose
+        // sans insister, tout en bas.
+        const missing = window.currentUserIsGamemaster
+            ? missingStarterItems(globalEconomy).length : 0;
+        if (missing) {
+            const more = document.createElement('button');
+            more.className = 'gold-link-btn';
+            more.style.marginTop = '18px';
+            more.textContent = `+ Ajouter les ${missing} articles de la carte de départ`;
+            more.addEventListener('click', stockStarterShop);
+            mount.appendChild(more);
+        }
     }
 
     /* Un article de boutique, à la manière d'une carte : jeton de coût, nom
@@ -5823,6 +5847,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
         card.querySelector('.shop-item__main').appendChild(actions);
         return card;
+    }
+
+    /* Garnir la boutique d'un coup. On n'ajoute que ce qui manque, comparé sur
+       le nom : regarnir deux fois ne double pas les articles. */
+    function stockStarterShop() {
+        const user = auth.currentUser;
+        if (!user) return;
+        const missing = missingStarterItems(globalEconomy);
+        if (!missing.length) { showToast('La boutique a déjà tout.', 'success'); return; }
+
+        const update = {};
+        missing.forEach(item => {
+            const id = db.ref('lan/economy/catalog').push().key;
+            update['lan/economy/catalog/' + id] = {
+                name: item.name,
+                description: item.description || '',
+                price: item.price,
+                category: item.category || 'fun',
+                stock: null,
+                needsTarget: !!item.needsTarget,
+                kind: null,
+                active: true,
+                createdBy: user.uid,
+                createdAt: firebase.database.ServerValue.TIMESTAMP
+            };
+        });
+
+        db.ref().update(update)
+            .then(() => showToast(`${missing.length} articles ajoutés à la boutique.`, 'success'))
+            .catch(err => showToast('Erreur : ' + err.message, 'error'));
     }
 
     function removeCatalogItem(id, name) {
@@ -5970,7 +6024,8 @@ document.addEventListener('DOMContentLoaded', () => {
             cards: tcgView().cards,
             xp: globalXp,
             history: globalHistory,
-            votes: globalVotes
+            votes: globalVotes,
+            settings: globalSettings
         };
     }
 
@@ -5980,7 +6035,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!user || !segs) return;
 
         const info = xpLevel(xpTotal(globalXp, user.uid));
-        document.getElementById('xp-level').textContent = String(info.level);
+        document.getElementById('xp-level').textContent = `${info.level} · ${levelTitle(info.level)}`;
         document.getElementById('xp-count').textContent = `${info.into} / ${info.span} XP`;
 
         segs.innerHTML = '';
@@ -6096,7 +6151,7 @@ document.addEventListener('DOMContentLoaded', () => {
             line.innerHTML = `
                 <span style="color: var(--secondary-text); min-width: 24px;">${i + 1}</span>
                 <span style="flex: 1; color: var(--primary-text); text-align: left;">${escapeHtml(playerFullName(playerLabel(row.uid), playerNickname(achData(), row.uid)))}</span>
-                <span class="shop-card__price">Niv. ${row.level}</span>
+                <span class="shop-card__price">${escapeHtml(levelTitle(row.level))}</span>
             `;
             line.addEventListener('click', () => showPlayerVotesModal(row.uid, playerLabel(row.uid), globalVotes));
             mount.appendChild(line);
@@ -6148,26 +6203,40 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     /* Acheter, c'est déposer une demande — jamais se débiter soi-même. Le
        maître du jeu tranche, et c'est seulement là que le registre bouge. */
-    function requestPurchase(itemId, item) {
+    /* Combien on peut s'en offrir, sans jamais passer sous zéro ni dépasser le
+       stock. Sert au bouton « Max » comme au plafond du champ. */
+    function affordableCount(itemId, item) {
         const user = auth.currentUser;
-        if (!user) return;
+        const price = Number(item.price) || 0;
+        if (price <= 0) return 1;
+        let max = Math.floor(availablePoints(globalEconomy, user.uid) / price);
+        const left = itemStockLeft(globalEconomy, itemId, item);
+        if (left !== null) max = Math.min(max, left);
+        return Math.max(0, max);
+    }
 
-        const send = (targetUid, targetName) => {
-            /* L'achat est immédiat : plus personne à attendre. Le débit et
-               l'achat partent dans la MÊME écriture multi-chemins, donc
-               Firebase les applique ensemble ou pas du tout — impossible
-               d'être débité sans l'article, ou l'inverse.
+    /* Acheter N exemplaires d'un coup. Tout part dans UNE écriture
+       multi-chemins : Firebase applique le lot entier ou rien, donc on ne peut
+       pas être débité de trois boosters et n'en recevoir qu'un.
 
-               Le joueur écrit ici sa propre ligne de registre, ce qu'il ne peut
-               faire nulle part ailleurs. Les règles l'y autorisent parce qu'une
-               ligne de type « purchase » est forcément NÉGATIVE et forcément
-               égale au prix affiché en boutique : elle ne peut qu'appauvrir
-               celui qui la signe. */
+       Le joueur écrit lui-même ses lignes de registre, ce qu'il ne peut faire
+       nulle part ailleurs. Les règles l'y autorisent parce qu'une ligne de type
+       « purchase » est forcément NÉGATIVE et forcément égale au prix affiché en
+       boutique : elle ne peut qu'appauvrir celui qui la signe. */
+    function buyItem(itemId, item, quantity, targetUid, targetName) {
+        const user = auth.currentUser;
+        if (!user) return Promise.resolve();
+
+        const count = Math.max(1, Math.floor(Number(quantity) || 1));
+        const price = Number(item.price) || 0;
+        const update = {};
+        const purchaseIds = [];
+
+        for (let i = 0; i < count; i += 1) {
             const purchaseId = db.ref('lan/economy/purchases').push().key;
             const entryId = db.ref('lan/economy/ledger').push().key;
-            const price = Number(item.price) || 0;
+            purchaseIds.push(purchaseId);
 
-            const update = {};
             update['lan/economy/ledger/' + entryId] = {
                 uid: user.uid,
                 delta: -price,
@@ -6188,46 +6257,112 @@ document.addEventListener('DOMContentLoaded', () => {
                 status: 'granted',
                 ts: firebase.database.ServerValue.TIMESTAMP
             };
+        }
 
-            db.ref().update(update)
-                .then(() => {
-                    showToast(isPackItem(item)
-                        ? 'Booster acheté ! Il vous attend dans la collection.'
-                        : `${item.name || 'Article'} : c'est à vous !`, 'success');
-                    if (targetUid && targetUid !== user.uid) {
-                        sendNotification(targetUid,
-                            `${user.displayName || 'Quelqu\'un'} vous joue « ${item.name || 'un handicap'} »`, 'info');
-                    }
-                })
-                .catch(err => showToast('Erreur : ' + err.message, 'error'));
-        };
+        // Ces paquets-là s'annoncent au moment du clic : le sceau qui suivra
+        // restera muet, sinon acheter cinq boosters ferait dix bulles.
+        if (isPackItem(item)) purchaseIds.forEach(id => sealedQuietly.add(id));
+
+        return db.ref().update(update)
+            .then(() => {
+                if (isPackItem(item)) {
+                    showToast(count > 1
+                        ? `${count} boosters achetés ! Ils vous attendent dans la collection.`
+                        : 'Booster acheté ! Il vous attend dans la collection.', 'success');
+                } else {
+                    showToast(`${item.name || 'Article'}${count > 1 ? ' ×' + count : ''} : c'est à vous !`, 'success');
+                }
+                if (targetUid && targetUid !== user.uid) {
+                    sendNotification(targetUid,
+                        `${user.displayName || 'Quelqu\'un'} vous joue « ${item.name || 'un handicap'} »`, 'info');
+                }
+            })
+            .catch(err => showToast('Erreur : ' + err.message, 'error'));
+    }
+
+    function requestPurchase(itemId, item) {
+        const user = auth.currentUser;
+        if (!user) return;
 
         // Un handicap sans cible serait du sabotage anonyme : on demande sur
-        // qui, et le nom restera visible dans le registre.
-        if (!item.needsTarget) {
+        // qui, et le nom restera visible dans le registre. On n'en achète qu'un
+        // à la fois — jouer trois fois le même handicap n'a pas de sens.
+        if (item.needsTarget) {
+            const others = economyPlayers().filter(uid => uid !== user.uid);
+            if (!others.length) {
+                showToast('Aucun autre joueur à viser pour le moment.', 'error');
+                return;
+            }
+            const choice = window.prompt(
+                `Sur qui jouer « ${item.name} » ?\n\n` +
+                others.map((uid, i) => `${i + 1}. ${playerLabel(uid)}`).join('\n') +
+                '\n\nEntrez le numéro :');
+            if (choice === null) return;
+
+            const index = parseInt(choice, 10) - 1;
+            if (!(index >= 0 && index < others.length)) {
+                showToast('Numéro invalide.', 'error');
+                return;
+            }
+            buyItem(itemId, item, 1, others[index], playerLabel(others[index]));
+            return;
+        }
+
+        // Tout le reste s'achète en quantité. Un seul exemplaire possible ? On
+        // ne fait pas perdre un écran pour choisir « 1 ».
+        const max = affordableCount(itemId, item);
+        if (max <= 1) {
             askConfirm(`Acheter « ${item.name} » pour ${formatPoints(item.price)} ?`,
-                { title: '🛍️ Boutique' }).then(ok => { if (ok) send(null, null); });
+                { title: '🛍️ Boutique' }).then(ok => { if (ok) buyItem(itemId, item, 1, null, null); });
             return;
         }
 
-        const others = economyPlayers().filter(uid => uid !== user.uid);
-        if (!others.length) {
-            showToast('Aucun autre joueur à viser pour le moment.', 'error');
-            return;
-        }
+        openQuantityModal(itemId, item, max);
+    }
 
-        const choice = window.prompt(
-            `Sur qui jouer « ${item.name} » ?\n\n` +
-            others.map((uid, i) => `${i + 1}. ${playerLabel(uid)}`).join('\n') +
-            '\n\nEntrez le numéro :');
-        if (choice === null) return;
+    /* Le choix de la quantité : un champ, deux flèches, et « Max ». Le total se
+       met à jour à chaque frappe — on doit voir ce qu'on va payer avant de
+       payer. */
+    function openQuantityModal(itemId, item, max) {
+        const modal = document.getElementById('quantity-modal');
+        if (!modal) { buyItem(itemId, item, 1, null, null); return; }
 
-        const index = parseInt(choice, 10) - 1;
-        if (!(index >= 0 && index < others.length)) {
-            showToast('Numéro invalide.', 'error');
-            return;
-        }
-        send(others[index], playerLabel(others[index]));
+        const price = Number(item.price) || 0;
+        const input = document.getElementById('quantity-input');
+        const total = document.getElementById('quantity-total');
+        const go = document.getElementById('quantity-go');
+        const hint = document.getElementById('quantity-hint');
+
+        document.getElementById('quantity-name').textContent = item.name || 'Acheter';
+        input.max = String(max);
+        input.value = '1';
+        hint.textContent = `Vous pouvez en prendre ${max} au maximum avec votre solde.`;
+
+        const clamp = (n) => Math.max(1, Math.min(max, Math.floor(Number(n) || 1)));
+        const paint = () => {
+            const n = clamp(input.value);
+            total.textContent = `${n} × ${formatPoints(price)} = ${formatPoints(n * price)}`;
+            go.textContent = `Acheter · ${formatPoints(n * price)}`;
+        };
+        const setN = (n) => { input.value = String(clamp(n)); paint(); };
+
+        // On remplace les gestionnaires plutôt que d'en empiler : la modale
+        // sert à tous les articles, et deux clics par flèche seraient absurdes.
+        document.getElementById('quantity-minus').onclick = () => setN(clamp(input.value) - 1);
+        document.getElementById('quantity-plus').onclick = () => setN(clamp(input.value) + 1);
+        document.getElementById('quantity-max').onclick = () => setN(max);
+        input.oninput = paint;
+        input.onblur = () => setN(input.value);
+        go.onclick = () => {
+            modal.style.display = 'none';
+            buyItem(itemId, item, clamp(input.value), null, null);
+        };
+        document.getElementById('quantity-cancel').onclick = () => { modal.style.display = 'none'; };
+
+        paint();
+        modal.style.display = 'flex';
+        input.focus();
+        input.select();
     }
 
     /* --- Registre, fortunes, mes demandes -------------------------------- */
@@ -7222,6 +7357,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // Un sceau refusé (règle, set changé, autre appareil plus rapide) ne se
     // retente pas en boucle : on l'oublie jusqu'au prochain chargement.
     const sealFailures = new Set();
+    /* Les achats faits dans cette session ont déjà dit ce qu'il fallait dire au
+       moment du clic. Les sceller ne doit pas produire un second message :
+       acheter cinq boosters donnait dix bulles à la suite. Un paquet qui arrive
+       SANS avoir été acheté ici — depuis le téléphone, ou offert — mérite au
+       contraire d'être annoncé. */
+    const sealedQuietly = new Set();
 
     function sealBoughtPacks() {
         const user = auth.currentUser;
@@ -7234,6 +7375,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         sealingPack = true;
         const purchase = waiting[0];
+        const quiet = sealedQuietly.has(purchase.id);
         db.ref('lan/tcg/packs/' + purchase.id).set({
             uid: user.uid,
             setId: setId,
@@ -7242,10 +7384,11 @@ document.addEventListener('DOMContentLoaded', () => {
             origin: 'shop',
             label: purchase.itemName || 'Booster'
         })
-            .then(() => showToast('Ton booster est arrivé !', 'success'))
+            .then(() => { if (!quiet) showToast('Un booster vous attend !', 'success'); })
             .catch(() => { sealFailures.add(purchase.id); })
             .finally(() => {
                 sealingPack = false;
+                sealedQuietly.delete(purchase.id);
                 // On enchaîne : trois boosters achetés d'affilée doivent donner
                 // trois paquets, pas un seul.
                 sealBoughtPacks();
@@ -7601,7 +7744,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 560);
     }
 
-    document.getElementById('reveal-next')?.addEventListener('click', () => {
+    /* Un seul geste fait tout avancer : le paquet s'ouvre, les cartes défilent,
+       la planche s'affiche, la collection se range. Le bouton, la scène et la
+       barre d'espace font exactement la même chose, pour qu'on puisse enchaîner
+       les boosters sans jamais viser.
+
+       Le piège d'avant : la scène ne réagissait que s'il RESTAIT des cartes. Sur
+       la dernière, cliquer ne faisait plus rien et il fallait aller chercher le
+       bouton — on avançait quatorze fois d'un geste, puis on butait. */
+    function advanceReveal() {
         if (revealPhase === 'pack') { tearPack(); return; }
         if (revealPhase === 'cards') {
             if (revealQueue.length) revealNextCard();
@@ -7609,6 +7760,22 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         gatherAndClose();
+    }
+
+    document.getElementById('reveal-next')?.addEventListener('click', advanceReveal);
+
+    /* Espace et entrée avancent d'un cran, comme le bouton. C'est ce qui permet
+       d'enchaîner dix boosters sans lâcher la main. Jamais pendant une saisie,
+       et jamais sur un bouton — la barre d'espace y déclenche déjà le clic, et
+       réagir en plus ferait sauter deux cartes. */
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== ' ' && e.key !== 'Spacebar' && e.key !== 'Enter') return;
+        const scene = document.getElementById('reveal');
+        if (!scene || !scene.classList.contains('is-open')) return;
+        const tag = (e.target && e.target.tagName) || '';
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || tag === 'BUTTON') return;
+        e.preventDefault();
+        advanceReveal();
     });
 
     /* Le tiré qui déchire. On mesure la course du pointeur sur la hauteur du
@@ -7684,10 +7851,8 @@ document.addEventListener('DOMContentLoaded', () => {
         showRevealSpread();
     });
 
-    // Cliquer la scène révèle aussi : on ne vise pas un bouton quatorze fois.
-    document.getElementById('reveal-stage')?.addEventListener('click', () => {
-        if (revealPhase === 'cards' && revealQueue.length) revealNextCard();
-    });
+    // Cliquer la scène avance aussi : on ne vise pas un bouton quatorze fois.
+    document.getElementById('reveal-stage')?.addEventListener('click', advanceReveal);
     document.getElementById('reveal-pack')?.addEventListener('click', () => {
         if (revealPhase === 'pack') document.getElementById('reveal-next').click();
     });
