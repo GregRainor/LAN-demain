@@ -105,6 +105,25 @@ function statusIdentity(node) {
     return sessions.find(s => s.avatar || s.photo) || sessions[0];
 }
 
+/* Qui figure dans la bande de présence : les connectés, ceux qui ont voté pour
+   cette soirée, et ceux qu'on a simplement vus récemment.
+
+   Ce dernier cas manquait. Un joueur passé dans la journée sans voter n'était
+   ni dans /status (il s'efface en partant) ni dans les votes : il disparaissait
+   de la bande, alors qu'il apparaissait bien dans les listes de l'économie, qui
+   ne filtrent rien. Sa fiche `lan/users/{uid}` porte pourtant un `lastSeen`,
+   réécrit à chaque connexion depuis les deux interfaces. */
+const ROSTER_SEEN_MS = 7 * 24 * 60 * 60 * 1000;
+
+function isRostered(uid, sources, now) {
+    const data = sources || {};
+    if (statusIdentity((data.status || {})[uid])) return true;
+    if ((data.votes || {})[uid]) return true;
+    const profile = (data.profiles || {})[uid];
+    const seen = Number(profile && profile.lastSeen) || 0;
+    return seen > 0 && (now || Date.now()) - seen < ROSTER_SEEN_MS;
+}
+
 /* ==========================================================================
    AGENDA
    Quand a lieu la LAN, et à quelle journée appartient chaque événement.
@@ -628,14 +647,31 @@ const TCG = {
        téléphone, et une proposition qu'on ne lit pas ne s'accepte pas. */
     TRADE_MAX: 6,
 
-    /* Du plus rare au plus commun. `share` est la part du set, reprise des
-       proportions d'Origins. */
+    /* Ce qui décide de la rareté d'un jeu (voir cardWeight). Le terrain commun
+       et l'envie pèsent pareil à plein régime : un jeu que TOUT le groupe
+       possède vaut un jeu choisi en premier par un joueur (5 points de vote). */
+    OWNERSHIP_WEIGHT: 10,
+    VOTE_WEIGHT: 2,
+
+    /* Du plus rare au plus commun. `share` est la part du set.
+
+       C'est le seul endroit où l'on s'écarte d'Origins, et pour une bonne
+       raison. Chez Riftbound les parts sont presque plates (15 % de prestige)
+       parce qu'un set y est DESSINÉ, et que ses prestiges sont des versions
+       alternatives de cartes existantes. Notre set, lui, est un relevé : sur
+       cinq cents jeux de bibliothèques, une quinzaine à peine sont réellement
+       partagés par le groupe. Garder 15 % de prestige remplirait la rareté la
+       plus haute de jeux que personne n'a en commun — et la rareté ne dirait
+       plus rien.
+
+       D'où une pyramide franche. La composition du booster, elle, reste
+       exactement celle de Riftbound : c'est elle qui donne la sensation. */
     RARITIES: [
-        { key: 'showcase', label: 'Prestige',    short: 'PRS', share: 0.153 },
-        { key: 'epic',     label: 'Épique',      short: 'EPQ', share: 0.119 },
-        { key: 'rare',     label: 'Rare',        short: 'RAR', share: 0.238 },
-        { key: 'uncommon', label: 'Peu commune', short: 'PCO', share: 0.238 },
-        { key: 'common',   label: 'Commune',     short: 'COM', share: 0.252 }
+        { key: 'showcase', label: 'Prestige',    short: 'PRS', share: 0.02 },
+        { key: 'epic',     label: 'Épique',      short: 'EPQ', share: 0.04 },
+        { key: 'rare',     label: 'Rare',        short: 'RAR', share: 0.10 },
+        { key: 'uncommon', label: 'Peu commune', short: 'PCO', share: 0.24 },
+        { key: 'common',   label: 'Commune',     short: 'COM', share: 0.60 }
     ],
 
     /* Chez Riftbound, toute rare et au-dessus est brillante d'office. Le
@@ -670,6 +706,29 @@ function cardKey(name) {
     return normalized;
 }
 
+/* Pourquoi cette carte a cette rareté, en une phrase vraie. C'est le gain d'une
+   rareté tirée du groupe plutôt qu'inventée : elle s'explique. */
+function rarityReason(setCard, set) {
+    if (!setCard) return '';
+    const owners = Number(setCard.owners) || 0;
+    const total = Number(set && set.libraries) || 0;
+    const score = Number(setCard.score) || 0;
+    const parts = [];
+
+    if (total > 0 && owners >= total && total > 1) {
+        parts.push('Tout le monde l\'a (' + owners + ' bibliothèques sur ' + total + ')');
+    } else if (owners > 1) {
+        parts.push('Possédé par ' + owners + ' joueurs' + (total ? ' sur ' + total : ''));
+    } else if (owners === 1) {
+        parts.push('Une seule bibliothèque l\'a');
+    } else {
+        parts.push('Dans aucune bibliothèque liée');
+    }
+
+    if (score > 0) parts.push(score + ' point' + (score > 1 ? 's' : '') + ' au vote de la soirée');
+    return parts.join(' · ') + '.';
+}
+
 /* Chemin de l'illustration dessinée, ou null pour retomber sur Steam. */
 function cardArt(gameKey) {
     const file = TCG.ART[gameKey];
@@ -680,54 +739,81 @@ function cardArt(gameKey) {
    Composer le set
    -------------------------------------------------------------------------- */
 
-/* Tous les jeux qu'on connaît au-delà de ceux qui ont été votés : les
-   bibliothèques Steam du groupe, et les soirées passées. C'est ce qui donne au
-   set sa profondeur. Un set de trente cartes se complète en trois boosters et
-   n'a plus rien à raconter ; une bibliothèque de groupe en fournit plusieurs
-   centaines. Le vote garde la main sur la rareté : ce que les joueurs ont
-   demandé occupe le haut du set, ce qui dort dans les bibliothèques en forme
-   le fond. */
-function knownGameNames(sources) {
-    const names = new Map();
-    const add = (name) => {
-        const key = cardKey(name);
-        if (!key || names.has(key)) return;
-        names.set(key, String(name).trim().replace(/\s+/g, ' '));
-    };
+/* Tous les jeux que le groupe possède, et COMBIEN de joueurs possèdent chacun.
 
-    Object.values((sources && sources.libraries) || {}).forEach(library => {
-        const games = (library && library.games) || [];
+   Ce compte est le cœur de la rareté du set. Un jeu que personne d'autre n'a
+   est banal : il y en a des centaines, chacun n'a que sa propre bibliothèque.
+   Un jeu que TOUT LE MONDE possède est rare — et c'est en plus celui auquel on
+   peut jouer ce soir sans que personne aille l'acheter. La rareté ne parle donc
+   pas du jeu, elle parle du terrain commun. C'est ce qui la rend vraie.
+
+   Le possesseur est le compte Steam, pas le joueur connecté :
+   `lan/steamLibraries` est indexé par compte, et c'est ce qui permet d'ajouter
+   la bibliothèque d'un ami. */
+function knownGames(sources) {
+    const games = new Map();
+    const libraries = (sources && sources.libraries) || {};
+
+    Object.entries(libraries).forEach(([libraryId, library]) => {
+        const list = (library && library.games) || [];
         // Firebase rend parfois un tableau creux sous forme d'objet.
-        Object.values(Array.isArray(games) ? games : games).forEach(game => {
-            if (game && game.name) add(game.name);
+        Object.values(Array.isArray(list) ? list : list).forEach(game => {
+            if (!game || !game.name) return;
+            const key = cardKey(game.name);
+            if (!key) return;
+            const known = games.get(key)
+                || { key, name: String(game.name).trim().replace(/\s+/g, ' '), owners: new Set() };
+            known.owners.add(libraryId);
+            games.set(key, known);
         });
     });
 
-    Object.values((sources && sources.history) || {}).forEach(lan => {
-        const top = (lan && lan.topGames) || [];
-        Object.values(Array.isArray(top) ? top : top).forEach(game => {
-            if (game && game.name) add(game.name);
-        });
-    });
-
-    return Array.from(names.values());
+    return {
+        libraries: Object.keys(libraries).length,
+        games: Array.from(games.values())
+            .map(game => ({ name: game.name, owners: game.owners.size }))
+    };
 }
 
-/* Le set de la soirée. Le classement des votes occupe le haut, les jeux
-   seulement connus des bibliothèques remplissent le reste, et la part de
-   chaque rareté est celle d'Origins.
+/* Le poids qui classe une carte, et donc sa rareté. Deux forces, à parts
+   égales à plein régime :
 
-   Deux règles de justice :
-   - deux jeux à égalité de votes prennent la même rareté, la plus basse du
-     groupe. Sans ça, un set où tout le monde a un point deviendrait
-     entièrement prestige ;
-   - les jeux sans vote échappent à cette règle. Ils sont tous à zéro, et les
-     regrouper ferait de tout le bas du set une seule rareté. On les range
-     dans un ordre tiré de leur nom : stable d'un client à l'autre, mais sans
-     rapport avec l'alphabet — sinon toutes les prestiges iraient aux jeux qui
-     commencent par A. */
-function buildCardSet(scores, extraNames) {
+   - LE TERRAIN COMMUN : la part du groupe qui possède le jeu, de 0 à 1. Un jeu
+     que tout le monde a vaut autant qu'un jeu choisi en premier par un joueur.
+   - L'ENVIE : ce que le vote en a dit.
+
+   Elles s'additionnent, donc le jeu que tout le monde possède ET que tout le
+   monde réclame est en tête du set. C'est exactement la carte qu'on veut voir
+   sortir d'un booster un soir de LAN. */
+function cardWeight(score, owners, libraries) {
+    const share = libraries > 0 ? Math.min(1, owners / libraries) : 0;
+    return share * TCG.OWNERSHIP_WEIGHT + (Number(score) || 0) * TCG.VOTE_WEIGHT;
+}
+
+/* Le set de la soirée : tous les jeux du groupe, classés par ce poids, découpés
+   selon les parts d'Origins.
+
+   Les ex aequo ne sont PAS regroupés. Avec des centaines de jeux, la plupart
+   partagent le même poids (un seul possesseur, aucun vote) : les regrouper
+   ferait de tout le bas du set une seule rareté. Ils sont départagés par une
+   empreinte de leur nom — stable d'un client à l'autre, mais sans rapport avec
+   l'alphabet, sinon toutes les prestiges iraient aux jeux commençant par A. */
+function buildCardSet(scores, pool) {
+    const source = Array.isArray(pool) ? { games: pool, libraries: 0 } : (pool || {});
+    const libraries = Number(source.libraries) || 0;
     const byKey = new Map();
+
+    (source.games || []).forEach(game => {
+        if (!game || !game.name) return;
+        const key = cardKey(game.name);
+        if (!key) return;
+        byKey.set(key, {
+            key,
+            name: String(game.name).trim().replace(/\s+/g, ' '),
+            score: 0,
+            owners: Math.max(Number(game.owners) || 0, (byKey.get(key) || {}).owners || 0)
+        });
+    });
 
     (scores || []).forEach(game => {
         if (!game || !game.name) return;
@@ -735,25 +821,39 @@ function buildCardSet(scores, extraNames) {
         if (!key) return;
         const score = Number(game.score) || 0;
         const known = byKey.get(key);
-        if (!known || score > known.score) {
-            byKey.set(key, { key, name: String(game.name).trim().replace(/\s+/g, ' '), score });
+        if (known) {
+            // Le nom voté fait foi : c'est celui que les joueurs ont écrit.
+            known.name = String(game.name).trim().replace(/\s+/g, ' ');
+            known.score = Math.max(known.score, score);
+        } else {
+            byKey.set(key, { key, name: String(game.name).trim().replace(/\s+/g, ' '), score, owners: 0 });
         }
     });
 
-    (extraNames || []).forEach(name => {
-        const key = cardKey(name);
-        if (!key || byKey.has(key)) return;
-        byKey.set(key, { key, name: String(name).trim().replace(/\s+/g, ' '), score: 0 });
-    });
-
-    const all = Array.from(byKey.values());
-    const ranked = all.filter(game => game.score > 0)
-        .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name, 'fr'))
-        .concat(all.filter(game => game.score <= 0)
-            .sort((a, b) => tcgHash(a.key) - tcgHash(b.key) || (a.key < b.key ? -1 : 1)));
+    const ranked = Array.from(byKey.values())
+        .map(game => Object.assign(game, { weight: cardWeight(game.score, game.owners, libraries) }))
+        .sort((a, b) => b.weight - a.weight
+            || tcgHash(a.key) - tcgHash(b.key)
+            || (a.key < b.key ? -1 : 1));
 
     const total = ranked.length;
     if (!total) return {};
+
+    /* Les deux raretés de chasse sont RÉSERVÉES aux cartes qui les méritent :
+       un jeu partagé par au moins deux joueurs, ou réclamé au vote. Un jeu que
+       personne d'autre ne possède et que personne n'a demandé n'y entre pas,
+       même s'il reste de la place. Sans cette réserve, les prestiges d'un set
+       de cinq cents jeux seraient tirées au hasard et la rareté cesserait de
+       dire quoi que ce soit du groupe. `ranked` étant trié par poids
+       décroissant, les méritantes sont exactement les premières.
+
+       La réserve s'arrête à « épique », et pas plus bas : le booster garantit
+       un emplacement rare à chaque ouverture, et une rareté réduite à deux ou
+       trois cartes servirait éternellement les mêmes. Sous l'épique, il n'y a
+       de toute façon plus de signal à lire — le bas du set est la longue
+       traîne des bibliothèques personnelles, que seule l'empreinte départage. */
+    const deserving = ranked.filter(game => game.owners >= 2 || game.score > 0).length;
+    const reservedUpTo = rarityIndex('epic');
 
     const bands = new Array(total);
     let index = 0;
@@ -765,24 +865,21 @@ function buildCardSet(scores, extraNames) {
            de six jeux, un arrondi naïf laisserait des raretés vides et les
            boosters n'auraient plus rien à tirer. */
         const room = total - (TCG.RARITIES.length - 1 - i);
-        const upTo = isLast ? total : Math.max(index + 1, Math.min(room, Math.round(total * cumulative)));
+        let upTo = isLast ? total : Math.max(index + 1, Math.min(room, Math.round(total * cumulative)));
+        if (i <= reservedUpTo) upTo = Math.min(upTo, Math.max(index + 1, deserving));
         while (index < upTo) bands[index++] = i;
     });
 
-    let start = 0;
-    while (start < total) {
-        let end = start + 1;
-        if (ranked[start].score > 0) {
-            while (end < total && ranked[end].score === ranked[start].score) end++;
-            const band = bands[end - 1];
-            for (let j = start; j < end; j++) bands[j] = band;
-        }
-        start = end;
-    }
-
     const cards = {};
     ranked.forEach((game, i) => {
-        cards[game.key] = { name: game.name, rarity: TCG.RARITIES[bands[i]].key, score: game.score };
+        cards[game.key] = {
+            name: game.name,
+            rarity: TCG.RARITIES[bands[i]].key,
+            score: game.score,
+            // Combien de bibliothèques du groupe l'avaient le jour du set.
+            // C'est ce qui explique la rareté quand on retourne la carte.
+            owners: game.owners
+        };
     });
     return cards;
 }

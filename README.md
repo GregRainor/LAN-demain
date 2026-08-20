@@ -26,20 +26,23 @@ Ce projet est parti d'une simple idée de tableur Excel pour évoluer vers une a
   joueur, et cosmétiques. Aucun solde n'est stocké : il se recalcule depuis un registre public
   en écriture unique, ce qui rend la triche structurellement impossible (voir [`SECURITY.md`](./SECURITY.md)).
   Les points ne servent jamais à payer à boire ou à manger : le bar reste gratuit.
-* **Les Cartes de la Soirée :** Un jeu de collection **dont le set est composé par le vote**. Les
-  jeux que les joueurs ont demandés deviennent les cartes du haut du set — le jeu que tout le monde
-  voulait en est la prestige — et les bibliothèques Steam du groupe fournissent les centaines de
-  cartes qui font le fond. La rareté ne raconte pas une invention, elle raconte la soirée.
-  Structure, proportions et composition du booster sont calquées sur **Riftbound** (le JCC League
-  of Legends) : cinq raretés, 14 cartes par booster (huit communes, trois peu communes, un
-  emplacement rare, un flex qui donne une épique une fois sur quatre, et un emplacement brillant),
-  et trois cartes brillantes garanties à chaque ouverture. On ouvre carte par carte — le paquet se
-  déchire, chaque carte se retourne dans un éclat coloré par sa rareté, puis la planche entière
-  s'étale — on complète la grille, on troque ses doubles. Le brillant est un traitement
-  holographique qui suit la souris sur PC et l'inclinaison du téléphone sur mobile. Chaque carte
-  garde sa **provenance** — qui l'a sortie du paquet, quand, et par combien de mains elle est
-  passée depuis : c'est un souvenir de soirée, pas une ligne d'inventaire. Les points repartent à
-  zéro entre deux LAN, les cartes non.
+* **Les Cartes de la Soirée :** Un jeu de collection **dont le set est un relevé du groupe**.
+  Chaque jeu des bibliothèques Steam devient une carte, et sa rareté vient de deux choses qui
+  s'additionnent : **combien de joueurs le possèdent** et **ce que le vote en a dit**. Un jeu que
+  personne d'autre n'a est banal — il y en a des centaines. Un jeu que tout le monde possède est
+  rare, et c'est celui auquel on peut jouer ce soir sans que personne aille l'acheter. La rareté
+  raconte donc quelque chose de vrai, et la fiche d'une carte l'explique : « Tout le monde l'a
+  (6 bibliothèques sur 6) ». Les deux raretés de chasse sont réservées aux jeux réellement
+  partagés ou réclamés : rien n'y entre au hasard.
+  La composition du booster est calquée sur **Riftbound** (le JCC League of Legends) : 14 cartes —
+  huit communes, trois peu communes, un emplacement rare, un flex qui donne une épique une fois sur
+  quatre, un emplacement brillant — et trois brillantes garanties à chaque ouverture. On déchire le
+  paquet au doigt, les cartes se retournent une à une dans un éclat coloré par leur rareté (les
+  deux plus hautes secouent l'écran), la planche s'étale, puis les quatorze se rassemblent quand on
+  les range. Le brillant est un traitement holographique qui suit la souris sur PC et l'inclinaison
+  du téléphone sur mobile. Chaque carte garde sa **provenance** — qui l'a sortie du paquet, quand,
+  et par combien de mains elle est passée : c'est un souvenir de soirée, pas une ligne
+  d'inventaire. Les points repartent à zéro entre deux LAN, les cartes non.
 * **Un Hasard Sans Serveur :** le contenu d'un booster n'est stocké nulle part — il se recalcule à
   partir de son *sceau*, l'horodatage écrit par le serveur Firebase au moment de l'achat. C'est la
   seule valeur de l'application que le client ne choisit pas : le tirage est donc imprévisible

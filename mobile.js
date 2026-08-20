@@ -612,9 +612,17 @@ function renderPresence() {
        ne voyait plus personne depuis que les sessions sont imbriquées. */
     const online = Object.keys(state.status).filter(uid => statusIdentity(state.status[uid]));
 
-    /* Les votants absents restent affichés, cerclés de gris : comme sur le PC,
-       on veut voir d'un coup d'œil qui manque, pas seulement qui est là. */
-    const away = Object.keys(state.votes).filter(uid => !online.includes(uid));
+    /* Les absents restent affichés, cerclés de gris : comme sur le PC, on veut
+       voir d'un coup d'œil qui manque, pas seulement qui est là. On prend tous
+       ceux qu'on connaît et on laisse isRostered trancher — se limiter aux
+       votants effaçait le joueur passé dans la journée sans voter. */
+    const sources = { status: state.status, votes: state.votes, profiles: state.profiles };
+    const everyone = {};
+    [state.status, state.votes, state.profiles].forEach(source => {
+        Object.keys(source || {}).forEach(uid => { everyone[uid] = true; });
+    });
+    const away = Object.keys(everyone)
+        .filter(uid => !online.includes(uid) && isRostered(uid, sources));
     [...online.map(uid => [uid, true]), ...away.map(uid => [uid, false])]
         .slice(0, 6)
         .forEach(([uid, isOnline]) => {
@@ -3114,11 +3122,12 @@ function openCardSheet(card) {
         body.appendChild(el('p', 'm-card__meta',
             rarity.label + (card.foil ? ' · brillante ✦' : '')));
 
-        const setCard = tcgSnapshot().setCards[card.gameKey];
-        if (setCard) {
-            body.appendChild(el('p', 'm-card__meta',
-                'Rareté méritée : ' + setCard.score + ' point' + (setCard.score > 1 ? 's' : '') + ' au vote de la soirée.'));
-        }
+        /* Pourquoi cette carte est rare. C'est tout l'intérêt d'une rareté
+           tirée du groupe plutôt qu'inventée : elle s'explique en une phrase,
+           et la phrase est vraie. */
+        const view = tcgSnapshot();
+        const setCard = view.setCards[card.gameKey];
+        if (setCard) body.appendChild(el('p', 'm-card__meta', rarityReason(setCard, view.set)));
 
         if (card.mintedBy) {
             body.appendChild(el('p', 'm-card__meta',
@@ -3207,10 +3216,7 @@ function renderMintPanel(view) {
 /* Tous les jeux qui peuvent devenir des cartes : les votés, plus tout ce que
    les bibliothèques Steam du groupe et les soirées passées nous ont appris. */
 function setPool() {
-    /* Les bibliothèques seulement, et pas l'historique : les deux interfaces
-       doivent composer exactement le même set, et le bureau ne garde pas
-       l'historique en mémoire. C'est de toute façon là qu'est le volume. */
-    return knownGameNames({ libraries: state.libraries });
+    return knownGames({ libraries: state.libraries });
 }
 
 function setPoolSize() {
@@ -3239,6 +3245,9 @@ function mintSet(force) {
         name: 'Set de la LAN ' + (state.settings.lanName || 'LAN Demain'),
         ts: firebase.database.ServerValue.TIMESTAMP,
         by: user.uid,
+        // Combien de bibliothèques comptaient ce jour-là : sans ce nombre,
+        // « possédé par 4 joueurs » ne veut plus rien dire six mois plus tard.
+        libraries: setPool().libraries,
         cards: cards
     })
         .then(() => db.ref('lan/tcg/currentSet').set(ref.key))
@@ -3480,8 +3489,13 @@ function startReveal(pack, cards, ownedBefore) {
     $('m-reveal-seal').textContent = 'Sceau ' + new Date(pack.sealedAt).toLocaleTimeString('fr-FR');
     $('m-reveal-packname').textContent = pack.label || 'Booster';
     $('m-reveal-flip').innerHTML = '';
+    $('m-reveal-spread').className = 'm-reveal__spread';
     $('m-reveal-spread').innerHTML = '';
+    $('m-reveal-sparks').innerHTML = '';
     $('m-reveal-pack').className = 'm-reveal__pack';
+    $('m-reveal-wrap').style.setProperty('--tear', '0');
+    $('m-reveal-hint').textContent = 'Glisse pour déchirer';
+    tearFrom = null;
 
     const overlay = $('m-reveal');
     overlay.className = 'm-reveal is-open is-pack';
@@ -3510,6 +3524,43 @@ function paintRevealFoot() {
     $('m-reveal-next').textContent = revealQueue.length ? 'Carte suivante' : 'Voir le paquet';
 }
 
+/* Ce que chaque rareté déclenche à la révélation. Tout ne secoue pas l'écran :
+   si la commune fait le même bruit que la prestige, plus rien ne compte. */
+const RARITY_FX = {
+    common:   { sparks: 0,  rays: false, shake: false, flash: false },
+    uncommon: { sparks: 0,  rays: false, shake: false, flash: false },
+    rare:     { sparks: 8,  rays: false, shake: false, flash: false },
+    epic:     { sparks: 14, rays: true,  shake: true,  flash: true },
+    showcase: { sparks: 22, rays: true,  shake: true,  flash: true }
+};
+
+const SPARK_COLORS = {
+    rare: '#b79dff',
+    epic: '#e6a2ff',
+    showcase: '#ffd76a'
+};
+
+/* Les éclats qui giclent du centre. Ils partent en couronne, avec assez de
+   désordre pour ne pas ressembler à une horloge. */
+function fireSparks(rarity, count) {
+    const box = $('m-reveal-sparks');
+    box.innerHTML = '';
+    if (!count || REDUCED_MOTION) return;
+
+    const color = SPARK_COLORS[rarity] || '#ffd76a';
+    for (let i = 0; i < count; i++) {
+        const angle = (i / count) * Math.PI * 2 + Math.random() * 0.5;
+        const distance = 90 + Math.random() * 130;
+        const spark = el('span', 'm-reveal__spark');
+        spark.style.setProperty('--sx', Math.cos(angle) * distance + 'px');
+        spark.style.setProperty('--sy', Math.sin(angle) * distance + 'px');
+        spark.style.setProperty('--spark', color);
+        spark.style.animationDelay = (Math.random() * 90) + 'ms';
+        box.appendChild(spark);
+    }
+    setTimeout(() => { box.innerHTML = ''; }, 1100);
+}
+
 /* Le retournement, sans preserve-3d : la carte pivote jusqu'à la tranche, on
    échange son contenu à mi-parcours, puis elle revient. Deux animations
    plates valent mieux qu'une scène 3D, qui se brouille avec les modes de
@@ -3517,6 +3568,9 @@ function paintRevealFoot() {
 function flipToCard(card, isNew) {
     const flip = $('m-reveal-flip');
     const burst = $('m-reveal-burst');
+    const rays = $('m-reveal-rays');
+    const overlay = $('m-reveal');
+    const fx = RARITY_FX[card.rarity] || RARITY_FX.common;
 
     revealFlipping = true;
     flip.className = 'm-reveal__flip is-out';
@@ -3526,13 +3580,23 @@ function flipToCard(card, isNew) {
         node.classList.add('m-tcard--reveal');
         flip.innerHTML = '';
         flip.appendChild(node);
-        flip.className = 'm-reveal__flip is-in';
+        // Le retour est d'autant plus ample que la carte est rare.
+        flip.className = 'm-reveal__flip is-in is-' + card.rarity;
 
         // L'éclat derrière la carte porte la couleur de sa rareté : on sait ce
         // qu'on a sorti avant même d'avoir lu le nom.
         burst.className = 'm-reveal__burst is-firing is-' + card.rarity;
-        if (card.foil) burst.classList.add('is-foil');
         void burst.offsetWidth;
+
+        rays.className = fx.rays ? 'm-reveal__rays is-firing is-' + card.rarity : 'm-reveal__rays';
+        if (fx.rays) void rays.offsetWidth;
+
+        fireSparks(card.rarity, fx.sparks);
+
+        overlay.classList.remove('is-shake', 'is-flash', 'is-flash-epic', 'is-flash-showcase');
+        void overlay.offsetWidth;
+        if (fx.shake && !REDUCED_MOTION) overlay.classList.add('is-shake');
+        if (fx.flash && !REDUCED_MOTION) overlay.classList.add('is-flash', 'is-flash-' + card.rarity);
 
         /* Rendu dès que la carte est posée, sans attendre la fin du retour :
            quatorze cartes, ça se tapote vite, et un verrou d'une demi-seconde
@@ -3571,6 +3635,9 @@ function showRevealSpread() {
     revealDone.forEach((card, i) => {
         const node = cardNode(card, { small: true, onClick: () => openCardSheet(card) });
         node.style.animationDelay = (i * 35) + 'ms';
+        // Chaque carte se pose de travers, d'un côté ou de l'autre : une main
+        // qui étale des cartes ne les aligne pas au millimètre.
+        node.style.setProperty('--deal-tilt', ((i % 2 ? 1 : -1) * (3 + (i % 3))) + 'deg');
         node.classList.add('m-tcard--dealt');
         spread.appendChild(node);
     });
@@ -3584,31 +3651,63 @@ function showRevealSpread() {
     paintRevealFoot();
 }
 
+/* « Ranger dans ma collection » ne fait pas que fermer : les quatorze cartes se
+   rassemblent pour de bon. Chacune file vers le bas de l'écran en tournant,
+   d'après sa position réelle — c'est le geste de ramasser un paquet étalé sur
+   la table. */
+function gatherAndClose() {
+    const spread = $('m-reveal-spread');
+    const cards = Array.from(spread.querySelectorAll('.m-tcard'));
+
+    if (REDUCED_MOTION || !cards.length) { closeReveal(); return; }
+
+    const target = { x: window.innerWidth / 2, y: window.innerHeight - 40 };
+    cards.forEach((card, i) => {
+        const box = card.getBoundingClientRect();
+        card.style.setProperty('--gx', Math.round(target.x - (box.left + box.width / 2)) + 'px');
+        card.style.setProperty('--gy', Math.round(target.y - (box.top + box.height / 2)) + 'px');
+        card.style.setProperty('--gr', ((i % 2 ? 1 : -1) * (8 + i * 2)) + 'deg');
+        // Les dernières partent en premier : la pile se referme du bas.
+        card.style.animationDelay = ((cards.length - i) * 14) + 'ms';
+    });
+
+    spread.classList.add('is-gathering');
+    setTimeout(closeReveal, 420 + cards.length * 14);
+}
+
 function closeReveal() {
     $('m-reveal').className = 'm-reveal';
     $('m-reveal-flip').innerHTML = '';
+    $('m-reveal-spread').className = 'm-reveal__spread';
     $('m-reveal-spread').innerHTML = '';
+    $('m-reveal-sparks').innerHTML = '';
     revealQueue = [];
     revealDone = [];
     renderAll();
 }
 
+/* Déchirer le paquet : on peut glisser le doigt dessus (la fente suit, et
+   au-delà de la moitié le paquet cède) ou simplement toucher. */
+function tearPack() {
+    if (revealPhase !== 'pack') return;
+    revealPhase = 'cards';
+    const pack = $('m-reveal-pack');
+    pack.classList.remove('is-tearing');
+    pack.classList.add('is-torn');
+    $('m-reveal').className = 'm-reveal is-open is-cards';
+    // Le temps que les deux moitiés s'écartent avant la première carte.
+    setTimeout(revealNextCard, 300);
+    paintRevealFoot();
+}
+
 $('m-reveal-next').addEventListener('click', () => {
-    if (revealPhase === 'pack') {
-        revealPhase = 'cards';
-        $('m-reveal-pack').classList.add('is-torn');
-        $('m-reveal').className = 'm-reveal is-open is-cards';
-        // Le temps que le paquet se déchire avant que la première carte sorte.
-        setTimeout(revealNextCard, 260);
-        paintRevealFoot();
-        return;
-    }
+    if (revealPhase === 'pack') { tearPack(); return; }
     if (revealPhase === 'cards') {
         if (revealQueue.length) revealNextCard();
         else if (!revealFlipping) showRevealSpread();
         return;
     }
-    closeReveal();
+    gatherAndClose();
 });
 
 /* Le paquet entier d'un coup, pour qui a déjà ouvert dix boosters. */
@@ -3627,8 +3726,50 @@ $('m-reveal-all').addEventListener('click', () => {
 $('m-reveal-stage').addEventListener('click', () => {
     if (revealPhase === 'cards' && revealQueue.length) revealNextCard();
 });
-$('m-reveal-pack').addEventListener('click', () => {
-    if (revealPhase === 'pack') $('m-reveal-next').click();
+
+/* Le glissement qui déchire. On mesure la course du doigt sur la hauteur du
+   paquet : la fente s'ouvre en proportion, et passé 55 % l'emballage cède. Un
+   simple toucher (course quasi nulle) ouvre aussi — il ne faut pas obliger
+   quelqu'un à découvrir un geste pour ouvrir son booster. */
+let tearFrom = null;
+/* La course mesurée une fois, au premier contact : relire la géométrie du
+   paquet à chaque déplacement du doigt forcerait un recalcul de mise en page
+   par pixel parcouru. */
+let tearSpan = 0;
+
+$('m-reveal-pack').addEventListener('pointerdown', (e) => {
+    if (revealPhase !== 'pack') return;
+    tearFrom = e.clientY;
+    /* Environ un tiers de la hauteur du paquet suffit à le rompre : assez pour
+       que le geste soit délibéré, assez court pour se faire d'un pouce. */
+    tearSpan = Math.max(50, $('m-reveal-wrap').getBoundingClientRect().height * 0.38);
+    $('m-reveal-pack').classList.add('is-tearing');
+});
+
+$('m-reveal-pack').addEventListener('pointermove', (e) => {
+    if (tearFrom === null) return;
+    const progress = Math.max(0, Math.min(1, (e.clientY - tearFrom) / tearSpan));
+    $('m-reveal-wrap').style.setProperty('--tear', progress.toFixed(3));
+    $('m-reveal-hint').textContent = progress > 0.2 ? 'Encore…' : 'Glisse pour déchirer';
+    if (progress >= 0.55) { tearFrom = null; tearPack(); }
+}, { passive: true });
+
+$('m-reveal-pack').addEventListener('pointerup', () => {
+    if (tearFrom === null) return;
+    tearFrom = null;
+    // Course trop courte : c'était un simple toucher, on ouvre quand même.
+    const progress = Number($('m-reveal-wrap').style.getPropertyValue('--tear')) || 0;
+    if (progress < 0.12) { tearPack(); return; }
+    // Relâché à mi-chemin : l'emballage se referme.
+    $('m-reveal-pack').classList.remove('is-tearing');
+    $('m-reveal-wrap').style.setProperty('--tear', '0');
+    $('m-reveal-hint').textContent = 'Glisse pour déchirer';
+});
+
+$('m-reveal-pack').addEventListener('pointercancel', () => {
+    tearFrom = null;
+    $('m-reveal-pack').classList.remove('is-tearing');
+    $('m-reveal-wrap').style.setProperty('--tear', '0');
 });
 
 /* ==========================================================================
@@ -3765,12 +3906,21 @@ $('m-set-filter').addEventListener('click', () => {
     renderCartes();
 });
 
+/* La grille du set, rangée par rareté. Un set de cinq cents cartes affiché à
+   plat n'est pas une collection, c'est un annuaire : on ne voit ni où on en
+   est, ni ce qui vaut la peine. Groupé, chaque rareté annonce sa complétion et
+   les cartes de chasse sont en tête, là où on les cherche.
+
+   Le bas du set reste replié par défaut : personne ne veut faire défiler
+   trois cent trente silhouettes de communes pour trouver ses prestiges. */
+const openRarities = new Set(['showcase', 'epic', 'rare']);
+
 function renderSetGrid(view) {
     const mount = $('m-set-grid');
     mount.innerHTML = '';
 
     if (!view.set) {
-        mount.appendChild(emptyState('Le set de la soirée n\'a pas encore été frappé.'));
+        mount.appendChild(emptyState('Le set de la LAN n\'a pas encore été créé.'));
         return;
     }
 
@@ -3786,14 +3936,38 @@ function renderSetGrid(view) {
         return;
     }
 
-    rows.forEach(row => {
-        const best = row.copies.find(copy => copy.foil) || row.copies[0];
-        const card = best || { gameKey: row.gameKey, name: row.name, rarity: row.rarity, foil: false };
-        mount.appendChild(cardNode(card, {
-            missing: !row.owned,
-            badge: row.copies.length > 1 ? '×' + row.copies.length : '',
-            onClick: () => (best ? openCardSheet(best) : showToast(row.name + ' — pas encore dans ta collection.', 'error'))
-        }));
+    TCG.RARITIES.forEach(rarity => {
+        const group = rows.filter(row => row.rarity === rarity.key);
+        if (!group.length) return;
+
+        const owned = group.filter(row => row.owned).length;
+        const head = el('button', 'm-raritybar m-raritybar--' + rarity.key);
+        head.appendChild(el('span', 'm-raritybar__gem'));
+        head.appendChild(el('span', 'm-raritybar__label', rarity.label));
+        head.appendChild(el('span', 'm-raritybar__count', owned + ' / ' + group.length));
+        head.appendChild(el('span', 'm-raritybar__chev', openRarities.has(rarity.key) ? '▾' : '▸'));
+        head.addEventListener('click', () => {
+            if (openRarities.has(rarity.key)) openRarities.delete(rarity.key);
+            else openRarities.add(rarity.key);
+            renderSetGrid(tcgSnapshot());
+        });
+        mount.appendChild(head);
+
+        if (!openRarities.has(rarity.key)) return;
+
+        const grid = el('div', 'm-cardgrid');
+        group.forEach(row => {
+            const best = row.copies.find(copy => copy.foil) || row.copies[0];
+            const card = best || { gameKey: row.gameKey, name: row.name, rarity: row.rarity, foil: false };
+            grid.appendChild(cardNode(card, {
+                missing: !row.owned,
+                badge: row.copies.length > 1 ? '×' + row.copies.length : '',
+                onClick: () => (best
+                    ? openCardSheet(best)
+                    : showToast(row.name + ' — pas encore dans ta collection.', 'error'))
+            }));
+        });
+        mount.appendChild(grid);
     });
 }
 

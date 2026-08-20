@@ -6,6 +6,38 @@ démarrer cette fonctionnalité sans autre contexte.
 
 ---
 
+## 0 ter. La rareté vient du groupe (deuxième passe)
+
+Idée de Grégory, et c'est elle qui donne son sens au set : **la rareté d'une
+carte, c'est le nombre de joueurs qui possèdent le jeu.** Un jeu que personne
+d'autre n'a est banal — il y en a des centaines. Un jeu que tout le monde
+possède est rare, et c'est en plus celui auquel on peut jouer ce soir sans que
+personne aille l'acheter. La rareté ne parle donc plus du jeu, elle parle du
+terrain commun. Le vote s'y ajoute : `poids = part du groupe × 10 + score × 2`,
+si bien qu'un jeu que tout le monde a **et** que tout le monde réclame est en
+tête du set.
+
+Deux ajustements qu'il a fallu faire pour que l'idée tienne :
+
+1. **Les parts d'Origins ne marchent pas ici.** Riftbound réserve 15 % de son
+   set aux prestiges parce qu'un set y est dessiné, et que ses prestiges sont
+   des versions alternatives de cartes existantes. Notre set est un relevé : sur
+   cinq cents jeux, une quinzaine à peine sont réellement partagés. Garder 15 %
+   remplissait la rareté la plus haute de jeux que personne n'a en commun. D'où
+   une pyramide franche : prestige 2 %, épique 4 %, rare 10 %, peu commune 24 %,
+   commune 60 %. **La composition du booster, elle, reste exactement celle de
+   Riftbound** — c'est elle qui donne la sensation.
+2. **Les deux raretés de chasse sont réservées** aux cartes qui les méritent
+   (partagée par au moins deux joueurs, ou votée). La réserve s'arrête à
+   « épique » : le booster garantit un emplacement rare, et une rareté réduite à
+   deux cartes servirait éternellement les mêmes.
+
+Le champ `owners` est stocké sur chaque carte du set, et `libraries` sur le set
+lui-même — sans quoi « possédé par 4 joueurs » ne veut plus rien dire six mois
+plus tard. **Cela demande de republier les règles Firebase.**
+
+---
+
 ## 0 bis. Ce qui a changé après le premier essai sur téléphone
 
 Le §6 plus bas (raretés maison, booster de 5 cartes) **n'est plus ce qui tourne**.

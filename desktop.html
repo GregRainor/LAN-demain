@@ -1210,16 +1210,23 @@
     <div id="pack-reveal-overlay" class="reveal-overlay" style="display:none;">
         <p class="reveal-seal" id="reveal-seal"></p>
 
+        <!-- Le paquet se déchire à la souris : on tire vers le bas, la fente
+             suit, et passé la moitié il cède. Un simple clic ouvre aussi. -->
         <div class="reveal-pack" id="reveal-pack">
-            <div class="reveal-wrap">
-                <span class="reveal-mark">✦</span>
-                <span class="reveal-packname" id="reveal-packname">Booster</span>
+            <div class="reveal-wrap" id="reveal-wrap">
+                <span class="reveal-light"></span>
+                <span class="reveal-half reveal-half--top"><span class="reveal-mark">✦</span></span>
+                <span class="reveal-half reveal-half--bottom">
+                    <span class="reveal-packname" id="reveal-packname">Booster</span>
+                </span>
             </div>
-            <span class="reveal-hint">Cliquer pour ouvrir</span>
+            <span class="reveal-hint" id="reveal-hint">Tire vers le bas pour déchirer</span>
         </div>
 
         <div class="reveal-stage" id="reveal-stage">
             <span class="reveal-burst" id="reveal-burst"></span>
+            <span class="reveal-rays" id="reveal-rays"></span>
+            <span class="reveal-sparks" id="reveal-sparks"></span>
             <div class="reveal-flip" id="reveal-flip"></div>
         </div>
 

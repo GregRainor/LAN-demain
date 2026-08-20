@@ -381,9 +381,13 @@ document.addEventListener('DOMContentLoaded', () => {
         Object.entries(globalProfiles || {}).forEach(([uid, p]) => put(uid, p && p.name, p && p.avatar, false));
         Object.entries(globalVotes || {}).forEach(([uid, v]) => put(uid, v && v.name, null, false));
 
-        // Les fiches seules ne suffisent pas à figurer dans la bande : il faut
-        // être connecté ou avoir voté, sinon d'anciens invités traîneraient.
-        const kept = [...roster.values()].filter(p => p.online || (globalVotes && globalVotes[p.uid]));
+        // Connecté, votant, ou vu dans les sept derniers jours (isRostered).
+        // Le dernier cas manquait : un joueur passé dans la journée sans voter
+        // ne figurait nulle part, alors qu'il s'affichait dans les listes de
+        // l'économie. Le filtre reste nécessaire, sinon d'anciens invités
+        // traîneraient indéfiniment.
+        const sources = { status: globalUsers, votes: globalVotes, profiles: globalProfiles };
+        const kept = [...roster.values()].filter(p => isRostered(p.uid, sources));
 
         // Les connectés d'abord, puis par nom : la bande reste stable d'un
         // rendu à l'autre au lieu de suivre l'ordre des clés Firebase.
@@ -6093,8 +6097,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const setCard = tcgView().setCards[card.gameKey];
         const hands = (card.lineage || []).length - 1;
         const lines = [`<p class="shop-card__meta">${escapeHtml(rarity.label)}${card.foil ? ' · brillante ✦' : ''}</p>`];
+        // Pourquoi cette carte est rare : c'est tout l'intérêt d'une rareté
+        // tirée du groupe plutôt qu'inventée — elle s'explique, et c'est vrai.
         if (setCard) {
-            lines.push(`<p class="shop-card__meta">Rareté méritée : ${setCard.score} point${setCard.score > 1 ? 's' : ''} au vote de la soirée.</p>`);
+            lines.push(`<p class="shop-card__meta">${escapeHtml(rarityReason(setCard, tcgView().set))}</p>`);
         }
         if (card.mintedBy) {
             const when = card.mintedAt ? ` · ${new Date(card.mintedAt).toLocaleString('fr-FR')}` : '';
@@ -6177,12 +6183,7 @@ document.addEventListener('DOMContentLoaded', () => {
        appris. Sans elles, un set de trente cartes se complète en trois
        boosters. */
     function setPool() {
-        // Les bibliothèques seulement, et pas l'historique : les deux
-        // interfaces doivent composer exactement le même set, et le bureau ne
-        // garde pas l'historique en mémoire. C'est de toute façon là qu'est le
-        // volume — les palmarès des soirées passées font quelques jeux, déjà
-        // votés ou déjà dans une bibliothèque.
-        return knownGameNames({ libraries: groupLibraries });
+        return knownGames({ libraries: groupLibraries });
     }
 
     function renderTcgGmPanel(view) {
@@ -6252,6 +6253,9 @@ document.addEventListener('DOMContentLoaded', () => {
             name: `Set de la LAN ${globalSettings.lanName || 'LAN Demain'}`,
             ts: firebase.database.ServerValue.TIMESTAMP,
             by: user.uid,
+            // Combien de bibliothèques comptaient ce jour-là : sans ce nombre,
+            // « possédé par 4 joueurs » ne veut plus rien dire six mois après.
+            libraries: setPool().libraries,
             cards: cards
         })
             .then(() => db.ref('lan/tcg/currentSet').set(ref.key))
@@ -6462,8 +6466,13 @@ document.addEventListener('DOMContentLoaded', () => {
             `Sceau ${new Date(pack.sealedAt).toLocaleTimeString('fr-FR')}`;
         document.getElementById('reveal-packname').textContent = pack.label || 'Booster';
         document.getElementById('reveal-flip').innerHTML = '';
+        document.getElementById('reveal-spread').className = 'reveal-spread';
         document.getElementById('reveal-spread').innerHTML = '';
+        document.getElementById('reveal-sparks').innerHTML = '';
         document.getElementById('reveal-pack').className = 'reveal-pack';
+        document.getElementById('reveal-wrap').style.setProperty('--tear', '0');
+        document.getElementById('reveal-hint').textContent = 'Tire vers le bas pour déchirer';
+        tearFrom = null;
 
         const overlay = document.getElementById('pack-reveal-overlay');
         overlay.className = 'reveal-overlay is-pack';
@@ -6500,9 +6509,47 @@ document.addEventListener('DOMContentLoaded', () => {
        son contenu est échangé à mi-parcours, puis elle revient. Deux animations
        plates valent mieux qu'une scène 3D, qui se brouille avec les modes de
        fusion du brillant. */
+    /* Ce que chaque rareté déclenche à la révélation. Tout ne secoue pas
+       l'écran : si la commune fait le même bruit que la prestige, plus rien ne
+       compte. */
+    const RARITY_FX = {
+        common: { sparks: 0, rays: false, shake: false, flash: false },
+        uncommon: { sparks: 0, rays: false, shake: false, flash: false },
+        rare: { sparks: 8, rays: false, shake: false, flash: false },
+        epic: { sparks: 14, rays: true, shake: true, flash: true },
+        showcase: { sparks: 22, rays: true, shake: true, flash: true }
+    };
+
+    const SPARK_COLORS = { rare: '#b79dff', epic: '#e6a2ff', showcase: '#ffd76a' };
+
+    /* Les éclats qui giclent du centre. Ils partent en couronne, avec assez de
+       désordre pour ne pas ressembler à une horloge. */
+    function fireSparks(rarity, count) {
+        const box = document.getElementById('reveal-sparks');
+        box.innerHTML = '';
+        if (!count || REDUCED_MOTION) return;
+
+        const color = SPARK_COLORS[rarity] || '#ffd76a';
+        for (let i = 0; i < count; i++) {
+            const angle = (i / count) * Math.PI * 2 + Math.random() * 0.5;
+            const distance = 140 + Math.random() * 190;
+            const spark = document.createElement('span');
+            spark.className = 'reveal-spark';
+            spark.style.setProperty('--sx', `${Math.cos(angle) * distance}px`);
+            spark.style.setProperty('--sy', `${Math.sin(angle) * distance}px`);
+            spark.style.setProperty('--spark', color);
+            spark.style.animationDelay = `${Math.random() * 90}ms`;
+            box.appendChild(spark);
+        }
+        setTimeout(() => { box.innerHTML = ''; }, 1100);
+    }
+
     function flipToCard(card, isNew) {
         const flip = document.getElementById('reveal-flip');
         const burst = document.getElementById('reveal-burst');
+        const rays = document.getElementById('reveal-rays');
+        const overlay = document.getElementById('pack-reveal-overlay');
+        const fx = RARITY_FX[card.rarity] || RARITY_FX.common;
 
         revealFlipping = true;
         flip.className = 'reveal-flip is-out';
@@ -6512,13 +6559,23 @@ document.addEventListener('DOMContentLoaded', () => {
             node.classList.add('tcard--reveal');
             flip.innerHTML = '';
             flip.appendChild(node);
-            flip.className = 'reveal-flip is-in';
+            // Le retour est d'autant plus ample que la carte est rare.
+            flip.className = `reveal-flip is-in is-${card.rarity}`;
 
             // L'éclat derrière la carte porte la couleur de sa rareté : on sait
             // ce qu'on a sorti avant même d'avoir lu le nom.
             burst.className = `reveal-burst is-firing is-${card.rarity}`;
-            if (card.foil) burst.classList.add('is-foil');
             void burst.offsetWidth;
+
+            rays.className = fx.rays ? `reveal-rays is-firing is-${card.rarity}` : 'reveal-rays';
+            if (fx.rays) void rays.offsetWidth;
+
+            fireSparks(card.rarity, fx.sparks);
+
+            overlay.classList.remove('is-shake', 'is-flash', 'is-flash-epic', 'is-flash-showcase');
+            void overlay.offsetWidth;
+            if (fx.shake && !REDUCED_MOTION) overlay.classList.add('is-shake');
+            if (fx.flash && !REDUCED_MOTION) overlay.classList.add('is-flash', `is-flash-${card.rarity}`);
 
             /* Rendu dès que la carte est posée, sans attendre la fin du
                retour : quatorze cartes, ça s'enchaîne vite, et un verrou d'une
@@ -6557,6 +6614,9 @@ document.addEventListener('DOMContentLoaded', () => {
         revealDone.forEach((card, i) => {
             const node = buildCard(card, { onClick: () => openCardModal(card) });
             node.style.animationDelay = `${i * 35}ms`;
+            // Chaque carte se pose de travers, d'un côté ou de l'autre : une
+            // main qui étale des cartes ne les aligne pas au millimètre.
+            node.style.setProperty('--deal-tilt', `${(i % 2 ? 1 : -1) * (3 + (i % 3))}deg`);
             node.classList.add('tcard--dealt');
             spread.appendChild(node);
         });
@@ -6570,33 +6630,111 @@ document.addEventListener('DOMContentLoaded', () => {
         paintRevealFoot();
     }
 
+    /* « Ranger dans ma collection » ne fait pas que fermer : les quatorze
+       cartes se rassemblent pour de bon. Chacune file vers le bas de l'écran en
+       tournant, d'après sa position réelle — c'est le geste de ramasser un
+       paquet étalé sur la table. */
+    function gatherAndClose() {
+        const spread = document.getElementById('reveal-spread');
+        const cards = Array.from(spread.querySelectorAll('.tcard'));
+
+        if (REDUCED_MOTION || !cards.length) { closeReveal(); return; }
+
+        const target = { x: window.innerWidth / 2, y: window.innerHeight - 60 };
+        cards.forEach((card, i) => {
+            const box = card.getBoundingClientRect();
+            card.style.setProperty('--gx', `${Math.round(target.x - (box.left + box.width / 2))}px`);
+            card.style.setProperty('--gy', `${Math.round(target.y - (box.top + box.height / 2))}px`);
+            card.style.setProperty('--gr', `${(i % 2 ? 1 : -1) * (8 + i * 2)}deg`);
+            // Les dernières partent en premier : la pile se referme du bas.
+            card.style.animationDelay = `${(cards.length - i) * 14}ms`;
+        });
+
+        spread.classList.add('is-gathering');
+        setTimeout(closeReveal, 420 + cards.length * 14);
+    }
+
     function closeReveal() {
         const overlay = document.getElementById('pack-reveal-overlay');
         overlay.className = 'reveal-overlay';
         overlay.style.display = 'none';
         document.getElementById('reveal-flip').innerHTML = '';
+        document.getElementById('reveal-spread').className = 'reveal-spread';
         document.getElementById('reveal-spread').innerHTML = '';
+        document.getElementById('reveal-sparks').innerHTML = '';
         revealQueue = [];
         revealDone = [];
         renderCollection();
     }
 
+    /* Déchirer le paquet : on peut tirer la souris vers le bas (la fente suit,
+       et au-delà de la moitié le paquet cède) ou simplement cliquer. */
+    function tearPack() {
+        if (revealPhase !== 'pack') return;
+        revealPhase = 'cards';
+        const pack = document.getElementById('reveal-pack');
+        pack.classList.remove('is-tearing');
+        pack.classList.add('is-torn');
+        document.getElementById('pack-reveal-overlay').className = 'reveal-overlay is-cards';
+        // Le temps que les deux moitiés s'écartent avant la première carte.
+        setTimeout(revealNextCard, 300);
+        paintRevealFoot();
+    }
+
     document.getElementById('reveal-next')?.addEventListener('click', () => {
-        if (revealPhase === 'pack') {
-            revealPhase = 'cards';
-            document.getElementById('reveal-pack').classList.add('is-torn');
-            document.getElementById('pack-reveal-overlay').className = 'reveal-overlay is-cards';
-            // Le temps que le paquet se déchire avant que la première carte sorte.
-            setTimeout(revealNextCard, 260);
-            paintRevealFoot();
-            return;
-        }
+        if (revealPhase === 'pack') { tearPack(); return; }
         if (revealPhase === 'cards') {
             if (revealQueue.length) revealNextCard();
             else if (!revealFlipping) showRevealSpread();
             return;
         }
-        closeReveal();
+        gatherAndClose();
+    });
+
+    /* Le tiré qui déchire. On mesure la course du pointeur sur la hauteur du
+       paquet : la fente s'ouvre en proportion, et passé 55 % l'emballage cède.
+       Un simple clic (course quasi nulle) ouvre aussi — il ne faut pas obliger
+       quelqu'un à découvrir un geste pour ouvrir son booster. */
+    let tearFrom = null;
+    /* La course mesurée une fois, au premier contact : relire la géométrie du
+       paquet à chaque déplacement forcerait un recalcul de mise en page par
+       pixel parcouru. */
+    let tearSpan = 0;
+
+    document.getElementById('reveal-pack')?.addEventListener('pointerdown', (e) => {
+        if (revealPhase !== 'pack') return;
+        tearFrom = e.clientY;
+        // Environ un tiers de la hauteur du paquet suffit à le rompre.
+        tearSpan = Math.max(50, document.getElementById('reveal-wrap').getBoundingClientRect().height * 0.38);
+        document.getElementById('reveal-pack').classList.add('is-tearing');
+    });
+
+    document.getElementById('reveal-pack')?.addEventListener('pointermove', (e) => {
+        if (tearFrom === null) return;
+        const progress = Math.max(0, Math.min(1, (e.clientY - tearFrom) / tearSpan));
+        document.getElementById('reveal-wrap').style.setProperty('--tear', progress.toFixed(3));
+        document.getElementById('reveal-hint').textContent =
+            progress > 0.2 ? 'Encore…' : 'Tire vers le bas pour déchirer';
+        if (progress >= 0.55) { tearFrom = null; tearPack(); }
+    }, { passive: true });
+
+    document.getElementById('reveal-pack')?.addEventListener('pointerup', () => {
+        if (tearFrom === null) return;
+        tearFrom = null;
+        const wrap = document.getElementById('reveal-wrap');
+        const progress = Number(wrap.style.getPropertyValue('--tear')) || 0;
+        // Course trop courte : c'était un simple clic, on ouvre quand même.
+        if (progress < 0.12) { tearPack(); return; }
+        // Relâché à mi-chemin : l'emballage se referme.
+        document.getElementById('reveal-pack').classList.remove('is-tearing');
+        wrap.style.setProperty('--tear', '0');
+        document.getElementById('reveal-hint').textContent = 'Tire vers le bas pour déchirer';
+    });
+
+    document.getElementById('reveal-pack')?.addEventListener('pointercancel', () => {
+        tearFrom = null;
+        document.getElementById('reveal-pack').classList.remove('is-tearing');
+        document.getElementById('reveal-wrap').style.setProperty('--tear', '0');
     });
 
     /* Le paquet entier d'un coup, pour qui a déjà ouvert dix boosters. */

@@ -68,6 +68,7 @@
                 "name":   { ".validate": "newData.isString() && newData.val().length <= 200" },
                 "rarity": { ".validate": "newData.isString() && newData.val().length <= 20" },
                 "score":  { ".validate": "!newData.exists() || newData.isNumber()" },
+                "owners": { ".validate": "!newData.exists() || newData.isNumber()" },
                 "$other": { ".validate": false }
               }
             }

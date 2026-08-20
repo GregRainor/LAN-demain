@@ -131,15 +131,30 @@ inventaire modifiable serait un inventaire qu'on se fabrique.
 
 ### 1. Le set (`lan/tcg/sets/$setId`, `lan/tcg/currentSet`)
 
-Le set se compose à partir du classement des votes — les jeux demandés occupent le haut, et leur
-rareté est leur score — complété par tous les jeux connus des bibliothèques Steam du groupe, qui
-en forment le fond. Écriture réservée aux `admin` / `gamemaster`.
+Le set est un **relevé du groupe**, pas une invention. Chaque jeu des bibliothèques Steam devient
+une carte, et sa rareté vient de deux choses qui s'additionnent : **combien de joueurs le
+possèdent** (le terrain commun) et **ce que le vote en a dit** (l'envie). Un jeu que personne
+d'autre n'a est banal — il y en a des centaines. Un jeu que tout le monde possède est rare, et
+c'est en plus celui auquel on peut jouer ce soir sans que personne aille l'acheter. La rareté
+raconte donc quelque chose de vrai, et la fiche d'une carte l'explique en une phrase.
 
-Raretés, proportions et composition du booster sont calquées sur **Riftbound** : cinq tiers
-(prestige 15,3 %, épique 11,9 %, rare 23,8 %, peu commune 23,8 %, commune 25,2 %), et un booster
-de 14 cartes — huit communes, trois peu communes, un emplacement rare, un emplacement flex
-(épique une fois sur quatre, prestige une fois sur douze) et un emplacement brillant. Toute rare
-et au-dessus sort brillante d'office, ce qui garantit trois brillantes par paquet.
+Écriture réservée aux `admin` / `gamemaster`.
+
+Les **deux raretés de chasse sont réservées** aux cartes qui les méritent : partagée par au moins
+deux joueurs, ou réclamée au vote. Un jeu que personne ne partage et que personne n'a demandé n'y
+entre pas, même s'il reste de la place. La réserve s'arrête à « épique » : le booster garantit un
+emplacement rare, et une rareté réduite à deux cartes servirait éternellement les mêmes.
+
+Les **parts du set** (prestige 2 %, épique 4 %, rare 10 %, peu commune 24 %, commune 60 %) sont le
+seul écart à Riftbound. Chez eux les parts sont presque plates parce qu'un set y est dessiné et
+que les prestiges sont des versions alternatives ; ici c'est un relevé, où une quinzaine de jeux à
+peine sont réellement partagés. Garder 15 % de prestige remplirait la rareté la plus haute au
+hasard.
+
+La **composition du booster**, elle, est exactement celle de Riftbound : 14 cartes — huit communes,
+trois peu communes, un emplacement rare, un emplacement flex (épique une fois sur quatre, prestige
+une fois sur douze) et un emplacement brillant. Toute rare et au-dessus sort brillante d'office, ce
+qui garantit trois brillantes par paquet.
 
 On ne remplace jamais un set : on en compose un nouveau et `currentSet` pointe dessus. Les
 paquets déjà ouverts gardent le `setId` sous lequel ils ont été tirés, donc leur contenu reste
@@ -205,6 +220,12 @@ parties ne possédait pas sa mise à cet instant. Un échange malhonnête n'est 
 `startNewLan()` ne touche pas à `lan/tcg`. Les points repartent à zéro, les cartes non : une
 collection qui se réinitialise ne se collectionne pas. Chaque LAN ajoute son set à une
 collection qui grandit.
+
+> ⚠️ **À REPUBLIER** : la carte du set porte désormais un champ `owners` (combien
+> de bibliothèques possédaient le jeu le jour du set). Le nœud `cards/$game_key`
+> refuse tout champ non listé : **tant que les règles ne sont pas republiées, la
+> création du set échoue en entier**, avec un `permission_denied` et rien à
+> l'écran. C'est une seule ligne de différence, mais elle est bloquante.
 
 > ⚠️ **Mise à jour requise** : les règles `lan/tcg` ci-dessus sont nouvelles.
 > Tant qu'elles ne sont pas **republiées** avec la procédure ci-dessous, l'écran
