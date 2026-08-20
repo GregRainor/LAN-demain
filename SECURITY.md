@@ -375,6 +375,67 @@ plus une ligne plus bas — et les archive dans `lan/history`.
 > haut fait ne s'inscrira, et la console affichera `permission_denied at /lan/xp`. Le reste de
 > l'application continue de fonctionner : l'échec est silencieux côté joueur.
 
+
+## Les défis et la boîte à idées (`lan/challenges`, `lan/claims`, `lan/suggestions`)
+
+Un haut fait se **calcule** ; un défi se **raconte**. « Trente pompes », « une bière à 9 h du
+matin » : aucune donnée de l'application ne pourra jamais les vérifier. C'est donc un humain
+qui tranche — et c'est aussi ce qui rend la validation vivante plutôt qu'automatique.
+
+C'est en outre la seule source d'expérience **répétable**. Les hauts faits sont une cagnotte
+qu'on vide une fois ; sans les défis, les niveaux se figeaient vers 6 ou 7.
+
+### Le principe qui gouverne tout
+
+**Un joueur sait écrire un débit, jamais un crédit.** Il peut se débiter du prix exact d'un
+article de la boutique (voir §1 de l'économie), mais toute ligne de registre POSITIVE reste
+réservée aux `admin` / `gamemaster`. Réclamer un défi n'écrit donc rien de valeur : ça dépose
+une demande. C'est la validation qui paie, et elle est faite par quelqu'un d'autre.
+
+### `lan/challenges` — le catalogue
+
+- Un `admin` / `gamemaster` crée, modifie et retire librement.
+- Un joueur peut créer une entrée **uniquement** avec `status: 'proposed'` et
+  `createdBy === auth.uid`, et la retirer tant qu'elle est proposée. Il ne peut pas l'ouvrir
+  lui-même : passer à `status: 'open'` demande le rôle.
+- Les propositions sont **plafonnées par les règles** à 300 zł et 200 XP. Sans ça on se
+  proposerait un défi à dix mille — l'admin le verrait, mais autant que la base refuse.
+- `title` est obligatoire et limité à 120 caractères ; `zl` et `xp` doivent être des nombres
+  positifs.
+
+### `lan/claims` — les réclamations
+
+- Un joueur crée la sienne avec `status: 'pending'` et `uid === auth.uid`, et peut la retirer
+  tant qu'elle est en attente.
+- Seul un `admin` / `gamemaster` la résout.
+- Le montant est **figé dans la réclamation** au moment où elle est déposée : si l'admin
+  change le prix du défi demain, ce qui a été promis reste promis.
+- `note` est limitée à 500 caractères, `ts` doit être passé.
+
+**La validation est une écriture multi-chemins** : le sort de la réclamation, la ligne de
+registre et la récompense d'expérience partent ensemble. Firebase applique tout ou rien —
+impossible d'être payé sans que la réclamation soit close, ou l'inverse.
+
+La clé de la récompense d'XP est déterministe : `{uid}__claim__{claimId}`. Deux admins qui
+valident en même temps écrivent le même nœud plutôt que deux récompenses — un défi ne paie
+jamais deux fois, structurellement.
+
+### `lan/suggestions` — la boîte à idées
+
+Un champ libre vers l'admin, et **une** réponse. Ce n'est pas un chat : deux tours suffisent
+à « j'aimerais qu'on ajoute X », et un vrai fil demanderait des non-lus, des notifications et
+de la modération pour un besoin qui tient en deux phrases.
+
+- Un joueur crée la sienne (`uid === auth.uid`) et peut la supprimer.
+- Seul un `admin` / `gamemaster` répond ou supprime celle d'un autre.
+- Le texte est limité à 1000 caractères.
+- **Lecture publique**, comme le registre : une idée lue par les autres a une chance d'être
+  appuyée.
+
+> ⚠️ **Mise à jour requise** : ces trois nœuds sont nouveaux. Tant que les règles ne sont pas
+> **republiées**, l'écran Défis restera vide et la console affichera `permission_denied at
+> /lan/challenges`. Réclamer, proposer et suggérer échoueront tous, en silence.
+
 ### Comment les appliquer
 
 1. Ouvrir la [console Firebase](https://console.firebase.google.com/) → projet **lan-party-planner-qqggx**.

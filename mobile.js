@@ -32,6 +32,9 @@ const state = {
     /* Expérience et hauts faits. Ce nœud ne repart JAMAIS à zéro : c'est ce
        qui distingue l'assiduité de la fortune. */
     xp: {},
+    /* Défis, réclamations et boîte à idées. Un défi ne se calcule pas : c'est
+       un humain qui tranche, et c'est la seule source d'XP qui se rejoue. */
+    quests: { challenges: {}, claims: {}, suggestions: {} },
     notifs: {},
     libraries: {},
     history: {},
@@ -241,6 +244,7 @@ const SCREEN_TITLES = {
     vote: 'Mon vote',
     cartes: 'Mes cartes',
     'hauts-faits': 'Hauts faits',
+    defis: 'Défis',
     evenements: 'Événements',
     kocktails: 'Kocktails',
     biblio: 'Bibliothèques',
@@ -338,6 +342,7 @@ function goto(screen, options) {
     if (screen === 'biblio') renderLibraries();
     if (screen === 'admin') renderAdmin();
     if (screen === 'hauts-faits') renderHautsFaits();
+    if (screen === 'defis') renderDefis();
 }
 
 $('m-back').addEventListener('click', () => history.back());
@@ -533,6 +538,9 @@ function boot(user) {
     watch('lan/steamLibraries', value => { state.libraries = value || {}; });
     watch('lan/history', value => { state.history = value || {}; });
     watch('lan/xp', value => { state.xp = value || {}; grantPendingAchievements(); });
+    watch('lan/challenges', value => { state.quests.challenges = value || {}; });
+    watch('lan/claims', value => { state.quests.claims = value || {}; });
+    watch('lan/suggestions', value => { state.quests.suggestions = value || {}; });
     watch(`lan/notifications/${user.uid}`, value => { state.notifs = value || {}; });
 
     startTickEngine();
@@ -569,6 +577,7 @@ function renderAll() {
     renderKocktails();
     renderBoutique();
     if (currentScreen === 'hauts-faits') renderHautsFaits();
+    if (currentScreen === 'defis') renderDefis();
     grantPendingAchievements();
     renderCartes();
     renderLibraries();
@@ -2010,6 +2019,13 @@ function renderPlus() {
        progresse d'une soirée à l'autre, celui qu'on vient vérifier. */
     const myXp = xpLevel(xpTotal(state.xp, view.uid));
     $('m-plus-hauts-faits').textContent = 'Niveau ' + myXp.level;
+    /* La rangée « Défis » compte ce qui attend l'admin, sinon ce qui est
+       ouvert : on montre l'action, pas le catalogue. */
+    const waitingClaims = state.isGamemaster ? pendingClaims(state.quests).length : 0;
+    const openCount = openChallenges(state.quests).length;
+    $('m-plus-defis').textContent = waitingClaims
+        ? waitingClaims + ' à valider'
+        : (openCount ? String(openCount) : '');
     const total = draftTotal();
     $('m-plus-vote').textContent = total ? `${total} jeu${total > 1 ? 'x' : ''}` : '';
     const libs = Object.keys(state.libraries).length;
@@ -5339,6 +5355,556 @@ function openProfile(uid) {
         }
     });
 }
+
+
+/* ==========================================================================
+   Les défis et la boîte à idées
+   Rien ici ne se calcule : un défi se raconte, et c'est un humain qui tranche.
+   Le joueur réclame, l'admin valide, et c'est la validation qui écrit les
+   złotych au registre et l'expérience au journal — jamais le joueur lui-même.
+   ========================================================================== */
+
+function renderDefis() {
+    const uid = state.user && state.user.uid;
+    if (!uid) return;
+
+    const earned = challengeEarnings(state.quests, uid);
+    $('m-defis-count').textContent = String(earned.count);
+    $('m-defis-hint').textContent = earned.count
+        ? 'Ils t\'ont rapporté ' + formatPoints(earned.zl) + ' et ' + earned.xp + ' XP'
+        : 'Aucun défi relevé pour l\'instant.';
+
+    renderClaimsQueue();
+    renderProposals();
+    renderMyClaims();
+    renderChallengeList();
+    renderSuggestions();
+}
+
+/* ---------- Ce que l'admin doit trancher ---------- */
+
+function renderClaimsQueue() {
+    const section = $('m-claims-section');
+    const mount = $('m-claims-queue');
+    const queue = pendingClaims(state.quests);
+
+    if (!state.isGamemaster || !queue.length) { section.style.display = 'none'; return; }
+    section.style.display = 'flex';
+    mount.innerHTML = '';
+
+    queue.forEach(claim => {
+        const card = el('article', 'm-card');
+        const top = el('div', 'm-card__top');
+        top.appendChild(el('h3', 'm-card__title', claim.title || 'Défi'));
+        top.appendChild(el('span', 'm-chip', timeAgo(claim.ts)));
+        card.appendChild(top);
+        card.appendChild(el('p', 'm-card__meta',
+            'par ' + (claim.userName || playerName(claim.uid))
+            + (claim.witnessName ? ' · témoin : ' + claim.witnessName : '')));
+        if (claim.note) card.appendChild(el('p', 'm-card__body', '« ' + claim.note + ' »'));
+        card.appendChild(el('p', 'm-card__meta',
+            'Vaut ' + formatPoints(claim.zl) + ' et ' + (Number(claim.xp) || 0) + ' XP'));
+
+        const ok = el('button', 'm-btn m-btn--solid m-btn--sm m-btn--full', 'Valider');
+        ok.addEventListener('click', () => resolveClaim(claim, 'granted'));
+        card.appendChild(ok);
+        const no = el('button', 'm-btn m-btn--quiet m-btn--sm', 'Refuser');
+        no.addEventListener('click', () => resolveClaim(claim, 'refused'));
+        card.appendChild(no);
+
+        mount.appendChild(card);
+    });
+}
+
+/* Valider paie. Le débit d'un achat, le joueur sait l'écrire ; un CRÉDIT, non —
+   les règles le réservent aux maîtres du jeu, et c'est tout l'intérêt. Les
+   złotych, l'expérience et le sort de la réclamation partent ensemble dans une
+   écriture multi-chemins : on ne peut pas être payé deux fois, ni payé sans que
+   la réclamation soit close.
+
+   La clé de la récompense d'expérience est déterministe : deux admins qui
+   valident en même temps écrivent le même nœud plutôt que deux récompenses. */
+function resolveClaim(claim, status) {
+    const user = state.user;
+    if (!user) return;
+
+    const update = {};
+    update['lan/claims/' + claim.id + '/status'] = status;
+    update['lan/claims/' + claim.id + '/resolvedBy'] = user.uid;
+    update['lan/claims/' + claim.id + '/resolvedByName'] = user.displayName || 'Admin';
+    update['lan/claims/' + claim.id + '/resolvedAt'] = firebase.database.ServerValue.TIMESTAMP;
+
+    if (status === 'granted') {
+        const zl = Number(claim.zl) || 0;
+        const xp = Number(claim.xp) || 0;
+        if (zl > 0) {
+            const entryId = db.ref('lan/economy/ledger').push().key;
+            update['lan/economy/ledger/' + entryId] = {
+                uid: claim.uid,
+                delta: zl,
+                type: 'challenge',
+                reason: claim.title || 'Défi relevé',
+                refId: claim.id,
+                by: user.uid,
+                byName: user.displayName || 'Admin',
+                ts: firebase.database.ServerValue.TIMESTAMP
+            };
+        }
+        if (xp > 0) {
+            update['lan/xp/awards/' + claim.uid + '__claim__' + claim.id] = {
+                uid: claim.uid,
+                delta: xp,
+                type: 'challenge',
+                reason: claim.title || 'Défi relevé',
+                refId: claim.id,
+                by: user.uid,
+                ts: firebase.database.ServerValue.TIMESTAMP
+            };
+        }
+    }
+
+    db.ref().update(update)
+        .then(() => {
+            if (claim.uid !== user.uid) {
+                sendNotification(claim.uid, status === 'granted'
+                    ? '« ' + (claim.title || 'Défi') + ' » validé ! +' + formatPoints(claim.zl) + ' et ' + (Number(claim.xp) || 0) + ' XP'
+                    : '« ' + (claim.title || 'Défi') + ' » refusé.',
+                    status === 'granted' ? 'success' : 'info');
+            }
+            showToast(status === 'granted' ? 'Validé et payé.' : 'Refusé.', 'success');
+        })
+        .catch(e => showToast('Erreur : ' + e.message, 'error'));
+}
+
+/* ---------- Les propositions des joueurs ---------- */
+
+function renderProposals() {
+    const section = $('m-proposals-section');
+    const mount = $('m-proposals');
+    const list = proposedChallenges(state.quests);
+
+    if (!state.isGamemaster || !list.length) { section.style.display = 'none'; return; }
+    section.style.display = 'flex';
+    mount.innerHTML = '';
+
+    list.forEach(challenge => {
+        const card = el('article', 'm-card');
+        const top = el('div', 'm-card__top');
+        top.appendChild(el('h3', 'm-card__title', challenge.title || 'Défi'));
+        top.appendChild(el('span', 'm-chip', challengeCategory(challenge.category).label));
+        card.appendChild(top);
+        if (challenge.description) card.appendChild(el('p', 'm-card__body', challenge.description));
+        card.appendChild(el('p', 'm-card__meta',
+            'proposé par ' + (challenge.createdByName || playerName(challenge.createdBy))
+            + ' · ' + formatPoints(challenge.zl) + ' et ' + (Number(challenge.xp) || 0) + ' XP'));
+
+        const ok = el('button', 'm-btn m-btn--solid m-btn--sm m-btn--full', 'Ouvrir aux joueurs');
+        ok.addEventListener('click', () => approveChallenge(challenge));
+        card.appendChild(ok);
+        const no = el('button', 'm-btn m-btn--quiet m-btn--sm', 'Refuser');
+        no.addEventListener('click', () => {
+            db.ref('lan/challenges/' + challenge.id).remove()
+                .then(() => showToast('Proposition refusée.', 'success'))
+                .catch(e => showToast('Erreur : ' + e.message, 'error'));
+        });
+        card.appendChild(no);
+
+        mount.appendChild(card);
+    });
+}
+
+function approveChallenge(challenge) {
+    const user = state.user;
+    if (!user) return;
+    db.ref('lan/challenges/' + challenge.id).update({
+        status: 'open',
+        approvedBy: user.uid,
+        approvedAt: firebase.database.ServerValue.TIMESTAMP
+    })
+        .then(() => {
+            if (challenge.createdBy && challenge.createdBy !== user.uid) {
+                sendNotification(challenge.createdBy,
+                    'Ton défi « ' + (challenge.title || '') + ' » est ouvert à tous !', 'success');
+            }
+            showToast('Défi ouvert.', 'success');
+        })
+        .catch(e => showToast('Erreur : ' + e.message, 'error'));
+}
+
+/* ---------- Mes réclamations en attente ---------- */
+
+function renderMyClaims() {
+    const uid = state.user && state.user.uid;
+    const section = $('m-myclaims-section');
+    const mount = $('m-myclaims');
+    const mine = claimsOf(state.quests, uid).filter(c => c.status === 'pending');
+
+    if (!mine.length) { section.style.display = 'none'; return; }
+    section.style.display = 'flex';
+    mount.innerHTML = '';
+
+    mine.forEach(claim => {
+        const card = el('article', 'm-card');
+        const top = el('div', 'm-card__top');
+        top.appendChild(el('h3', 'm-card__title', claim.title || 'Défi'));
+        top.appendChild(el('span', 'm-chip', 'en attente'));
+        card.appendChild(top);
+        if (claim.note) card.appendChild(el('p', 'm-card__body', '« ' + claim.note + ' »'));
+
+        const cancel = el('button', 'm-btn m-btn--quiet m-btn--sm', 'Retirer');
+        cancel.addEventListener('click', () => {
+            db.ref('lan/claims/' + claim.id).remove()
+                .then(() => showToast('Réclamation retirée.', 'success'))
+                .catch(e => showToast('Erreur : ' + e.message, 'error'));
+        });
+        card.appendChild(cancel);
+        mount.appendChild(card);
+    });
+}
+
+/* ---------- La liste des défis ---------- */
+
+function renderChallengeList() {
+    const uid = state.user && state.user.uid;
+    const mount = $('m-challenge-list');
+    mount.innerHTML = '';
+
+    const list = openChallenges(state.quests);
+    if (!list.length) {
+        if (!state.isGamemaster) {
+            mount.appendChild(emptyState('Aucun défi pour le moment. Propose le premier !'));
+            return;
+        }
+        const card = el('article', 'm-card');
+        card.appendChild(el('p', 'm-card__body',
+            'Aucun défi. Une liste de départ existe : sport, jeu, boisson, bouffe.'));
+        const go = el('button', 'm-btn m-btn--solid m-btn--full', 'Garnir la liste');
+        go.addEventListener('click', stockStarterChallenges);
+        card.appendChild(go);
+        mount.appendChild(card);
+        return;
+    }
+
+    CHALLENGES.CATEGORIES.forEach(cat => {
+        const items = list.filter(c => (c.category || 'autre') === cat.key);
+        if (!items.length) return;
+        mount.appendChild(el('p', 'm-shop__cat', cat.icon + ' ' + cat.label));
+        items.forEach(challenge => mount.appendChild(buildChallengeCard(challenge, uid)));
+    });
+
+    const missing = state.isGamemaster ? missingStarterChallenges(state.quests).length : 0;
+    if (missing) {
+        const more = el('button', 'm-btn m-btn--quiet m-btn--sm m-btn--full',
+            'Ajouter les ' + missing + ' défis de la liste de départ');
+        more.addEventListener('click', stockStarterChallenges);
+        mount.appendChild(more);
+    }
+}
+
+function buildChallengeCard(challenge, uid) {
+    const card = el('article', 'm-sitem m-sitem--' + (challenge.category === 'sport' ? 'privilege' : 'fun'));
+    const state_ = claimState(state.quests, challenge, uid);
+    if (!state_.can) card.classList.add('is-locked');
+
+    card.appendChild(el('span', 'm-sitem__cost', String(Math.round(Number(challenge.zl) || 0))));
+
+    const main = el('div', 'm-sitem__main');
+    main.appendChild(el('h3', 'm-sitem__name', challenge.title || 'Défi'));
+    if (challenge.description) main.appendChild(el('p', 'm-sitem__desc', challenge.description));
+
+    const strip = el('div', 'm-sitem__strip');
+    strip.appendChild(el('span', 'm-sitem__gem'));
+    strip.appendChild(el('span', 'm-sitem__fam', '+' + (Number(challenge.xp) || 0) + ' XP'));
+    const done = challengeGrantedCount(state.quests, challenge.id);
+    if (done) strip.appendChild(el('span', 'm-sitem__stock', 'relevé ' + done + '×'));
+    main.appendChild(strip);
+
+    const go = el('button', 'm-sitem__buy');
+    if (state_.can) {
+        go.appendChild(iconSvg('M20 6 9 17l-5-5'));
+        go.appendChild(document.createTextNode('Je l\'ai fait'));
+    } else {
+        go.textContent = state_.why;
+    }
+    go.disabled = !state_.can;
+    go.addEventListener('click', () => openClaimSheet(challenge));
+    main.appendChild(go);
+
+    if (state.isGamemaster) {
+        const del = el('button', 'm-btn m-btn--quiet m-btn--sm', 'Retirer');
+        del.addEventListener('click', () => {
+            db.ref('lan/challenges/' + challenge.id).remove()
+                .then(() => showToast('Défi retiré.', 'success'))
+                .catch(e => showToast('Erreur : ' + e.message, 'error'));
+        });
+        main.appendChild(del);
+    }
+
+    card.appendChild(main);
+    return card;
+}
+
+/* Réclamer, c'est raconter. Le mot du joueur et le nom d'un témoin sont ce qui
+   permet à l'admin de trancher sans avoir tout vu. */
+function openClaimSheet(challenge) {
+    const user = state.user;
+    if (!user) return;
+
+    openSheet(challenge.title || 'Défi', (body) => {
+        body.appendChild(el('p', 'm-card__meta',
+            'Vaut ' + formatPoints(challenge.zl) + ' et ' + (Number(challenge.xp) || 0) + ' XP.'));
+
+        const note = el('textarea', 'm-input');
+        note.placeholder = 'Comment ça s\'est passé ? (facultatif)';
+        body.appendChild(note);
+
+        body.appendChild(el('p', 'm-label', 'Un témoin ?'));
+        const witness = el('select', 'm-input');
+        const none = el('option', null, 'Personne');
+        none.value = '';
+        witness.appendChild(none);
+        economyPlayers().filter(u => u !== user.uid).forEach(other => {
+            const opt = el('option', null, playerName(other));
+            opt.value = other;
+            witness.appendChild(opt);
+        });
+        body.appendChild(witness);
+
+        const go = el('button', 'm-btn m-btn--solid m-btn--full', 'Envoyer à l\'admin');
+        go.addEventListener('click', () => {
+            /* Le montant est FIGÉ dans la réclamation : si l'admin change le
+               prix du défi demain, ce qui a été promis reste promis. */
+            db.ref('lan/claims').push().set({
+                challengeId: challenge.id,
+                title: challenge.title || 'Défi',
+                zl: Number(challenge.zl) || 0,
+                xp: Number(challenge.xp) || 0,
+                uid: user.uid,
+                userName: user.displayName || 'Un joueur',
+                note: note.value.trim().slice(0, 500),
+                witnessUid: witness.value || null,
+                witnessName: witness.value ? playerName(witness.value) : null,
+                status: 'pending',
+                ts: firebase.database.ServerValue.TIMESTAMP
+            })
+                .then(() => {
+                    closeSheet();
+                    showToast('Envoyé ! L\'admin tranchera.', 'success');
+                })
+                .catch(e => showToast('Erreur : ' + e.message, 'error'));
+        });
+        body.appendChild(go);
+    });
+}
+
+/* Garnir la liste d'un coup. On n'ajoute que ce qui manque, comparé sur le
+   titre : regarnir deux fois ne double pas les défis. */
+function stockStarterChallenges() {
+    const user = state.user;
+    if (!user) return;
+    const missing = missingStarterChallenges(state.quests);
+    if (!missing.length) { showToast('La liste a déjà tout.', 'success'); return; }
+
+    const update = {};
+    missing.forEach(challenge => {
+        const id = db.ref('lan/challenges').push().key;
+        update['lan/challenges/' + id] = {
+            title: challenge.title,
+            description: challenge.description || '',
+            category: challenge.category || 'autre',
+            zl: challenge.zl,
+            xp: challenge.xp,
+            repeatable: challenge.repeatable !== false,
+            status: 'open',
+            createdBy: user.uid,
+            createdByName: user.displayName || 'Admin',
+            createdAt: firebase.database.ServerValue.TIMESTAMP
+        };
+    });
+
+    db.ref().update(update)
+        .then(() => showToast(missing.length + ' défis ajoutés.', 'success'))
+        .catch(e => showToast('Erreur : ' + e.message, 'error'));
+}
+
+/* Proposer un défi. Un admin l'ouvre directement ; un joueur le propose, et il
+   attend l'approbation — les règles plafonnent d'ailleurs sa récompense. */
+$('m-challenge-new').addEventListener('click', () => {
+    const user = state.user;
+    if (!user) return;
+    const isGm = state.isGamemaster;
+
+    openSheet(isGm ? 'Créer un défi' : 'Proposer un défi', (body) => {
+        const title = el('input', 'm-input');
+        title.placeholder = 'Ex : 30 pompes d\'affilée';
+        body.appendChild(title);
+
+        const desc = el('textarea', 'm-input');
+        desc.placeholder = 'Les règles exactes. Ce qui compte, ce qui ne compte pas.';
+        body.appendChild(desc);
+
+        const category = el('select', 'm-input');
+        CHALLENGES.CATEGORIES.forEach(cat => {
+            const opt = el('option', null, cat.icon + ' ' + cat.label);
+            opt.value = cat.key;
+            category.appendChild(opt);
+        });
+        body.appendChild(category);
+
+        const row = el('div', 'm-field');
+        const zl = el('input', 'm-input');
+        zl.type = 'number';
+        zl.min = '0';
+        zl.placeholder = 'złotych';
+        const xp = el('input', 'm-input');
+        xp.type = 'number';
+        xp.min = '0';
+        xp.placeholder = 'XP';
+        row.appendChild(zl);
+        row.appendChild(xp);
+        body.appendChild(row);
+
+        if (!isGm) {
+            body.appendChild(el('p', 'm-card__meta',
+                'Au maximum ' + CHALLENGES.MAX_PROPOSED_ZL + ' ' + ECONOMY.CURRENCY
+                + ' et ' + CHALLENGES.MAX_PROPOSED_XP + ' XP. L\'admin décidera.'));
+        }
+
+        const go = el('button', 'm-btn m-btn--solid m-btn--full',
+            isGm ? 'Ouvrir le défi' : 'Proposer à l\'admin');
+        go.addEventListener('click', () => {
+            const value = title.value.trim();
+            if (!value) { showToast('Il manque le titre.', 'error'); return; }
+
+            let zlValue = Math.max(0, Math.round(Number(zl.value) || 0));
+            let xpValue = Math.max(0, Math.round(Number(xp.value) || 0));
+            if (!isGm) {
+                zlValue = Math.min(zlValue, CHALLENGES.MAX_PROPOSED_ZL);
+                xpValue = Math.min(xpValue, CHALLENGES.MAX_PROPOSED_XP);
+            }
+
+            db.ref('lan/challenges').push().set({
+                title: value.slice(0, 120),
+                description: desc.value.trim(),
+                category: category.value,
+                zl: zlValue,
+                xp: xpValue,
+                repeatable: true,
+                status: isGm ? 'open' : 'proposed',
+                createdBy: user.uid,
+                createdByName: user.displayName || 'Un joueur',
+                createdAt: firebase.database.ServerValue.TIMESTAMP
+            })
+                .then(() => {
+                    closeSheet();
+                    showToast(isGm ? 'Défi ouvert !' : 'Proposé ! L\'admin décidera.', 'success');
+                })
+                .catch(e => showToast('Erreur : ' + e.message, 'error'));
+        });
+        body.appendChild(go);
+    });
+});
+
+/* ---------- La boîte à idées ---------- */
+
+function renderSuggestions() {
+    const uid = state.user && state.user.uid;
+    const mount = $('m-suggestions');
+    mount.innerHTML = '';
+
+    /* Tout le monde voit tout : c'est la même règle que le registre. Une idée
+       lue par les autres a une chance d'être appuyée. */
+    const list = allSuggestions(state.quests).slice(0, 20);
+    if (!list.length) {
+        mount.appendChild(emptyState('Rien pour l\'instant.'));
+        return;
+    }
+
+    list.forEach(item => {
+        const card = el('article', 'm-card');
+        const top = el('div', 'm-card__top');
+        top.appendChild(el('h3', 'm-card__title', item.userName || playerName(item.uid)));
+        top.appendChild(el('span', 'm-chip', timeAgo(item.ts)));
+        card.appendChild(top);
+        card.appendChild(el('p', 'm-card__body', item.text));
+
+        if (item.reply) {
+            const reply = el('p', 'm-card__meta',
+                '↳ ' + (item.repliedByName || 'Admin') + ' : ' + item.reply);
+            card.appendChild(reply);
+        }
+
+        if (state.isGamemaster && !item.reply) {
+            const answer = el('button', 'm-btn m-btn--quiet m-btn--sm', 'Répondre');
+            answer.addEventListener('click', () => openReplySheet(item));
+            card.appendChild(answer);
+        }
+        if (item.uid === uid || state.isGamemaster) {
+            const del = el('button', 'm-btn m-btn--quiet m-btn--sm', 'Supprimer');
+            del.addEventListener('click', () => {
+                db.ref('lan/suggestions/' + item.id).remove()
+                    .then(() => showToast('Supprimé.', 'success'))
+                    .catch(e => showToast('Erreur : ' + e.message, 'error'));
+            });
+            card.appendChild(del);
+        }
+
+        mount.appendChild(card);
+    });
+}
+
+function openReplySheet(item) {
+    const user = state.user;
+    if (!user) return;
+    openSheet('Répondre à ' + (item.userName || 'un joueur'), (body) => {
+        body.appendChild(el('p', 'm-card__body', '« ' + item.text + ' »'));
+        const text = el('textarea', 'm-input');
+        text.placeholder = 'Ta réponse';
+        body.appendChild(text);
+        const go = el('button', 'm-btn m-btn--solid m-btn--full', 'Répondre');
+        go.addEventListener('click', () => {
+            const value = text.value.trim();
+            if (!value) { showToast('Réponse vide.', 'error'); return; }
+            db.ref('lan/suggestions/' + item.id).update({
+                reply: value.slice(0, 1000),
+                repliedBy: user.uid,
+                repliedByName: user.displayName || 'Admin',
+                repliedAt: firebase.database.ServerValue.TIMESTAMP,
+                status: 'done'
+            })
+                .then(() => {
+                    closeSheet();
+                    if (item.uid !== user.uid) {
+                        sendNotification(item.uid, 'Réponse à ton idée : ' + value.slice(0, 80), 'info');
+                    }
+                    showToast('Répondu.', 'success');
+                })
+                .catch(e => showToast('Erreur : ' + e.message, 'error'));
+        });
+        body.appendChild(go);
+    });
+}
+
+$('m-suggest-send').addEventListener('click', () => {
+    const user = state.user;
+    const field = $('m-suggest-text');
+    if (!user) return;
+    const value = field.value.trim();
+    if (!value) { showToast('Écris quelque chose d\'abord.', 'error'); return; }
+
+    db.ref('lan/suggestions').push().set({
+        uid: user.uid,
+        userName: user.displayName || 'Un joueur',
+        text: value.slice(0, 1000),
+        status: 'open',
+        ts: firebase.database.ServerValue.TIMESTAMP
+    })
+        .then(() => {
+            field.value = '';
+            showToast('Envoyé à l\'admin !', 'success');
+        })
+        .catch(e => showToast('Erreur : ' + e.message, 'error'));
+});
 
 /* ==========================================================================
    Câblage final

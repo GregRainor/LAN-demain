@@ -108,6 +108,9 @@ document.addEventListener('DOMContentLoaded', () => {
     /* Expérience et hauts faits. Ce nœud survit à la clôture : c'est ce qui
        distingue l'assiduité de la fortune. */
     let globalXp = {};
+    /* Défis, réclamations et boîte à idées. Un défi ne se calcule pas : c'est
+       un humain qui tranche, et c'est la seule source d'XP qui se rejoue. */
+    let globalQuests = { challenges: {}, claims: {}, suggestions: {} };
     /* Les soirées passées, pour compter les LAN de chacun. */
     let globalHistory = {};
     let globalUsers = {};
@@ -740,6 +743,19 @@ document.addEventListener('DOMContentLoaded', () => {
             tcgViewCache = null;
             sealBoughtPacks();
             renderCollection();
+        });
+
+        watchValue(db.ref('lan/challenges'), (snapshot) => {
+            globalQuests.challenges = snapshot.val() || {};
+            renderDefis();
+        });
+        watchValue(db.ref('lan/claims'), (snapshot) => {
+            globalQuests.claims = snapshot.val() || {};
+            renderDefis();
+        });
+        watchValue(db.ref('lan/suggestions'), (snapshot) => {
+            globalQuests.suggestions = snapshot.val() || {};
+            renderDefis();
         });
 
         watchValue(db.ref('lan/xp'), (snapshot) => {
@@ -4423,6 +4439,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (targetId === 'lan-events' && window._latestEventsData) {
                 renderEvents(window._latestEventsData, auth.currentUser);
             }
+            if (targetId === 'lan-defis') {
+                renderDefis();
+            }
             if (targetId === 'lan-boutique') {
                 renderBoutique();
             }
@@ -6028,6 +6047,562 @@ document.addEventListener('DOMContentLoaded', () => {
             settings: globalSettings
         };
     }
+
+
+    /* ======================================================================
+       LES DÉFIS ET LA BOÎTE À IDÉES
+       Rien ici ne se calcule : un défi se raconte, et c'est un humain qui
+       tranche. Le joueur réclame, l'admin valide, et c'est la validation qui
+       écrit les złotych au registre et l'expérience au journal — jamais le
+       joueur lui-même. Un débit, il sait l'écrire ; un CRÉDIT, non.
+       ====================================================================== */
+
+    function renderDefis() {
+        const user = auth.currentUser;
+        if (!user || !document.getElementById('lan-defis')) return;
+
+        renderClaimsQueue();
+        renderProposals();
+        renderMyClaims(user);
+        renderChallengeList(user);
+        renderSuggestions(user);
+        updateDefisBadge();
+
+        document.getElementById('btn-new-challenge').textContent =
+            window.currentUserIsGamemaster ? '+ Créer un défi' : '+ Proposer un défi';
+    }
+
+    function updateDefisBadge() {
+        const badge = document.getElementById('defis-nav-badge');
+        if (!badge) return;
+        const waiting = window.currentUserIsGamemaster
+            ? pendingClaims(globalQuests).length + proposedChallenges(globalQuests).length : 0;
+        badge.style.display = waiting ? 'inline-block' : 'none';
+        badge.textContent = waiting;
+    }
+
+    /* --- Ce que l'admin doit trancher ------------------------------------ */
+
+    function renderClaimsQueue() {
+        const panel = document.getElementById('claims-panel');
+        const mount = document.getElementById('claims-queue');
+        if (!panel || !mount) return;
+
+        const queue = pendingClaims(globalQuests);
+        if (!window.currentUserIsGamemaster || !queue.length) { panel.style.display = 'none'; return; }
+
+        panel.style.display = 'block';
+        mount.innerHTML = '';
+        queue.forEach(claim => {
+            const card = document.createElement('div');
+            card.className = 'shop-request';
+            const witness = claim.witnessName ? ` — témoin : ${escapeHtml(claim.witnessName)}` : '';
+            const note = claim.note ? `<p class="shop-card__desc">« ${escapeHtml(claim.note)} »</p>` : '';
+            card.innerHTML = `
+                <div class="shop-card__head">
+                    <h4 class="shop-card__name">${escapeHtml(claim.title || 'Défi')}</h4>
+                    <span class="shop-card__price">${escapeHtml(formatPoints(claim.zl))} · ${Number(claim.xp) || 0} XP</span>
+                </div>
+                <p class="shop-card__meta">${escapeHtml(claim.userName || playerLabel(claim.uid))}${witness}</p>
+                ${note}
+            `;
+
+            const actions = document.createElement('div');
+            actions.className = 'shop-card__actions';
+
+            const ok = document.createElement('button');
+            ok.className = 'gold-btn';
+            ok.style.padding = '8px 18px';
+            ok.textContent = 'Valider';
+            ok.addEventListener('click', () => resolveClaim(claim, 'granted'));
+            actions.appendChild(ok);
+
+            const no = document.createElement('button');
+            no.className = 'gold-link-btn';
+            no.textContent = 'Refuser';
+            no.addEventListener('click', () => resolveClaim(claim, 'refused'));
+            actions.appendChild(no);
+
+            card.appendChild(actions);
+            mount.appendChild(card);
+        });
+    }
+
+    /* Valider paie. Les złotych, l'expérience et le sort de la réclamation
+       partent ensemble dans une écriture multi-chemins : on ne peut pas être
+       payé deux fois, ni payé sans que la réclamation soit close. La clé de la
+       récompense d'XP est déterministe — deux admins qui valident en même temps
+       écrivent le même nœud plutôt que deux récompenses. */
+    function resolveClaim(claim, status) {
+        const user = auth.currentUser;
+        if (!user) return;
+
+        const update = {};
+        update['lan/claims/' + claim.id + '/status'] = status;
+        update['lan/claims/' + claim.id + '/resolvedBy'] = user.uid;
+        update['lan/claims/' + claim.id + '/resolvedByName'] = user.displayName || 'Admin';
+        update['lan/claims/' + claim.id + '/resolvedAt'] = firebase.database.ServerValue.TIMESTAMP;
+
+        if (status === 'granted') {
+            const zl = Number(claim.zl) || 0;
+            const xp = Number(claim.xp) || 0;
+            if (zl > 0) {
+                const entryId = db.ref('lan/economy/ledger').push().key;
+                update['lan/economy/ledger/' + entryId] = {
+                    uid: claim.uid,
+                    delta: zl,
+                    type: 'challenge',
+                    reason: claim.title || 'Défi relevé',
+                    refId: claim.id,
+                    by: user.uid,
+                    byName: user.displayName || 'Admin',
+                    ts: firebase.database.ServerValue.TIMESTAMP
+                };
+            }
+            if (xp > 0) {
+                update['lan/xp/awards/' + claim.uid + '__claim__' + claim.id] = {
+                    uid: claim.uid,
+                    delta: xp,
+                    type: 'challenge',
+                    reason: claim.title || 'Défi relevé',
+                    refId: claim.id,
+                    by: user.uid,
+                    ts: firebase.database.ServerValue.TIMESTAMP
+                };
+            }
+        }
+
+        db.ref().update(update)
+            .then(() => {
+                if (claim.uid !== user.uid) {
+                    sendNotification(claim.uid, status === 'granted'
+                        ? `« ${claim.title || 'Défi'} » validé ! +${formatPoints(claim.zl)} et ${Number(claim.xp) || 0} XP`
+                        : `« ${claim.title || 'Défi'} » refusé.`,
+                        status === 'granted' ? 'success' : 'info');
+                }
+                showToast(status === 'granted' ? 'Validé et payé.' : 'Refusé.', 'success');
+            })
+            .catch(err => showToast('Erreur : ' + err.message, 'error'));
+    }
+
+    /* --- Les propositions des joueurs ------------------------------------ */
+
+    function renderProposals() {
+        const panel = document.getElementById('proposals-panel');
+        const mount = document.getElementById('proposals-list');
+        if (!panel || !mount) return;
+
+        const list = proposedChallenges(globalQuests);
+        if (!window.currentUserIsGamemaster || !list.length) { panel.style.display = 'none'; return; }
+
+        panel.style.display = 'block';
+        mount.innerHTML = '';
+        list.forEach(challenge => {
+            const card = document.createElement('div');
+            card.className = 'shop-request';
+            const desc = challenge.description
+                ? `<p class="shop-card__desc">${escapeHtml(challenge.description)}</p>` : '';
+            card.innerHTML = `
+                <div class="shop-card__head">
+                    <h4 class="shop-card__name">${escapeHtml(challenge.title || 'Défi')}</h4>
+                    <span class="shop-card__price">${escapeHtml(formatPoints(challenge.zl))} · ${Number(challenge.xp) || 0} XP</span>
+                </div>
+                <p class="shop-card__meta">proposé par ${escapeHtml(challenge.createdByName || playerLabel(challenge.createdBy))} · ${escapeHtml(challengeCategory(challenge.category).label)}</p>
+                ${desc}
+            `;
+
+            const actions = document.createElement('div');
+            actions.className = 'shop-card__actions';
+
+            const ok = document.createElement('button');
+            ok.className = 'gold-btn';
+            ok.style.padding = '8px 18px';
+            ok.textContent = 'Ouvrir aux joueurs';
+            ok.addEventListener('click', () => approveChallenge(challenge));
+            actions.appendChild(ok);
+
+            const no = document.createElement('button');
+            no.className = 'gold-link-btn';
+            no.style.color = 'var(--danger-color)';
+            no.textContent = 'Refuser';
+            no.addEventListener('click', () => {
+                db.ref('lan/challenges/' + challenge.id).remove()
+                    .then(() => showToast('Proposition refusée.', 'success'))
+                    .catch(err => showToast('Erreur : ' + err.message, 'error'));
+            });
+            actions.appendChild(no);
+
+            card.appendChild(actions);
+            mount.appendChild(card);
+        });
+    }
+
+    function approveChallenge(challenge) {
+        const user = auth.currentUser;
+        if (!user) return;
+        db.ref('lan/challenges/' + challenge.id).update({
+            status: 'open',
+            approvedBy: user.uid,
+            approvedAt: firebase.database.ServerValue.TIMESTAMP
+        })
+            .then(() => {
+                if (challenge.createdBy && challenge.createdBy !== user.uid) {
+                    sendNotification(challenge.createdBy,
+                        `Votre défi « ${challenge.title || ''} » est ouvert à tous !`, 'success');
+                }
+                showToast('Défi ouvert.', 'success');
+            })
+            .catch(err => showToast('Erreur : ' + err.message, 'error'));
+    }
+
+    /* --- Mes réclamations ------------------------------------------------- */
+
+    function renderMyClaims(user) {
+        const panel = document.getElementById('myclaims-panel');
+        const mount = document.getElementById('myclaims-list');
+        if (!panel || !mount) return;
+
+        const mine = claimsOf(globalQuests, user.uid).filter(c => c.status === 'pending');
+        if (!mine.length) { panel.style.display = 'none'; return; }
+
+        panel.style.display = 'block';
+        mount.innerHTML = '';
+        mine.forEach(claim => {
+            const row = document.createElement('div');
+            row.className = 'shop-move';
+            row.innerHTML = `
+                <span class="shop-move__text">${escapeHtml(claim.title || 'Défi')}
+                    <span class="shop-move__why">en attente${claim.note ? ' · « ' + escapeHtml(claim.note) + ' »' : ''}</span>
+                </span>
+            `;
+            const cancel = document.createElement('button');
+            cancel.className = 'gold-link-btn';
+            cancel.textContent = 'Retirer';
+            cancel.addEventListener('click', () => {
+                db.ref('lan/claims/' + claim.id).remove()
+                    .then(() => showToast('Réclamation retirée.', 'success'))
+                    .catch(err => showToast('Erreur : ' + err.message, 'error'));
+            });
+            row.appendChild(cancel);
+            mount.appendChild(row);
+        });
+    }
+
+    /* --- La liste des défis ----------------------------------------------- */
+
+    function renderChallengeList(user) {
+        const mount = document.getElementById('challenge-list');
+        if (!mount) return;
+        mount.innerHTML = '';
+
+        const list = openChallenges(globalQuests);
+        if (!list.length) {
+            if (!window.currentUserIsGamemaster) {
+                mount.innerHTML = '<p style="color:var(--secondary-text); font-style:italic;">Aucun défi pour le moment. Proposez le premier !</p>';
+                return;
+            }
+            mount.innerHTML = '<p style="color:var(--secondary-text); font-style:italic; margin-bottom:14px;">Aucun défi. Une liste de départ existe : sport, jeu, boisson, bouffe.</p>';
+            const go = document.createElement('button');
+            go.className = 'gold-btn';
+            go.style.padding = '10px 20px';
+            go.textContent = 'Garnir la liste';
+            go.addEventListener('click', stockStarterChallenges);
+            mount.appendChild(go);
+            return;
+        }
+
+        CHALLENGES.CATEGORIES.forEach(cat => {
+            const items = list.filter(c => (c.category || 'autre') === cat.key);
+            if (!items.length) return;
+
+            const title = document.createElement('p');
+            title.className = 'shop-cat-title';
+            title.textContent = `${cat.icon} ${cat.label}`;
+            mount.appendChild(title);
+
+            const grid = document.createElement('div');
+            grid.className = 'shop-grid';
+            items.forEach(challenge => grid.appendChild(buildChallengeCard(challenge, user)));
+            mount.appendChild(grid);
+        });
+
+        const missing = window.currentUserIsGamemaster
+            ? missingStarterChallenges(globalQuests).length : 0;
+        if (missing) {
+            const more = document.createElement('button');
+            more.className = 'gold-link-btn';
+            more.style.marginTop = '18px';
+            more.textContent = `+ Ajouter les ${missing} défis de la liste de départ`;
+            more.addEventListener('click', stockStarterChallenges);
+            mount.appendChild(more);
+        }
+    }
+
+    function buildChallengeCard(challenge, user) {
+        const verdict = claimState(globalQuests, challenge, user.uid);
+        const card = document.createElement('div');
+        card.className = 'shop-item shop-item--'
+            + (challenge.category === 'sport' ? 'privilege' : 'fun')
+            + (verdict.can ? '' : ' is-locked');
+
+        const done = challengeGrantedCount(globalQuests, challenge.id);
+        const doneLine = done ? `<span class="shop-item__stock">relevé ${done}×</span>` : '';
+        const desc = challenge.description
+            ? `<p class="shop-item__desc">${escapeHtml(challenge.description)}</p>` : '';
+
+        card.innerHTML = `
+            <span class="shop-item__cost">${Math.round(Number(challenge.zl) || 0)}</span>
+            <div class="shop-item__main">
+                <h4 class="shop-item__name">${escapeHtml(challenge.title || 'Défi')}</h4>
+                ${desc}
+                <div class="shop-item__strip">
+                    <span class="shop-item__gem"></span>
+                    <span class="shop-item__fam">+${Number(challenge.xp) || 0} XP</span>
+                    ${doneLine}
+                </div>
+            </div>
+        `;
+
+        const actions = document.createElement('div');
+        actions.className = 'shop-item__actions';
+
+        const go = document.createElement('button');
+        go.className = 'shop-item__buy';
+        go.textContent = verdict.can ? 'Je l\'ai fait' : verdict.why;
+        go.disabled = !verdict.can;
+        go.addEventListener('click', () => openClaimPrompt(challenge));
+        actions.appendChild(go);
+
+        if (window.currentUserIsGamemaster) {
+            const del = document.createElement('button');
+            del.className = 'gold-link-btn';
+            del.style.color = 'var(--danger-color)';
+            del.textContent = 'Retirer';
+            del.addEventListener('click', () => {
+                askConfirm(`Retirer « ${challenge.title} » ?`, { danger: true }).then(ok => {
+                    if (!ok) return;
+                    db.ref('lan/challenges/' + challenge.id).remove()
+                        .then(() => showToast('Défi retiré.', 'success'))
+                        .catch(err => showToast('Erreur : ' + err.message, 'error'));
+                });
+            });
+            actions.appendChild(del);
+        }
+
+        card.querySelector('.shop-item__main').appendChild(actions);
+        return card;
+    }
+
+    /* Réclamer, c'est raconter : le mot du joueur permet à l'admin de trancher
+       sans avoir tout vu. Le montant est FIGÉ dans la réclamation — si l'admin
+       change le prix du défi demain, ce qui a été promis reste promis. */
+    function openClaimPrompt(challenge) {
+        const user = auth.currentUser;
+        if (!user) return;
+
+        const note = window.prompt(
+            `« ${challenge.title} »\n${formatPoints(challenge.zl)} et ${Number(challenge.xp) || 0} XP.\n\n`
+            + 'Comment ça s\'est passé ? (facultatif)');
+        if (note === null) return;
+
+        db.ref('lan/claims').push().set({
+            challengeId: challenge.id,
+            title: challenge.title || 'Défi',
+            zl: Number(challenge.zl) || 0,
+            xp: Number(challenge.xp) || 0,
+            uid: user.uid,
+            userName: user.displayName || 'Un joueur',
+            note: (note || '').trim().slice(0, 500),
+            witnessUid: null,
+            witnessName: null,
+            status: 'pending',
+            ts: firebase.database.ServerValue.TIMESTAMP
+        })
+            .then(() => showToast('Envoyé ! L\'admin tranchera.', 'success'))
+            .catch(err => showToast('Erreur : ' + err.message, 'error'));
+    }
+
+    /* Garnir la liste d'un coup. On n'ajoute que ce qui manque, comparé sur le
+       titre : regarnir deux fois ne double pas les défis. */
+    function stockStarterChallenges() {
+        const user = auth.currentUser;
+        if (!user) return;
+        const missing = missingStarterChallenges(globalQuests);
+        if (!missing.length) { showToast('La liste a déjà tout.', 'success'); return; }
+
+        const update = {};
+        missing.forEach(challenge => {
+            const id = db.ref('lan/challenges').push().key;
+            update['lan/challenges/' + id] = {
+                title: challenge.title,
+                description: challenge.description || '',
+                category: challenge.category || 'autre',
+                zl: challenge.zl,
+                xp: challenge.xp,
+                repeatable: challenge.repeatable !== false,
+                status: 'open',
+                createdBy: user.uid,
+                createdByName: user.displayName || 'Admin',
+                createdAt: firebase.database.ServerValue.TIMESTAMP
+            };
+        });
+
+        db.ref().update(update)
+            .then(() => showToast(`${missing.length} défis ajoutés.`, 'success'))
+            .catch(err => showToast('Erreur : ' + err.message, 'error'));
+    }
+
+    /* --- La boîte à idées -------------------------------------------------- */
+
+    function renderSuggestions(user) {
+        const mount = document.getElementById('suggestions-list');
+        if (!mount) return;
+        mount.innerHTML = '';
+
+        // Tout le monde voit tout : même règle que le registre. Une idée lue
+        // par les autres a une chance d'être appuyée.
+        const list = allSuggestions(globalQuests).slice(0, 20);
+        if (!list.length) {
+            mount.innerHTML = '<p style="color:var(--secondary-text); font-style:italic;">Rien pour l\'instant.</p>';
+            return;
+        }
+
+        list.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'shop-request';
+            const reply = item.reply
+                ? `<p class="shop-card__meta">↳ ${escapeHtml(item.repliedByName || 'Admin')} : ${escapeHtml(item.reply)}</p>` : '';
+            card.innerHTML = `
+                <div class="shop-card__head">
+                    <h4 class="shop-card__name">${escapeHtml(item.userName || playerLabel(item.uid))}</h4>
+                    <span class="shop-card__meta">${escapeHtml(formatAge(item.ts))}</span>
+                </div>
+                <p class="shop-card__desc">${escapeHtml(item.text)}</p>
+                ${reply}
+            `;
+
+            const actions = document.createElement('div');
+            actions.className = 'shop-card__actions';
+
+            if (window.currentUserIsGamemaster && !item.reply) {
+                const answer = document.createElement('button');
+                answer.className = 'gold-link-btn';
+                answer.textContent = 'Répondre';
+                answer.addEventListener('click', () => replyToSuggestion(item));
+                actions.appendChild(answer);
+            }
+            if (item.uid === user.uid || window.currentUserIsGamemaster) {
+                const del = document.createElement('button');
+                del.className = 'gold-link-btn';
+                del.style.color = 'var(--danger-color)';
+                del.textContent = 'Supprimer';
+                del.addEventListener('click', () => {
+                    db.ref('lan/suggestions/' + item.id).remove()
+                        .then(() => showToast('Supprimé.', 'success'))
+                        .catch(err => showToast('Erreur : ' + err.message, 'error'));
+                });
+                actions.appendChild(del);
+            }
+
+            if (actions.children.length) card.appendChild(actions);
+            mount.appendChild(card);
+        });
+    }
+
+    function replyToSuggestion(item) {
+        const user = auth.currentUser;
+        if (!user) return;
+        const value = window.prompt(`« ${item.text} »\n\nVotre réponse :`);
+        if (value === null) return;
+        const text = value.trim();
+        if (!text) { showToast('Réponse vide.', 'error'); return; }
+
+        db.ref('lan/suggestions/' + item.id).update({
+            reply: text.slice(0, 1000),
+            repliedBy: user.uid,
+            repliedByName: user.displayName || 'Admin',
+            repliedAt: firebase.database.ServerValue.TIMESTAMP,
+            status: 'done'
+        })
+            .then(() => {
+                if (item.uid !== user.uid) {
+                    sendNotification(item.uid, 'Réponse à votre idée : ' + text.slice(0, 80), 'info');
+                }
+                showToast('Répondu.', 'success');
+            })
+            .catch(err => showToast('Erreur : ' + err.message, 'error'));
+    }
+
+    document.getElementById('btn-suggest')?.addEventListener('click', () => {
+        const user = auth.currentUser;
+        const field = document.getElementById('suggest-text');
+        if (!user || !field) return;
+        const value = field.value.trim();
+        if (!value) { showToast('Écrivez quelque chose d\'abord.', 'error'); return; }
+
+        db.ref('lan/suggestions').push().set({
+            uid: user.uid,
+            userName: user.displayName || 'Un joueur',
+            text: value.slice(0, 1000),
+            status: 'open',
+            ts: firebase.database.ServerValue.TIMESTAMP
+        })
+            .then(() => {
+                field.value = '';
+                showToast('Envoyé à l\'admin !', 'success');
+            })
+            .catch(err => showToast('Erreur : ' + err.message, 'error'));
+    });
+
+    /* Proposer un défi. Un admin l'ouvre directement ; un joueur le propose, et
+       il attend l'approbation — les règles plafonnent d'ailleurs sa récompense. */
+    document.getElementById('btn-new-challenge')?.addEventListener('click', () => {
+        const user = auth.currentUser;
+        if (!user) return;
+        const isGm = !!window.currentUserIsGamemaster;
+
+        const title = window.prompt('Le défi, en une ligne :');
+        if (title === null) return;
+        const value = title.trim();
+        if (!value) { showToast('Il manque le titre.', 'error'); return; }
+
+        const description = window.prompt('Les règles exactes (facultatif) :') || '';
+
+        const cats = CHALLENGES.CATEGORIES.map((c, i) => `${i + 1}. ${c.label}`).join('\n');
+        const catChoice = window.prompt(`Catégorie ?\n\n${cats}\n\nEntrez le numéro :`, '1');
+        if (catChoice === null) return;
+        const catIndex = parseInt(catChoice, 10) - 1;
+        const category = CHALLENGES.CATEGORIES[catIndex] || CHALLENGES.CATEGORIES[4];
+
+        const zlRaw = window.prompt(`Récompense en ${ECONOMY.CURRENCY} ?`
+            + (isGm ? '' : ` (maximum ${CHALLENGES.MAX_PROPOSED_ZL})`), '100');
+        if (zlRaw === null) return;
+        const xpRaw = window.prompt('Récompense en XP ?'
+            + (isGm ? '' : ` (maximum ${CHALLENGES.MAX_PROPOSED_XP})`), '60');
+        if (xpRaw === null) return;
+
+        let zl = Math.max(0, Math.round(Number(zlRaw) || 0));
+        let xp = Math.max(0, Math.round(Number(xpRaw) || 0));
+        if (!isGm) {
+            zl = Math.min(zl, CHALLENGES.MAX_PROPOSED_ZL);
+            xp = Math.min(xp, CHALLENGES.MAX_PROPOSED_XP);
+        }
+
+        db.ref('lan/challenges').push().set({
+            title: value.slice(0, 120),
+            description: description.trim(),
+            category: category.key,
+            zl: zl,
+            xp: xp,
+            repeatable: true,
+            status: isGm ? 'open' : 'proposed',
+            createdBy: user.uid,
+            createdByName: user.displayName || 'Un joueur',
+            createdAt: firebase.database.ServerValue.TIMESTAMP
+        })
+            .then(() => showToast(isGm ? 'Défi ouvert !' : 'Proposé ! L\'admin décidera.', 'success'))
+            .catch(err => showToast('Erreur : ' + err.message, 'error'));
+    });
 
     function renderXpBanner() {
         const user = auth.currentUser;

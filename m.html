@@ -173,6 +173,16 @@
                                 <path d="m9 6 6 6-6 6" />
                             </svg>
                         </button>
+                        <button class="m-list__row" data-goto="defis">
+                            <svg class="m-list__ico" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M12 3l2.4 5.3 5.6.6-4.2 3.9 1.2 5.7L12 15.6 7 18.5l1.2-5.7L4 8.9l5.6-.6z" />
+                            </svg>
+                            <span class="m-list__label">Défis</span>
+                            <span class="m-list__hint" id="m-plus-defis"></span>
+                            <svg class="m-list__chev" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="m9 6 6 6-6 6" />
+                            </svg>
+                        </button>
                         <button class="m-list__row" data-goto="hauts-faits">
                             <svg class="m-list__ico" viewBox="0 0 24 24" aria-hidden="true">
                                 <path d="M8 4h8v5a4 4 0 0 1-8 0z" />
@@ -483,6 +493,65 @@
                         <h2 class="m-section__title">Derniers mouvements</h2>
                     </div>
                     <div id="m-shop-feed"></div>
+                </div>
+            </section>
+
+            <!-- ---------- DÉFIS ---------- -->
+            <!-- Un haut fait se calcule, un défi se raconte : c'est un humain
+                 qui valide, et c'est ce qui en fait un moment à table. C'est
+                 aussi la seule source d'expérience qui se rejoue à chaque
+                 soirée — sans elle, les niveaux se figeaient. -->
+            <section class="m-screen" data-screen="defis">
+                <div class="m-purse">
+                    <span class="m-purse__coin">🏅</span>
+                    <span class="m-purse__main">
+                        <strong class="m-purse__value" id="m-defis-count">0</strong>
+                        <span class="m-purse__hint" id="m-defis-hint">Aucun défi relevé pour l'instant.</span>
+                    </span>
+                </div>
+
+                <!-- Poste de l'admin : ce qu'il doit trancher. -->
+                <div class="m-section" id="m-claims-section" style="display:none">
+                    <div class="m-section__head">
+                        <h2 class="m-section__title">À valider</h2>
+                    </div>
+                    <div id="m-claims-queue"></div>
+                </div>
+
+                <div class="m-section" id="m-proposals-section" style="display:none">
+                    <div class="m-section__head">
+                        <h2 class="m-section__title">Propositions</h2>
+                    </div>
+                    <div id="m-proposals"></div>
+                </div>
+
+                <div class="m-section" id="m-myclaims-section" style="display:none">
+                    <div class="m-section__head">
+                        <h2 class="m-section__title">Mes réclamations</h2>
+                    </div>
+                    <div id="m-myclaims"></div>
+                </div>
+
+                <div class="m-section">
+                    <div class="m-section__head">
+                        <h2 class="m-section__title">Les défis</h2>
+                        <button class="m-section__link" id="m-challenge-new">+ Proposer</button>
+                    </div>
+                    <div id="m-challenge-list"></div>
+                </div>
+
+                <!-- La boîte à idées : un champ libre vers l'admin, et sa
+                     réponse. Pas un chat — deux tours suffisent. -->
+                <div class="m-section">
+                    <div class="m-section__head">
+                        <h2 class="m-section__title">Boîte à idées</h2>
+                    </div>
+                    <div class="m-formrow">
+                        <textarea class="m-input" id="m-suggest-text"
+                            placeholder="Une idée, une demande, un truc qui cloche… l'admin le lira."></textarea>
+                        <button class="m-btn m-btn--full" id="m-suggest-send">Envoyer à l'admin</button>
+                    </div>
+                    <div id="m-suggestions"></div>
                 </div>
             </section>
 

@@ -1427,21 +1427,34 @@ function xpLevel(total) {
    ========================================================================== */
 
 const LEVEL_TITLES = [
-    'Parfumé',              // 1
-    'Propre sur soi',       // 2
-    'Tiède',                // 3
-    'Moite',                // 4
-    'Suant',                // 5
-    'Fermenté',             // 6
-    'Rance',                // 7
-    'Âcre',                 // 8
-    'Putride',              // 9
-    'Pestilentiel',         // 10
-    'Irrespirable',         // 11
-    'Zone contaminée',      // 12
-    'Arme chimique',        // 13
-    'Crime contre l\'odorat', // 14
-    'Légende olfactive'     // 15
+    /* L'escalade se fait par REGISTRE, pas par adjectifs de plus en plus forts.
+       On part du corps (moite, suant), on passe à l'environnement (site pollué,
+       périmètre évacué), puis à l'administration (état de catastrophe
+       naturelle), et on finit au droit international. C'est le décalage entre
+       le sérieux de la formule et la bêtise du sujet qui fait rire — pas
+       l'adjectif. */
+    'Parfumé',                          // 1
+    'Frais comme un gardon',            // 2
+    'Propre sur soi',                   // 3
+    'Légèrement tiède',                 // 4
+    'Moite',                            // 5
+    'Suant',                            // 6
+    'Point de bascule',                 // 7
+    'Fermenté',                         // 8
+    'Rance',                            // 9
+    'Faisandé',                         // 10
+    'Détectable depuis le couloir',     // 11
+    'Signalé par le voisinage',         // 12
+    'Zone de confinement',              // 13
+    'Périmètre évacué',                 // 14
+    'Classé site pollué',               // 15
+    'Fermé au public par arrêté',       // 16
+    'Arme de dissuasion olfactive',     // 17
+    'Crime contre l\'odorat',           // 18
+    'État de catastrophe naturelle',    // 19
+    'Incident diplomatique',            // 20
+    'Cas d\'école en toxicologie',      // 21
+    'Convention de Genève, annexe VII'  // 22
 ];
 
 /* Au-delà du dernier palier, on ne peut plus descendre : on reste une légende.
@@ -1887,4 +1900,223 @@ function missingStarterItems(economy) {
         if (item && item.name) have[normalizeGameName(item.name)] = true;
     });
     return SHOP_STARTER.filter(item => !have[normalizeGameName(item.name)]);
+}
+
+/* ==========================================================================
+   Les défis
+   Un haut fait se calcule ; un défi se RACONTE. « Trente pompes », « une game
+   de LoL avec les touches inversées », « une bière à 9 h du matin » : aucune
+   donnée de l'application ne pourra jamais les vérifier. C'est donc un humain
+   qui tranche, et c'est très bien — la validation devient un moment à table
+   plutôt qu'un problème de base de données.
+
+   C'est aussi ce qui manquait à la courbe d'expérience. Les hauts faits sont
+   une cagnotte qu'on vide une fois ; les défis, eux, se rejouent à chaque
+   soirée. Sans eux, les niveaux se figeaient vers 6 ou 7.
+
+   Un seul système sert trois besoins qui n'en font qu'un :
+     - l'admin crée des défis ;
+     - un joueur en propose, et l'admin approuve ;
+     - un joueur réclame l'avoir fait, et l'admin valide.
+   ========================================================================== */
+
+const CHALLENGES = {
+    /* Plafonds des propositions de joueurs. Sans eux, on pourrait se proposer
+       un défi à dix mille złotych — l'admin le verrait, mais autant que les
+       règles le refusent. L'admin, lui, n'est pas plafonné. */
+    MAX_PROPOSED_ZL: 300,
+    MAX_PROPOSED_XP: 200,
+
+    CATEGORIES: [
+        { key: 'sport', label: 'Sport', icon: '💪' },
+        { key: 'jeu', label: 'Jeu', icon: '🎮' },
+        { key: 'boisson', label: 'Boisson', icon: '🍺' },
+        { key: 'bouffe', label: 'Bouffe', icon: '🍕' },
+        { key: 'autre', label: 'Autre', icon: '🎲' }
+    ]
+};
+
+function challengeCategory(key) {
+    return CHALLENGES.CATEGORIES.find(c => c.key === key) || CHALLENGES.CATEGORIES[4];
+}
+
+/* Les défis ouverts, prêts à être relevés. Les propositions en attente et les
+   défis archivés n'y sont pas. */
+function openChallenges(node) {
+    return Object.entries((node && node.challenges) || {})
+        .map(([id, c]) => Object.assign({ id: id }, c))
+        .filter(c => c.status === 'open')
+        .sort((a, b) => (Number(a.zl) || 0) - (Number(b.zl) || 0));
+}
+
+/* Ce qu'un admin doit trancher : les défis proposés par les joueurs. */
+function proposedChallenges(node) {
+    return Object.entries((node && node.challenges) || {})
+        .map(([id, c]) => Object.assign({ id: id }, c))
+        .filter(c => c.status === 'proposed')
+        .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+}
+
+function allClaims(node) {
+    return Object.entries((node && node.claims) || {})
+        .map(([id, c]) => Object.assign({ id: id }, c))
+        .filter(c => c && c.uid && c.challengeId);
+}
+
+/* Ce qu'un admin doit trancher : les réclamations en attente. */
+function pendingClaims(node) {
+    return allClaims(node)
+        .filter(c => c.status === 'pending')
+        .sort((a, b) => (a.ts || 0) - (b.ts || 0));
+}
+
+function claimsOf(node, uid) {
+    return allClaims(node)
+        .filter(c => c.uid === uid)
+        .sort((a, b) => (b.ts || 0) - (a.ts || 0));
+}
+
+/* Un défi non répétable déjà validé (ou en attente) ne se réclame plus : sans
+   ça, on encaisserait dix fois les mêmes trente pompes. */
+function claimState(node, challenge, uid) {
+    const mine = allClaims(node).filter(c => c.challengeId === challenge.id && c.uid === uid);
+    const pending = mine.some(c => c.status === 'pending');
+    const granted = mine.filter(c => c.status === 'granted').length;
+
+    if (pending) return { can: false, why: 'En attente de validation', pending: true, granted: granted };
+    if (!challenge.repeatable && granted > 0) {
+        return { can: false, why: 'Déjà validé', pending: false, granted: granted };
+    }
+    return { can: true, why: '', pending: false, granted: granted };
+}
+
+/* Combien de fois ce défi a été relevé, tous joueurs confondus. Sert à montrer
+   qu'un défi est vivant — un défi que personne n'a jamais tenté se voit. */
+function challengeGrantedCount(node, challengeId) {
+    return allClaims(node).filter(c => c.challengeId === challengeId && c.status === 'granted').length;
+}
+
+/* Ce que les défis ont rapporté à un joueur. C'est la part de son expérience
+   qui ne vient ni de sa présence ni de la cagnotte des hauts faits. */
+function challengeEarnings(node, uid) {
+    const challenges = (node && node.challenges) || {};
+    let zl = 0;
+    let xp = 0;
+    let count = 0;
+    allClaims(node).forEach(claim => {
+        if (claim.uid !== uid || claim.status !== 'granted') return;
+        const challenge = challenges[claim.challengeId] || {};
+        zl += Number(claim.zl != null ? claim.zl : challenge.zl) || 0;
+        xp += Number(claim.xp != null ? claim.xp : challenge.xp) || 0;
+        count += 1;
+    });
+    return { zl: zl, xp: xp, count: count };
+}
+
+/* ---------- La boîte à idées ----------
+   Un champ libre, et une réponse de l'admin. Ce n'est pas un chat : une
+   conversation à deux tours suffit à « j'aimerais bien qu'on ajoute X », et un
+   vrai fil de discussion demanderait des non-lus, des notifications et de la
+   modération pour un besoin qui tient en deux phrases. */
+
+function allSuggestions(node) {
+    return Object.entries((node && node.suggestions) || {})
+        .map(([id, s]) => Object.assign({ id: id }, s))
+        .filter(s => s && s.uid && s.text)
+        .sort((a, b) => (b.ts || 0) - (a.ts || 0));
+}
+
+function openSuggestions(node) {
+    return allSuggestions(node).filter(s => s.status !== 'done' && s.status !== 'dismissed');
+}
+
+/* ==========================================================================
+   La liste de départ
+   Écrite d'après les idées des joueurs. Elle n'est pas figée : l'admin en
+   ajoute, les joueurs en proposent. Elle sert à ce que la première soirée ne
+   commence pas devant un écran vide.
+
+   Les récompenses suivent une règle simple : ce qui coûte un effort physique
+   ou une heure de jeu paie plus qu'un shot avalé en dix secondes. Le złoty
+   sert à acheter le soir même, l'XP reste pour toujours — d'où deux montants
+   plutôt qu'un.
+
+   Tous sont répétables sauf mention contraire : un défi qu'on ne peut relever
+   qu'une fois dans sa vie s'épuise, et c'est justement ce qu'on veut éviter.
+   ========================================================================== */
+
+const CHALLENGE_STARTER = [
+    /* --- Sport --- */
+    { title: '30 pompes d\'affilée', category: 'sport', zl: 60, xp: 40,
+      description: 'Sans poser les genoux. Quelqu\'un compte à voix haute.' },
+    { title: '10 tractions', category: 'sport', zl: 80, xp: 50,
+      description: 'Menton au-dessus de la barre, sinon ça ne compte pas.' },
+    { title: '50 abdos', category: 'sport', zl: 50, xp: 30,
+      description: 'D\'affilée, sans pause.' },
+    { title: '40 squats', category: 'sport', zl: 50, xp: 30,
+      description: 'Cuisses parallèles au sol.' },
+    { title: '30 fentes par jambe', category: 'sport', zl: 50, xp: 30,
+      description: 'Les deux jambes, à la suite.' },
+    { title: 'Gagner un bras de fer', category: 'sport', zl: 70, xp: 45,
+      description: 'Contre un autre joueur de la soirée. Le perdant confirme.' },
+    { title: '5 km en course à pied', category: 'sport', zl: 120, xp: 80,
+      description: 'Pendant la LAN. Capture d\'écran de la montre ou de l\'appli.' },
+    { title: '20 km à vélo', category: 'sport', zl: 120, xp: 80,
+      description: 'Pendant la LAN. Capture d\'écran à l\'appui.' },
+    { title: '20 longueurs de piscine', category: 'sport', zl: 120, xp: 80,
+      description: 'Le style ne compte pas, la distance si.' },
+
+    /* --- Jeu --- */
+    { title: 'Run de roguelite sans [au choix]', category: 'jeu', zl: 150, xp: 90,
+      description: 'Finir un run en se privant de quelque chose : une arme, un objet, une touche. Annonce la contrainte avant de lancer.' },
+    { title: 'Roguelite à deux mains, deux joueurs', category: 'jeu', zl: 200, xp: 120,
+      description: 'Un joueur à la souris, l\'autre au clavier. Même run. Les deux touchent la récompense.' },
+    { title: 'Une game de LoL, touches modifiées', category: 'jeu', zl: 180, xp: 110,
+      description: 'Quelqu\'un d\'autre remappe ton clavier avant la partie. Tu joues avec.' },
+    { title: 'Perso choisi par un autre', category: 'jeu', zl: 150, xp: 90,
+      description: 'Un autre joueur choisit ton personnage. Marche dans n\'importe quel jeu.' },
+    { title: 'Runes choisies par un autre', category: 'jeu', zl: 120, xp: 70,
+      description: 'Tu ne touches pas à la page de runes. Quelqu\'un d\'autre la remplit.' },
+    { title: 'Build imposé', category: 'jeu', zl: 120, xp: 70,
+      description: 'Un autre joueur choisit tes objets, un par un, pendant la partie.' },
+    { title: 'Une partie entière à une main', category: 'jeu', zl: 150, xp: 90,
+      description: 'L\'autre main reste sur la table. Du début à la fin.' },
+    { title: 'Une partie sans son', category: 'jeu', zl: 100, xp: 60,
+      description: 'Casque débranché, volume à zéro. Une partie complète.' },
+
+    /* --- Boisson --- */
+    { title: 'Une bière à 9 h du matin', category: 'boisson', zl: 80, xp: 50,
+      description: 'Avec le pain au chocolat. C\'est le petit-déjeuner de la LAN.' },
+    { title: 'Un shot au réveil', category: 'boisson', zl: 100, xp: 60,
+      description: 'Dans les dix minutes qui suivent le lever. Un témoin, obligatoire.' },
+    { title: 'Boire un one-shot inventé ce soir', category: 'boisson', zl: 60, xp: 35,
+      description: 'Un kocktail de la carte « one-shot », bu en entier, sans grimacer.' },
+    { title: 'Deux litres d\'eau dans la soirée', category: 'boisson', zl: 70, xp: 45,
+      description: 'Oui, c\'est un défi. Non, la bière ne compte pas.' },
+
+    /* --- Bouffe --- */
+    { title: 'Manger un truc que tu détestes', category: 'bouffe', zl: 90, xp: 55,
+      description: 'Choisi par quelqu\'un d\'autre. En entier.' },
+    { title: 'Petit-déjeuner à 3 h du matin', category: 'bouffe', zl: 70, xp: 45,
+      description: 'Céréales, tartines, le vrai truc. Pas des chips.' },
+    { title: 'Un repas sans les mains', category: 'bouffe', zl: 110, xp: 65,
+      description: 'Une assiette entière. Les mains restent derrière le dos.' },
+
+    /* --- Autre --- */
+    { title: 'Une heure sans écran', category: 'autre', zl: 100, xp: 60,
+      description: 'Aucun écran. Le téléphone compte comme un écran.' },
+    { title: 'Tenir jusqu\'à 6 h du matin', category: 'autre', zl: 150, xp: 90,
+      description: 'Debout, éveillé, et capable de tenir une conversation.' },
+    { title: 'Se lever avant 8 h', category: 'autre', zl: 120, xp: 70,
+      description: 'Après une nuit de LAN. Un témoin confirme que tu étais debout.' }
+];
+
+/* Ce qui manque encore, comparé à la liste de départ. On compare sur le titre :
+   regarnir deux fois ne doit pas doubler les défis. */
+function missingStarterChallenges(node) {
+    const have = {};
+    Object.values((node && node.challenges) || {}).forEach(c => {
+        if (c && c.title) have[normalizeGameName(c.title)] = true;
+    });
+    return CHALLENGE_STARTER.filter(c => !have[normalizeGameName(c.title)]);
 }
