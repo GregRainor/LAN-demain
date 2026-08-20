@@ -105,6 +105,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // Le set, les paquets scellés et le journal des échanges. Aucune
     // collection n'y est stockée : elle se rejoue depuis les paquets ouverts.
     let globalTcg = {};
+    /* Expérience et hauts faits. Ce nœud survit à la clôture : c'est ce qui
+       distingue l'assiduité de la fortune. */
+    let globalXp = {};
+    /* Les soirées passées, pour compter les LAN de chacun. */
+    let globalHistory = {};
     let globalUsers = {};
     // Fiches durables (nom + avatar). /status disparaît à la déconnexion : sans
     // ce miroir, un joueur qui a voté puis fermé l'onglet n'avait plus de photo.
@@ -487,6 +492,86 @@ document.addEventListener('DOMContentLoaded', () => {
         return map;
     }
 
+
+    /* La fiche d'un joueur : qui il est, ce qu'il a fait, puis ses voeux.
+       Le surnom vient du plus rare de ses hauts faits (core.js) — personne ne
+       le choisit, il se mérite. C'est ce qui transforme « Bob » en
+       « Bob « Le Signataire » ». */
+    function renderPlayerProfileHead(uid, userName) {
+        const profile = playerProfile(achData(), uid);
+
+        const face = document.getElementById('player-prof-face');
+        if (face) {
+            face.src = (globalProfiles[uid] && globalProfiles[uid].avatar)
+                || initialsAvatar(userName);
+            face.onerror = () => { face.src = initialsAvatar(userName); };
+        }
+
+        const nick = document.getElementById('player-prof-nick');
+        if (nick) {
+            nick.textContent = profile.nickname ? `« ${profile.nickname} »` : '';
+            nick.style.display = profile.nickname ? 'block' : 'none';
+        }
+
+        const lvl = document.getElementById('player-prof-lvl');
+        if (lvl) {
+            lvl.textContent = `Niveau ${profile.level.level} · ${profile.level.total} XP`
+                + ` · ${profile.achievementCount} / ${profile.achievementTotal} hauts faits`;
+        }
+
+        const segs = document.getElementById('player-prof-segs');
+        if (segs) {
+            segs.innerHTML = '';
+            const lit = profile.level.into > 0
+                ? Math.max(1, Math.round(profile.level.ratio * XP_SEGMENTS)) : 0;
+            for (let i = 0; i < XP_SEGMENTS; i += 1) {
+                const seg = document.createElement('span');
+                seg.className = 'xp-banner__seg'
+                    + (i < lit ? (i === lit - 1 ? ' is-edge' : ' is-on') : '');
+                segs.appendChild(seg);
+            }
+        }
+
+        // On ne montre que ce qui bouge : une rangée de zéros n'apprend rien.
+        const stats = document.getElementById('player-prof-stats');
+        if (stats) {
+            stats.innerHTML = '';
+            [
+                ['Fortune', formatPoints(profile.balance), profile.balance !== 0],
+                ['Achats', profile.counters.purchases, profile.counters.purchases > 0],
+                ['Boosters', profile.counters.packs, profile.counters.packs > 0],
+                ['Cartes', profile.counters.cards, profile.counters.cards > 0],
+                ['Échanges', profile.counters.trades, profile.counters.trades > 0],
+                ['LAN', profile.counters.lans, profile.counters.lans > 0]
+            ].filter(row => row[2]).forEach(([label, value]) => {
+                const cell = document.createElement('div');
+                cell.className = 'prof-stat';
+                cell.innerHTML = `<span class="prof-stat__v">${escapeHtml(String(value))}</span>
+                    <span class="prof-stat__l">${escapeHtml(label)}</span>`;
+                stats.appendChild(cell);
+            });
+        }
+
+        const badges = document.getElementById('player-prof-badges');
+        if (badges) {
+            badges.innerHTML = '';
+            profile.achievements.forEach(row => {
+                const path = ACH_ICONS[row.ach.icon] || ACH_ICONS.trophy;
+                const badge = document.createElement('span');
+                badge.className = 'prof-badge';
+                badge.title = row.ach.hint;
+                badge.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${path}"></path></svg>${escapeHtml(row.ach.label)}`;
+                badges.appendChild(badge);
+            });
+            if (profile.nextUp) {
+                const next = document.createElement('span');
+                next.className = 'prof-badge is-next';
+                next.textContent = `Bientôt : ${profile.nextUp.ach.label} (${profile.nextUp.current}/${profile.nextUp.goal})`;
+                badges.appendChild(next);
+            }
+        }
+    }
+
     function showPlayerVotesModal(uid, userName, votesData) {
         const modal = document.getElementById('player-votes-modal');
         const nameEl = document.getElementById('player-votes-name');
@@ -494,7 +579,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!modal || !nameEl || !listEl) return;
 
-        nameEl.textContent = `Voeux de ${userName}`;
+        nameEl.textContent = userName || 'Joueur';
+        renderPlayerProfileHead(uid, userName);
         listEl.innerHTML = '';
 
         const userVoteData = votesData[uid];
@@ -654,6 +740,20 @@ document.addEventListener('DOMContentLoaded', () => {
             tcgViewCache = null;
             sealBoughtPacks();
             renderCollection();
+        });
+
+        watchValue(db.ref('lan/xp'), (snapshot) => {
+            globalXp = snapshot.val() || {};
+            renderBoutique();
+            renderAchievements();
+            grantPendingAchievements();
+        });
+
+        /* L'historique sert à compter les LAN de chacun : « Habitué », c'est
+           trois soirées, et une soirée est une entrée d'historique. */
+        watchValue(db.ref('lan/history'), (snapshot) => {
+            globalHistory = snapshot.val() || {};
+            renderAchievements();
         });
         startTickEngine();
 
@@ -2393,6 +2493,69 @@ document.addEventListener('DOMContentLoaded', () => {
         return { setName: set.name || '', standings: board };
     }
 
+
+    /* La clôture est le seul moment où l'expérience bouge en bloc : chacun
+       touche sa soirée, et les titres comparatifs sont enfin décernables —
+       jusque-là ils auraient changé de main à chaque achat.
+
+       `lan/xp` n'est PAS effacé par la suite : c'est tout l'intérêt. Les points
+       mesurent une soirée, l'expérience mesure les soirées. */
+    async function awardLanExperience(lanId) {
+        const data = {
+            economy: globalEconomy,
+            tcg: globalTcg,
+            cards: tcgCards(globalTcg),
+            xp: globalXp,
+            history: globalHistory,
+            votes: globalVotes
+        };
+
+        const players = economyPlayers();
+        const writes = [];
+        const titles = [];
+
+        /* Être venu suffit : c'est la récompense de l'assiduité, celle que ni
+           la fortune ni la collection ne mesurent. On la donne à ceux qui ont
+           voté — la seule trace fiable d'une présence à la soirée. */
+        Object.keys(globalVotes || {}).forEach(uid => {
+            const awardId = attendanceAwardId(uid, lanId);
+            if (hasXpAward(globalXp, awardId)) return;
+            writes.push(db.ref('lan/xp/awards/' + awardId).set({
+                uid: uid,
+                delta: XP.LAN_ATTENDANCE,
+                type: 'attendance',
+                reason: previousLanLabel(),
+                refId: lanId,
+                by: (auth.currentUser && auth.currentUser.uid) || null,
+                ts: firebase.database.ServerValue.TIMESTAMP
+            }));
+        });
+
+        lanTitles(data, players).forEach(entry => {
+            const awardId = entry.uid + '__title__' + lanId + '__' + entry.title.id;
+            titles.push({ id: entry.title.id, label: entry.title.label, name: playerLabel(entry.uid), value: entry.value });
+            if (hasXpAward(globalXp, awardId)) return;
+            writes.push(db.ref('lan/xp/awards/' + awardId).set({
+                uid: entry.uid,
+                delta: entry.title.xp,
+                type: 'title',
+                reason: entry.title.label,
+                refId: lanId,
+                by: (auth.currentUser && auth.currentUser.uid) || null,
+                ts: firebase.database.ServerValue.TIMESTAMP
+            }));
+        });
+
+        /* Une écriture refusée ne doit pas empêcher la clôture : la soirée doit
+           se fermer même si l'expérience d'un joueur passe à la trappe. */
+        await Promise.allSettled(writes);
+        return titles;
+    }
+
+    function previousLanLabel() {
+        return globalSettings.lanName ? 'Soirée ' + globalSettings.lanName : 'Une soirée de plus';
+    }
+
     async function startNewLan(newName) {
         const sortedGames = calculateScores(globalVotes);
         const previousName = globalSettings.lanName || 'LAN Demain';
@@ -2416,6 +2579,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const hadContent = sortedGames.length > 0 || eventsSnap.exists() || cocktailsSnap.exists()
             || finalStandings.length > 0;
 
+        /* L'expérience se distribue AVANT l'effacement : les titres se
+           calculent sur les compteurs de la soirée, qui n'existent plus une
+           ligne plus bas. L'identifiant vient de l'horodatage, ce qui rend les
+           clés déterministes — reclôturer deux fois ne paie pas deux fois. */
+        const lanId = 'lan-' + Date.now();
+        const awardedTitles = hadContent ? await awardLanExperience(lanId) : [];
+
         if (hadContent) {
             await db.ref('lan/history').push().set({
                 name: previousName,
@@ -2430,7 +2600,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 // une collection est un brouillon qu'on peut jeter en
                 // recomposant le set ; à la clôture, elle devient un souvenir
                 // et c'est ici qu'elle est gardée.
-                tcgStandings: tcgStandingsForArchive()
+                tcgStandings: tcgStandingsForArchive(),
+                // Les titres décernés ce soir-là. Ils ne se recalculent pas
+                // après coup — les compteurs qui les ont produits sont effacés
+                // trois lignes plus bas.
+                lanTitles: awardedTitles.length ? awardedTitles : null
             });
         }
 
@@ -5420,10 +5594,13 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        document.getElementById('shop-gm-panel').style.display = isGm ? 'block' : 'none';
         document.getElementById('shop-grant-panel').style.display = isGm ? 'block' : 'none';
         document.getElementById('btn-add-shop-item').style.display = isGm ? 'block' : 'none';
 
+        renderXpBanner();
+        grantPendingAchievements();
+        renderAchievements();
+        renderBoosterShelf(user);
         renderShopQueue(isGm);
         renderShopCatalog(user);
         renderShopFeed();
@@ -5446,15 +5623,18 @@ document.addEventListener('DOMContentLoaded', () => {
     /* --- File d'attente du maître du jeu -------------------------------- */
 
     function renderShopQueue(isGm) {
+        const panel = document.getElementById('shop-gm-panel');
         const mount = document.getElementById('shop-gm-queue');
-        if (!mount || !isGm) return;
-        mount.innerHTML = '';
+        if (!mount || !panel) return;
 
         const queue = pendingPurchases(globalEconomy);
-        if (!queue.length) {
-            mount.innerHTML = '<p style="color:var(--secondary-text); font-style:italic;">Aucune demande en attente.</p>';
-            return;
-        }
+        /* Les achats sont immédiats : cette file ne sert plus qu'aux demandes
+           déposées avant le changement. Vide, elle disparaît plutôt que
+           d'annoncer un travail qui n'existe plus. */
+        if (!isGm || !queue.length) { panel.style.display = 'none'; return; }
+
+        panel.style.display = 'block';
+        mount.innerHTML = '';
 
         queue.forEach(p => {
             const buyerBalance = economyBalance(globalEconomy, p.uid);
@@ -5559,8 +5739,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!mount) return;
         mount.innerHTML = '';
 
+        // Les boosters ont leur panneau à eux, plus haut : les remettre ici
+        // ferait deux fois le même article sur le même écran.
         const catalog = Object.entries(globalEconomy.catalog || {})
-            .filter(([, item]) => item && item.active !== false);
+            .filter(([, item]) => item && item.active !== false && !isPackItem(item));
 
         if (!catalog.length) {
             mount.innerHTML = window.currentUserIsGamemaster
@@ -5580,7 +5762,7 @@ document.addEventListener('DOMContentLoaded', () => {
             mount.appendChild(title);
 
             const grid = document.createElement('div');
-            grid.className = 'card-grid';
+            grid.className = 'shop-grid';
             items
                 .sort((a, b) => (Number(a[1].price) || 0) - (Number(b[1].price) || 0))
                 .forEach(([id, item]) => grid.appendChild(buildShopCard(id, item, user)));
@@ -5588,40 +5770,44 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    /* Un article de boutique, à la manière d'une carte : jeton de coût, nom
+       gravé, bande de famille. Le format reste le PAYSAGE — les collectibles
+       sont en portrait, et deux systèmes de cartes qui se ressemblent trop
+       finissent par se confondre. */
     function buildShopCard(id, item, user) {
         const verdict = canBuy(globalEconomy, user.uid, id, item);
+        const family = item.category || 'fun';
         const card = document.createElement('div');
-        card.className = verdict.ok ? 'shop-card' : 'shop-card is-unaffordable';
+        card.className = 'shop-item shop-item--' + family + (verdict.ok ? '' : ' is-locked');
 
         const left = itemStockLeft(globalEconomy, id, item);
         const stockLine = left === null
             ? ''
-            : `<p class="shop-card__meta">${left ? `${left} restant${left > 1 ? 's' : ''}` : 'Épuisé'}</p>`;
+            : `<span class="shop-item__stock">${left ? `${left} restant${left > 1 ? 's' : ''}` : 'Épuisé'}</span>`;
 
-        // Un booster se reconnaît au premier coup d'oeil : ce n'est pas un
-        // privilège qu'on joue, c'est un paquet qu'on ouvre.
-        const packLine = isPackItem(item)
-            ? `<p class="shop-card__meta">🎴 ${TCG.PACK_SIZE} cartes du set de la soirée, dont au moins une peu commune.</p>`
+        const descLine = item.description
+            ? `<p class="shop-item__desc">${escapeHtml(item.description)}</p>`
             : '';
-        if (isPackItem(item)) card.classList.add('shop-card--pack');
 
         card.innerHTML = `
-            <div class="shop-card__head">
-                <h4 class="shop-card__name">${escapeHtml(item.name || 'Article')}</h4>
-                <span class="shop-card__price">${escapeHtml(formatPoints(item.price))}</span>
+            <span class="shop-item__cost">${Math.round(Number(item.price) || 0)}</span>
+            <div class="shop-item__main">
+                <h4 class="shop-item__name">${escapeHtml(item.name || 'Article')}</h4>
+                ${descLine}
+                <div class="shop-item__strip">
+                    <span class="shop-item__gem"></span>
+                    <span class="shop-item__fam">${escapeHtml(item.needsTarget ? 'Handicap ciblé' : categoryLabel(family))}</span>
+                    ${stockLine}
+                </div>
             </div>
-            ${packLine}
-            <p class="shop-card__desc">${escapeHtml(item.description || '')}</p>
-            ${stockLine}
         `;
 
         const actions = document.createElement('div');
-        actions.className = 'shop-card__actions';
+        actions.className = 'shop-item__actions';
 
         const buy = document.createElement('button');
-        buy.className = 'gold-btn';
-        buy.style.padding = '8px 18px';
-        buy.textContent = verdict.ok ? 'Acheter' : verdict.why;
+        buy.className = 'shop-item__buy';
+        buy.textContent = verdict.ok ? (item.needsTarget ? 'Viser' : 'Prendre') : verdict.why;
         buy.disabled = !verdict.ok;
         buy.addEventListener('click', () => requestPurchase(id, item));
         actions.appendChild(buy);
@@ -5631,21 +5817,335 @@ document.addEventListener('DOMContentLoaded', () => {
             del.className = 'gold-link-btn';
             del.style.color = 'var(--danger-color)';
             del.textContent = 'Retirer';
-            del.addEventListener('click', () => {
-                askConfirm(`Retirer « ${item.name} » de la carte ?`, { danger: true }).then(ok => {
-                    if (!ok) return;
-                    db.ref('lan/economy/catalog/' + id).remove()
-                        .then(() => showToast('Article retiré.', 'success'))
-                        .catch(err => showToast('Erreur : ' + err.message, 'error'));
-                });
-            });
+            del.addEventListener('click', () => removeCatalogItem(id, item.name));
             actions.appendChild(del);
         }
 
-        card.appendChild(actions);
+        card.querySelector('.shop-item__main').appendChild(actions);
         return card;
     }
 
+    function removeCatalogItem(id, name) {
+        askConfirm(`Retirer « ${name} » de la carte ?`, { danger: true }).then(ok => {
+            if (!ok) return;
+            db.ref('lan/economy/catalog/' + id).remove()
+                .then(() => showToast('Article retiré.', 'success'))
+                .catch(err => showToast('Erreur : ' + err.message, 'error'));
+        });
+    }
+
+    /* ---------- Le booster en tête de gondole ----------
+       Le paquet est l'article que la soirée met en avant : il a droit à son
+       emballage plutôt qu'à une ligne de liste. */
+
+    function renderBoosterShelf(user) {
+        const panel = document.getElementById('booster-panel');
+        const mount = document.getElementById('booster-shelf');
+        if (!panel || !mount) return;
+
+        // Sans set, un booster ne contiendrait rien : on ne le propose pas.
+        if (!tcgCurrentSetId(globalTcg)) { panel.style.display = 'none'; return; }
+
+        const items = packItems(globalEconomy);
+        if (!items.length) {
+            // Pour un maître du jeu, c'est une chose à faire — pas une absence
+            // à constater.
+            if (!window.currentUserIsGamemaster) { panel.style.display = 'none'; return; }
+            panel.style.display = 'block';
+            mount.innerHTML = '<p style="color:var(--secondary-text); font-style:italic; margin-bottom:14px;">Aucun booster en vente : les joueurs ne peuvent pas acheter de cartes.</p>';
+            const go = document.createElement('button');
+            go.className = 'gold-btn';
+            go.style.padding = '10px 20px';
+            go.textContent = 'Mettre le booster en vente';
+            go.addEventListener('click', createDefaultPackItem);
+            mount.appendChild(go);
+            return;
+        }
+
+        panel.style.display = 'block';
+        mount.innerHTML = '';
+        items.forEach(([id, item]) => mount.appendChild(buildBoosterCard(id, item, user)));
+    }
+
+    function buildBoosterCard(id, item, user) {
+        const verdict = canBuy(globalEconomy, user.uid, id, item);
+        const card = document.createElement('div');
+        card.className = 'booster-buy';
+
+        const name = item.name
+            || packLabel({ name: generatedArtNames[PACK_ART_KEY] }, globalSettings.lanName);
+        const art = generatedArt[PACK_ART_KEY] || '';
+
+        card.innerHTML = `
+            <div class="booster-buy__art">${art ? `<img src="${escapeHtml(art)}" alt="">` : ''}</div>
+            <div class="booster-buy__main">
+                <h4 class="booster-buy__name">${escapeHtml(name)}</h4>
+                <p class="booster-buy__meta">${TCG.PACK_SIZE} cartes du set de la soirée, dont trois brillantes.</p>
+                <span class="booster-buy__cost"><span>${escapeHtml(ECONOMY.CURRENCY)}</span>${Math.round(Number(item.price) || 0)}</span>
+            </div>
+        `;
+
+        const side = document.createElement('div');
+        side.className = 'booster-buy__go';
+
+        const buy = document.createElement('button');
+        buy.className = 'gold-btn';
+        buy.style.padding = '12px 24px';
+        buy.textContent = verdict.ok ? 'Acheter un booster' : verdict.why;
+        buy.disabled = !verdict.ok;
+        buy.addEventListener('click', () => requestPurchase(id, item));
+        side.appendChild(buy);
+
+        if (window.currentUserIsGamemaster) {
+            const del = document.createElement('button');
+            del.className = 'gold-link-btn';
+            del.style.cssText = 'color: var(--danger-color); display: block; margin-top: 10px;';
+            del.textContent = 'Retirer de la vente';
+            del.addEventListener('click', () => removeCatalogItem(id, name));
+            side.appendChild(del);
+        }
+
+        card.appendChild(side);
+        return card;
+    }
+
+    /* Un booster prêt à vendre, sans passer par le formulaire. Le prix part du
+       plafond de présence : dix heures de LAN paient trois paquets, ce qui
+       laisse la place aux défis pour le reste. */
+    function createDefaultPackItem() {
+        const user = auth.currentUser;
+        if (!user) return;
+        const price = Math.round(ECONOMY.MAX_TICKS * ECONOMY.TICK_VALUE / 3);
+        db.ref('lan/economy/catalog').push().set({
+            name: packLabel({ name: generatedArtNames[PACK_ART_KEY] }, globalSettings.lanName),
+            description: `${TCG.PACK_SIZE} cartes du set de la soirée.`,
+            price: price,
+            category: 'fun',
+            stock: null,
+            needsTarget: false,
+            kind: 'pack',
+            active: true,
+            createdBy: user.uid,
+            createdAt: firebase.database.ServerValue.TIMESTAMP
+        })
+            .then(() => showToast(`Le booster est en vente à ${formatPoints(price)}.`, 'success'))
+            .catch(err => showToast('Erreur : ' + err.message, 'error'));
+    }
+
+
+    /* ======================================================================
+       EXPÉRIENCE ET HAUTS FAITS
+       Les points mesurent une soirée ; l'expérience mesure les soirées. Elle
+       ne se dépense pas, et `lan/xp` n'est pas effacé à la clôture — c'est
+       toute la différence.
+
+       Les jalons se CALCULENT depuis les données du moment (core.js), mais ce
+       qui fait foi est la récompense inscrite au journal : sans elle, un jalon
+       gagné ce soir se reverrouillerait à la prochaine LAN, quand les
+       compteurs de la soirée repartent à zéro.
+       ====================================================================== */
+
+    const XP_SEGMENTS = 24;
+
+    const ACH_ICONS = {
+        cart: 'M5 6h15l-1.6 8.2a2 2 0 0 1-2 1.6H9a2 2 0 0 1-2-1.6L5.2 4.6A1 1 0 0 0 4.2 4H3M9 20h.01M17 20h.01',
+        coin: 'M12 3c4.4 0 8 1.6 8 3.5S16.4 10 12 10 4 8.4 4 6.5 7.6 3 12 3zM4 6.5v11C4 19.4 7.6 21 12 21s8-1.6 8-3.5v-11',
+        target: 'M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z',
+        pack: 'M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2M9 12h6',
+        cards: 'M8 3h12v14H8zM5.5 6.5 4 8v11l6 2',
+        spark: 'M12 3l2 5.6 5.6 2-5.6 2L12 18l-2-5.4-5.6-2 5.6-2zM19 4v3M17.5 5.5h3',
+        signature: 'M4 17c4-1 5-10 8-10s2 8 5 8M4 21h16',
+        trophy: 'M8 4h8v5a4 4 0 0 1-8 0zM8 5H5v2a3 3 0 0 0 3 3M16 5h3v2a3 3 0 0 1-3 3M12 13v4M9 20h6',
+        trade: 'M4 8h13l-3-3M20 16H7l3 3',
+        clock: 'M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM12 8v4l3 2',
+        flag: 'M5 21V4M5 5h11l-1.5 3.5L16 12H5'
+    };
+
+    // Les données que core.js attend. Le rejeu des cartes est le seul calcul
+    // lourd : on le prend au cache partagé plutôt que de le refaire.
+    function achData() {
+        return {
+            economy: globalEconomy,
+            tcg: globalTcg,
+            cards: tcgView().cards,
+            xp: globalXp,
+            history: globalHistory,
+            votes: globalVotes
+        };
+    }
+
+    function renderXpBanner() {
+        const user = auth.currentUser;
+        const segs = document.getElementById('xp-segs');
+        if (!user || !segs) return;
+
+        const info = xpLevel(xpTotal(globalXp, user.uid));
+        document.getElementById('xp-level').textContent = String(info.level);
+        document.getElementById('xp-count').textContent = `${info.into} / ${info.span} XP`;
+
+        segs.innerHTML = '';
+        // On arrondit vers le haut dès qu'il y a le moindre progrès : un joueur
+        // qui vient de gagner 25 XP doit voir un segment s'allumer, pas rien.
+        const lit = info.into > 0 ? Math.max(1, Math.round(info.ratio * XP_SEGMENTS)) : 0;
+        for (let i = 0; i < XP_SEGMENTS; i += 1) {
+            const seg = document.createElement('span');
+            seg.className = 'xp-banner__seg'
+                + (i < lit ? (i === lit - 1 ? ' is-edge' : ' is-on') : '');
+            segs.appendChild(seg);
+        }
+
+        document.getElementById('xp-foot').textContent = info.total === 0
+            ? 'L\'expérience se gagne en venant, et en décrochant des hauts faits. Elle ne repart jamais à zéro.'
+            : `Encore ${info.toNext} XP avant le niveau ${info.level + 1} · ${info.total} XP en tout`;
+    }
+
+    function renderAchievements() {
+        const user = auth.currentUser;
+        const mount = document.getElementById('ach-list');
+        if (!user || !mount) return;
+
+        const rows = achievementState(achData(), user.uid);
+        const owned = rows.filter(r => r.owned).length;
+        document.getElementById('ach-progress').textContent = `${owned} / ${rows.length}`;
+
+        mount.innerHTML = '';
+        // Obtenus d'abord, puis ce qui est à portée, puis le reste.
+        rows.slice()
+            .sort((a, b) => (b.owned ? 1 : 0) - (a.owned ? 1 : 0)
+                || (b.pending ? 1 : 0) - (a.pending ? 1 : 0)
+                || b.ratio - a.ratio)
+            .forEach(row => mount.appendChild(buildAchRow(row)));
+
+        renderLanTitlesPanel();
+        renderXpBoard();
+    }
+
+    function buildAchRow(row) {
+        const line = document.createElement('div');
+        line.className = 'ach-row'
+            + (row.owned ? ' is-owned' : (row.pending ? ' is-pending' : ''));
+
+        const path = ACH_ICONS[row.ach.icon] || ACH_ICONS.trophy;
+        let body;
+        if (row.owned) {
+            body = `<span class="ach-row__hint">${escapeHtml(row.ach.hint)}</span>`;
+        } else if (row.pending) {
+            body = '<span class="ach-row__hint">Atteint — en attente d\'un maître du jeu</span>';
+        } else {
+            body = `<span class="ach-row__hint">${escapeHtml(row.ach.hint)} · ${row.current} / ${row.goal}</span>
+                <div class="ach-row__bar"><div class="ach-row__fill" style="width:${Math.round(row.ratio * 100)}%"></div></div>`;
+        }
+
+        line.innerHTML = `
+            <span class="ach-row__ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="${path}"></path></svg></span>
+            <span class="ach-row__main">
+                <span class="ach-row__name">${escapeHtml(row.ach.label)}</span>
+                ${body}
+            </span>
+            <span class="ach-row__xp">+${row.ach.xp}</span>
+        `;
+        return line;
+    }
+
+    /* Les titres de la soirée en cours : comparatifs, donc provisoires tant
+       que la LAN n'est pas close. On le dit — un titre qui change de main sans
+       prévenir passerait pour un bug. */
+    function renderLanTitlesPanel() {
+        const panel = document.getElementById('titles-panel');
+        const mount = document.getElementById('lan-titles');
+        if (!panel || !mount) return;
+
+        const titles = lanTitles(achData(), economyPlayers());
+        if (!titles.length) { panel.style.display = 'none'; return; }
+
+        panel.style.display = 'block';
+        mount.innerHTML = '';
+        titles.forEach(entry => {
+            const row = document.createElement('div');
+            row.className = 'lan-title-row';
+            row.innerHTML = `
+                <span class="lan-title-row__label">${escapeHtml(entry.title.label)}</span>
+                <span class="lan-title-row__who">${escapeHtml(playerLabel(entry.uid))}</span>
+            `;
+            mount.appendChild(row);
+        });
+
+        const note = document.createElement('p');
+        note.className = 'panel-section__hint';
+        note.style.marginTop = '12px';
+        note.textContent = globalSettings.lanFinished
+            ? 'Décernés à la clôture.'
+            : 'Provisoire : les titres sont décernés à la clôture de la soirée.';
+        mount.appendChild(note);
+    }
+
+    function renderXpBoard() {
+        const mount = document.getElementById('xp-board');
+        if (!mount) return;
+        mount.innerHTML = '';
+
+        const board = xpLeaderboard(globalXp, economyPlayers());
+        if (!board.length) {
+            mount.innerHTML = '<p style="color:var(--secondary-text); font-style:italic;">Personne n\'a encore d\'expérience.</p>';
+            return;
+        }
+
+        board.slice(0, 10).forEach((row, i) => {
+            const line = document.createElement('button');
+            line.className = 'rank-row rank-row--player';
+            line.innerHTML = `
+                <span style="color: var(--secondary-text); min-width: 24px;">${i + 1}</span>
+                <span style="flex: 1; color: var(--primary-text); text-align: left;">${escapeHtml(playerFullName(playerLabel(row.uid), playerNickname(achData(), row.uid)))}</span>
+                <span class="shop-card__price">Niv. ${row.level}</span>
+            `;
+            line.addEventListener('click', () => showPlayerVotesModal(row.uid, playerLabel(row.uid), globalVotes));
+            mount.appendChild(line);
+        });
+    }
+
+    /* ---------- L'arbitre ----------
+       Tourne sur les clients des maîtres du jeu. Il n'invente rien : il inscrit
+       ce que tout le monde peut déjà calculer. La clé est déterministe, donc
+       deux maîtres du jeu en ligne écrivent le même nœud plutôt que deux
+       récompenses. Un joueur seul verra ses hauts faits « atteints » sans être
+       inscrits jusqu'à ce qu'un maître du jeu se connecte — c'est la même
+       dépendance que la validation des achats. */
+
+    let granting = false;
+
+    function grantPendingAchievements() {
+        const user = auth.currentUser;
+        if (!user || !window.currentUserIsGamemaster || granting) return;
+
+        const waiting = pendingAchievements(achData(), economyPlayers());
+        if (!waiting.length) return;
+
+        granting = true;
+        const next = waiting[0];
+
+        db.ref('lan/xp/awards/' + achievementAwardId(next.uid, next.ach.id)).set({
+            uid: next.uid,
+            delta: next.ach.xp,
+            type: 'achievement',
+            reason: next.ach.label,
+            refId: next.ach.id,
+            by: user.uid,
+            ts: firebase.database.ServerValue.TIMESTAMP
+        })
+            .then(() => {
+                if (next.uid !== user.uid) {
+                    sendNotification(next.uid,
+                        `Haut fait : ${next.ach.label} (+${next.ach.xp} XP)`, 'success');
+                }
+            })
+            .catch(() => { /* déjà inscrit par un autre maître du jeu, ou refusé */ })
+            .finally(() => {
+                granting = false;
+                // On enchaîne : une soirée entière de jalons doit se rattraper
+                // d'un coup quand le maître du jeu arrive.
+                grantPendingAchievements();
+            });
+    }
     /* Acheter, c'est déposer une demande — jamais se débiter soi-même. Le
        maître du jeu tranche, et c'est seulement là que le registre bouge. */
     function requestPurchase(itemId, item) {
@@ -5653,24 +6153,59 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!user) return;
 
         const send = (targetUid, targetName) => {
-            db.ref('lan/economy/purchases').push().set({
+            /* L'achat est immédiat : plus personne à attendre. Le débit et
+               l'achat partent dans la MÊME écriture multi-chemins, donc
+               Firebase les applique ensemble ou pas du tout — impossible
+               d'être débité sans l'article, ou l'inverse.
+
+               Le joueur écrit ici sa propre ligne de registre, ce qu'il ne peut
+               faire nulle part ailleurs. Les règles l'y autorisent parce qu'une
+               ligne de type « purchase » est forcément NÉGATIVE et forcément
+               égale au prix affiché en boutique : elle ne peut qu'appauvrir
+               celui qui la signe. */
+            const purchaseId = db.ref('lan/economy/purchases').push().key;
+            const entryId = db.ref('lan/economy/ledger').push().key;
+            const price = Number(item.price) || 0;
+
+            const update = {};
+            update['lan/economy/ledger/' + entryId] = {
+                uid: user.uid,
+                delta: -price,
+                type: 'purchase',
+                itemId: itemId,
+                reason: item.name || 'Achat',
+                refId: purchaseId,
+                ts: firebase.database.ServerValue.TIMESTAMP
+            };
+            update['lan/economy/purchases/' + purchaseId] = {
                 itemId: itemId,
                 itemName: item.name || 'Article',
-                price: Number(item.price) || 0,
+                price: price,
                 uid: user.uid,
                 userName: user.displayName || 'Un joueur',
                 targetUid: targetUid || null,
                 targetName: targetName || null,
-                status: 'pending',
+                status: 'granted',
                 ts: firebase.database.ServerValue.TIMESTAMP
-            }).then(() => showToast('Demande envoyée au maître du jeu !', 'success'))
+            };
+
+            db.ref().update(update)
+                .then(() => {
+                    showToast(isPackItem(item)
+                        ? 'Booster acheté ! Il vous attend dans la collection.'
+                        : `${item.name || 'Article'} : c'est à vous !`, 'success');
+                    if (targetUid && targetUid !== user.uid) {
+                        sendNotification(targetUid,
+                            `${user.displayName || 'Quelqu\'un'} vous joue « ${item.name || 'un handicap'} »`, 'info');
+                    }
+                })
                 .catch(err => showToast('Erreur : ' + err.message, 'error'));
         };
 
         // Un handicap sans cible serait du sabotage anonyme : on demande sur
         // qui, et le nom restera visible dans le registre.
         if (!item.needsTarget) {
-            askConfirm(`Demander « ${item.name} » pour ${formatPoints(item.price)} ?`,
+            askConfirm(`Acheter « ${item.name} » pour ${formatPoints(item.price)} ?`,
                 { title: '🛍️ Boutique' }).then(ok => { if (ok) send(null, null); });
             return;
         }
@@ -5736,13 +6271,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         board.slice(0, 10).forEach((entry, i) => {
-            const row = document.createElement('div');
-            row.className = 'rank-row';
+            const row = document.createElement('button');
+            row.className = 'rank-row rank-row--player';
             row.innerHTML = `
                 <span style="color: var(--secondary-text); min-width: 24px;">${i + 1}</span>
-                <span style="flex: 1; color: var(--primary-text);">${escapeHtml(playerLabel(entry.uid))}</span>
+                <span style="flex: 1; color: var(--primary-text); text-align: left;">${escapeHtml(playerFullName(playerLabel(entry.uid), playerNickname(achData(), entry.uid)))}</span>
                 <span class="shop-card__price">${escapeHtml(formatPoints(entry.balance))}</span>
             `;
+            row.addEventListener('click', () => showPlayerVotesModal(entry.uid, playerLabel(entry.uid), globalVotes));
             mount.appendChild(row);
         });
     }

@@ -467,7 +467,11 @@ const ECONOMY = {
     TICK_INTERVAL_MS: 10 * 60 * 1000,
     TICK_VALUE: 5,
     MAX_TICKS: 60,
-    CURRENCY: 'PO',
+    /* Le zloty : « złoty » veut dire « en or » en polonais, et le pluriel qu'on
+       lit sur les billets est « złotych ». Un clin d'oeil qui tombe juste — la
+       monnaie de la soirée est littéralement de l'or. */
+    CURRENCY: 'zł',
+    CURRENCY_LONG: 'złotych',
     CATEGORIES: [
         { key: 'privilege', label: 'Privilèges', icon: '👑' },
         { key: 'handicap', label: 'Handicaps', icon: '🎯' },
@@ -1361,4 +1365,395 @@ function unsealedPurchases(economy, tcg, uid) {
             && isPackItem(catalog[purchase.itemId])
             && !packs[purchase.id])
         .sort((a, b) => (a.ts || 0) - (b.ts || 0));
+}
+
+/* ==========================================================================
+   Expérience et hauts faits
+   Les złotych (« złoty » veut dire « en or ») sont l'argent de la soirée : ils
+   se gagnent, se dépensent et repartent à zéro à chaque LAN. L'expérience est
+   l'inverse — elle ne se dépense pas et ne s'efface JAMAIS. Elle mesure les
+   soirées, pas le portefeuille.
+   C'est pour ça qu'elle a son propre journal, `lan/xp/awards`, que
+   startNewLan() ne touche pas.
+
+   Même principe que le registre de points : rien n'est stocké tel quel. Le
+   niveau, la barre, la liste des hauts faits obtenus — tout se recalcule depuis
+   un journal en écriture unique.
+   ========================================================================== */
+
+const XP = {
+    /* Le palier grandit linéairement, donc le cumul est quadratique : chaque
+       niveau coûte 200 XP de plus que le précédent. Une soirée bien remplie
+       rapporte 400 à 600 XP, ce qui fait deux ou trois niveaux la première
+       fois puis de moins en moins — un vétéran de dix LAN reste devant sans
+       que le nouveau soit largué. */
+    LEVEL_STEP: 200,
+    /* Ce que vaut une soirée, simplement pour être venu et avoir voté. C'est
+       la récompense de l'assiduité que le reste ne mesure pas. */
+    LAN_ATTENDANCE: 150
+};
+
+/* Cumul nécessaire pour ATTEINDRE le niveau n (le niveau 1 est à zéro). */
+function xpForLevel(level) {
+    const n = Math.max(1, Math.floor(level));
+    return XP.LEVEL_STEP * n * (n - 1) / 2;
+}
+
+/* Le niveau et la position dans la barre, à partir du cumul. */
+function xpLevel(total) {
+    const xp = Math.max(0, Math.round(Number(total) || 0));
+    let level = 1;
+    while (xpForLevel(level + 1) <= xp) level += 1;
+    const floor = xpForLevel(level);
+    const ceiling = xpForLevel(level + 1);
+    const span = ceiling - floor;
+    return {
+        total: xp,
+        level: level,
+        into: xp - floor,
+        span: span,
+        toNext: ceiling - xp,
+        ratio: span > 0 ? (xp - floor) / span : 0
+    };
+}
+
+/* Le journal d'expérience, tel quel. */
+function xpAwards(xpNode) {
+    const awards = (xpNode && xpNode.awards) || {};
+    return Object.entries(awards)
+        .map(([id, award]) => Object.assign({ id: id }, award))
+        .filter(award => award && award.uid);
+}
+
+function xpTotal(xpNode, uid) {
+    if (!uid) return 0;
+    let total = 0;
+    xpAwards(xpNode).forEach(award => {
+        if (award.uid === uid) total += Number(award.delta) || 0;
+    });
+    return total;
+}
+
+function xpFeed(xpNode, limit) {
+    const rows = xpAwards(xpNode).sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    return limit ? rows.slice(0, limit) : rows;
+}
+
+function xpLeaderboard(xpNode, uids) {
+    return (uids || [])
+        .map(uid => Object.assign({ uid: uid }, xpLevel(xpTotal(xpNode, uid))))
+        .filter(row => row.total > 0)
+        .sort((a, b) => b.total - a.total);
+}
+
+/* La clé d'une récompense est déterministe : deux maîtres du jeu en ligne
+   écrivent le même nœud plutôt que deux récompenses. C'est ce qui rend
+   l'attribution automatique sans risque de doublon. */
+function achievementAwardId(uid, achId) {
+    return uid + '__ach__' + achId;
+}
+
+function attendanceAwardId(uid, lanId) {
+    return uid + '__lan__' + lanId;
+}
+
+function hasXpAward(xpNode, awardId) {
+    return !!((xpNode && xpNode.awards) || {})[awardId];
+}
+
+/* ==========================================================================
+   Le catalogue des hauts faits
+   Deux familles, et la différence compte.
+
+   - Les JALONS sont absolus et monotones : « cinq achats », « une Signature ».
+     Ils se calculent depuis les données du moment, et une fois obtenus ils sont
+     acquis pour toujours — c'est la récompense écrite au journal qui fait foi,
+     pas le calcul. Sans ça, un jalon gagné ce soir se reverrouillerait à la
+     prochaine LAN, quand les compteurs de la soirée repartent à zéro.
+
+   - Les TITRES DE SOIRÉE sont comparatifs : « le plus gros acheteur ». Ils
+     n'ont de sens qu'une fois la soirée finie, donc ils sont décernés à la
+     clôture et archivés avec elle.
+   ========================================================================== */
+
+const ACHIEVEMENTS = [
+    /* --- La boutique --- */
+    { id: 'first-buy', icon: 'cart', family: 'boutique', xp: 25,
+      label: 'Premier achat', hint: 'Acheter quoi que ce soit', goal: 1 },
+    { id: 'buyer-5', icon: 'cart', family: 'boutique', xp: 50,
+      label: 'Client fidèle', hint: 'Cinq achats validés', goal: 5, nickname: 'Le Client' },
+    { id: 'buyer-20', icon: 'cart', family: 'boutique', xp: 120,
+      label: 'Pilier du comptoir', hint: 'Vingt achats validés', goal: 20, nickname: 'Le Pilier' },
+    { id: 'spender-500', icon: 'coin', family: 'boutique', xp: 60,
+      label: 'Dépensier', hint: 'Cinq cents złotych dépensés', goal: 500, nickname: 'Le Dépensier' },
+    { id: 'spender-2000', icon: 'coin', family: 'boutique', xp: 150,
+      label: 'Grand train', hint: 'Deux mille złotych dépensés', goal: 2000, nickname: 'Le Grand Train' },
+    { id: 'handicap-1', icon: 'target', family: 'boutique', xp: 40,
+      label: 'Sale coup', hint: 'Jouer un handicap sur quelqu\'un', goal: 1, nickname: 'La Crapule' },
+
+    /* --- Les cartes --- */
+    { id: 'pack-1', icon: 'pack', family: 'cartes', xp: 25,
+      label: 'Premier paquet', hint: 'Ouvrir un booster', goal: 1 },
+    { id: 'pack-10', icon: 'pack', family: 'cartes', xp: 100,
+      label: 'Ouvreur compulsif', hint: 'Ouvrir dix boosters', goal: 10, nickname: 'L\'Ouvreur' },
+    { id: 'cards-50', icon: 'cards', family: 'cartes', xp: 80,
+      label: 'Collectionneur', hint: 'Cinquante cartes différentes', goal: 50, nickname: 'Le Collectionneur' },
+    { id: 'foil-10', icon: 'spark', family: 'cartes', xp: 80,
+      label: 'Ça brille', hint: 'Dix cartes brillantes', goal: 10, nickname: 'L\'Étincelant' },
+    { id: 'signature-1', icon: 'signature', family: 'cartes', xp: 150,
+      label: 'La Signature', hint: 'Sortir une carte Signature', goal: 1, nickname: 'Le Signataire' },
+    { id: 'set-complete', icon: 'trophy', family: 'cartes', xp: 300,
+      label: 'Set complet', hint: 'Compléter un set entier', goal: 1, nickname: 'Le Complétiste' },
+    { id: 'trade-1', icon: 'trade', family: 'cartes', xp: 40,
+      label: 'Premier échange', hint: 'Conclure un échange', goal: 1 },
+    { id: 'trade-10', icon: 'trade', family: 'cartes', xp: 120,
+      label: 'Négociant', hint: 'Conclure dix échanges', goal: 10, nickname: 'Le Négociant' },
+
+    /* --- L'assiduité --- */
+    { id: 'tick-max', icon: 'clock', family: 'soirée', xp: 60,
+      label: 'Increvable', hint: 'Atteindre le plafond de présence', goal: ECONOMY.MAX_TICKS, nickname: 'L\'Increvable' },
+    { id: 'lan-3', icon: 'flag', family: 'soirée', xp: 100,
+      label: 'Habitué', hint: 'Participer à trois LAN', goal: 3, nickname: 'L\'Habitué' },
+    { id: 'lan-10', icon: 'flag', family: 'soirée', xp: 250,
+      label: 'Vétéran', hint: 'Participer à dix LAN', goal: 10, nickname: 'Le Vétéran' }
+];
+
+function achievementById(id) {
+    return ACHIEVEMENTS.find(a => a.id === id) || null;
+}
+
+/* Les titres décernés à la clôture. `pick` reçoit les compteurs de tous les
+   joueurs et rend celui qui l'emporte. */
+const LAN_TITLES = [
+    { id: 'top-buyer', label: 'Le plus gros acheteur', xp: 100, metric: 'purchases' },
+    { id: 'top-spender', label: 'Le plus dépensier', xp: 100, metric: 'spent' },
+    { id: 'top-fortune', label: 'La plus grosse fortune', xp: 100, metric: 'balance' },
+    { id: 'top-opener', label: 'Le plus gros ouvreur', xp: 100, metric: 'packs' },
+    { id: 'top-trader', label: 'Le plus grand négociant', xp: 100, metric: 'trades' },
+    { id: 'top-presence', label: 'Le plus présent', xp: 100, metric: 'ticks' }
+];
+
+/* Combien de LAN ce joueur a-t-il faites ? L'historique garde les votes de
+   chaque soirée : y figurer, c'est y avoir été. La soirée en cours compte
+   aussi, sinon un nouveau reste à zéro toute sa première LAN. */
+function lanCountFor(history, votes, uid) {
+    if (!uid) return 0;
+    let count = 0;
+    Object.values(history || {}).forEach(entry => {
+        if (entry && entry.votes && entry.votes[uid]) count += 1;
+    });
+    if ((votes || {})[uid]) count += 1;
+    return count;
+}
+
+/* Tous les compteurs d'un joueur, en une passe. C'est la seule fonction qui
+   sait où vivent les données ; les hauts faits et les titres n'en lisent que
+   le résultat. */
+function playerCounters(data, uid) {
+    const economy = data.economy || {};
+    const tcg = data.tcg || {};
+    const cards = data.cards || tcgCards(tcg);
+
+    const purchases = Object.values(economy.purchases || {})
+        .filter(p => p && p.uid === uid && p.status === 'granted');
+
+    let spent = 0;
+    let earned = 0;
+    Object.values(economy.ledger || {}).forEach(entry => {
+        if (!entry || entry.uid !== uid) return;
+        const delta = Number(entry.delta) || 0;
+        if (delta < 0) spent += -delta; else earned += delta;
+    });
+
+    const mine = collectionOf(cards, uid);
+    const distinct = {};
+    let foils = 0;
+    let signatures = 0;
+    mine.forEach(card => {
+        distinct[card.gameKey] = true;
+        if (card.foil) foils += 1;
+        if (card.rarity === 'signature') signatures += 1;
+    });
+
+    const myPacks = openedPacks(tcg).filter(pack => pack.uid === uid);
+    const myTrades = acceptedTrades(tcg)
+        .filter(trade => trade.fromUid === uid || trade.toUid === uid);
+
+    /* Un set complet, c'est 100 % sur AU MOINS un set — pas sur le dernier.
+       Un vétéran qui a bouclé le set de janvier le garde. */
+    let anyComplete = false;
+    let bestPercent = 0;
+    Object.values((tcg && tcg.sets) || {}).forEach(set => {
+        const progress = setProgress((set && set.cards) || {}, cards, uid);
+        if (progress.complete) anyComplete = true;
+        if (progress.percent > bestPercent) bestPercent = progress.percent;
+    });
+
+    return {
+        purchases: purchases.length,
+        handicaps: purchases.filter(p => p.targetUid && p.targetUid !== uid).length,
+        spent: spent,
+        earned: earned,
+        balance: economyBalance(economy, uid),
+        packs: myPacks.length,
+        cards: Object.keys(distinct).length,
+        foils: foils,
+        signatures: signatures,
+        trades: myTrades.length,
+        setComplete: anyComplete,
+        setPercent: bestPercent,
+        ticks: Number(((economy.ticks || {})[uid] || {}).count) || 0,
+        lans: lanCountFor(data.history, data.votes, uid)
+    };
+}
+
+/* La progression d'un joueur sur un haut fait : où il en est, et s'il y est.
+   Rien n'est écrit ici — c'est une lecture. L'attribution, elle, passe par un
+   maître du jeu (voir pendingAchievements). */
+function achievementProgress(counters, ach) {
+    const value = {
+        'first-buy': counters.purchases,
+        'buyer-5': counters.purchases,
+        'buyer-20': counters.purchases,
+        'spender-500': counters.spent,
+        'spender-2000': counters.spent,
+        'handicap-1': counters.handicaps,
+        'pack-1': counters.packs,
+        'pack-10': counters.packs,
+        'cards-50': counters.cards,
+        'foil-10': counters.foils,
+        'signature-1': counters.signatures,
+        'set-complete': counters.setComplete ? 1 : 0,
+        'trade-1': counters.trades,
+        'trade-10': counters.trades,
+        'tick-max': counters.ticks,
+        'lan-3': counters.lans,
+        'lan-10': counters.lans
+    }[ach.id];
+
+    const current = Math.max(0, Number(value) || 0);
+    const goal = Math.max(1, Number(ach.goal) || 1);
+    return {
+        current: Math.min(current, goal),
+        goal: goal,
+        ratio: Math.min(1, current / goal),
+        reached: current >= goal
+    };
+}
+
+/* L'état complet des hauts faits d'un joueur : obtenus, atteints mais pas
+   encore inscrits, et le reste avec sa progression. */
+function achievementState(data, uid) {
+    const counters = playerCounters(data, uid);
+    return ACHIEVEMENTS.map(ach => {
+        const progress = achievementProgress(counters, ach);
+        const awarded = hasXpAward(data.xp, achievementAwardId(uid, ach.id));
+        return {
+            ach: ach,
+            current: progress.current,
+            goal: progress.goal,
+            ratio: progress.ratio,
+            reached: progress.reached,
+            /* Obtenu = inscrit au journal. Un jalon acquis le reste même quand
+               les compteurs de la soirée repartent à zéro. */
+            owned: awarded,
+            pending: progress.reached && !awarded
+        };
+    });
+}
+
+function achievementsOwned(data, uid) {
+    return achievementState(data, uid).filter(row => row.owned);
+}
+
+/* Ce qu'un maître du jeu doit inscrire : atteint, pas encore récompensé.
+   Rendu pour tous les joueurs d'un coup, parce que c'est un balayage de fond
+   qui tourne sur son client. */
+function pendingAchievements(data, uids) {
+    const out = [];
+    (uids || []).forEach(uid => {
+        achievementState(data, uid).forEach(row => {
+            if (row.pending) out.push({ uid: uid, ach: row.ach });
+        });
+    });
+    return out;
+}
+
+/* Les titres de la soirée, décernés à la clôture. Un titre sans concurrent
+   n'est pas un titre : il faut au moins un compteur non nul. */
+function lanTitles(data, uids) {
+    const counters = {};
+    (uids || []).forEach(uid => { counters[uid] = playerCounters(data, uid); });
+
+    return LAN_TITLES.map(title => {
+        let bestUid = null;
+        let best = 0;
+        (uids || []).forEach(uid => {
+            const value = Number(counters[uid][title.metric]) || 0;
+            if (value > best) { best = value; bestUid = uid; }
+        });
+        return bestUid ? { title: title, uid: bestUid, value: best } : null;
+    }).filter(Boolean);
+}
+
+/* ==========================================================================
+   Le surnom
+   Un joueur finit par ressembler à ce qu'il fait. Le surnom est donc tiré de
+   ses hauts faits, jamais choisi : c'est le plus rare de ceux qu'il possède
+   qui parle pour lui. « Grégory « Le Dépensier » » se lit d'un coup et dit
+   quelque chose de vrai sur la soirée.
+
+   Tous les hauts faits n'en donnent pas : « Premier achat », tout le monde
+   l'aura, et un surnom que tout le monde porte n'est plus un surnom.
+   ========================================================================== */
+
+/* Le surnom d'un joueur : celui de son haut fait le plus cher. À égalité, on
+   garde l'ordre du catalogue, pour qu'un surnom ne change pas tout seul entre
+   deux affichages. */
+function playerNickname(data, uid) {
+    let best = null;
+    achievementState(data, uid).forEach(row => {
+        if (!row.owned || !row.ach.nickname) return;
+        if (!best || row.ach.xp > best.ach.xp) best = row;
+    });
+    return best ? best.ach.nickname : '';
+}
+
+/* Le nom complet, surnom compris. Sans surnom, on rend le nom seul — jamais
+   des guillemets vides. */
+function playerFullName(name, nickname) {
+    const clean = (name || 'Un joueur').trim();
+    return nickname ? clean + ' « ' + nickname + ' »' : clean;
+}
+
+/* La fiche d'un joueur, telle qu'elle s'affiche : ce qu'il est, ce qu'il a
+   fait, ce qu'il possède. Une seule fonction pour les deux interfaces, comme
+   tout ce qui compte. */
+function playerProfile(data, uid) {
+    const counters = playerCounters(data, uid);
+    const rows = achievementState(data, uid);
+    const owned = rows.filter(row => row.owned);
+
+    /* Ce qu'il a presque : la ligne la plus avancée parmi celles qu'il n'a pas
+       encore. C'est ce qui donne envie de rouvrir la fiche. */
+    const nextUp = rows
+        .filter(row => !row.owned && row.ratio > 0)
+        .sort((a, b) => b.ratio - a.ratio)[0] || null;
+
+    return {
+        uid: uid,
+        nickname: playerNickname(data, uid),
+        level: xpLevel(xpTotal(data.xp, uid)),
+        balance: counters.balance,
+        counters: counters,
+        achievements: owned,
+        achievementCount: owned.length,
+        achievementTotal: rows.length,
+        nextUp: nextUp,
+        /* Les titres de soirée déjà décernés, lus au journal : ce sont des
+           récompenses inscrites, pas un calcul du moment. */
+        titles: xpAwards(data.xp)
+            .filter(award => award.uid === uid && award.type === 'title')
+            .sort((a, b) => (b.ts || 0) - (a.ts || 0))
+    };
 }

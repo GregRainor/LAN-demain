@@ -713,18 +713,18 @@ textarea.m-input { resize: vertical; min-height: 84px; }
 .m-move__delta.is-up { color: var(--ok); }
 .m-move__delta.is-down { color: var(--danger); }
 
-.m-rank {
+.m-podium {
     display: flex; align-items: center; gap: 10px;
     padding: 8px 0;
     border-bottom: 1px solid var(--line-2);
 }
-.m-rank:last-child { border-bottom: 0; }
-.m-rank__pos { width: 20px; font-family: var(--fd); color: var(--text-3); font-size: .9rem; }
-.m-rank__face { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; flex: 0 0 auto; }
-.m-rank__name { flex: 1; min-width: 0; font-size: .88rem; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.m-rank--1 .m-rank__pos { color: var(--gold); }
-.m-rank--2 .m-rank__pos { color: var(--silver); }
-.m-rank--3 .m-rank__pos { color: var(--bronze); }
+.m-podium:last-child { border-bottom: 0; }
+.m-podium__pos { width: 20px; font-family: var(--fd); color: var(--text-3); font-size: .9rem; }
+.m-podium__face { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; flex: 0 0 auto; }
+.m-podium__name { flex: 1; min-width: 0; font-size: .88rem; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.m-podium--1 .m-podium__pos { color: var(--gold); }
+.m-podium--2 .m-podium__pos { color: var(--silver); }
+.m-podium--3 .m-podium__pos { color: var(--bronze); }
 
 /* ==========================================================================
    LES CARTES
@@ -1456,3 +1456,266 @@ textarea.m-input { resize: vertical; min-height: 84px; }
 }
 
 .m-reveal__row { display: flex; gap: 10px; align-items: center; }
+
+/* ==========================================================================
+   LA BOUTIQUE
+   Direction « Le Paquet » : chaque article est un objet à prendre, pas une
+   ligne de formulaire. Un jeton de coût, un nom gravé, une bande de rareté.
+
+   Le vocabulaire est celui des cartes à collectionner — mêmes couleurs de
+   rareté, même jeton — mais le FORMAT est différent, et volontairement :
+   les collectibles sont en portrait, les articles de boutique en paysage.
+   Deux systèmes de cartes sur le même téléphone se confondraient sinon.
+   ========================================================================== */
+
+/* ---------- La barre d'expérience ----------
+   C'est la seule chose de cet écran qui ne repart pas à zéro entre deux
+   soirées. Elle récompense l'assiduité, pas le portefeuille — d'où sa place
+   tout en haut, au-dessus du solde. */
+.m-xp {
+    display: flex; flex-direction: column; gap: 9px;
+    padding: 13px 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-sharp);
+    background: linear-gradient(180deg, rgba(255, 255, 255, .025), transparent);
+}
+.m-xp__head { display: flex; align-items: baseline; gap: 10px; }
+.m-xp__lvl {
+    font-family: var(--fd); font-size: 1.35rem; font-weight: 600;
+    color: var(--gold); line-height: 1;
+}
+.m-xp__lvl small { font-size: .62rem; letter-spacing: .18em; text-transform: uppercase; color: var(--text-3); font-family: var(--fb); font-weight: 400; }
+.m-xp__count {
+    margin-left: auto; font-size: .72rem; color: var(--text-3);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Vingt-quatre segments plutôt qu'une barre pleine : on voit le prochain
+   cran arriver, et un gain se remarque même petit. */
+.m-xp__segs { display: grid; grid-template-columns: repeat(24, 1fr); gap: 2px; }
+.m-xp__seg { height: 8px; background: rgba(255, 255, 255, .07); border-radius: 1px; }
+.m-xp__seg.is-on { background: var(--gold); box-shadow: 0 0 5px var(--gold-a30); }
+.m-xp__seg.is-edge { background: var(--gold-dim); box-shadow: none; }
+.m-xp__foot { font-size: .71rem; color: var(--text-3); }
+
+/* ---------- Le solde ---------- */
+.m-purse {
+    display: flex; align-items: center; gap: 12px;
+    padding: 15px 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-sharp);
+    background: linear-gradient(160deg, var(--gold-a08), transparent 65%);
+}
+.m-purse__coin {
+    width: 42px; height: 42px; border-radius: 50%; flex: 0 0 auto;
+    background: radial-gradient(circle at 32% 28%, #f0d97a, #b8902a);
+    display: grid; place-items: center;
+    font-family: var(--fd); font-weight: 600; font-size: 1.05rem; color: #3b2e08;
+    box-shadow: 0 2px 10px rgba(212, 175, 55, .28);
+}
+.m-purse__main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.m-purse__value { font-family: var(--fd); font-size: 1.85rem; font-weight: 600; color: var(--text); line-height: 1.05; }
+.m-purse__hint { font-size: .73rem; color: var(--text-3); }
+
+/* ---------- Un article ----------
+   Format paysage : le jeton de coût à gauche, le reste à droite. La couleur
+   du cadre dit la famille, comme la rareté le fait sur une carte. */
+.m-sitem {
+    position: relative;
+    display: flex; gap: 12px;
+    padding: 13px;
+    border: 1px solid var(--sc-soft, var(--line));
+    border-radius: var(--r-sharp);
+    background: linear-gradient(150deg, var(--sc-wash, transparent) 0%, var(--panel) 62%);
+    --sc: var(--gold);
+    --sc-soft: rgba(212, 175, 55, .28);
+    --sc-wash: rgba(212, 175, 55, .07);
+}
+.m-sitem--privilege { --sc: var(--r-showcase); --sc-soft: rgba(212, 175, 55, .4); --sc-wash: rgba(212, 175, 55, .09); }
+.m-sitem--handicap  { --sc: #d96a6a;           --sc-soft: rgba(192, 74, 74, .45);  --sc-wash: rgba(192, 74, 74, .09); }
+.m-sitem--cosmetic  { --sc: var(--r-epic);     --sc-soft: rgba(194, 100, 216, .4); --sc-wash: rgba(194, 100, 216, .08); }
+.m-sitem--fun       { --sc: var(--r-uncommon); --sc-soft: rgba(78, 143, 168, .4);  --sc-wash: rgba(78, 143, 168, .08); }
+.m-sitem--pack      { --sc: var(--r-signature); --sc-soft: rgba(255, 138, 61, .5); --sc-wash: rgba(255, 138, 61, .1); }
+
+.m-sitem.is-locked { opacity: .5; }
+
+.m-sitem__cost {
+    width: 38px; height: 38px; border-radius: 50%; flex: 0 0 auto;
+    background: radial-gradient(circle at 34% 30%, #f0d97a, #b8902a);
+    display: grid; place-items: center;
+    font-weight: 700; font-size: .82rem; color: #3b2e08;
+    font-variant-numeric: tabular-nums;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, .4);
+}
+.m-sitem.is-locked .m-sitem__cost {
+    background: rgba(255, 255, 255, .1); color: var(--text-3); box-shadow: none;
+}
+
+.m-sitem__main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.m-sitem__name {
+    font-family: var(--fd); font-size: 1.08rem; font-weight: 600;
+    color: var(--text); line-height: 1.2;
+}
+.m-sitem__desc { font-size: .81rem; color: var(--text-2); line-height: 1.4; }
+
+/* La bande : le losange et le mot disent la famille, comme sur une carte. */
+.m-sitem__strip { display: flex; align-items: center; gap: 7px; }
+.m-sitem__gem { width: 5px; height: 5px; transform: rotate(45deg); background: var(--sc); flex: 0 0 auto; }
+.m-sitem__fam {
+    font-size: .58rem; letter-spacing: .2em; text-transform: uppercase;
+    color: var(--sc); padding-left: .2em;
+}
+.m-sitem__stock { margin-left: auto; font-size: .68rem; color: var(--text-3); }
+
+.m-sitem__buy {
+    min-height: var(--tap); padding: 0 15px;
+    border: 1px solid var(--sc-soft); background: var(--sc-wash);
+    color: var(--sc);
+    border-radius: var(--r-sharp);
+    font-size: .78rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
+    padding-left: calc(15px + .1em);
+    display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+    align-self: flex-start;
+}
+.m-sitem__buy:disabled { opacity: .55; letter-spacing: 0; text-transform: none; font-weight: 500; }
+.m-sitem__buy svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ---------- Le booster en tête de gondole ----------
+   L'article que la soirée met en avant : il a droit à son emballage, pas à
+   une ligne de liste. */
+.m-boostbuy {
+    position: relative; overflow: hidden;
+    display: flex; flex-direction: column; gap: 12px;
+    padding: 16px;
+    border: 1px solid rgba(255, 138, 61, .45);
+    border-radius: var(--r-sharp);
+    background: linear-gradient(155deg, rgba(255, 138, 61, .13) 0%, #100c09 60%);
+}
+.m-boostbuy::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(115deg, transparent 32%, rgba(255, 220, 170, .07) 47%, transparent 62%);
+}
+.m-boostbuy__row { position: relative; display: flex; align-items: center; gap: 13px; }
+.m-boostbuy__art {
+    width: 62px; height: 84px; flex: 0 0 auto;
+    border-radius: 3px; overflow: hidden;
+    border: 1px solid rgba(255, 138, 61, .4);
+    background: var(--panel-2);
+    display: grid; place-items: center;
+}
+.m-boostbuy__art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.m-boostbuy__main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.m-boostbuy__name { font-family: var(--fd); font-size: 1.2rem; font-weight: 600; color: var(--text); line-height: 1.15; }
+.m-boostbuy__meta { font-size: .76rem; color: var(--text-2); }
+.m-boostbuy__cost {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: var(--fd); font-size: 1.15rem; font-weight: 600; color: var(--r-signature);
+    font-variant-numeric: tabular-nums;
+}
+.m-boostbuy__cost span {
+    width: 20px; height: 20px; border-radius: 50%;
+    background: radial-gradient(circle at 32% 28%, #f0d97a, #b8902a);
+    display: grid; place-items: center; font-size: .58rem; font-weight: 700; color: #3b2e08;
+    font-family: var(--fb);
+}
+
+/* ---------- Les hauts faits ---------- */
+.m-achline {
+    display: flex; align-items: center; gap: 11px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--line-2);
+}
+.m-achline:last-child { border-bottom: 0; }
+.m-achline__ico {
+    width: 34px; height: 34px; flex: 0 0 auto;
+    border-radius: 50%;
+    border: 1px solid var(--line-2);
+    display: grid; place-items: center;
+    color: var(--text-3);
+}
+.m-achline__ico svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.m-achline__main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.m-achline__name { font-size: .89rem; color: var(--text-2); }
+.m-achline__hint { font-size: .71rem; color: var(--text-3); }
+.m-achline__bar { height: 3px; background: rgba(255, 255, 255, .06); border-radius: 2px; overflow: hidden; }
+.m-achline__fill { height: 100%; background: var(--gold-dim); }
+.m-achline__xp {
+    flex: 0 0 auto; font-size: .72rem; font-weight: 600; color: var(--text-3);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Obtenu : la pastille s'allume et le nom sort de l'ombre. */
+.m-achline.is-owned .m-achline__ico { color: var(--gold); border-color: var(--gold-a30); background: var(--gold-a08); }
+.m-achline.is-owned .m-achline__name { color: var(--text); }
+.m-achline.is-owned .m-achline__xp { color: var(--gold); }
+
+/* Atteint mais pas encore inscrit : ça arrive dès qu'un maître du jeu est en
+   ligne. On le dit plutôt que de laisser croire à un bug. */
+.m-achline.is-pending .m-achline__ico { color: var(--ok); border-color: rgba(78, 148, 99, .4); }
+.m-achline.is-pending .m-achline__hint { color: #8fd0a2; }
+
+.m-achsum {
+    display: flex; align-items: center; gap: 11px;
+    padding: 12px 13px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-sharp);
+    background: var(--panel);
+    width: 100%;
+    text-align: left;
+}
+.m-achsum__n { font-family: var(--fd); font-size: 1.5rem; color: var(--gold); line-height: 1; }
+.m-achsum__main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.m-achsum__t { font-size: .9rem; color: var(--text); }
+.m-achsum__s { font-size: .73rem; color: var(--text-3); }
+.m-achsum__chev { width: 16px; height: 16px; color: var(--text-3); fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Titre de soirée : décerné à la clôture, donc il porte un ruban plutôt
+   qu'une barre de progression. */
+.m-title {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--gold-a30);
+    border-radius: var(--r-sharp);
+    background: var(--gold-a08);
+}
+.m-title__label { flex: 1; font-size: .84rem; color: var(--text); }
+.m-title__who { font-size: .78rem; color: var(--gold); }
+
+/* ---------- La fiche d'un joueur ----------
+   Le surnom est la seule chose qu'on ne choisit pas ici : il vient du plus
+   rare des hauts faits. Il a donc droit à la police de titre. */
+.m-prof__head { display: flex; align-items: center; gap: 13px; }
+.m-prof__face {
+    width: 62px; height: 62px; border-radius: 50%; object-fit: cover; flex: 0 0 auto;
+    border: 1px solid var(--gold-a30);
+}
+.m-prof__ident { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.m-prof__name { font-family: var(--fd); font-size: 1.35rem; font-weight: 600; color: var(--text); line-height: 1.1; }
+.m-prof__nick { font-family: var(--fd); font-style: italic; font-size: 1rem; color: var(--gold); }
+.m-prof__lvl { font-size: .75rem; color: var(--text-3); }
+
+.m-prof__stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
+.m-prof__stat {
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    padding: 10px 6px;
+    border: 1px solid var(--line-2);
+    border-radius: var(--r-sharp);
+}
+.m-prof__statv { font-family: var(--fd); font-size: 1.15rem; color: var(--text); font-variant-numeric: tabular-nums; }
+.m-prof__statl { font-size: .64rem; letter-spacing: .1em; text-transform: uppercase; color: var(--text-3); }
+
+.m-prof__badges { display: flex; flex-wrap: wrap; gap: 7px; }
+.m-prof__badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 11px 6px 8px;
+    border-radius: var(--r-pill);
+    border: 1px solid var(--gold-a30);
+    background: var(--gold-a08);
+    color: var(--gold);
+    font-size: .74rem;
+}
+.m-prof__badge svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex: 0 0 auto; }
+
+/* Un visage et une ligne de classement s'ouvrent : on le montre. */
+.m-presence__face { cursor: pointer; }
+button.m-podium { width: 100%; text-align: left; }

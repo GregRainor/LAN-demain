@@ -52,16 +52,28 @@ et la conception en tient compte : **aucun solde n'est stocké**. Un solde se re
 toujours (`economyBalance()` dans `core.js`) à partir de deux sources, chacune protégée
 différemment.
 
-### 1. Le registre (`lan/economy/ledger`) — écriture unique, maîtres du jeu uniquement
+### 1. Le registre (`lan/economy/ledger`) — écriture unique
 
 Chaque ligne est un mouvement signé : qui, combien, pourquoi, par qui.
 
-- `.write` exige le rôle `admin` ou `gamemaster` **et** `!data.exists()`.
 - `!data.exists()` interdit à la fois la modification et la suppression : une ligne écrite
   ne se réécrit plus. Le registre s'ajoute, il ne se corrige pas.
-- Un joueur ordinaire ne peut donc **jamais** créditer qui que ce soit, lui-même compris.
+- **Créditer** (`type` autre que `purchase`) reste réservé aux rôles `admin` et `gamemaster`.
+  Un joueur ne peut donc enrichir personne, lui-même compris.
+- **Se débiter**, en revanche, un joueur le peut — et lui seul, pour lui-même. Une ligne de
+  type `purchase` doit porter `uid === auth.uid`, un `delta` strictement **négatif**, et ce
+  delta doit être **exactement l'opposé du prix affiché en boutique** :
+
+  ```
+  newData.child('delta').val() === 0 - root.child('lan/economy/catalog')
+      .child(newData.child('itemId').val()).child('price').val()
+  ```
+
+  C'est ce qui rend l'achat instantané sans ouvrir de brèche : la seule ligne qu'un joueur
+  sait écrire est celle qui l'appauvrit, du montant exact que la boutique annonce. Il ne peut
+  ni s'offrir un article à moitié prix, ni créditer un ami, ni toucher au registre d'autrui.
 - Le registre est en lecture publique, volontairement : chacun voit qui a reçu quoi et
-  pourquoi. La transparence fait ici le travail qu'un serveur ferait ailleurs.
+  pourquoi.
 
 ### 2. Le compteur de présence (`lan/economy/ticks/{uid}`) — auto-écrit, mais bridé par les règles
 
@@ -83,26 +95,34 @@ Ces deux nombres (600000 et 60) sont aussi dans `core.js` (`ECONOMY`). Un fichie
 peut ni importer ni commenter : **ce sont les règles qui font foi**, `core.js` ne fait
 qu'afficher. Changer l'un sans l'autre casse silencieusement le compteur.
 
-### 3. Les demandes d'achat (`lan/economy/purchases`) — proposées, jamais auto-validées
+### 3. Les achats (`lan/economy/purchases`) — immédiats
 
-Acheter ne débite pas. Le joueur dépose une demande `pending` ; un maître du jeu la valide,
-et c'est **lui** qui écrit la ligne de débit au registre.
+Acheter débite tout de suite. Il n'y a **plus de validation par un maître du jeu** : entre
+amis, faire attendre quelqu'un devant un bouton n'apportait rien que de l'attente.
 
-- Le joueur ne peut créer une demande qu'à son propre nom (`uid === auth.uid`) et seulement
-  avec le statut `pending`.
-- Le **prix est verrouillé** à la création sur celui du catalogue :
-  `newData.child('price').val() === root.child('lan/economy/catalog').child(itemId).child('price').val()`.
-  Impossible de s'offrir un article à 500 en écrivant 5.
-- Une fois créée, la demande n'est plus modifiable par son auteur : il peut seulement la
-  **retirer** tant qu'elle est `pending`. Seul un maître du jeu la tranche.
+Le débit et l'achat partent dans la **même écriture multi-chemins** (`db.ref().update({...})`),
+donc Firebase les applique ensemble ou pas du tout. Personne ne peut être débité sans son
+article, ni recevoir un article sans être débité.
 
-**Limite assumée** : les règles Firebase ne savent pas additionner un registre, donc elles ne
-peuvent pas empêcher une demande qui dépasse le solde. C'est le maître du jeu qui tranche —
-l'interface lui affiche le solde de l'acheteur au moment de valider, et l'avertit en rouge si
-l'achat le ferait passer en négatif. C'est le garde-fou contre un client bricolé.
+- Le joueur ne peut créer un achat qu'à son propre nom (`uid === auth.uid`), et seulement
+  avec le statut `granted`.
+- Le **prix est verrouillé** sur celui du catalogue, à la fois sur l'achat et sur la ligne de
+  registre correspondante (voir §1). Impossible de s'offrir un article à 500 en écrivant 5.
+- Un achat écrit n'est plus modifiable par son auteur.
+
+**Limite assumée** : les règles Firebase ne savent pas additionner un registre, donc rien
+n'empêche techniquement un client bricolé de dépenser plus qu'il n'a et de passer en négatif.
+Trois raisons de l'accepter : l'interface refuse déjà l'achat quand le solde ne suit pas ; un
+solde négatif s'affiche à tout le monde dans les fortunes ; et le registre est public, donc la
+dépense de trop porte un nom. La seule parade réelle serait un serveur, ce que ce projet n'a
+volontairement pas.
 
 **Limite assumée** : un maître du jeu peut se créditer lui-même. C'est volontaire, le rôle est
 un rôle de confiance — mais chaque crédit laisse une ligne signée et publique au registre.
+
+**Reste de l'ancien fonctionnement** : les demandes `pending` déposées avant ce changement
+restent visibles et tranchables par un maître du jeu. Sa file disparaît d'elle-même dès
+qu'elle est vide.
 
 ### 4. Le catalogue (`lan/economy/catalog`)
 
@@ -116,10 +136,10 @@ un rôle de confiance — mais chaque crédit laisse une ligne signée et publiq
 c'est un acquis curé au fil des soirées. Une fortune, elle, se gagne dans une soirée et ne se
 transporte pas.
 
-> ⚠️ **Mise à jour requise** : les règles `lan/economy` ci-dessus sont nouvelles.
-> Tant qu'elles ne sont pas **republiées** avec la procédure ci-dessous, l'onglet
-> Boutique restera vide et la console affichera `permission_denied at
-> /lan/economy`. Le gain passif et les achats échoueront eux aussi, en silence.
+> ⚠️ **Mise à jour requise** : les règles `lan/economy` ont changé (achat immédiat : un
+> joueur écrit désormais sa propre ligne de débit, validée sur le prix du catalogue). Tant
+> qu'elles ne sont pas **republiées**, tout achat échouera avec `permission_denied at
+> /lan/economy/ledger` — et l'échec est silencieux côté joueur.
 
 
 ## Les cartes de la soirée (`lan/tcg`)
@@ -298,6 +318,62 @@ leur jaquette Steam. Rien d'autre ne change.
 > /lan/tcg`. Composer le set, sceller un booster et proposer un échange
 > échoueront tous, en silence.
 
+
+## L'expérience et les hauts faits (`lan/xp`)
+
+Les points (`lan/economy`) mesurent **une** soirée : ils se dépensent et repartent à zéro à
+chaque clôture. L'expérience mesure **les** soirées : elle ne se dépense pas, et
+`startNewLan()` ne la touche pas. C'est toute la différence, et c'est ce qui fait qu'un
+vétéran de dix LAN reste devant sans que le nouveau soit largué.
+
+### Un seul nœud, en écriture unique
+
+```
+lan/xp/awards/{awardId} = { uid, delta, type, reason, refId, by, ts }
+```
+
+- `.write` exige le rôle `admin` ou `gamemaster` **et** `!data.exists()` : une récompense
+  écrite ne se réécrit pas et ne s'efface pas.
+- `.validate` impose `delta >= 0` — l'expérience ne se retire jamais — et `ts <= now`.
+- Aucun total n'est stocké : `xpTotal()` et `xpLevel()` dans `core.js` les recalculent, comme
+  `economyBalance()` le fait pour les points.
+
+### Les clés sont déterministes, et c'est ce qui rend l'attribution automatique sûre
+
+- un jalon : `{uid}__ach__{achId}`
+- une présence à une soirée : `{uid}__lan__{lanId}`
+- un titre de soirée : `{uid}__title__{lanId}__{titleId}`
+
+Deux maîtres du jeu en ligne écrivent donc **le même nœud** plutôt que deux récompenses. Le
+doublon est impossible par construction, pas par vérification.
+
+### Pourquoi les jalons doivent être inscrits, et pas seulement calculés
+
+Un jalon comme « cinq achats » se calcule depuis `lan/economy` — qui est effacé à chaque
+clôture. Sans trace écrite, un haut fait gagné ce soir se **reverrouillerait** à la prochaine
+LAN. C'est la récompense au journal qui fait foi : le calcul sert seulement à décider quand
+l'inscrire.
+
+L'inscription est faite par les clients des maîtres du jeu (`grantPendingAchievements`),
+exactement comme la validation des achats. Un joueur seul verra ses hauts faits « atteints »
+sans être inscrits jusqu'à ce qu'un maître du jeu se connecte — c'est une dépendance assumée,
+la même que pour la boutique.
+
+**Limite assumée** : un maître du jeu peut s'inscrire une récompense qu'il n'a pas méritée, en
+écrivant la clé à la main. C'est volontaire — le rôle est un rôle de confiance — et chaque
+récompense porte `by`, donc reste attribuable.
+
+### Les titres de soirée
+
+Les jalons sont absolus (« cinq achats ») ; les titres sont comparatifs (« le plus gros
+acheteur »). Un comparatif n'a de sens qu'une fois la soirée finie : `awardLanExperience()`
+les décerne à la clôture, **avant** l'effacement — les compteurs qui les produisent n'existent
+plus une ligne plus bas — et les archive dans `lan/history`.
+
+> ⚠️ **Mise à jour requise** : les règles `lan/xp` sont nouvelles. Tant qu'elles ne sont pas
+> **republiées** avec la procédure ci-dessous, la barre d'expérience restera à zéro, aucun
+> haut fait ne s'inscrira, et la console affichera `permission_denied at /lan/xp`. Le reste de
+> l'application continue de fonctionner : l'échec est silencieux côté joueur.
 
 ### Comment les appliquer
 

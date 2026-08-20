@@ -29,6 +29,9 @@ const state = {
     /* Le set, les paquets et les échanges. Aucune collection n'y est stockée :
        elle se rejoue depuis les paquets ouverts (core.js). */
     tcg: {},
+    /* Expérience et hauts faits. Ce nœud ne repart JAMAIS à zéro : c'est ce
+       qui distingue l'assiduité de la fortune. */
+    xp: {},
     notifs: {},
     libraries: {},
     history: {},
@@ -237,6 +240,7 @@ const TABS = ['soiree', 'jeux', 'boutique', 'miam', 'sondages', 'plus'];
 const SCREEN_TITLES = {
     vote: 'Mon vote',
     cartes: 'Mes cartes',
+    'hauts-faits': 'Hauts faits',
     evenements: 'Événements',
     kocktails: 'Kocktails',
     biblio: 'Bibliothèques',
@@ -333,6 +337,7 @@ function goto(screen, options) {
     if (screen === 'cartes') renderCartes();
     if (screen === 'biblio') renderLibraries();
     if (screen === 'admin') renderAdmin();
+    if (screen === 'hauts-faits') renderHautsFaits();
 }
 
 $('m-back').addEventListener('click', () => history.back());
@@ -527,6 +532,7 @@ function boot(user) {
     watch('lan/tcg', value => { state.tcg = value || {}; sealBoughtPacks(); });
     watch('lan/steamLibraries', value => { state.libraries = value || {}; });
     watch('lan/history', value => { state.history = value || {}; });
+    watch('lan/xp', value => { state.xp = value || {}; grantPendingAchievements(); });
     watch(`lan/notifications/${user.uid}`, value => { state.notifs = value || {}; });
 
     startTickEngine();
@@ -562,6 +568,8 @@ function renderAll() {
     renderEvents();
     renderKocktails();
     renderBoutique();
+    if (currentScreen === 'hauts-faits') renderHautsFaits();
+    grantPendingAchievements();
     renderCartes();
     renderLibraries();
     renderHistory();
@@ -630,6 +638,9 @@ function renderPresence() {
             img.src = playerPhoto(uid);
             img.alt = `${playerName(uid)} — ${isOnline ? 'connecté' : 'déconnecté'}`;
             img.title = img.alt;
+            /* Un visage ouvre la fiche : c'est le chemin le plus court vers
+               « qui est ce joueur, et qu'a-t-il fait ». */
+            img.addEventListener('click', () => openProfile(uid));
             stack.appendChild(img);
         });
 
@@ -1995,6 +2006,10 @@ function renderPlus() {
     $('m-plus-cartes').textContent = sealed
         ? `${sealed} booster${sealed > 1 ? 's' : ''} à ouvrir`
         : (progress.total ? `${progress.owned}/${progress.total}` : '');
+    /* La rangée « Hauts faits » montre le niveau : c'est le chiffre qui
+       progresse d'une soirée à l'autre, celui qu'on vient vérifier. */
+    const myXp = xpLevel(xpTotal(state.xp, view.uid));
+    $('m-plus-hauts-faits').textContent = 'Niveau ' + myXp.level;
     const total = draftTotal();
     $('m-plus-vote').textContent = total ? `${total} jeu${total > 1 ? 'x' : ''}` : '';
     const libs = Object.keys(state.libraries).length;
@@ -2629,6 +2644,9 @@ function renderBoutique() {
         hint.textContent = 'Les points se gagnent pendant la LAN.';
     }
 
+    paintXpBar('m-xp-level', 'm-xp-count', 'm-xp-segs', 'm-xp-foot');
+    renderAchSummary();
+    renderBoosterShelf();
     renderGmQueue();
     renderMyPurchases();
     renderShopList();
@@ -2638,20 +2656,156 @@ function renderBoutique() {
     $('m-shop-new').style.display = state.isGamemaster ? 'block' : 'none';
 }
 
+/* ---------- La barre d'expérience ----------
+   Elle est peinte à deux endroits (boutique et hauts faits) : mêmes chiffres,
+   mêmes segments, une seule fonction. */
+
+const XP_SEGMENTS = 24;
+
+function paintXpBar(levelId, countId, segsId, footId) {
+    const uid = state.user && state.user.uid;
+    const info = xpLevel(xpTotal(state.xp, uid));
+
+    $(levelId).textContent = String(info.level);
+    $(countId).textContent = info.into + ' / ' + info.span + ' XP';
+
+    const segs = $(segsId);
+    segs.innerHTML = '';
+    /* On arrondit vers le haut dès qu'il y a le moindre progrès : un joueur
+       qui vient de gagner 25 XP doit voir un segment s'allumer, pas rien. */
+    const lit = info.into > 0 ? Math.max(1, Math.round(info.ratio * XP_SEGMENTS)) : 0;
+    for (let i = 0; i < XP_SEGMENTS; i += 1) {
+        const seg = el('span', 'm-xp__seg');
+        if (i < lit) seg.classList.add(i === lit - 1 ? 'is-edge' : 'is-on');
+        segs.appendChild(seg);
+    }
+
+    if (footId) {
+        $(footId).textContent = info.total === 0
+            ? 'L\'expérience se gagne en venant, et en décrochant des hauts faits.'
+            : 'Encore ' + info.toNext + ' XP avant le niveau ' + (info.level + 1)
+              + ' · ' + info.total + ' XP en tout';
+    }
+}
+
+/* ---------- Le booster en tête de gondole ----------
+   Le paquet est l'article que la soirée met en avant : il a droit à son
+   emballage plutôt qu'à une ligne de liste. */
+
+function renderBoosterShelf() {
+    const uid = state.user && state.user.uid;
+    const section = $('m-booster-section');
+    const mount = $('m-booster-shelf');
+    const items = packItems(state.economy);
+
+    /* Sans set, un booster ne contiendrait rien : on ne le propose pas. */
+    const setId = tcgCurrentSetId(state.tcg);
+    if (!setId) { section.style.display = 'none'; return; }
+
+    if (!items.length) {
+        /* Personne n'a encore mis de booster en vente. Pour un maître du jeu,
+           c'est une chose à faire, pas une absence à constater. */
+        if (!state.isGamemaster) { section.style.display = 'none'; return; }
+        section.style.display = 'flex';
+        mount.innerHTML = '';
+        const card = el('article', 'm-card');
+        card.appendChild(el('p', 'm-card__body',
+            'Aucun booster en vente. Les joueurs ne peuvent pas acheter de cartes.'));
+        const go = el('button', 'm-btn m-btn--solid m-btn--full', 'Mettre le booster en vente');
+        go.addEventListener('click', createDefaultPackItem);
+        card.appendChild(go);
+        mount.appendChild(card);
+        return;
+    }
+
+    section.style.display = 'flex';
+    mount.innerHTML = '';
+    items.forEach(([id, item]) => mount.appendChild(buildBoosterCard(id, item, uid)));
+}
+
+function buildBoosterCard(id, item, uid) {
+    const card = el('article', 'm-boostbuy');
+    const row = el('div', 'm-boostbuy__row');
+
+    const art = el('div', 'm-boostbuy__art');
+    const img = el('img');
+    img.src = generatedArt[PACK_ART_KEY] || DEFAULT_THUMB;
+    img.alt = '';
+    art.appendChild(img);
+    row.appendChild(art);
+
+    const main = el('div', 'm-boostbuy__main');
+    main.appendChild(el('h3', 'm-boostbuy__name',
+        item.name || packLabel({ name: generatedArtNames[PACK_ART_KEY] }, state.settings.lanName)));
+    main.appendChild(el('p', 'm-boostbuy__meta',
+        TCG.PACK_SIZE + ' cartes du set de la soirée, dont trois brillantes.'));
+
+    const cost = el('span', 'm-boostbuy__cost');
+    cost.appendChild(el('span', null, ECONOMY.CURRENCY));
+    cost.appendChild(document.createTextNode(String(Math.round(Number(item.price) || 0))));
+    main.appendChild(cost);
+    row.appendChild(main);
+    card.appendChild(row);
+
+    const verdict = canBuy(state.economy, uid, id, item);
+    const buy = el('button', 'm-btn m-btn--solid m-btn--full',
+        verdict.ok ? 'Acheter un booster' : verdict.why);
+    buy.disabled = !verdict.ok;
+    buy.addEventListener('click', () => requestPurchase(id, item));
+    card.appendChild(buy);
+
+    if (state.isGamemaster) {
+        const del = el('button', 'm-btn m-btn--quiet m-btn--sm', 'Retirer de la vente');
+        del.addEventListener('click', () => removeCatalogItem(id));
+        card.appendChild(del);
+    }
+
+    return card;
+}
+
+/* Un booster prêt à vendre, sans passer par le formulaire. Le prix part du
+   plafond de présence : dix heures de LAN paient trois paquets, ce qui laisse
+   la place aux défis pour le reste. */
+function createDefaultPackItem() {
+    const user = state.user;
+    if (!user) return;
+    const price = Math.round(ECONOMY.MAX_TICKS * ECONOMY.TICK_VALUE / 3);
+    db.ref('lan/economy/catalog').push().set({
+        name: packLabel({ name: generatedArtNames[PACK_ART_KEY] }, state.settings.lanName),
+        description: TCG.PACK_SIZE + ' cartes du set de la soirée.',
+        price: price,
+        category: 'fun',
+        stock: null,
+        needsTarget: false,
+        kind: 'pack',
+        active: true,
+        createdBy: user.uid,
+        createdAt: firebase.database.ServerValue.TIMESTAMP
+    })
+        .then(() => showToast('Le booster est en vente à ' + formatPoints(price) + '.', 'success'))
+        .catch(e => showToast('Erreur : ' + e.message, 'error'));
+}
+
+function removeCatalogItem(id) {
+    db.ref('lan/economy/catalog/' + id).remove()
+        .then(() => showToast('Article retiré.', 'success'))
+        .catch(e => showToast('Erreur : ' + e.message, 'error'));
+}
+
 /* ---------- File d'attente du maître du jeu ---------- */
 
 function renderGmQueue() {
     const section = $('m-gm-section');
     const mount = $('m-gm-queue');
-    if (!state.isGamemaster) { section.style.display = 'none'; return; }
+    const queue = pendingPurchases(state.economy);
+
+    /* Les achats sont immédiats : cette file ne sert plus qu'aux demandes
+       déposées avant le changement. Vide, elle disparaît au lieu d'annoncer
+       un travail qui n'existe plus. */
+    if (!state.isGamemaster || !queue.length) { section.style.display = 'none'; return; }
 
     section.style.display = 'flex';
     mount.innerHTML = '';
-    const queue = pendingPurchases(state.economy);
-    if (!queue.length) {
-        mount.appendChild(emptyState('Aucune demande en attente.'));
-        return;
-    }
 
     queue.forEach(p => {
         const card = el('article', 'm-card');
@@ -2767,8 +2921,10 @@ function renderShopList() {
     const mount = $('m-shop-list');
     mount.innerHTML = '';
 
+    /* Les boosters ont leur rayon à eux, tout en haut : les remettre ici
+       ferait deux fois le même article sur le même écran. */
     const catalog = Object.entries(state.economy.catalog || {})
-        .filter(([, item]) => item && item.active !== false);
+        .filter(([, item]) => item && item.active !== false && !isPackItem(item));
 
     if (!catalog.length) {
         mount.appendChild(emptyState(state.isGamemaster
@@ -2789,44 +2945,65 @@ function renderShopList() {
     });
 }
 
+/* Un article de boutique, à la manière d'une carte : jeton de coût, nom gravé,
+   bande de famille. Le format reste le PAYSAGE — les collectibles sont en
+   portrait, et deux systèmes de cartes qui se ressemblent trop se confondent. */
 function buildShopCard(id, item, uid) {
-    const card = el('article', 'm-card');
+    const family = item.category || 'fun';
+    const card = el('article', 'm-sitem m-sitem--' + family);
     const verdict = canBuy(state.economy, uid, id, item);
-    if (!verdict.ok) card.classList.add('is-unaffordable');
+    if (!verdict.ok) card.classList.add('is-locked');
 
-    const top = el('div', 'm-card__top');
-    top.appendChild(el('h3', 'm-card__title', item.name || 'Article'));
-    top.appendChild(el('span', 'm-price', formatPoints(item.price)));
-    card.appendChild(top);
+    /* Le prix est un jeton, pas une ligne de texte : c'est ce qui fait qu'on
+       lit « ça coûte 40 » avant de lire le nom. */
+    card.appendChild(el('span', 'm-sitem__cost', String(Math.round(Number(item.price) || 0))));
 
-    if (isPackItem(item)) {
-        card.classList.add('m-card--pack');
-        card.appendChild(el('p', 'm-card__meta',
-            '🎴 ' + TCG.PACK_SIZE + ' cartes du set de la soirée, dont au moins une peu commune.'));
-    }
-    if (item.description) card.appendChild(el('p', 'm-card__body', item.description));
+    const main = el('div', 'm-sitem__main');
+    main.appendChild(el('h3', 'm-sitem__name', item.name || 'Article'));
+    if (item.description) main.appendChild(el('p', 'm-sitem__desc', item.description));
+
+    const strip = el('div', 'm-sitem__strip');
+    strip.appendChild(el('span', 'm-sitem__gem'));
+    strip.appendChild(el('span', 'm-sitem__fam',
+        item.needsTarget ? 'Handicap ciblé' : categoryLabel(family)));
 
     const left = itemStockLeft(state.economy, id, item);
     if (left !== null) {
-        card.appendChild(el('p', 'm-card__meta', left ? left + ' restant' + (left > 1 ? 's' : '') : 'Épuisé'));
+        strip.appendChild(el('span', 'm-sitem__stock',
+            left ? left + ' restant' + (left > 1 ? 's' : '') : 'Épuisé'));
     }
+    main.appendChild(strip);
 
-    const buy = el('button', 'm-btn m-btn--full', verdict.ok ? 'Acheter' : verdict.why);
+    const buy = el('button', 'm-sitem__buy');
+    if (verdict.ok) {
+        buy.appendChild(iconSvg('M5 12h14M13 6l6 6-6 6'));
+        buy.appendChild(document.createTextNode(item.needsTarget ? 'Viser' : 'Prendre'));
+    } else {
+        buy.textContent = verdict.why;
+    }
     buy.disabled = !verdict.ok;
     buy.addEventListener('click', () => requestPurchase(id, item));
-    card.appendChild(buy);
+    main.appendChild(buy);
 
     if (state.isGamemaster) {
         const del = el('button', 'm-btn m-btn--quiet m-btn--sm', 'Retirer de la carte');
-        del.addEventListener('click', () => {
-            db.ref('lan/economy/catalog/' + id).remove()
-                .then(() => showToast('Article retiré.', 'success'))
-                .catch(e => showToast('Erreur : ' + e.message, 'error'));
-        });
-        card.appendChild(del);
+        del.addEventListener('click', () => removeCatalogItem(id));
+        main.appendChild(del);
     }
 
+    card.appendChild(main);
     return card;
+}
+
+/* Une icône au trait, à la taille du texte qui l'accompagne. */
+function iconSvg(path) {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+    const d = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    d.setAttribute('d', path);
+    svg.appendChild(d);
+    return svg;
 }
 
 /* Acheter, c'est déposer une demande — jamais se débiter soi-même. Le maître
@@ -2836,20 +3013,54 @@ function requestPurchase(itemId, item) {
     if (!user) return;
 
     const send = (targetUid, targetName) => {
-        db.ref('lan/economy/purchases').push().set({
+        /* L'achat est immédiat : plus personne à attendre. Le débit et l'achat
+           partent dans la MÊME écriture multi-chemins, donc Firebase les
+           applique ensemble ou pas du tout — impossible d'être débité sans
+           l'article, ou l'inverse.
+
+           Le joueur écrit ici sa propre ligne de registre, ce qu'il ne peut
+           faire nulle part ailleurs. Les règles l'y autorisent parce qu'une
+           ligne de type « purchase » est forcément NÉGATIVE et forcément égale
+           au prix affiché en boutique : elle ne peut qu'appauvrir celui qui la
+           signe. */
+        const purchaseId = db.ref('lan/economy/purchases').push().key;
+        const entryId = db.ref('lan/economy/ledger').push().key;
+        const price = Number(item.price) || 0;
+
+        const update = {};
+        update['lan/economy/ledger/' + entryId] = {
+            uid: user.uid,
+            delta: -price,
+            type: 'purchase',
+            itemId: itemId,
+            reason: item.name || 'Achat',
+            refId: purchaseId,
+            ts: firebase.database.ServerValue.TIMESTAMP
+        };
+        update['lan/economy/purchases/' + purchaseId] = {
             itemId: itemId,
             itemName: item.name || 'Article',
-            price: Number(item.price) || 0,
+            price: price,
             uid: user.uid,
             userName: user.displayName || 'Un joueur',
             targetUid: targetUid || null,
             targetName: targetName || null,
-            status: 'pending',
+            status: 'granted',
             ts: firebase.database.ServerValue.TIMESTAMP
-        }).then(() => {
-            closeSheet();
-            showToast('Demande envoyée au maître du jeu !', 'success');
-        }).catch(e => showToast('Erreur : ' + e.message, 'error'));
+        };
+
+        db.ref().update(update)
+            .then(() => {
+                closeSheet();
+                showToast(isPackItem(item)
+                    ? 'Booster acheté ! Il t\'attend dans tes cartes.'
+                    : (item.name || 'Article') + ' : c\'est à toi !', 'success');
+                if (targetUid && targetUid !== user.uid) {
+                    sendNotification(targetUid,
+                        (user.displayName || 'Quelqu\'un') + ' te joue « ' + (item.name || 'un handicap') + ' »', 'info');
+                }
+            })
+            .catch(e => showToast('Erreur : ' + e.message, 'error'));
     };
 
     /* Un handicap sans cible serait du sabotage anonyme : on demande sur qui,
@@ -2891,13 +3102,14 @@ function renderShopLeaderboard() {
         return;
     }
     board.slice(0, 10).forEach((row, i) => {
-        const line = el('div', 'm-rank m-rank--' + (i + 1));
-        line.appendChild(el('span', 'm-rank__pos', String(i + 1)));
-        const face = el('img', 'm-rank__face');
+        const line = el('button', 'm-podium m-podium--' + (i + 1));
+        line.addEventListener('click', () => openProfile(row.uid));
+        line.appendChild(el('span', 'm-podium__pos', String(i + 1)));
+        const face = el('img', 'm-podium__face');
         face.src = playerPhoto(row.uid);
         face.alt = '';
         line.appendChild(face);
-        line.appendChild(el('span', 'm-rank__name', playerName(row.uid)));
+        line.appendChild(el('span', 'm-podium__name', playerFullName(playerName(row.uid), playerNickname(achData(), row.uid))));
         line.appendChild(el('span', 'm-price', formatPoints(row.balance)));
         mount.appendChild(line);
     });
@@ -4604,13 +4816,14 @@ function renderTcgLeaderboard(view) {
         return;
     }
     board.slice(0, 10).forEach((row, i) => {
-        const line = el('div', 'm-rank m-rank--' + (i + 1));
-        line.appendChild(el('span', 'm-rank__pos', String(i + 1)));
-        const face = el('img', 'm-rank__face');
+        const line = el('button', 'm-podium m-podium--' + (i + 1));
+        line.addEventListener('click', () => openProfile(row.uid));
+        line.appendChild(el('span', 'm-podium__pos', String(i + 1)));
+        const face = el('img', 'm-podium__face');
         face.src = playerPhoto(row.uid);
         face.alt = '';
         line.appendChild(face);
-        line.appendChild(el('span', 'm-rank__name', playerName(row.uid)));
+        line.appendChild(el('span', 'm-podium__name', playerFullName(playerName(row.uid), playerNickname(achData(), row.uid))));
         line.appendChild(el('span', 'm-price', row.owned + '/' + row.total));
         mount.appendChild(line);
     });
@@ -4641,6 +4854,327 @@ function renderTradeFeed(view) {
             + ' · ' + timeAgo(trade.resolvedAt || trade.ts)));
         row.appendChild(who);
         mount.appendChild(row);
+    });
+}
+
+
+/* ==========================================================================
+   Hauts faits
+   Les jalons se CALCULENT depuis les données du moment (core.js), mais ce qui
+   fait foi, c'est la récompense inscrite au journal : sans elle, un jalon
+   gagné ce soir se reverrouillerait à la prochaine LAN, quand les compteurs de
+   la soirée repartent à zéro.
+
+   L'inscription est faite par les clients des maîtres du jeu, comme la
+   validation des achats. La clé est déterministe, donc deux maîtres du jeu en
+   ligne écrivent le même nœud plutôt que deux récompenses.
+   ========================================================================== */
+
+/* Les pictogrammes, au trait, à la taille du texte. Pas d'emoji : ils ne se
+   recolorent pas et rendent différemment sur chaque téléphone. */
+const ACH_ICONS = {
+    cart: 'M5 6h15l-1.6 8.2a2 2 0 0 1-2 1.6H9a2 2 0 0 1-2-1.6L5.2 4.6A1 1 0 0 0 4.2 4H3M9 20h.01M17 20h.01',
+    coin: 'M12 3c4.4 0 8 1.6 8 3.5S16.4 10 12 10 4 8.4 4 6.5 7.6 3 12 3zM4 6.5v11C4 19.4 7.6 21 12 21s8-1.6 8-3.5v-11',
+    target: 'M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z',
+    pack: 'M5 8h14l-1 12H6zM9 8V6a3 3 0 0 1 6 0v2M9 12h6',
+    cards: 'M8 3h12v14H8zM5.5 6.5 4 8v11l6 2',
+    spark: 'M12 3l2 5.6 5.6 2-5.6 2L12 18l-2-5.4-5.6-2 5.6-2zM19 4v3M17.5 5.5h3',
+    signature: 'M4 17c4-1 5-10 8-10s2 8 5 8M4 21h16',
+    trophy: 'M8 4h8v5a4 4 0 0 1-8 0zM8 5H5v2a3 3 0 0 0 3 3M16 5h3v2a3 3 0 0 1-3 3M12 13v4M9 20h6',
+    trade: 'M4 8h13l-3-3M20 16H7l3 3',
+    clock: 'M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16zM12 8v4l3 2',
+    flag: 'M5 21V4M5 5h11l-1.5 3.5L16 12H5'
+};
+
+function achIcon(key) {
+    const wrap = el('span', 'm-achline__ico');
+    wrap.appendChild(iconSvg(ACH_ICONS[key] || ACH_ICONS.trophy));
+    return wrap;
+}
+
+/* Les données que core.js attend pour calculer les compteurs. Le rejeu des
+   cartes est le seul calcul lourd : il est fait UNE fois et partagé. */
+function achData() {
+    return {
+        economy: state.economy,
+        tcg: state.tcg,
+        cards: tcgSnapshot().cards,
+        xp: state.xp,
+        history: state.history,
+        votes: state.votes
+    };
+}
+
+function renderAchSummary() {
+    const uid = state.user && state.user.uid;
+    const rows = achievementState(achData(), uid);
+    const owned = rows.filter(r => r.owned).length;
+    const pending = rows.filter(r => r.pending).length;
+
+    $('m-ach-n').textContent = String(owned);
+    const sub = $('m-ach-sub');
+    if (pending) {
+        sub.textContent = pending + (pending > 1 ? ' viennent' : ' vient') + ' d\'être atteint'
+            + (pending > 1 ? 's' : '') + ' !';
+    } else if (owned) {
+        sub.textContent = owned + ' sur ' + rows.length + ' débloqués';
+    } else {
+        sub.textContent = 'Aucun pour l\'instant — il y en a ' + rows.length + ' à décrocher';
+    }
+}
+
+function renderHautsFaits() {
+    const uid = state.user && state.user.uid;
+    if (!uid) return;
+
+    paintXpBar('m-ach-level', 'm-ach-count', 'm-ach-segs', 'm-ach-foot');
+
+    const rows = achievementState(achData(), uid);
+    const owned = rows.filter(r => r.owned).length;
+    $('m-ach-progress').textContent = owned + ' / ' + rows.length;
+
+    const mount = $('m-ach-list');
+    mount.innerHTML = '';
+
+    /* Obtenus d'abord, puis ceux qui sont à portée, puis le reste. On montre
+       ce qu'on a et ce qui est presque là ; le lointain peut attendre. */
+    rows.slice()
+        .sort((a, b) => (b.owned ? 1 : 0) - (a.owned ? 1 : 0)
+            || (b.pending ? 1 : 0) - (a.pending ? 1 : 0)
+            || b.ratio - a.ratio)
+        .forEach(row => mount.appendChild(buildAchLine(row)));
+
+    renderLanTitles();
+    renderXpBoard();
+}
+
+function buildAchLine(row) {
+    const line = el('div', 'm-achline');
+    if (row.owned) line.classList.add('is-owned');
+    else if (row.pending) line.classList.add('is-pending');
+
+    line.appendChild(achIcon(row.ach.icon));
+
+    const main = el('div', 'm-achline__main');
+    main.appendChild(el('span', 'm-achline__name', row.ach.label));
+
+    if (row.owned) {
+        main.appendChild(el('span', 'm-achline__hint', row.ach.hint));
+    } else if (row.pending) {
+        main.appendChild(el('span', 'm-achline__hint',
+            'Atteint — en attente d\'un maître du jeu'));
+    } else {
+        main.appendChild(el('span', 'm-achline__hint',
+            row.ach.hint + ' · ' + row.current + ' / ' + row.goal));
+        const bar = el('div', 'm-achline__bar');
+        const fill = el('div', 'm-achline__fill');
+        fill.style.width = Math.round(row.ratio * 100) + '%';
+        bar.appendChild(fill);
+        main.appendChild(bar);
+    }
+    line.appendChild(main);
+
+    line.appendChild(el('span', 'm-achline__xp', '+' + row.ach.xp));
+    return line;
+}
+
+/* Les titres de la soirée en cours : comparatifs, donc provisoires tant que la
+   LAN n'est pas close. On le dit — un titre qui bouge sans prévenir passerait
+   pour un bug. */
+function renderLanTitles() {
+    const section = $('m-titles-section');
+    const mount = $('m-titles');
+    const titles = lanTitles(achData(), economyPlayers());
+
+    if (!titles.length) { section.style.display = 'none'; return; }
+    section.style.display = 'flex';
+    mount.innerHTML = '';
+
+    titles.forEach(entry => {
+        const row = el('div', 'm-title');
+        row.appendChild(el('span', 'm-title__label', entry.title.label));
+        row.appendChild(el('span', 'm-title__who', playerName(entry.uid)));
+        mount.appendChild(row);
+    });
+
+    const note = el('p', 'm-card__meta',
+        state.settings.lanFinished
+            ? 'Décernés à la clôture.'
+            : 'Provisoire : les titres sont décernés à la clôture de la soirée.');
+    mount.appendChild(note);
+}
+
+function renderXpBoard() {
+    const mount = $('m-xp-board');
+    mount.innerHTML = '';
+    const board = xpLeaderboard(state.xp, economyPlayers());
+
+    if (!board.length) {
+        mount.appendChild(emptyState('Personne n\'a encore d\'expérience.'));
+        return;
+    }
+
+    board.slice(0, 10).forEach((row, i) => {
+        const line = el('button', 'm-podium m-podium--' + (i + 1));
+        line.addEventListener('click', () => openProfile(row.uid));
+        line.appendChild(el('span', 'm-podium__pos', String(i + 1)));
+        const face = el('img', 'm-podium__face');
+        face.src = playerPhoto(row.uid);
+        face.alt = '';
+        line.appendChild(face);
+        const main = el('span', 'm-podium__name', playerFullName(playerName(row.uid), playerNickname(achData(), row.uid)));
+        line.appendChild(main);
+        line.appendChild(el('span', 'm-price', 'Niv. ' + row.level));
+        mount.appendChild(line);
+    });
+}
+
+/* ---------- L'arbitre ----------
+   Tourne sur les clients des maîtres du jeu. Il n'invente rien : il inscrit ce
+   que tout le monde peut déjà calculer. Un joueur seul verra ses hauts faits
+   « atteints » sans être inscrits jusqu'à ce qu'un maître du jeu se connecte —
+   c'est la même dépendance que la validation des achats. */
+
+let granting = false;
+
+function grantPendingAchievements() {
+    const user = state.user;
+    if (!user || !state.isGamemaster || granting || !state.ready) return;
+
+    const waiting = pendingAchievements(achData(), economyPlayers());
+    if (!waiting.length) return;
+
+    granting = true;
+    const next = waiting[0];
+    const awardId = achievementAwardId(next.uid, next.ach.id);
+
+    db.ref('lan/xp/awards/' + awardId).set({
+        uid: next.uid,
+        delta: next.ach.xp,
+        type: 'achievement',
+        reason: next.ach.label,
+        refId: next.ach.id,
+        by: user.uid,
+        ts: firebase.database.ServerValue.TIMESTAMP
+    })
+        .then(() => {
+            if (next.uid !== user.uid) {
+                sendNotification(next.uid,
+                    'Haut fait : ' + next.ach.label + ' (+' + next.ach.xp + ' XP)', 'success');
+            }
+        })
+        .catch(() => { /* déjà inscrit par un autre maître du jeu, ou refusé */ })
+        .finally(() => {
+            granting = false;
+            /* On enchaîne : une soirée entière de jalons doit se rattraper
+               d'un coup quand le maître du jeu arrive. */
+            grantPendingAchievements();
+        });
+}
+
+
+/* ==========================================================================
+   La fiche d'un joueur
+   Un nom, un surnom gagné, un niveau, et ce qu'il a fait. Le surnom vient du
+   plus rare de ses hauts faits (core.js) : personne ne le choisit, il se
+   mérite. C'est ce qui transforme « Bob » en « Bob « Le Signataire » ».
+   ========================================================================== */
+
+function openProfile(uid) {
+    if (!uid) return;
+    const data = achData();
+    const profile = playerProfile(data, uid);
+    const isMe = uid === (state.user && state.user.uid);
+
+    openSheet(null, (body) => {
+        /* En-tête : le visage, le nom complet, le niveau. */
+        const head = el('div', 'm-prof__head');
+        const face = el('img', 'm-prof__face');
+        face.src = playerPhoto(uid);
+        face.alt = '';
+        head.appendChild(face);
+
+        const ident = el('div', 'm-prof__ident');
+        ident.appendChild(el('h2', 'm-prof__name', playerName(uid)));
+        if (profile.nickname) {
+            ident.appendChild(el('p', 'm-prof__nick', '« ' + profile.nickname + ' »'));
+        }
+        ident.appendChild(el('p', 'm-prof__lvl',
+            'Niveau ' + profile.level.level + ' · ' + profile.level.total + ' XP'));
+        head.appendChild(ident);
+        body.appendChild(head);
+
+        /* La barre : la même que dans la boutique, en plus discret. */
+        const segs = el('div', 'm-xp__segs');
+        const lit = profile.level.into > 0
+            ? Math.max(1, Math.round(profile.level.ratio * XP_SEGMENTS)) : 0;
+        for (let i = 0; i < XP_SEGMENTS; i += 1) {
+            const seg = el('span', 'm-xp__seg');
+            if (i < lit) seg.classList.add(i === lit - 1 ? 'is-edge' : 'is-on');
+            segs.appendChild(seg);
+        }
+        body.appendChild(segs);
+
+        /* Les chiffres de la soirée. On ne montre que ce qui bouge : une
+           colonne de zéros n'apprend rien. */
+        const stats = [
+            ['Fortune', formatPoints(profile.balance)],
+            ['Achats', profile.counters.purchases],
+            ['Boosters', profile.counters.packs],
+            ['Cartes', profile.counters.cards],
+            ['Échanges', profile.counters.trades],
+            ['LAN', profile.counters.lans]
+        ].filter(([, value]) => value !== 0 && value !== '0 ' + ECONOMY.CURRENCY);
+
+        if (stats.length) {
+            const grid = el('div', 'm-prof__stats');
+            stats.forEach(([label, value]) => {
+                const cell = el('div', 'm-prof__stat');
+                cell.appendChild(el('span', 'm-prof__statv', String(value)));
+                cell.appendChild(el('span', 'm-prof__statl', label));
+                grid.appendChild(cell);
+            });
+            body.appendChild(grid);
+        }
+
+        /* Les titres de soirée déjà décernés : ce sont des récompenses
+           inscrites, pas un calcul du moment. */
+        if (profile.titles.length) {
+            body.appendChild(el('p', 'm-shop__cat', 'Titres décrochés'));
+            profile.titles.slice(0, 6).forEach(award => {
+                const row = el('div', 'm-title');
+                row.appendChild(el('span', 'm-title__label', award.reason || 'Titre'));
+                row.appendChild(el('span', 'm-title__who', '+' + award.delta + ' XP'));
+                body.appendChild(row);
+            });
+        }
+
+        body.appendChild(el('p', 'm-shop__cat',
+            'Hauts faits · ' + profile.achievementCount + ' / ' + profile.achievementTotal));
+
+        if (!profile.achievements.length) {
+            body.appendChild(emptyState(isMe
+                ? 'Rien encore. Achète, ouvre, échange.'
+                : 'Aucun haut fait pour le moment.'));
+        } else {
+            const wrap = el('div', 'm-prof__badges');
+            profile.achievements.forEach(row => {
+                const badge = el('span', 'm-prof__badge');
+                badge.title = row.ach.label;
+                badge.appendChild(iconSvg(ACH_ICONS[row.ach.icon] || ACH_ICONS.trophy));
+                badge.appendChild(el('span', null, row.ach.label));
+                wrap.appendChild(badge);
+            });
+            body.appendChild(wrap);
+        }
+
+        /* Ce qui est presque là : c'est ça qui donne envie de rouvrir la fiche. */
+        if (profile.nextUp) {
+            const next = el('p', 'm-card__meta',
+                'Bientôt : ' + profile.nextUp.ach.label
+                + ' (' + profile.nextUp.current + ' / ' + profile.nextUp.goal + ')');
+            body.appendChild(next);
+        }
     });
 }
 

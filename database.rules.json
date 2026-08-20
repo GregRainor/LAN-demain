@@ -12,6 +12,19 @@
 
     "lan": {
 
+
+      "xp": {
+        ".read": "auth != null",
+        ".write": "auth != null && (root.child('lan/roles').child(auth.uid).val() === 'admin' || auth.uid === 'ITe5VPuwewMzO7JnJA5oPWMdfvt2')",
+
+        "awards": {
+          "$award_id": {
+            ".write": "auth != null && !data.exists() && (root.child('lan/roles').child(auth.uid).val() === 'admin' || root.child('lan/roles').child(auth.uid).val() === 'gamemaster' || auth.uid === 'ITe5VPuwewMzO7JnJA5oPWMdfvt2')",
+            ".validate": "newData.hasChildren(['uid', 'delta', 'type', 'ts']) && newData.child('delta').isNumber() && newData.child('delta').val() >= 0 && newData.child('ts').val() <= now"
+          }
+        }
+      },
+
       "economy": {
         ".read": "auth != null",
         ".write": "auth != null && (root.child('lan/roles').child(auth.uid).val() === 'admin' || auth.uid === 'ITe5VPuwewMzO7JnJA5oPWMdfvt2')",
@@ -26,8 +39,8 @@
 
         "ledger": {
           "$entry_id": {
-            ".write": "auth != null && !data.exists() && (root.child('lan/roles').child(auth.uid).val() === 'admin' || root.child('lan/roles').child(auth.uid).val() === 'gamemaster' || auth.uid === 'ITe5VPuwewMzO7JnJA5oPWMdfvt2')",
-            ".validate": "newData.hasChildren(['uid', 'delta', 'type', 'ts']) && newData.child('delta').isNumber()"
+            ".write": "auth != null && !data.exists() && ((newData.child('type').val() === 'purchase' && newData.child('uid').val() === auth.uid) || root.child('lan/roles').child(auth.uid).val() === 'admin' || root.child('lan/roles').child(auth.uid).val() === 'gamemaster' || auth.uid === 'ITe5VPuwewMzO7JnJA5oPWMdfvt2')",
+            ".validate": "newData.hasChildren(['uid', 'delta', 'type', 'ts']) && newData.child('delta').isNumber() && (newData.child('type').val() !== 'purchase' || (newData.child('delta').val() < 0 && newData.child('delta').val() === 0 - root.child('lan/economy/catalog').child(newData.child('itemId').val()).child('price').val()))"
           }
         },
 
@@ -43,7 +56,7 @@
 
         "purchases": {
           "$purchase_id": {
-            ".write": "auth != null && ((!data.exists() && newData.child('uid').val() === auth.uid && newData.child('status').val() === 'pending') || (data.exists() && !newData.exists() && data.child('uid').val() === auth.uid && data.child('status').val() === 'pending') || root.child('lan/roles').child(auth.uid).val() === 'admin' || root.child('lan/roles').child(auth.uid).val() === 'gamemaster' || auth.uid === 'ITe5VPuwewMzO7JnJA5oPWMdfvt2')",
+            ".write": "auth != null && ((!data.exists() && newData.child('uid').val() === auth.uid && newData.child('status').val() === 'granted') || root.child('lan/roles').child(auth.uid).val() === 'admin' || root.child('lan/roles').child(auth.uid).val() === 'gamemaster' || auth.uid === 'ITe5VPuwewMzO7JnJA5oPWMdfvt2')",
             ".validate": "newData.hasChildren(['itemId', 'uid', 'price', 'status', 'ts']) && (data.exists() || newData.child('price').val() === root.child('lan/economy/catalog').child(newData.child('itemId').val()).child('price').val())"
           }
         }

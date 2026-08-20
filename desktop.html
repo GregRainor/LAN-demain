@@ -623,10 +623,30 @@
                     <div id="lan-boutique" class="lan-subview" style="display: none;">
                         <h2 class="subview-title" style="margin-bottom: 30px;">Boutique</h2>
 
+                        <!-- L'expérience passe avant le solde : elle mesure les
+                             soirées, pas le portefeuille, et c'est la seule
+                             chose ici qui survive à la clôture. -->
+                        <div class="xp-banner luxury-panel">
+                            <div class="xp-banner__head">
+                                <span class="xp-banner__lvl"><small>Niveau</small> <span
+                                        id="xp-level">1</span></span>
+                                <span class="xp-banner__count" id="xp-count">0 / 200 XP</span>
+                            </div>
+                            <div class="xp-banner__segs" id="xp-segs"></div>
+                            <p class="xp-banner__foot" id="xp-foot"></p>
+                        </div>
+
+                        <!-- Le booster : tête de gondole, pas une ligne de liste. -->
+                        <div id="booster-panel" class="luxury-panel"
+                            style="padding: 25px; margin-bottom: 25px; display: none;">
+                            <h3 class="section-title">Le booster</h3>
+                            <div id="booster-shelf"></div>
+                        </div>
+
                         <div class="wallet-banner luxury-panel">
                             <div>
                                 <span class="wallet-banner__label">Mon solde</span>
-                                <strong id="wallet-value" class="wallet-banner__value">0 PO</strong>
+                                <strong id="wallet-value" class="wallet-banner__value">0 zł</strong>
                             </div>
                             <p id="wallet-hint" class="wallet-banner__hint"></p>
                         </div>
@@ -671,6 +691,32 @@
                                     style="font-size: 0.8em; display:none;">+ Ajouter un article</button>
                             </div>
                             <div id="shop-catalog"></div>
+                        </div>
+
+                        <!-- Les hauts faits : les jalons sont acquis pour
+                             toujours, les titres se décernent à la clôture. -->
+                        <div class="dashboard-grid" style="margin-bottom: 25px;">
+                            <div class="luxury-panel" style="padding: 25px;">
+                                <div class="panel-head">
+                                    <h3 class="section-title" style="margin: 0;">Hauts faits</h3>
+                                    <span id="ach-progress" class="panel-section__hint"
+                                        style="margin: 0;"></span>
+                                </div>
+                                <div id="ach-list" class="stack stack--sm scroll-area"></div>
+                            </div>
+                            <div class="dashboard-side">
+                                <div id="titles-panel" class="luxury-panel"
+                                    style="padding: 25px; display: none;">
+                                    <h3 class="section-title">Titres de la soirée</h3>
+                                    <div id="lan-titles" class="stack stack--sm"></div>
+                                </div>
+                                <div class="luxury-panel" style="padding: 25px;">
+                                    <h3 class="section-title">Expérience</h3>
+                                    <p class="panel-section__hint">Elle ne se dépense pas et ne s'efface
+                                        pas : elle compte les soirées.</p>
+                                    <div id="xp-board" class="rank-list"></div>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="dashboard-grid">
@@ -1027,8 +1073,21 @@
 
     <!-- View Player Votes Modal -->
     <div id="player-votes-modal" class="modal-overlay">
-        <div class="luxury-panel modal-content" style="max-width: 500px;">
-            <h3 id="player-votes-name" style="text-align: center; font-size: 1.8em; margin-bottom: 10px;">Votes</h3>
+        <div class="luxury-panel modal-content" style="max-width: 560px;">
+            <!-- La fiche d'un joueur : qui il est, ce qu'il a fait, puis ses
+                 voeux. Le surnom vient du plus rare de ses hauts faits. -->
+            <div class="prof-head">
+                <img id="player-prof-face" class="prof-head__face" src="" alt="">
+                <div class="prof-head__ident">
+                    <h3 id="player-votes-name" class="prof-head__name">Joueur</h3>
+                    <p id="player-prof-nick" class="prof-head__nick"></p>
+                    <p id="player-prof-lvl" class="prof-head__lvl"></p>
+                </div>
+            </div>
+            <div class="xp-banner__segs" id="player-prof-segs"></div>
+            <div id="player-prof-stats" class="prof-stats"></div>
+            <div id="player-prof-badges" class="prof-badges"></div>
+            <h4 class="prof-sub" id="player-prof-votes-title">Ses voeux</h4>
             <div id="player-votes-content" class="stack"></div>
             <div class="modal-actions" style="margin-top: 25px;">
                 <button id="close-player-votes-btn" class="gold-link-btn" style="width: 100%;">Fermer</button>

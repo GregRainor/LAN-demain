@@ -5495,3 +5495,379 @@ select.luxury-input option:disabled {
     padding: var(--space-6) var(--space-3) var(--space-3);
     background: linear-gradient(transparent, rgba(0, 0, 0, 0.85));
 }
+
+/* ==========================================================================
+   BOUTIQUE — direction « Le Paquet »
+   Chaque article est un objet à prendre, pas une ligne de formulaire : jeton
+   de coût, nom gravé, bande de famille. Le vocabulaire est celui des cartes à
+   collectionner, mais le FORMAT est le paysage — les collectibles sont en
+   portrait, et deux systèmes de cartes qui se ressemblent trop se confondent.
+
+   Rappel : cette feuille n'a pas de reset box-sizing global. Toute règle qui
+   associe width:100% à du padding ou une bordure porte donc le sien.
+   ========================================================================== */
+
+/* ---------- La barre d'expérience ---------- */
+.xp-banner {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    padding: var(--space-4) var(--space-5);
+    margin-bottom: var(--space-4);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent);
+}
+
+.xp-banner__head { display: flex; align-items: baseline; gap: var(--space-3); }
+
+.xp-banner__lvl {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.5em;
+    color: var(--accent-color);
+    line-height: 1;
+}
+
+.xp-banner__lvl small {
+    font-family: inherit;
+    font-size: 0.42em;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--secondary-text);
+}
+
+.xp-banner__count {
+    margin-left: auto;
+    font-size: 0.85em;
+    color: var(--secondary-text);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Vingt-quatre segments plutôt qu'une barre pleine : on voit le prochain cran
+   arriver, et un gain se remarque même petit. */
+.xp-banner__segs { display: grid; grid-template-columns: repeat(24, 1fr); gap: 3px; }
+.xp-banner__seg { height: 10px; background: rgba(255, 255, 255, 0.07); border-radius: 1px; }
+.xp-banner__seg.is-on { background: var(--accent-color); box-shadow: 0 0 6px rgba(212, 175, 55, 0.4); }
+.xp-banner__seg.is-edge { background: rgba(212, 175, 55, 0.55); box-shadow: none; }
+.xp-banner__foot { margin: 0; font-size: 0.85em; color: var(--secondary-text); }
+
+/* ---------- Un article ---------- */
+.shop-item {
+    position: relative;
+    display: flex;
+    gap: var(--space-4);
+    padding: var(--space-4);
+    border: 1px solid var(--si-soft);
+    border-radius: 3px;
+    background: linear-gradient(150deg, var(--si-wash) 0%, rgba(0, 0, 0, 0.55) 62%);
+    transition: border-color 0.3s, transform 0.3s;
+    --si: var(--accent-color);
+    --si-soft: rgba(212, 175, 55, 0.3);
+    --si-wash: rgba(212, 175, 55, 0.07);
+}
+
+.shop-item:hover { transform: translateY(-2px); }
+.shop-item.is-locked { opacity: 0.5; }
+.shop-item.is-locked:hover { transform: none; }
+
+.shop-item--privilege { --si: #d4af37; --si-soft: rgba(212, 175, 55, 0.42); --si-wash: rgba(212, 175, 55, 0.09); }
+.shop-item--handicap  { --si: #d96a6a; --si-soft: rgba(192, 74, 74, 0.45);  --si-wash: rgba(192, 74, 74, 0.09); }
+.shop-item--cosmetic  { --si: #c264d8; --si-soft: rgba(194, 100, 216, 0.42); --si-wash: rgba(194, 100, 216, 0.08); }
+.shop-item--fun       { --si: #4e8fa8; --si-soft: rgba(78, 143, 168, 0.42);  --si-wash: rgba(78, 143, 168, 0.08); }
+
+.shop-item__cost {
+    width: 44px;
+    height: 44px;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    background: radial-gradient(circle at 34% 30%, #f0d97a, #b8902a);
+    display: grid;
+    place-items: center;
+    font-weight: 700;
+    font-size: 0.95em;
+    color: #3b2e08;
+    font-variant-numeric: tabular-nums;
+    box-shadow: 0 1px 8px rgba(0, 0, 0, 0.45);
+}
+
+.shop-item.is-locked .shop-item__cost {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--secondary-text);
+    box-shadow: none;
+}
+
+.shop-item__main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+
+.shop-item__name {
+    margin: 0;
+    font-family: 'Playfair Display', serif;
+    font-size: 1.22em;
+    color: var(--primary-text);
+    line-height: 1.2;
+}
+
+.shop-item__desc { margin: 0; font-size: 0.88em; color: var(--secondary-text); }
+
+.shop-item__strip { display: flex; align-items: center; gap: 8px; }
+.shop-item__gem { width: 6px; height: 6px; transform: rotate(45deg); background: var(--si); flex: 0 0 auto; }
+
+.shop-item__fam {
+    font-size: 0.66em;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--si);
+    padding-left: 0.2em;
+}
+
+.shop-item__stock { margin-left: auto; font-size: 0.78em; color: var(--secondary-text); }
+
+.shop-item__actions { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+
+.shop-item__buy {
+    padding: 9px 18px;
+    border: 1px solid var(--si-soft);
+    background: var(--si-wash);
+    color: var(--si);
+    border-radius: 3px;
+    font-size: 0.78em;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding-left: calc(18px + 0.12em);
+    cursor: pointer;
+}
+
+.shop-item__buy:hover:not(:disabled) { background: var(--si); color: #0a0a0a; }
+.shop-item__buy:disabled { opacity: 0.55; cursor: default; letter-spacing: 0; text-transform: none; font-weight: 500; }
+
+/* ---------- Le booster ---------- */
+.booster-buy {
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    padding: var(--space-5);
+    border: 1px solid rgba(255, 138, 61, 0.45);
+    border-radius: 3px;
+    background: linear-gradient(155deg, rgba(255, 138, 61, 0.13) 0%, #100c09 60%);
+}
+
+.booster-buy::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(115deg, transparent 32%, rgba(255, 220, 170, 0.07) 47%, transparent 62%);
+}
+
+.booster-buy__art {
+    position: relative;
+    width: 84px;
+    height: 114px;
+    flex: 0 0 auto;
+    border-radius: 3px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 138, 61, 0.4);
+    background: rgba(0, 0, 0, 0.5);
+}
+
+.booster-buy__art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.booster-buy__main { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+
+.booster-buy__name {
+    margin: 0;
+    font-family: 'Playfair Display', serif;
+    font-size: 1.5em;
+    color: var(--primary-text);
+    line-height: 1.15;
+}
+
+.booster-buy__meta { margin: 0; font-size: 0.9em; color: var(--secondary-text); }
+
+.booster-buy__cost {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Playfair Display', serif;
+    font-size: 1.4em;
+    color: #ff8a3d;
+    font-variant-numeric: tabular-nums;
+}
+
+.booster-buy__cost span {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 32% 28%, #f0d97a, #b8902a);
+    display: grid;
+    place-items: center;
+    font-size: 0.42em;
+    font-weight: 700;
+    color: #3b2e08;
+    font-family: var(--body-font, system-ui), sans-serif;
+}
+
+.booster-buy__go { flex: 0 0 auto; }
+
+/* ---------- Les hauts faits ---------- */
+.ach-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: 11px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.ach-row:last-child { border-bottom: 0; }
+
+.ach-row__ico {
+    width: 38px;
+    height: 38px;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    display: grid;
+    place-items: center;
+    color: var(--secondary-text);
+}
+
+.ach-row__ico svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.ach-row__main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.ach-row__name { font-size: 0.95em; color: var(--secondary-text); }
+.ach-row__hint { font-size: 0.8em; color: var(--secondary-text); opacity: 0.75; }
+.ach-row__bar { height: 3px; background: rgba(255, 255, 255, 0.06); border-radius: 2px; overflow: hidden; }
+.ach-row__fill { height: 100%; background: rgba(212, 175, 55, 0.55); }
+
+.ach-row__xp {
+    flex: 0 0 auto;
+    font-size: 0.82em;
+    font-weight: 600;
+    color: var(--secondary-text);
+    font-variant-numeric: tabular-nums;
+}
+
+.ach-row.is-owned .ach-row__ico { color: var(--accent-color); border-color: rgba(212, 175, 55, 0.35); background: rgba(212, 175, 55, 0.08); }
+.ach-row.is-owned .ach-row__name { color: var(--primary-text); }
+.ach-row.is-owned .ach-row__xp { color: var(--accent-color); }
+.ach-row.is-pending .ach-row__ico { color: #4e9463; border-color: rgba(78, 148, 99, 0.4); }
+.ach-row.is-pending .ach-row__hint { color: #8fd0a2; opacity: 1; }
+
+.lan-title-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: 10px 14px;
+    border: 1px solid rgba(212, 175, 55, 0.3);
+    border-radius: 3px;
+    background: rgba(212, 175, 55, 0.07);
+}
+
+.lan-title-row__label { flex: 1; font-size: 0.9em; color: var(--primary-text); }
+.lan-title-row__who { font-size: 0.85em; color: var(--accent-color); }
+
+/* Les articles sont en PAYSAGE : la grille à 200 px des cartes kocktail les
+   étranglait (jeton de coût + texte dans 75 px). Ils ont leur propre grille,
+   dont la colonne minimale tient un nom, une description et un bouton. */
+.shop-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: var(--space-4);
+}
+
+/* ---------- La fiche d'un joueur ----------
+   Le surnom est la seule chose qu'on ne choisit pas ici : il vient du plus
+   rare des hauts faits. Il a donc droit à la police de titre. */
+.prof-head { display: flex; align-items: center; gap: var(--space-4); margin-bottom: var(--space-4); }
+
+.prof-head__face {
+    width: 74px;
+    height: 74px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex: 0 0 auto;
+    border: 1px solid rgba(212, 175, 55, 0.35);
+}
+
+.prof-head__ident { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+
+.prof-head__name {
+    margin: 0;
+    font-family: 'Playfair Display', serif;
+    font-size: 1.6em;
+    color: var(--primary-text);
+    line-height: 1.1;
+    text-align: left;
+}
+
+.prof-head__nick {
+    margin: 0;
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    font-size: 1.1em;
+    color: var(--accent-color);
+}
+
+.prof-head__lvl { margin: 0; font-size: 0.82em; color: var(--secondary-text); }
+
+.prof-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
+    gap: var(--space-2);
+    margin: var(--space-4) 0;
+}
+
+.prof-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 10px 6px;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 3px;
+}
+
+.prof-stat__v {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.2em;
+    color: var(--primary-text);
+    font-variant-numeric: tabular-nums;
+}
+
+.prof-stat__l {
+    font-size: 0.68em;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--secondary-text);
+}
+
+.prof-badges { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: var(--space-4); }
+
+.prof-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px 6px 9px;
+    border-radius: 999px;
+    border: 1px solid rgba(212, 175, 55, 0.3);
+    background: rgba(212, 175, 55, 0.08);
+    color: var(--accent-color);
+    font-size: 0.8em;
+}
+
+.prof-badge svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex: 0 0 auto; }
+.prof-badge.is-next { border-color: rgba(255, 255, 255, 0.1); background: none; color: var(--secondary-text); font-style: italic; }
+
+.prof-sub {
+    margin: 0 0 var(--space-3);
+    font-size: 0.72em;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--secondary-text);
+    padding-left: 0.18em;
+}
+
+/* Un joueur du bandeau et une ligne de classement s'ouvrent : on le montre. */
+.user-avatar-container { cursor: pointer; }
+
+/* Une ligne de classement s'ouvre sur la fiche du joueur. */
+.rank-row--player { width: 100%; background: none; border: 0; cursor: pointer; font: inherit; }
+.rank-row--player:hover { background: rgba(212, 175, 55, 0.06); }
