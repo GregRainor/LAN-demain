@@ -47,7 +47,8 @@ Ce projet est parti d'une simple idée de tableur Excel pour évoluer vers une a
   et par combien de mains elle est passée : c'est un souvenir de soirée, pas une ligne
   d'inventaire. Tant que la soirée n'est pas close, une collection reste un brouillon : le maître
   du jeu peut recomposer le set à tout moment, et tout le monde repart à zéro. À la clôture, elle
-  devient un souvenir et s'archive.
+  devient un souvenir et s'archive. Taux de tirage, composition d'un booster, marche à suivre pour
+  créer un set et dimensions des illustrations : voir [`CARTES.md`](./CARTES.md).
 * **Un Hasard Sans Serveur :** le contenu d'un booster n'est stocké nulle part — il se recalcule à
   partir de son *sceau*, l'horodatage écrit par le serveur Firebase au moment de l'achat. C'est la
   seule valeur de l'application que le client ne choisit pas : le tirage est donc imprévisible

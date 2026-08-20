@@ -723,6 +723,21 @@ function cardKey(name) {
     return normalized;
 }
 
+/* L'illustration et le nom du booster lui-même vivent sous la même racine que
+   celles des cartes, à une clé réservée. `cardKey()` ne produit jamais de nom
+   commençant par un tiret bas — aucune carte ne peut donc la percuter — et
+   ça évite d'ajouter un nœud, donc de republier les règles une fois de plus. */
+const PACK_ART_KEY = '__booster';
+
+/* Le nom affiché sur l'emballage. Celui que le maître du jeu a choisi, sinon
+   celui de la soirée : jamais « Booster de test », qui ne veut rien dire pour
+   celui qui l'ouvre. */
+function packLabel(packArt, lanName) {
+    const chosen = packArt && typeof packArt.name === 'string' && packArt.name.trim();
+    if (chosen) return chosen;
+    return lanName ? 'Booster ' + lanName : 'Booster';
+}
+
 /* Pourquoi cette carte a cette rareté, en une phrase vraie. C'est le gain d'une
    rareté tirée du groupe plutôt qu'inventée : elle s'explique. */
 function rarityReason(setCard, set) {

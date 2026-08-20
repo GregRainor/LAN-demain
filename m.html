@@ -606,7 +606,8 @@
             <div class="m-reveal__wrap" id="m-reveal-wrap">
                 <span class="m-reveal__cards"></span>
                 <span class="m-reveal__body">
-                    <span class="m-reveal__mark">✦</span>
+                    <img class="m-reveal__art" id="m-reveal-packart" alt="">
+                    <span class="m-reveal__mark" id="m-reveal-mark">✦</span>
                     <span class="m-reveal__packname" id="m-reveal-packname">Booster</span>
                 </span>
                 <span class="m-reveal__strip"></span>
@@ -630,7 +631,11 @@
         <div class="m-reveal__foot">
             <span class="m-reveal__dots" id="m-reveal-dots"></span>
             <button class="m-btn m-btn--solid m-btn--full" id="m-reveal-next">Ouvrir</button>
-            <button class="m-btn m-btn--quiet m-btn--sm" id="m-reveal-all">Tout révéler</button>
+            <div class="m-reveal__row">
+                <button class="m-btn m-btn--quiet m-btn--sm" id="m-reveal-all">Tout révéler</button>
+                <button class="m-btn m-btn--quiet m-btn--sm" id="m-reveal-mute"
+                    aria-label="Couper le son">🔊</button>
+            </div>
         </div>
     </div>
 
@@ -638,6 +643,7 @@
 
     <script src="config.js"></script>
     <script src="core.js"></script>
+    <script src="sound.js"></script>
     <script src="mobile.js"></script>
 </body>
 

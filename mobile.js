@@ -3039,6 +3039,7 @@ function tcgSnapshot() {
    les clients coûterait des mégaoctets à chaque connexion. Huit cartes par
    set : on les lit une par une, et on retient. */
 const generatedArt = {};
+const generatedArtNames = {};
 const generatedArtPending = new Set();
 
 function ensureGeneratedArt(gameKey) {
@@ -3048,6 +3049,7 @@ function ensureGeneratedArt(gameKey) {
         .then(snapshot => {
             const node = snapshot.val();
             generatedArt[gameKey] = (node && node.data) || null;
+            generatedArtNames[gameKey] = (node && node.name) || '';
             if (node && node.data) renderCartes();
         })
         .catch(() => { generatedArt[gameKey] = null; })
@@ -3175,6 +3177,9 @@ function renderCartes() {
        téléphone à genoux. Hors de l'écran Cartes, il n'y a rien à voir : le
        rappel d'accueil et la pastille de « Plus » suffisent. */
     if (currentScreen !== 'cartes') return;
+
+    // L'emballage a son propre visuel, chargé comme celui d'une Signature.
+    ensureGeneratedArt(PACK_ART_KEY);
 
     renderSetBand(view);
     renderMintPanel(view);
@@ -3360,7 +3365,20 @@ function openSignatureArtSheet(setCards) {
     const wanted = signatureCards(setCards);
     if (!wanted.length) return Promise.resolve();
 
-    openSheet('Illustrations des Signature', (body) => {
+    openSheet('Illustrations', (body) => {
+        /* L'emballage d'abord : c'est la première chose qu'on voit d'un
+           booster, et la seule qui ne soit pas une carte. */
+        body.appendChild(el('p', 'm-shop__cat', 'Le booster'));
+        const packRow = el('div', 'm-artrow');
+        body.appendChild(packRow);
+
+        const packName = el('input', 'm-input');
+        packName.placeholder = 'Nom du booster (ex : Booster Janvier 2027)';
+        packName.value = generatedArtNames[PACK_ART_KEY] || '';
+        packName.addEventListener('change', () => savePackName(packName.value));
+        body.appendChild(packName);
+
+        body.appendChild(el('p', 'm-shop__cat', 'Les Signature'));
         body.appendChild(el('p', 'm-card__meta',
             'Ces ' + wanted.length + ' cartes sont le sommet du set. Importe tes propres '
             + 'illustrations, ou laisse le modèle dessiner celles qui manquent.'));
@@ -3382,7 +3400,30 @@ function openSignatureArtSheet(setCards) {
         done.addEventListener('click', closeSheet);
         body.appendChild(done);
 
+        const paintPack = () => {
+            packRow.innerHTML = '';
+            const thumb = el('img', 'm-artrow__thumb');
+            thumb.alt = '';
+            thumb.src = generatedArt[PACK_ART_KEY] || DEFAULT_THUMB;
+            packRow.appendChild(thumb);
+            packRow.appendChild(el('span', 'm-artrow__name',
+                packLabel({ name: generatedArtNames[PACK_ART_KEY] }, state.settings.lanName)));
+
+            const pick = el('label', 'm-artrow__pick',
+                generatedArt[PACK_ART_KEY] ? 'Remplacer' : 'Importer');
+            const input = el('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.addEventListener('change', () => {
+                const file = input.files && input.files[0];
+                if (file) importArt(PACK_ART_KEY, packName.value.trim(), file).then(paintPack);
+            });
+            pick.appendChild(input);
+            packRow.appendChild(pick);
+        };
+
         const paint = () => {
+            paintPack();
             list.innerHTML = '';
             let missing = 0;
             wanted.forEach(card => {
@@ -3420,14 +3461,19 @@ function openSignatureArtSheet(setCards) {
         };
 
         // On sait déjà lesquelles existent : on les lit avant de dessiner.
-        Promise.all(wanted.map(card =>
-            db.ref('lan/cardArt/' + card.gameKey).once('value')
+        const keys = wanted.map(card => card.gameKey).concat([PACK_ART_KEY]);
+        Promise.all(keys.map(key =>
+            db.ref('lan/cardArt/' + key).once('value')
                 .then(snapshot => {
                     const node = snapshot.val();
-                    generatedArt[card.gameKey] = (node && node.data) || null;
+                    generatedArt[key] = (node && node.data) || null;
+                    generatedArtNames[key] = (node && node.name) || '';
                 })
-                .catch(() => { generatedArt[card.gameKey] = null; })
-        )).then(paint);
+                .catch(() => { generatedArt[key] = null; })
+        )).then(() => {
+            packName.value = generatedArtNames[PACK_ART_KEY] || '';
+            paint();
+        });
 
         paint();
     });
@@ -3462,18 +3508,49 @@ function shrinkImage(file) {
     });
 }
 
-function importCardArt(card, file) {
+/* Une illustration importée, qu'il s'agisse d'une carte ou de l'emballage :
+   même stockage, même redimensionnement, même clé de nommage. */
+function importArt(key, label, file) {
     return shrinkImage(file)
-        .then(dataUrl => db.ref('lan/cardArt/' + card.gameKey).set({
+        .then(dataUrl => db.ref('lan/cardArt/' + key).set({
             data: dataUrl,
-            name: card.name,
+            name: label || generatedArtNames[key] || '',
             by: state.user ? state.user.uid : null,
             ts: firebase.database.ServerValue.TIMESTAMP
         }).then(() => {
-            generatedArt[card.gameKey] = dataUrl;
-            showToast(card.name + ' : illustration importée.', 'success');
+            generatedArt[key] = dataUrl;
+            generatedArtNames[key] = label || generatedArtNames[key] || '';
+            showToast('Illustration importée.', 'success');
             renderCartes();
         }))
+        .catch(e => showToast(tcgWriteError(e), 'error'));
+}
+
+function importCardArt(card, file) {
+    return importArt(card.gameKey, card.name, file);
+}
+
+/* Renommer l'emballage sans forcément lui donner une image : le nom seul suffit
+   déjà à ce qu'un booster ne s'appelle plus « Booster de test ». */
+function savePackName(name) {
+    const label = String(name || '').trim();
+    const node = { name: label, ts: firebase.database.ServerValue.TIMESTAMP };
+    if (generatedArt[PACK_ART_KEY]) node.data = generatedArt[PACK_ART_KEY];
+    if (state.user) node.by = state.user.uid;
+    /* Sans image, le nœud n'a pas de `data` et les règles l'exigent : on ne
+       l'écrit alors que sous forme de champ, ce que la validation par enfant
+       accepte parce que `data` reste celui déjà en place — ou absent si le nœud
+       n'existe pas encore, auquel cas on ne peut pas encore nommer. */
+    if (!node.data) {
+        generatedArtNames[PACK_ART_KEY] = label;
+        showToast('Nom retenu. Il sera enregistré avec l\'illustration.', 'success');
+        return Promise.resolve();
+    }
+    return db.ref('lan/cardArt/' + PACK_ART_KEY).set(node)
+        .then(() => {
+            generatedArtNames[PACK_ART_KEY] = label;
+            showToast('Booster renommé.', 'success');
+        })
         .catch(e => showToast(tcgWriteError(e), 'error'));
 }
 
@@ -3571,8 +3648,9 @@ $('m-debug-pack').addEventListener('click', () => {
         setId: setId,
         status: 'sealed',
         sealedAt: firebase.database.ServerValue.TIMESTAMP,
-        origin: 'debug',
-        label: 'Booster de test'
+        origin: 'debug'
+        // Pas de `label` : l'emballage porte le nom de la soirée, pas celui du
+        // bouton qui l'a créé. Personne n'ouvre un « booster de test ».
     })
         .then(() => ref.once('value'))
         .then(snapshot => {
@@ -3660,7 +3738,8 @@ function renderMyPacks(view) {
     sealed.forEach(pack => {
         const card = el('article', 'm-card m-card--pack');
         const top = el('div', 'm-card__top');
-        top.appendChild(el('h3', 'm-card__title', pack.label || 'Booster'));
+        top.appendChild(el('h3', 'm-card__title',
+            pack.label || packLabel({ name: generatedArtNames[PACK_ART_KEY] }, state.settings.lanName)));
         top.appendChild(el('span', 'm-chip m-chip--gold', 'scellé'));
         card.appendChild(top);
         card.appendChild(el('p', 'm-card__meta',
@@ -3773,7 +3852,15 @@ function startReveal(pack, cards, ownedBefore) {
     revealPending = false;
 
     $('m-reveal-seal').textContent = 'Sceau ' + new Date(pack.sealedAt).toLocaleTimeString('fr-FR');
-    $('m-reveal-packname').textContent = pack.label || 'Booster';
+
+    /* Le nom et l'illustration du booster ne viennent pas du paquet mais de la
+       soirée : un paquet créé pour un test ne doit pas s'appeler « test » aux
+       yeux de celui qui l'ouvre. */
+    const packArt = generatedArt[PACK_ART_KEY];
+    $('m-reveal-packname').textContent = packLabel(
+        { name: generatedArtNames[PACK_ART_KEY] }, state.settings.lanName);
+    $('m-reveal-wrap').classList.toggle('has-art', !!packArt);
+    if (packArt) $('m-reveal-packart').src = packArt;
     $('m-reveal-flip').innerHTML = '';
     $('m-reveal-spread').className = 'm-reveal__spread';
     $('m-reveal-spread').innerHTML = '';
@@ -3783,6 +3870,7 @@ function startReveal(pack, cards, ownedBefore) {
     $('m-reveal-hint').textContent = CUT_HINT;
     cutFrom = null;
     cutReached = 0;
+    $('m-reveal-mute').textContent = Sfx.isEnabled() ? '🔊' : '🔇';
 
     const overlay = $('m-reveal');
     overlay.className = 'm-reveal is-open is-pack';
@@ -3862,6 +3950,7 @@ function flipToCard(card, isNew) {
     const fx = RARITY_FX[card.rarity] || RARITY_FX.common;
 
     revealFlipping = true;
+    Sfx.flip();
     flip.className = 'm-reveal__flip is-out';
 
     setTimeout(() => {
@@ -3881,6 +3970,7 @@ function flipToCard(card, isNew) {
         if (fx.rays) void rays.offsetWidth;
 
         fireSparks(card.rarity, fx.sparks);
+        Sfx.reveal(card.rarity);
 
         overlay.classList.remove('is-shake', 'is-flash', 'is-flash-epic', 'is-flash-showcase');
         void overlay.offsetWidth;
@@ -3961,8 +4051,17 @@ function gatherAndClose() {
     });
 
     spread.classList.add('is-gathering');
+    Sfx.gather();
     setTimeout(closeReveal, 420 + cards.length * 14);
 }
+
+/* Le son se coupe et se retient : une LAN se joue souvent en vocal, et un
+   booster qui claque dans le micro de tout le monde n'amuse personne. */
+$('m-reveal-mute').addEventListener('click', () => {
+    const on = Sfx.toggle();
+    $('m-reveal-mute').textContent = on ? '🔊' : '🔇';
+    $('m-reveal-mute').setAttribute('aria-label', on ? 'Couper le son' : 'Remettre le son');
+});
 
 function closeReveal() {
     $('m-reveal').className = 'm-reveal';
@@ -3985,6 +4084,7 @@ function tearPack() {
     pack.classList.add('is-torn');
     // L'entaille file jusqu'au bord : c'est elle qui déclenche tout le reste.
     setCut(1);
+    Sfx.packOpen();
     paintRevealFoot();
 
     /* Le paquet reste à l'écran le temps de s'ouvrir en entier — la bande
@@ -4043,12 +4143,20 @@ function setCut(value) {
     $('m-reveal-wrap').style.setProperty('--cut', value.toFixed(3));
 }
 
+/* Le dernier cran sonore franchi. L'entaille craque par paliers plutôt qu'à
+   chaque pixel : c'est ce qui lui donne son grain de fermeture éclair, et ça
+   évite de lancer cinquante sons par glissement. */
+let cutHeard = 0;
+
 $('m-reveal-pack').addEventListener('pointerdown', (e) => {
     if (revealPhase !== 'pack') return;
     cutFrom = e.clientX;
+    cutHeard = 0;
     // La largeur du paquet : trancher, c'est le traverser.
     cutSpan = Math.max(60, $('m-reveal-wrap').getBoundingClientRect().width * 0.8);
     $('m-reveal-pack').classList.add('is-tearing');
+    // Premier contact : c'est le geste qui autorise le son sur iOS.
+    Sfx.wake();
 });
 
 $('m-reveal-pack').addEventListener('pointermove', (e) => {
@@ -4056,6 +4164,7 @@ $('m-reveal-pack').addEventListener('pointermove', (e) => {
     // La valeur absolue : on tranche de gauche à droite ou l'inverse, peu importe.
     const progress = Math.max(0, Math.min(1, Math.abs(e.clientX - cutFrom) / cutSpan));
     setCut(progress);
+    if (progress - cutHeard >= 0.07) { cutHeard = progress; Sfx.cut(progress); }
     $('m-reveal-hint').textContent = progress > 0.25 ? 'Encore…' : CUT_HINT;
     if (progress >= 0.75) { cutFrom = null; tearPack(); }
 }, { passive: true });

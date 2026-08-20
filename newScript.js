@@ -5965,6 +5965,7 @@ document.addEventListener('DOMContentLoaded', () => {
        permanente de tous les clients coûterait des mégaoctets par connexion.
        Huit cartes par set : on les lit une par une, et on retient. */
     const generatedArt = {};
+    const generatedArtNames = {};
     const generatedArtPending = new Set();
 
     function ensureGeneratedArt(gameKey) {
@@ -5974,6 +5975,7 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(snapshot => {
                 const node = snapshot.val();
                 generatedArt[gameKey] = (node && node.data) || null;
+                generatedArtNames[gameKey] = (node && node.name) || '';
                 if (node && node.data) renderCollection();
             })
             .catch(() => { generatedArt[gameKey] = null; })
@@ -6413,14 +6415,65 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('signature-art-modal').style.display = 'flex';
 
         // On sait déjà lesquelles existent : on les lit avant de dessiner.
-        return Promise.all(signatureArtCards.map(card =>
-            db.ref('lan/cardArt/' + card.gameKey).once('value')
+        const keys = signatureArtCards.map(card => card.gameKey).concat([PACK_ART_KEY]);
+        return Promise.all(keys.map(key =>
+            db.ref('lan/cardArt/' + key).once('value')
                 .then(snapshot => {
                     const node = snapshot.val();
-                    generatedArt[card.gameKey] = (node && node.data) || null;
+                    generatedArt[key] = (node && node.data) || null;
+                    generatedArtNames[key] = (node && node.name) || '';
                 })
-                .catch(() => { generatedArt[card.gameKey] = null; })
-        )).then(paintSignatureArtList);
+                .catch(() => { generatedArt[key] = null; })
+        )).then(() => {
+            document.getElementById('pack-art-name').value = generatedArtNames[PACK_ART_KEY] || '';
+            paintPackArtRow();
+            paintSignatureArtList();
+        });
+    }
+
+    function paintPackArtRow() {
+        const mount = document.getElementById('pack-art-row');
+        const art = generatedArt[PACK_ART_KEY];
+        mount.innerHTML = `
+            <div class="art-row">
+                <img class="art-row__thumb" alt="" src="${art ? escapeHtml(art) : DEFAULT_GAME_ICON}">
+                <span class="art-row__name">${escapeHtml(packLabel({ name: generatedArtNames[PACK_ART_KEY] }, globalSettings.lanName))}</span>
+                <label class="art-row__pick">${art ? 'Remplacer' : 'Importer'}<input type="file" accept="image/*"></label>
+            </div>
+        `;
+        mount.querySelector('input').addEventListener('change', (e) => {
+            const file = e.target.files && e.target.files[0];
+            if (!file) return;
+            const label = document.getElementById('pack-art-name').value.trim();
+            importArt(PACK_ART_KEY, label, file).then(paintPackArtRow);
+        });
+    }
+
+    document.getElementById('pack-art-name')?.addEventListener('change', (e) => {
+        savePackName(e.target.value).then(paintPackArtRow);
+    });
+
+    /* Renommer l'emballage sans forcément lui donner une image : le nom seul
+       suffit déjà à ce qu'un booster ne s'appelle plus « Booster de test ». */
+    function savePackName(name) {
+        const label = String(name || '').trim();
+        if (!generatedArt[PACK_ART_KEY]) {
+            // Les règles exigent `data` : sans illustration, le nom attend.
+            generatedArtNames[PACK_ART_KEY] = label;
+            showToast('Nom retenu. Il sera enregistré avec l\'illustration.', 'success');
+            return Promise.resolve();
+        }
+        return db.ref('lan/cardArt/' + PACK_ART_KEY).set({
+            data: generatedArt[PACK_ART_KEY],
+            name: label,
+            by: auth.currentUser ? auth.currentUser.uid : null,
+            ts: firebase.database.ServerValue.TIMESTAMP
+        })
+            .then(() => {
+                generatedArtNames[PACK_ART_KEY] = label;
+                showToast('Booster renommé.', 'success');
+            })
+            .catch(err => showToast(tcgWriteError(err), 'error'));
     }
 
     function paintSignatureArtList() {
@@ -6450,6 +6503,15 @@ document.addEventListener('DOMContentLoaded', () => {
         generate.textContent = missing ? `Générer les ${missing} manquantes` : 'Toutes illustrées';
         generate.disabled = !missing;
     }
+
+    /* Le son se coupe et se retient : une LAN se joue souvent en vocal, et un
+       booster qui claque dans le micro de tout le monde n'amuse personne. */
+    document.getElementById('reveal-mute')?.addEventListener('click', () => {
+        const on = Sfx.toggle();
+        const button = document.getElementById('reveal-mute');
+        button.textContent = on ? '🔊' : '🔇';
+        button.setAttribute('aria-label', on ? 'Couper le son' : 'Remettre le son');
+    });
 
     document.getElementById('signature-art-close')?.addEventListener('click', () => {
         document.getElementById('signature-art-modal').style.display = 'none';
@@ -6490,18 +6552,25 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function importCardArt(card, file) {
+    /* Une illustration importée, qu'il s'agisse d'une carte ou de l'emballage :
+       même stockage, même redimensionnement, même clé de nommage. */
+    function importArt(key, label, file) {
         return shrinkImage(file)
-            .then(dataUrl => db.ref('lan/cardArt/' + card.gameKey).set({
+            .then(dataUrl => db.ref('lan/cardArt/' + key).set({
                 data: dataUrl,
-                name: card.name,
+                name: label || generatedArtNames[key] || '',
                 by: auth.currentUser ? auth.currentUser.uid : null,
                 ts: firebase.database.ServerValue.TIMESTAMP
             }).then(() => {
-                generatedArt[card.gameKey] = dataUrl;
-                showToast(`${card.name} : illustration importée.`, 'success');
+                generatedArt[key] = dataUrl;
+                generatedArtNames[key] = label || generatedArtNames[key] || '';
+                showToast('Illustration importée.', 'success');
             }))
             .catch(err => showToast(tcgWriteError(err), 'error'));
+    }
+
+    function importCardArt(card, file) {
+        return importArt(card.gameKey, card.name, file);
     }
 
     /* Les Signature encore sans illustration sont dessinées par le modèle. On
@@ -6579,8 +6648,9 @@ document.addEventListener('DOMContentLoaded', () => {
             setId: setId,
             status: 'sealed',
             sealedAt: firebase.database.ServerValue.TIMESTAMP,
-            origin: 'debug',
-            label: 'Booster de test'
+            origin: 'debug'
+            // Pas de `label` : l'emballage porte le nom de la soirée, pas celui
+            // du bouton qui l'a créé. Personne n'ouvre un « booster de test ».
         })
             .then(() => ref.once('value'))
             .then(snapshot => {
@@ -6664,7 +6734,7 @@ document.addEventListener('DOMContentLoaded', () => {
             row.className = 'shop-card shop-card--pack';
             row.innerHTML = `
                 <div class="shop-card__head">
-                    <h4 class="shop-card__name">${escapeHtml(pack.label || 'Booster')}</h4>
+                    <h4 class="shop-card__name">${escapeHtml(pack.label || packLabel({ name: generatedArtNames[PACK_ART_KEY] }, globalSettings.lanName))}</h4>
                     <span class="shop-card__price">${TCG.PACK_SIZE} cartes</span>
                 </div>
                 <p class="shop-card__meta">Scellé le ${escapeHtml(new Date(pack.sealedAt).toLocaleString('fr-FR'))}. Personne ne sait encore ce qu'il y a dedans.</p>
@@ -6756,7 +6826,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         document.getElementById('reveal-seal').textContent =
             `Sceau ${new Date(pack.sealedAt).toLocaleTimeString('fr-FR')}`;
-        document.getElementById('reveal-packname').textContent = pack.label || 'Booster';
+        /* Le nom et l'illustration du booster ne viennent pas du paquet mais de
+           la soirée : un paquet créé pour un test ne doit pas s'appeler
+           « test » aux yeux de celui qui l'ouvre. */
+        const packArt = generatedArt[PACK_ART_KEY];
+        document.getElementById('reveal-packname').textContent =
+            packLabel({ name: generatedArtNames[PACK_ART_KEY] }, globalSettings.lanName);
+        document.getElementById('reveal-wrap').classList.toggle('has-art', !!packArt);
+        if (packArt) document.getElementById('reveal-packart').src = packArt;
+        document.getElementById('reveal-mute').textContent = Sfx.isEnabled() ? '🔊' : '🔇';
         document.getElementById('reveal-flip').innerHTML = '';
         document.getElementById('reveal-spread').className = 'reveal-spread';
         document.getElementById('reveal-spread').innerHTML = '';
@@ -6846,6 +6924,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const fx = RARITY_FX[card.rarity] || RARITY_FX.common;
 
         revealFlipping = true;
+        Sfx.flip();
         flip.className = 'reveal-flip is-out';
 
         setTimeout(() => {
@@ -6865,6 +6944,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (fx.rays) void rays.offsetWidth;
 
             fireSparks(card.rarity, fx.sparks);
+            Sfx.reveal(card.rarity);
 
             overlay.classList.remove('is-shake', 'is-flash', 'is-flash-epic', 'is-flash-showcase');
             void overlay.offsetWidth;
@@ -6945,6 +7025,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         spread.classList.add('is-gathering');
+        Sfx.gather();
         setTimeout(closeReveal, 420 + cards.length * 14);
     }
 
@@ -6971,6 +7052,7 @@ document.addEventListener('DOMContentLoaded', () => {
         pack.classList.add('is-torn');
         // L'entaille file jusqu'au bord : c'est elle qui déclenche tout le reste.
         setCut(1);
+        Sfx.packOpen();
         paintRevealFoot();
 
         /* Le paquet reste à l'écran le temps de s'ouvrir en entier — la bande
@@ -7004,6 +7086,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let cutFrom = null;
     let cutSpan = 0;
     let cutReached = 0;
+    /* Le dernier cran sonore franchi. L'entaille craque par paliers plutôt qu'à
+       chaque pixel : c'est ce qui lui donne son grain de fermeture éclair, et ça
+       évite de lancer cinquante sons par glissement. */
+    let cutHeard = 0;
 
     const CUT_HINT = 'Glisse en travers pour ouvrir';
 
@@ -7015,9 +7101,12 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('reveal-pack')?.addEventListener('pointerdown', (e) => {
         if (revealPhase !== 'pack') return;
         cutFrom = e.clientX;
+        cutHeard = 0;
         // La largeur du paquet : trancher, c'est le traverser.
         cutSpan = Math.max(60, document.getElementById('reveal-wrap').getBoundingClientRect().width * 0.8);
         document.getElementById('reveal-pack').classList.add('is-tearing');
+        // Premier contact : c'est le geste qui autorise le son.
+        Sfx.wake();
     });
 
     document.getElementById('reveal-pack')?.addEventListener('pointermove', (e) => {
@@ -7025,6 +7114,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // La valeur absolue : on tranche de gauche à droite ou l'inverse.
         const progress = Math.max(0, Math.min(1, Math.abs(e.clientX - cutFrom) / cutSpan));
         setCut(progress);
+        if (progress - cutHeard >= 0.07) { cutHeard = progress; Sfx.cut(progress); }
         document.getElementById('reveal-hint').textContent = progress > 0.25 ? 'Encore…' : CUT_HINT;
         if (progress >= 0.75) { cutFrom = null; tearPack(); }
     }, { passive: true });

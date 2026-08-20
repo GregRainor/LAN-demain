@@ -1218,6 +1218,7 @@
             <div class="reveal-wrap" id="reveal-wrap">
                 <span class="reveal-cards"></span>
                 <span class="reveal-body">
+                    <img class="reveal-art" id="reveal-packart" alt="">
                     <span class="reveal-mark">✦</span>
                     <span class="reveal-packname" id="reveal-packname">Booster</span>
                 </span>
@@ -1242,6 +1243,7 @@
             <div class="reveal-actions">
                 <button id="reveal-next" class="gold-btn">Ouvrir</button>
                 <button id="reveal-all" class="gold-link-btn">Tout révéler</button>
+                <button id="reveal-mute" class="gold-link-btn" aria-label="Couper le son">🔊</button>
             </div>
         </div>
     </div>
@@ -1269,7 +1271,14 @@
          modèle dessiner celles qui manquent. -->
     <div id="signature-art-modal" class="modal-overlay" style="display:none;">
         <div class="luxury-panel modal-content" style="max-width: 620px;">
-            <h3>🎨 Illustrations des Signature</h3>
+            <h3>🎨 Illustrations</h3>
+            <!-- L'emballage d'abord : c'est la première chose qu'on voit d'un
+                 booster, et la seule qui ne soit pas une carte. -->
+            <h4 class="trade-side-title">Le booster</h4>
+            <div id="pack-art-row" class="art-list"></div>
+            <input type="text" id="pack-art-name" class="luxury-input" style="margin-top: 8px;"
+                placeholder="Nom du booster (ex : Booster Janvier 2027)">
+            <h4 class="trade-side-title">Les Signature</h4>
             <p class="panel-section__hint" id="signature-art-hint"></p>
             <div id="signature-art-list" class="art-list"></div>
             <div class="modal-actions" style="flex-direction: row; margin-top: 16px;">
@@ -1295,6 +1304,7 @@
 
     <script src="config.js"></script>
     <script src="core.js"></script>
+    <script src="sound.js"></script>
     <script src="newScript.js"></script>
 </body>
 
