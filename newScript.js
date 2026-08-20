@@ -2374,6 +2374,25 @@ document.addEventListener('DOMContentLoaded', () => {
     // Archive le classement en cours puis remet le cycle à zéro : votes effacés,
     // votes rouverts, LAN active désactivée. On ne touche ni aux événements, ni
     // aux kocktails, ni aux bibliothèques Steam : ils survivent d'une LAN à l'autre.
+    /* Le palmarès des collections, tel qu'on veut le relire dans un an : le nom
+       du set, et pour chaque joueur ce qu'il en avait. On n'archive ni les
+       paquets ni les illustrations — les uns se rejouent, les autres pèsent des
+       mégaoctets et restent de toute façon dans `lan/cardArt`. */
+    function tcgStandingsForArchive() {
+        const set = tcgCurrentSet(globalTcg);
+        if (!set) return null;
+        const cards = tcgCards(globalTcg);
+        const board = tcgLeaderboard(set.cards || {}, cards, economyPlayers())
+            .map(row => ({
+                name: playerLabel(row.uid),
+                owned: row.owned,
+                total: row.total,
+                foils: row.foils
+            }));
+        if (!board.length) return null;
+        return { setName: set.name || '', standings: board };
+    }
+
     async function startNewLan(newName) {
         const sortedGames = calculateScores(globalVotes);
         const previousName = globalSettings.lanName || 'LAN Demain';
@@ -2406,7 +2425,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 votes: globalVotes,
                 events: eventsSnap.val() || null,
                 oneshotCocktails: cocktailsSnap.val() || null,
-                economyStandings: finalStandings.length ? finalStandings : null
+                economyStandings: finalStandings.length ? finalStandings : null,
+                // Ce que la soirée a laissé en cartes. Tant que la LAN tourne,
+                // une collection est un brouillon qu'on peut jeter en
+                // recomposant le set ; à la clôture, elle devient un souvenir
+                // et c'est ici qu'elle est gardée.
+                tcgStandings: tcgStandingsForArchive()
             });
         }
 
@@ -6235,7 +6259,10 @@ document.addEventListener('DOMContentLoaded', () => {
            neuf alors que la soirée est lancée. */
         document.getElementById('btn-mint-set').style.display = view.set ? 'none' : 'inline-block';
         document.getElementById('btn-mint-set').disabled = !pool;
-        document.getElementById('btn-remint-set').style.display = view.set ? 'inline-block' : 'none';
+        // La soirée close, les collections sont archivées : on ne propose plus
+        // de tout jeter pour recomposer.
+        document.getElementById('btn-remint-set').style.display =
+            (view.set && !globalSettings.lanFinished) ? 'inline-block' : 'none';
         document.getElementById('btn-debug-pack').disabled = !view.set;
 
         const select = document.getElementById('tcg-gift-user');
@@ -6255,17 +6282,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /* On ne remplace jamais un set : on en compose un nouveau et on pointe
        dessus. Les cartes déjà ouvertes gardent le leur, et donc leur sens. */
-    /* Un set remplacé s'efface. Les paquets qui en venaient partent avec lui :
-       leur contenu se rejoue depuis les cartes du set, donc sans le set ils ne
-       contiennent plus rien et pollueraient les collections de silhouettes
-       vides. C'est destructeur et c'est assumé — recréer, c'est repartir. */
-    function discardSet(setId) {
-        if (!setId) return Promise.resolve();
-        const doomed = Object.entries(globalTcg.packs || {})
-            .filter(([, pack]) => pack && pack.setId === setId)
-            .map(([id]) => id);
-        return Promise.all(doomed.map(id => db.ref('lan/tcg/packs/' + id).remove()))
-            .then(() => db.ref('lan/tcg/sets/' + setId).remove());
+    /* Recomposer un set pendant la soirée, c'est repartir de zéro pour de bon :
+       on efface TOUS les anciens sets, TOUS les paquets et TOUS les échanges —
+       pas seulement ceux du set remplacé. N'effacer que le set courant laissait
+       dans les collections les cartes venues d'un set encore plus ancien, et le
+       « nouveau départ » n'en était pas un.
+
+       Tant que la LAN n'est pas terminée, une collection est un brouillon :
+       elle ne devient un souvenir qu'à la clôture de la soirée. C'est ce qui
+       autorise à tout jeter ici sans rien perdre qui compte.
+
+       Les illustrations (`lan/cardArt`) survivent : elles sont attachées au jeu
+       et non au set, et les regénérer coûterait pour rien. */
+    function discardCards(keepSetId) {
+        const doomed = Object.keys(globalTcg.sets || {}).filter(id => id !== keepSetId);
+        return Promise.all(doomed.map(id => db.ref('lan/tcg/sets/' + id).remove()))
+            .then(() => Promise.all([
+                db.ref('lan/tcg/packs').remove(),
+                db.ref('lan/tcg/trades').remove()
+            ]));
     }
 
     /* Une écriture refusée par les règles ne dit rien d'utile telle quelle. Ici
@@ -6288,23 +6323,29 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast('Le set de la LAN existe déjà !', 'error');
             return;
         }
+        /* La soirée close, les collections sont archivées : ce ne sont plus des
+           brouillons, et on ne les jette pas pour recomposer un set. */
+        if (force && globalSettings.lanFinished) {
+            showToast('La LAN est terminée : les cartes sont archivées. Rouvre la LAN pour recomposer un set.', 'error');
+            return;
+        }
 
         const pool = setPool();
         const preview = Object.keys(buildCardSet(calculateScores(globalVotes), pool)).length;
 
-        const doomedPacks = Object.values(globalTcg.packs || {})
-            .filter(pack => pack && pack.setId === previous).length;
+        const doomedPacks = Object.keys(globalTcg.packs || {}).length;
+        const doomedCards = tcgCards(globalTcg).length;
 
         const ok = await askConfirm(
             force
-                ? `Recomposer le set : environ ${preview} cartes. L'ancien set est EFFACÉ`
-                  + (doomedPacks
-                      ? `, ainsi que ${doomedPacks} booster${doomedPacks > 1 ? 's' : ''} déjà ouvert${doomedPacks > 1 ? 's' : ''} et les cartes qu'${doomedPacks > 1 ? 'ils contenaient' : 'il contenait'}.`
+                ? `Recomposer le set : environ ${preview} cartes. Tout repart de zéro — les anciens sets, les boosters et les échanges sont EFFACÉS`
+                  + (doomedCards
+                      ? `, soit ${doomedCards} carte${doomedCards > 1 ? 's' : ''} dans ${doomedPacks} booster${doomedPacks > 1 ? 's' : ''}, pour tout le monde.`
                       : '.')
-                  + ' On repart de zéro.'
+                  + ' Tant que la soirée n\'est pas close, une collection est un brouillon. Les illustrations déjà faites sont conservées.'
                 : `Créer le set de la LAN « ${globalSettings.lanName || 'LAN Demain'} » : environ ${preview} cartes, du vote au fond des bibliothèques Steam. `
                   + `Les ${TCG.SIGNATURE_COUNT} cartes du sommet recevront une illustration.`,
-            { title: '🎴 Les cartes', danger: force, confirmLabel: force ? 'Effacer et recréer' : 'Créer le set' });
+            { title: '🎴 Les cartes', danger: force, confirmLabel: force ? 'Tout effacer et recréer' : 'Créer le set' });
         if (!ok) return;
 
         showToast('Composition du set…', 'success');
@@ -6324,9 +6365,9 @@ document.addEventListener('DOMContentLoaded', () => {
             cards: cards
         })
             .then(() => db.ref('lan/tcg/currentSet').set(ref.key))
-            // L'ancien ne part qu'une fois le nouveau en place : si l'écriture
-            // échoue, on n'a rien détruit.
-            .then(() => discardSet(previous))
+            // Le ménage n'a lieu qu'une fois le nouveau set en place : si
+            // l'écriture échoue, on n'a rien détruit.
+            .then(() => discardCards(ref.key))
             .then(() => {
                 showToast(`Set créé : ${count} cartes !`, 'success');
                 return openSignatureArtModal(cards);

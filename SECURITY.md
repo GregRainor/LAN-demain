@@ -265,14 +265,29 @@ choix à connaître :
   1024 px de large avant l'envoi : une photo de téléphone dépasserait sinon la
   limite de 4 Mo du nœud.
 
-### Recomposer un set efface le précédent
+### Une collection est un brouillon jusqu'à la clôture de la soirée
 
-`discardSet()` supprime l'ancien set **et les paquets qui en venaient**. Ce
-n'est pas une précaution excessive : le contenu d'un paquet se rejoue depuis les
-cartes de son set, donc un paquet dont le set a disparu ne contient plus rien et
-peuplerait les collections de silhouettes vides. La confirmation annonce combien
-de boosters ouverts partent avec. L'ancien n'est effacé qu'**après** l'écriture
-du nouveau : si elle échoue, rien n'a été détruit.
+C'est la règle qui gouverne tout le cycle de vie des cartes.
+
+**Tant que la LAN n'est pas terminée**, recomposer un set (`discardCards()`)
+efface **tous** les anciens sets, **tous** les paquets et **tous** les échanges.
+Pas seulement ceux du set remplacé : n'effacer que le set courant laissait dans
+les collections les cartes venues d'un set plus ancien, et le « nouveau départ »
+n'en était pas un. C'est volontairement radical — pendant la mise au point, on
+recompose le set autant de fois qu'il le faut, et chaque fois tout le monde
+repart à zéro. La confirmation annonce le nombre exact de cartes et de boosters
+détruits. Le ménage n'a lieu qu'**après** l'écriture du nouveau set : si elle
+échoue, rien n'a été détruit.
+
+**Une fois la LAN close** (`lanFinished`), les collections sont archivées : le
+bouton « Recréer le set » disparaît, et l'appel est refusé même forcé. Il faut
+rouvrir la soirée pour recomposer. `startNewLan()` archive au passage le
+palmarès des collections dans `lan/history` (`tcgStandings` : le nom du set et,
+par joueur, ce qu'il en avait) — ni les paquets ni les images, les uns se
+rejouent et les autres pèsent trop.
+
+Les illustrations (`lan/cardArt`) survivent à tout : elles sont attachées au jeu
+et non au set, et les regénérer coûterait pour rien.
 
 Sans clé configurée, la fonction répond 503 et les Signature gardent simplement
 leur jaquette Steam. Rien d'autre ne change.

@@ -3234,7 +3234,9 @@ function renderMintPanel(view) {
        repartirait sur un set neuf alors que la soirée est lancée. */
     $('m-mint-set').style.display = view.set ? 'none' : 'block';
     $('m-mint-set').disabled = !pool;
-    $('m-remint-set').style.display = view.set ? 'block' : 'none';
+    /* La soirée close, les collections sont archivées : on ne propose plus de
+       tout jeter pour recomposer. */
+    $('m-remint-set').style.display = (view.set && !state.settings.lanFinished) ? 'block' : 'none';
 }
 
 /* Tous les jeux qui peuvent devenir des cartes : les votés, plus tout ce que
@@ -3273,17 +3275,25 @@ function resolveVotedArt(pool) {
     )).then(found => Object.fromEntries(found.filter(Boolean)));
 }
 
-/* Un set remplacé s'efface. Les paquets qui en venaient partent avec lui :
-   leur contenu se rejoue depuis les cartes du set, donc sans le set ils ne
-   contiennent plus rien et pollueraient les collections de silhouettes vides.
-   C'est destructeur et c'est assumé — recréer un set, c'est repartir de zéro. */
-function discardSet(setId) {
-    if (!setId) return Promise.resolve();
-    const doomed = Object.entries(state.tcg.packs || {})
-        .filter(([, pack]) => pack && pack.setId === setId)
-        .map(([id]) => id);
-    return Promise.all(doomed.map(id => db.ref('lan/tcg/packs/' + id).remove()))
-        .then(() => db.ref('lan/tcg/sets/' + setId).remove());
+/* Recomposer un set pendant la soirée, c'est repartir de zéro pour de bon : on
+   efface TOUS les anciens sets, TOUS les paquets et TOUS les échanges — pas
+   seulement ceux du set remplacé. N'effacer que le set courant laissait dans
+   les collections les cartes venues d'un set encore plus ancien, et le
+   « nouveau départ » n'en était pas un.
+
+   Tant que la LAN n'est pas terminée, une collection est un brouillon : elle ne
+   devient un souvenir qu'à la clôture de la soirée. C'est ce qui autorise à
+   tout jeter ici sans rien perdre qui compte.
+
+   Les illustrations (`lan/cardArt`) survivent : elles sont attachées au jeu et
+   non au set, et les regénérer coûterait pour rien. */
+function discardCards(keepSetId) {
+    const doomed = Object.keys(state.tcg.sets || {}).filter(id => id !== keepSetId);
+    return Promise.all(doomed.map(id => db.ref('lan/tcg/sets/' + id).remove()))
+        .then(() => Promise.all([
+            db.ref('lan/tcg/packs').remove(),
+            db.ref('lan/tcg/trades').remove()
+        ]));
 }
 
 /* Une écriture refusée par les règles ne dit rien d'utile telle quelle. Ici on
@@ -3306,6 +3316,12 @@ function mintSet(force) {
         showToast('Le set de la LAN existe déjà !', 'error');
         return;
     }
+    /* La soirée close, les collections sont archivées : ce ne sont plus des
+       brouillons, et on ne les jette pas pour recomposer un set. */
+    if (force && state.settings.lanFinished) {
+        showToast('La LAN est terminée : les cartes sont archivées. Rouvre la LAN pour recomposer un set.', 'error');
+        return;
+    }
 
     const pool = setPool();
     showToast('Composition du set…', 'success');
@@ -3326,9 +3342,9 @@ function mintSet(force) {
             cards: cards
         })
             .then(() => db.ref('lan/tcg/currentSet').set(ref.key))
-            // L'ancien ne part qu'une fois le nouveau en place : si l'écriture
-            // échoue, on n'a rien détruit.
-            .then(() => discardSet(previous))
+            // Le ménage n'a lieu qu'une fois le nouveau set en place : si
+            // l'écriture échoue, on n'a rien détruit.
+            .then(() => discardCards(ref.key))
             .then(() => {
                 showToast('Set créé : ' + count + ' cartes !', 'success');
                 return openSignatureArtSheet(cards);
@@ -3514,20 +3530,25 @@ function generateSignatureArt(setCards) {
 $('m-mint-set').addEventListener('click', () => mintSet(false));
 
 $('m-remint-set').addEventListener('click', () => {
-    const previous = tcgCurrentSetId(state.tcg);
-    const doomed = Object.values(state.tcg.packs || {})
-        .filter(pack => pack && pack.setId === previous).length;
+    if (state.settings.lanFinished) {
+        showToast('La LAN est terminée : les cartes sont archivées.', 'error');
+        return;
+    }
+
+    const packs = Object.keys(state.tcg.packs || {}).length;
+    const cards = tcgCards(state.tcg).length;
 
     openSheet('Recréer le set ?', (body) => {
         body.appendChild(el('p', 'm-card__meta',
-            'L\'ancien set est EFFACÉ'
-            + (doomed
-                ? ', ainsi que ' + doomed + ' booster' + (doomed > 1 ? 's' : '')
-                  + ' déjà ouvert' + (doomed > 1 ? 's' : '')
-                  + ' et les cartes qu\'' + (doomed > 1 ? 'ils contenaient' : 'il contenait') + '.'
-                : '.')
-            + ' On repart de zéro.'));
-        const go = el('button', 'm-btn m-btn--danger m-btn--full', 'Effacer et recréer');
+            'Tout repart de zéro : les anciens sets, les boosters et les échanges sont EFFACÉS'
+            + (cards
+                ? ' — ' + cards + ' carte' + (cards > 1 ? 's' : '') + ' dans '
+                  + packs + ' booster' + (packs > 1 ? 's' : '') + ', pour tout le monde.'
+                : '.')));
+        body.appendChild(el('p', 'm-card__meta',
+            'Tant que la soirée n\'est pas close, une collection est un brouillon. '
+            + 'Les illustrations déjà faites, elles, sont conservées.'));
+        const go = el('button', 'm-btn m-btn--danger m-btn--full', 'Tout effacer et recréer');
         go.addEventListener('click', () => { closeSheet(); mintSet(true); });
         body.appendChild(go);
     });
