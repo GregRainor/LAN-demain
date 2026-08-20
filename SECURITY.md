@@ -23,7 +23,7 @@ réglages de la LAN, vider l'historique, etc.
 | `lan/notifications/$uid` | uniquement le destinataire | tout utilisateur connecté (nécessaire : les notifs (RSVP, shots, broadcasts) sont écrites côté client par l'expéditeur) |
 | `lan/users/$uid` | tout utilisateur connecté | uniquement soi-même |
 | `lan/steamLibraries/$steamId` | tout utilisateur connecté | tout utilisateur connecté (chacun peut ajouter la bibliothèque d'un ami, et la retirer en cas d'erreur) |
-| `lan/tcg/sets` | tout utilisateur connecté | admin ou maître du jeu (frapper le set depuis les votes) |
+| `lan/tcg/sets` | tout utilisateur connecté | admin ou maître du jeu (composer le set depuis les votes) |
 | `lan/tcg/packs/$packId` | tout utilisateur connecté | scellage par l'acheteur contre une demande validée, ouverture par le propriétaire ; jamais de modification ni de suppression |
 | `lan/tcg/trades/$tradeId` | tout utilisateur connecté | création par l'émetteur, résolution par le destinataire ; contenu figé après création |
 
@@ -131,21 +131,30 @@ inventaire modifiable serait un inventaire qu'on se fabrique.
 
 ### 1. Le set (`lan/tcg/sets/$setId`, `lan/tcg/currentSet`)
 
-Le set est frappé à partir du classement des votes : les jeux demandés deviennent les cartes,
-et leur rareté est leur score. Écriture réservée aux `admin` / `gamemaster`.
+Le set se compose à partir du classement des votes — les jeux demandés occupent le haut, et leur
+rareté est leur score — complété par tous les jeux connus des bibliothèques Steam du groupe, qui
+en forment le fond. Écriture réservée aux `admin` / `gamemaster`.
 
-On ne remplace jamais un set : on en frappe un nouveau et `currentSet` pointe dessus. Les
+Raretés, proportions et composition du booster sont calquées sur **Riftbound** : cinq tiers
+(prestige 15,3 %, épique 11,9 %, rare 23,8 %, peu commune 23,8 %, commune 25,2 %), et un booster
+de 14 cartes — huit communes, trois peu communes, un emplacement rare, un emplacement flex
+(épique une fois sur quatre, prestige une fois sur douze) et un emplacement brillant. Toute rare
+et au-dessus sort brillante d'office, ce qui garantit trois brillantes par paquet.
+
+On ne remplace jamais un set : on en compose un nouveau et `currentSet` pointe dessus. Les
 paquets déjà ouverts gardent le `setId` sous lequel ils ont été tirés, donc leur contenu reste
-rejouable à l'identique — sans quoi refrapper un set réécrirait la collection de tout le monde.
+rejouable à l'identique — sans quoi recomposer un set réécrirait la collection de tout le monde.
+Le bouton de création refuse d'ailleurs quand un set existe déjà : il faut passer par « Recréer le
+set », explicite.
 
 La clé d'une carte est `cardKey()` : `normalizeGameName()` dont les caractères interdits dans
 un chemin Firebase (`.` `$` `#` `[` `]` `/`) sont remplacés par `_`. Sans ça, un jeu comme
-« S.T.A.L.K.E.R. » ferait échouer la frappe du set sans le moindre message.
+« S.T.A.L.K.E.R. » ferait échouer la composition du set sans le moindre message.
 
 ### 2. Le hasard des boosters (`lan/tcg/packs/$packId`) — le sceau serveur
 
 C'est le seul endroit de l'app où un tirage aléatoire décide de quelque chose de convoité.
-Si le client tirait, n'importe qui rejouerait le tirage jusqu'à la légendaire. Les règles
+Si le client tirait, n'importe qui rejouerait le tirage jusqu'à la prestige. Les règles
 Firebase savent valider une **forme**, jamais une **imprévisibilité**.
 
 La réponse tient en une ligne : **le contenu d'un paquet n'est pas stocké, il se recalcule
@@ -200,7 +209,7 @@ collection qui grandit.
 > ⚠️ **Mise à jour requise** : les règles `lan/tcg` ci-dessus sont nouvelles.
 > Tant qu'elles ne sont pas **republiées** avec la procédure ci-dessous, l'écran
 > Collection restera vide et la console affichera `permission_denied at
-> /lan/tcg`. Frapper le set, sceller un booster et proposer un échange
+> /lan/tcg`. Composer le set, sceller un booster et proposer un échange
 > échoueront tous, en silence.
 
 

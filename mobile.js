@@ -3025,13 +3025,35 @@ function tcgSnapshot() {
     return tcgView;
 }
 
+/* Un set tiré des bibliothèques Steam compte plusieurs centaines de cartes.
+   Demander la jaquette de chacune au rendu, c'est trois cents appels réseau
+   d'un coup à l'ouverture de l'écran — le téléphone rame et l'API se fait
+   étrangler. On ne résout l'illustration qu'à l'approche de l'écran. */
+const artObserver = ('IntersectionObserver' in window)
+    ? new IntersectionObserver((entries, observer) => {
+        entries.forEach(entry => {
+            if (!entry.isIntersecting) return;
+            observer.unobserve(entry.target);
+            thumbFor(entry.target.dataset.game || '', entry.target);
+        });
+    }, { rootMargin: '320px' })
+    : null;
+
 /* Illustration d'une carte : le dessin s'il existe, sinon la jaquette Steam.
    Le set est donc illustré dès le premier soir, et se bonifie carte par carte
    sans jamais rien bloquer. */
 function cardArtFor(gameKey, name, imgEl) {
     const drawn = cardArt(gameKey);
     if (drawn) { imgEl.src = drawn; return; }
-    thumbFor(name || gameKey, imgEl);
+
+    const label = name || gameKey;
+    const cached = thumbCache.get(normalizeGameName(label));
+    if (cached) { imgEl.src = cached; return; }
+
+    imgEl.src = DEFAULT_THUMB;
+    imgEl.dataset.game = label;
+    if (artObserver) artObserver.observe(imgEl);
+    else thumbFor(label, imgEl);
 }
 
 /* La carte elle-même. Une seule fabrique pour la grille, les doubles,
@@ -3116,6 +3138,10 @@ function openCardSheet(card) {
 function renderCartes() {
     const view = tcgSnapshot();
     if (!view.uid) return;
+    /* Redessiner trois cents cartes à chaque mise à jour Firebase mettrait le
+       téléphone à genoux. Hors de l'écran Cartes, il n'y a rien à voir : le
+       rappel d'accueil et la pastille de « Plus » suffisent. */
+    if (currentScreen !== 'cartes') return;
 
     renderSetBand(view);
     renderMintPanel(view);
@@ -3135,7 +3161,7 @@ function renderSetBand(view) {
     if (!view.set) {
         band.appendChild(el('p', 'm-setband__title', 'Pas encore de set'));
         band.appendChild(el('p', 'm-setband__hint',
-            'Les cartes sont frappées à partir du vote : elles apparaîtront quand le maître du jeu aura ouvert la soirée.'));
+            'Les cartes viennent du vote : elles apparaîtront quand le maître du jeu aura créé le set de la LAN.'));
         return;
     }
 
@@ -3160,44 +3186,109 @@ function renderMintPanel(view) {
     section.style.display = 'flex';
 
     const summary = $('m-mint-state');
-    const scores = state.scores || [];
+    const pool = setPoolSize();
     if (!view.set) {
-        summary.textContent = scores.length
-            ? 'Aucun set frappé. ' + scores.length + ' jeux votés attendent de devenir des cartes.'
-            : 'Aucun set, et aucun vote pour en frapper un.';
+        summary.textContent = pool
+            ? 'Aucun set. ' + pool + ' jeux connus (votes + bibliothèques Steam) attendent de devenir des cartes.'
+            : 'Aucun set, et aucun jeu connu pour en composer un.';
     } else {
         const count = Object.keys(view.setCards).length;
-        summary.textContent = 'Set en cours : « ' + view.set.name + ' », ' + count + ' cartes. En refrapper un en crée un nouveau ; les cartes déjà distribuées restent.';
+        summary.textContent = 'Set en cours : « ' + view.set.name + ' », ' + count + ' cartes. '
+            + pool + ' jeux connus aujourd\'hui.';
     }
-    $('m-mint-set').disabled = !scores.length;
+    /* Le set existe déjà : le bouton principal refuse, et c'est un second
+       bouton, explicite, qui permet d'en recomposer un. Recréer sans le vouloir
+       repartirait sur un set neuf alors que la soirée est lancée. */
+    $('m-mint-set').style.display = view.set ? 'none' : 'block';
+    $('m-mint-set').disabled = !pool;
+    $('m-remint-set').style.display = view.set ? 'block' : 'none';
 }
 
-/* Frapper le set : le classement des votes devient les cartes. On ne remplace
-   jamais un set existant — on en crée un nouveau et on pointe dessus, pour que
-   les cartes déjà ouvertes gardent un sens. */
-function mintSet() {
+/* Tous les jeux qui peuvent devenir des cartes : les votés, plus tout ce que
+   les bibliothèques Steam du groupe et les soirées passées nous ont appris. */
+function setPool() {
+    /* Les bibliothèques seulement, et pas l'historique : les deux interfaces
+       doivent composer exactement le même set, et le bureau ne garde pas
+       l'historique en mémoire. C'est de toute façon là qu'est le volume. */
+    return knownGameNames({ libraries: state.libraries });
+}
+
+function setPoolSize() {
+    return Object.keys(buildCardSet(state.scores || [], setPool())).length;
+}
+
+/* Composer le set : le classement des votes prend le haut, les bibliothèques
+   remplissent le reste. On ne remplace jamais un set existant — on en crée un
+   nouveau et on pointe dessus, pour que les cartes déjà ouvertes gardent un
+   sens. */
+function mintSet(force) {
     const user = state.user;
     if (!user) return;
-    const cards = buildCardSet(state.scores || []);
+
+    if (!force && tcgCurrentSetId(state.tcg)) {
+        showToast('Le set de la LAN existe déjà !', 'error');
+        return;
+    }
+
+    const cards = buildCardSet(state.scores || [], setPool());
     const count = Object.keys(cards).length;
-    if (!count) { showToast('Aucun vote : rien à frapper.', 'error'); return; }
+    if (!count) { showToast('Aucun jeu connu : rien à composer.', 'error'); return; }
 
     const ref = db.ref('lan/tcg/sets').push();
     ref.set({
-        name: state.settings.lanName || 'LAN Demain',
+        name: 'Set de la LAN ' + (state.settings.lanName || 'LAN Demain'),
         ts: firebase.database.ServerValue.TIMESTAMP,
         by: user.uid,
         cards: cards
     })
         .then(() => db.ref('lan/tcg/currentSet').set(ref.key))
-        .then(() => showToast(count + ' cartes frappées !', 'success'))
+        .then(() => showToast('Set créé : ' + count + ' cartes !', 'success'))
         .catch(e => showToast('Erreur : ' + e.message, 'error'));
 }
 
-$('m-mint-set').addEventListener('click', mintSet);
+$('m-mint-set').addEventListener('click', () => mintSet(false));
+
+$('m-remint-set').addEventListener('click', () => {
+    openSheet('Recréer le set ?', (body) => {
+        body.appendChild(el('p', 'm-card__meta',
+            'Un nouveau set remplace celui de la soirée pour les prochains boosters. '
+            + 'Les cartes déjà ouvertes gardent le leur : elles ne changent pas.'));
+        const go = el('button', 'm-btn m-btn--solid m-btn--full', 'Recréer le set');
+        go.addEventListener('click', () => { closeSheet(); mintSet(true); });
+        body.appendChild(go);
+    });
+});
+
+/* Débogage : en attendant la boutique, le maître du jeu ouvre autant de
+   boosters qu'il veut. Le paquet est scellé puis ouvert dans la foulée — même
+   chemin qu'un booster acheté, même sceau serveur, même tirage. */
+$('m-debug-pack').addEventListener('click', () => {
+    const user = state.user;
+    const setId = tcgCurrentSetId(state.tcg);
+    if (!user) return;
+    if (!setId) { showToast('Crée d\'abord le set de la LAN.', 'error'); return; }
+    // Synchrone dans le geste : c'est la condition d'iOS pour le gyroscope.
+    askTiltPermission();
+
+    const ref = db.ref('lan/tcg/packs').push();
+    ref.set({
+        uid: user.uid,
+        setId: setId,
+        status: 'sealed',
+        sealedAt: firebase.database.ServerValue.TIMESTAMP,
+        origin: 'debug',
+        label: 'Booster de test'
+    })
+        .then(() => ref.once('value'))
+        .then(snapshot => {
+            const pack = snapshot.val();
+            if (pack) openPack(Object.assign({ id: ref.key }, pack));
+        })
+        .catch(e => showToast('Erreur : ' + e.message, 'error'));
+});
 
 $('m-gift-pack').addEventListener('click', () => {
-    if (!tcgCurrentSetId(state.tcg)) { showToast('Frappe d\'abord le set.', 'error'); return; }
+    if (!tcgCurrentSetId(state.tcg)) { showToast('Crée d\'abord le set de la LAN.', 'error'); return; }
     openSheet('Offrir un booster', (body) => {
         economyPlayers().forEach(uid => {
             const row = el('button', 'm-btn m-btn--full', playerName(uid));
@@ -3365,53 +3456,179 @@ function openPack(pack) {
         .finally(() => { opening = false; });
 }
 
-/* On révèle du plus commun au plus rare, et le brillant en dernier à rareté
-   égale : la tension doit monter, pas retomber. */
+/* L'ouverture se joue en trois temps : le paquet scellé qu'on déchire, les
+   cartes une à une, puis la planche complète. On révèle du plus commun au plus
+   rare, et le brillant en dernier à rareté égale — la tension doit monter,
+   jamais retomber. */
+let revealPhase = 'pack';   // 'pack' → 'cards' → 'spread'
+let revealFlipping = false;
+/* Un toucher arrivé pendant le demi-tour n'est pas perdu, il est mis de côté :
+   quatorze cartes se tapotent au rythme du joueur, pas à celui de
+   l'animation. */
+let revealPending = false;
+
 function startReveal(pack, cards, ownedBefore) {
     revealQueue = cards.slice().sort((a, b) =>
         rarityIndex(b.rarity) - rarityIndex(a.rarity)
         || (a.foil ? 1 : 0) - (b.foil ? 1 : 0));
     revealDone = [];
     revealOwned = ownedBefore;
+    revealPhase = 'pack';
+    revealFlipping = false;
+    revealPending = false;
 
-    const stage = $('m-reveal-stage');
-    stage.innerHTML = '';
-    $('m-reveal-seal').textContent = 'Sceau ' + new Date(pack.sealedAt).toLocaleTimeString('fr-FR')
-        + ' · ' + (pack.label || 'Booster');
-    $('m-reveal-next').textContent = 'Révéler';
-    $('m-reveal').classList.add('is-open');
-    updateRevealFoot();
+    $('m-reveal-seal').textContent = 'Sceau ' + new Date(pack.sealedAt).toLocaleTimeString('fr-FR');
+    $('m-reveal-packname').textContent = pack.label || 'Booster';
+    $('m-reveal-flip').innerHTML = '';
+    $('m-reveal-spread').innerHTML = '';
+    $('m-reveal-pack').className = 'm-reveal__pack';
+
+    const overlay = $('m-reveal');
+    overlay.className = 'm-reveal is-open is-pack';
+    paintRevealFoot();
 }
 
-function updateRevealFoot() {
-    $('m-reveal-count').textContent = revealDone.length + ' / ' + (revealDone.length + revealQueue.length);
-    if (revealQueue.length) return;
-    $('m-reveal-next').textContent = 'Ranger dans ma collection';
-}
-
-$('m-reveal-next').addEventListener('click', () => {
-    if (!revealQueue.length) {
-        $('m-reveal').classList.remove('is-open');
-        $('m-reveal-stage').innerHTML = '';
-        renderAll();
+/* Les pastilles disent où on en est sans qu'on ait à lire un compteur, et se
+   colorent à la rareté déjà sortie : la planche se dessine au fur et à
+   mesure. */
+function paintRevealFoot() {
+    const dots = $('m-reveal-dots');
+    dots.innerHTML = '';
+    if (revealPhase !== 'cards') {
+        $('m-reveal-all').style.display = 'none';
+        $('m-reveal-next').textContent = revealPhase === 'pack'
+            ? 'Ouvrir' : 'Ranger dans ma collection';
         return;
     }
 
+    revealDone.concat(revealQueue).forEach((card, i) => {
+        const dot = el('span', 'm-reveal__dot');
+        if (i < revealDone.length) dot.classList.add('is-done', 'is-' + card.rarity);
+        dots.appendChild(dot);
+    });
+    $('m-reveal-all').style.display = revealQueue.length > 1 ? 'block' : 'none';
+    $('m-reveal-next').textContent = revealQueue.length ? 'Carte suivante' : 'Voir le paquet';
+}
+
+/* Le retournement, sans preserve-3d : la carte pivote jusqu'à la tranche, on
+   échange son contenu à mi-parcours, puis elle revient. Deux animations
+   plates valent mieux qu'une scène 3D, qui se brouille avec les modes de
+   fusion du brillant sur certains Android. */
+function flipToCard(card, isNew) {
+    const flip = $('m-reveal-flip');
+    const burst = $('m-reveal-burst');
+
+    revealFlipping = true;
+    flip.className = 'm-reveal__flip is-out';
+
+    setTimeout(() => {
+        const node = cardNode(card, { badge: isNew ? 'NOUVELLE' : 'double' });
+        node.classList.add('m-tcard--reveal');
+        flip.innerHTML = '';
+        flip.appendChild(node);
+        flip.className = 'm-reveal__flip is-in';
+
+        // L'éclat derrière la carte porte la couleur de sa rareté : on sait ce
+        // qu'on a sorti avant même d'avoir lu le nom.
+        burst.className = 'm-reveal__burst is-firing is-' + card.rarity;
+        if (card.foil) burst.classList.add('is-foil');
+        void burst.offsetWidth;
+
+        /* Rendu dès que la carte est posée, sans attendre la fin du retour :
+           quatorze cartes, ça se tapote vite, et un verrou d'une demi-seconde
+           avalerait un clic sur deux. Seul le demi-tour aller est protégé,
+           parce que c'est là que le contenu s'échange. */
+        revealFlipping = false;
+        if (revealPending) { revealPending = false; revealNextCard(); }
+    }, 170);
+}
+
+function revealNextCard() {
+    if (!revealQueue.length) return;
+    if (revealFlipping) { revealPending = true; return; }
     const card = revealQueue.shift();
-    const stage = $('m-reveal-stage');
     const isNew = !revealOwned.has(card.gameKey);
     revealOwned.add(card.gameKey);
-
-    const node = cardNode(card, { badge: isNew ? 'NOUVELLE' : 'double' });
-    node.classList.add('m-tcard--reveal');
-    stage.innerHTML = '';
-    stage.appendChild(node);
     revealDone.push(card);
+    flipToCard(card, isNew);
 
-    if (card.rarity === 'legendary' || card.foil) {
-        showToast(card.foil ? '✦ Brillante ! ' + card.name : '★ Légendaire ! ' + card.name, 'success');
+    if (rarityIndex(card.rarity) <= rarityIndex('epic')) {
+        showToast(rarityMeta(card.rarity).label + ' ! ' + card.name, 'success');
     }
-    updateRevealFoot();
+    paintRevealFoot();
+}
+
+/* La planche : les quatorze cartes d'un coup d'œil, dans l'ordre où on les a
+   sorties, avec ce que le paquet a vraiment apporté. */
+function showRevealSpread() {
+    revealPhase = 'spread';
+    const spread = $('m-reveal-spread');
+    spread.innerHTML = '';
+
+    const fresh = revealDone.filter((card, i) =>
+        revealDone.findIndex(other => other.gameKey === card.gameKey) === i).length;
+
+    revealDone.forEach((card, i) => {
+        const node = cardNode(card, { small: true, onClick: () => openCardSheet(card) });
+        node.style.animationDelay = (i * 35) + 'ms';
+        node.classList.add('m-tcard--dealt');
+        spread.appendChild(node);
+    });
+
+    const best = revealDone.slice().sort((a, b) => rarityIndex(a.rarity) - rarityIndex(b.rarity))[0];
+    $('m-reveal-seal').textContent = revealDone.length + ' cartes · '
+        + fresh + ' jeu' + (fresh > 1 ? 'x' : '') + ' différent' + (fresh > 1 ? 's' : '')
+        + (best ? ' · meilleure : ' + rarityMeta(best.rarity).label : '');
+
+    $('m-reveal').className = 'm-reveal is-open is-spread';
+    paintRevealFoot();
+}
+
+function closeReveal() {
+    $('m-reveal').className = 'm-reveal';
+    $('m-reveal-flip').innerHTML = '';
+    $('m-reveal-spread').innerHTML = '';
+    revealQueue = [];
+    revealDone = [];
+    renderAll();
+}
+
+$('m-reveal-next').addEventListener('click', () => {
+    if (revealPhase === 'pack') {
+        revealPhase = 'cards';
+        $('m-reveal-pack').classList.add('is-torn');
+        $('m-reveal').className = 'm-reveal is-open is-cards';
+        // Le temps que le paquet se déchire avant que la première carte sorte.
+        setTimeout(revealNextCard, 260);
+        paintRevealFoot();
+        return;
+    }
+    if (revealPhase === 'cards') {
+        if (revealQueue.length) revealNextCard();
+        else if (!revealFlipping) showRevealSpread();
+        return;
+    }
+    closeReveal();
+});
+
+/* Le paquet entier d'un coup, pour qui a déjà ouvert dix boosters. */
+$('m-reveal-all').addEventListener('click', () => {
+    while (revealQueue.length) {
+        const card = revealQueue.shift();
+        revealOwned.add(card.gameKey);
+        revealDone.push(card);
+    }
+    revealFlipping = false;
+    revealPending = false;
+    showRevealSpread();
+});
+
+/* Toucher la scène révèle aussi : on ne vise pas un bouton quatorze fois. */
+$('m-reveal-stage').addEventListener('click', () => {
+    if (revealPhase === 'cards' && revealQueue.length) revealNextCard();
+});
+$('m-reveal-pack').addEventListener('click', () => {
+    if (revealPhase === 'pack') $('m-reveal-next').click();
 });
 
 /* ==========================================================================

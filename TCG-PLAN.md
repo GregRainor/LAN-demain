@@ -6,6 +6,32 @@ démarrer cette fonctionnalité sans autre contexte.
 
 ---
 
+## 0 bis. Ce qui a changé après le premier essai sur téléphone
+
+Le §6 plus bas (raretés maison, booster de 5 cartes) **n'est plus ce qui tourne**.
+Sur demande de Grégory, tout a été recalé sur **Riftbound**, le JCC League of
+Legends de Riot :
+
+- **Cinq raretés** aux proportions de son set Origins (353 cartes) : prestige
+  15,3 %, épique 11,9 %, rare 23,8 %, peu commune 23,8 %, commune 25,2 %.
+- **Booster de 14 cartes** : huit communes, trois peu communes, un emplacement
+  rare, un emplacement flex (épique une fois sur quatre, prestige une fois sur
+  douze) et un emplacement brillant. Chez Riftbound le quatorzième est un
+  jeton ; faute de jetons, c'est une commune de plus.
+- **Toute rare et au-dessus est brillante d'office**, comme chez Riftbound. Le
+  brillant n'est donc plus un tirage indépendant à 5 % : il y a exactement
+  trois brillantes par paquet, et la trouvaille est la commune holographique de
+  l'emplacement brillant.
+- **Le set atteint plusieurs centaines de cartes** parce qu'il ne vient plus des
+  seuls votes : les bibliothèques Steam du groupe fournissent le fond. Le vote
+  garde la main sur la rareté (les jeux demandés occupent le haut), les
+  bibliothèques donnent la profondeur — un set de trente cartes se complétait en
+  trois boosters.
+- Le vocabulaire « frapper le set » a disparu : c'est **« Set de la LAN
+  \<nom\> »**, et le bouton refuse quand le set existe déjà.
+
+---
+
 ## 0. Où on en est (août 2026)
 
 **Les phases 1 à 3 sont construites et vérifiées sur les deux interfaces.**

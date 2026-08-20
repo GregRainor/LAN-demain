@@ -591,35 +591,62 @@ function isGamemaster(role, uid, adminUid) {
       l'interprétation est déterministe, partagée et publique.
    ========================================================================== */
 
+/* Les proportions, la composition du booster et le traitement brillant sont
+   calqués sur Riftbound (le JCC League of Legends de Riot). Son set Origins
+   compte 353 cartes réparties en 89 communes, 84 peu communes, 84 rares,
+   42 épiques et 54 prestige, et son booster de 14 cartes tient en sept
+   communes, trois peu communes, trois emplacements brillants et un jeton.
+   On reprend la structure telle quelle : elle est éprouvée, et elle a le bon
+   goût de garantir du brillant à chaque ouverture. */
 const TCG = {
-    /* Cinq cartes, dont la dernière au moins peu commune. */
-    PACK_SIZE: 5,
-    /* Le brillant est un tirage indépendant de la rareté : n'importe quelle
-       carte peut sortir brillante, même une commune. C'est ce qui rend chaque
-       ouverture tendue jusqu'à la dernière. */
-    FOIL_RATE: 0.05,
-    /* Filet de consolation : une légendaire garantie au bout de N paquets
-       ouverts sans. Sur un set de vingt jeux, N paquets sans légendaire est
-       rare mais arrive, et c'est le genre de malchance qui fait décrocher. */
+    /* Quatorze cartes, comme un booster Riftbound. Le quatorzième emplacement
+       y est un jeton ; nous n'avons pas de jetons, il devient une commune de
+       plus. */
+    PACK_SIZE: 14,
+
+    /* La composition, emplacement par emplacement.
+       - `flex` : rare par défaut, épique une fois sur quatre, prestige une
+         fois sur douze — chez Riftbound l'épique « mange » un emplacement rare.
+       - `foil` : n'importe quelle rareté, mais toujours brillante. C'est lui
+         qui produit la commune brillante, la petite trouvaille du paquet. */
+    PACK_SLOTS: [
+        'common', 'common', 'common', 'common', 'common', 'common', 'common', 'common',
+        'uncommon', 'uncommon', 'uncommon',
+        'flex', 'rare', 'foil'
+    ],
+    FLEX_SHOWCASE: 0.08,
+    FLEX_EPIC: 0.25,
+    /* L'emplacement brillant penche vers le bas du set : sa surprise est
+       qu'une commune sorte holographique, pas qu'elle sorte prestige. */
+    FOIL_SLOT_WEIGHTS: { common: 60, uncommon: 25, rare: 10, epic: 4, showcase: 1 },
+
+    /* Filet de consolation : une prestige garantie au bout de N paquets
+       ouverts sans. Riftbound n'en a pas ; entre amis, une longue série sèche
+       fait juste décrocher. */
     PITY: 8,
     /* Plafond par côté d'un échange. Six cartes tiennent sur un écran de
        téléphone, et une proposition qu'on ne lit pas ne s'accepte pas. */
     TRADE_MAX: 6,
 
-    /* Du plus rare au plus commun. `share` est la part du set (cumulée en
-       descendant le classement des votes), `weight` la chance qu'un
-       emplacement de booster tire cette rareté. */
+    /* Du plus rare au plus commun. `share` est la part du set, reprise des
+       proportions d'Origins. */
     RARITIES: [
-        { key: 'legendary', label: 'Légendaire',  short: 'LÉG', share: 0.10, weight: 3 },
-        { key: 'rare',      label: 'Rare',        short: 'RAR', share: 0.25, weight: 12 },
-        { key: 'uncommon',  label: 'Peu commune', short: 'PCO', share: 0.30, weight: 30 },
-        { key: 'common',    label: 'Commune',     short: 'COM', share: 0.35, weight: 55 }
+        { key: 'showcase', label: 'Prestige',    short: 'PRS', share: 0.153 },
+        { key: 'epic',     label: 'Épique',      short: 'EPQ', share: 0.119 },
+        { key: 'rare',     label: 'Rare',        short: 'RAR', share: 0.238 },
+        { key: 'uncommon', label: 'Peu commune', short: 'PCO', share: 0.238 },
+        { key: 'common',   label: 'Commune',     short: 'COM', share: 0.252 }
     ],
+
+    /* Chez Riftbound, toute rare et au-dessus est brillante d'office. Le
+       brillant n'est donc pas une rareté de plus : c'est ce qui distingue le
+       haut du set, plus la trouvaille de l'emplacement brillant. */
+    ALWAYS_FOIL_FROM: 'rare',
 
     /* Illustrations dessinées, quand il y en aura. Tant qu'un jeu n'est pas
        listé ici, sa carte porte sa jaquette Steam (api/get-game-image) : le
        set est illustré dès le premier soir, et se bonifie carte par carte.
-       Clé = normalizeGameName(nom), valeur = fichier dans cards/. */
+       Clé = cardKey(nom), valeur = fichier dans cards/. */
     ART: {}
 };
 
@@ -650,18 +677,80 @@ function cardArt(gameKey) {
 }
 
 /* --------------------------------------------------------------------------
-   Frapper le set
+   Composer le set
    -------------------------------------------------------------------------- */
 
-/* Le classement des votes découpé en raretés. Deux jeux à égalité ne peuvent
-   pas tomber dans deux raretés différentes : ils prennent tous la plus basse
-   du groupe. Sans cette règle, un set où tout le monde a un point deviendrait
-   entièrement légendaire, et la rareté ne dirait plus rien du vote. */
-function buildCardSet(scores) {
-    const ranked = (scores || [])
-        .filter(game => game && game.name)
-        .map(game => ({ name: String(game.name).trim(), score: Number(game.score) || 0 }))
-        .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name, 'fr'));
+/* Tous les jeux qu'on connaît au-delà de ceux qui ont été votés : les
+   bibliothèques Steam du groupe, et les soirées passées. C'est ce qui donne au
+   set sa profondeur. Un set de trente cartes se complète en trois boosters et
+   n'a plus rien à raconter ; une bibliothèque de groupe en fournit plusieurs
+   centaines. Le vote garde la main sur la rareté : ce que les joueurs ont
+   demandé occupe le haut du set, ce qui dort dans les bibliothèques en forme
+   le fond. */
+function knownGameNames(sources) {
+    const names = new Map();
+    const add = (name) => {
+        const key = cardKey(name);
+        if (!key || names.has(key)) return;
+        names.set(key, String(name).trim().replace(/\s+/g, ' '));
+    };
+
+    Object.values((sources && sources.libraries) || {}).forEach(library => {
+        const games = (library && library.games) || [];
+        // Firebase rend parfois un tableau creux sous forme d'objet.
+        Object.values(Array.isArray(games) ? games : games).forEach(game => {
+            if (game && game.name) add(game.name);
+        });
+    });
+
+    Object.values((sources && sources.history) || {}).forEach(lan => {
+        const top = (lan && lan.topGames) || [];
+        Object.values(Array.isArray(top) ? top : top).forEach(game => {
+            if (game && game.name) add(game.name);
+        });
+    });
+
+    return Array.from(names.values());
+}
+
+/* Le set de la soirée. Le classement des votes occupe le haut, les jeux
+   seulement connus des bibliothèques remplissent le reste, et la part de
+   chaque rareté est celle d'Origins.
+
+   Deux règles de justice :
+   - deux jeux à égalité de votes prennent la même rareté, la plus basse du
+     groupe. Sans ça, un set où tout le monde a un point deviendrait
+     entièrement prestige ;
+   - les jeux sans vote échappent à cette règle. Ils sont tous à zéro, et les
+     regrouper ferait de tout le bas du set une seule rareté. On les range
+     dans un ordre tiré de leur nom : stable d'un client à l'autre, mais sans
+     rapport avec l'alphabet — sinon toutes les prestiges iraient aux jeux qui
+     commencent par A. */
+function buildCardSet(scores, extraNames) {
+    const byKey = new Map();
+
+    (scores || []).forEach(game => {
+        if (!game || !game.name) return;
+        const key = cardKey(game.name);
+        if (!key) return;
+        const score = Number(game.score) || 0;
+        const known = byKey.get(key);
+        if (!known || score > known.score) {
+            byKey.set(key, { key, name: String(game.name).trim().replace(/\s+/g, ' '), score });
+        }
+    });
+
+    (extraNames || []).forEach(name => {
+        const key = cardKey(name);
+        if (!key || byKey.has(key)) return;
+        byKey.set(key, { key, name: String(name).trim().replace(/\s+/g, ' '), score: 0 });
+    });
+
+    const all = Array.from(byKey.values());
+    const ranked = all.filter(game => game.score > 0)
+        .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name, 'fr'))
+        .concat(all.filter(game => game.score <= 0)
+            .sort((a, b) => tcgHash(a.key) - tcgHash(b.key) || (a.key < b.key ? -1 : 1)));
 
     const total = ranked.length;
     if (!total) return {};
@@ -681,18 +770,19 @@ function buildCardSet(scores) {
     });
 
     let start = 0;
-    for (let i = 1; i <= total; i++) {
-        if (i === total || ranked[i].score !== ranked[start].score) {
-            const band = bands[i - 1];
-            for (let j = start; j < i; j++) bands[j] = band;
-            start = i;
+    while (start < total) {
+        let end = start + 1;
+        if (ranked[start].score > 0) {
+            while (end < total && ranked[end].score === ranked[start].score) end++;
+            const band = bands[end - 1];
+            for (let j = start; j < end; j++) bands[j] = band;
         }
+        start = end;
     }
 
     const cards = {};
     ranked.forEach((game, i) => {
-        const key = cardKey(game.name);
-        if (key) cards[key] = { name: game.name, rarity: TCG.RARITIES[bands[i]].key, score: game.score };
+        cards[game.key] = { name: game.name, rarity: TCG.RARITIES[bands[i]].key, score: game.score };
     });
     return cards;
 }
@@ -732,8 +822,8 @@ function packSeed(packId, pack) {
     return tcgHash(packId + '|' + ((pack && pack.sealedAt) || 0) + '|' + ((pack && pack.uid) || ''));
 }
 
-/* Cinq cartes tirées du set. Le dernier emplacement est au moins peu commun,
-   et devient une légendaire quand le filet de consolation est dû. */
+/* Quatorze cartes tirées du set, emplacement par emplacement, selon la
+   composition d'un booster Riftbound (voir TCG.PACK_SLOTS). */
 function drawPack(setCards, seed, options) {
     const opts = options || {};
     const pool = {};
@@ -749,37 +839,59 @@ function drawPack(setCards, seed, options) {
     if (!available.length) return [];
 
     const rand = tcgRandom(seed);
-    const pick = (worstAllowed, exact) => {
-        const choices = available.filter(rarity => {
-            const i = rarityIndex(rarity.key);
-            return exact === undefined ? i <= worstAllowed : i === exact;
+
+    /* La rareté demandée, ou la plus proche que le set possède vraiment. Un
+       petit set n'a pas forcément d'épiques : mieux vaut servir une rare que
+       de rendre un emplacement vide. */
+    const nearest = (key) => {
+        if ((pool[key] || []).length) return key;
+        const wanted = rarityIndex(key);
+        let best = available[0];
+        available.forEach(rarity => {
+            if (Math.abs(rarityIndex(rarity.key) - wanted) < Math.abs(rarityIndex(best.key) - wanted)) best = rarity;
         });
-        if (!choices.length) return available[available.length - 1];
-        const totalWeight = choices.reduce((sum, rarity) => sum + rarity.weight, 0);
-        let roll = rand() * totalWeight;
-        for (const rarity of choices) {
-            roll -= rarity.weight;
-            if (roll <= 0) return rarity;
-        }
-        return choices[choices.length - 1];
+        return best.key;
     };
 
-    const worst = TCG.RARITIES.length - 1;
-    const uncommon = rarityIndex('uncommon');
-    const cards = [];
-    for (let slot = 0; slot < TCG.PACK_SIZE; slot++) {
-        const isLast = slot === TCG.PACK_SIZE - 1;
-        let rarity;
-        if (isLast && opts.pity) rarity = pick(worst, rarityIndex('legendary'));
-        else if (isLast) rarity = pick(uncommon);
-        else rarity = pick(worst);
+    const weightedPick = (weights) => {
+        const choices = available.filter(rarity => weights[rarity.key]);
+        if (!choices.length) return available[available.length - 1].key;
+        const totalWeight = choices.reduce((sum, rarity) => sum + weights[rarity.key], 0);
+        let roll = rand() * totalWeight;
+        for (const rarity of choices) {
+            roll -= weights[rarity.key];
+            if (roll <= 0) return rarity.key;
+        }
+        return choices[choices.length - 1].key;
+    };
 
-        const list = pool[rarity.key];
+    const alwaysFoil = rarityIndex(TCG.ALWAYS_FOIL_FROM);
+    const cards = [];
+
+    TCG.PACK_SLOTS.forEach((slot, index) => {
+        // Le dé est jeté à chaque emplacement, quel qu'il soit : c'est ce qui
+        // garantit que deux clients rejouent la même suite de tirages.
+        const roll = rand();
+        let rarity;
+        if (slot === 'flex') {
+            if (opts.pity) rarity = nearest('showcase');
+            else if (roll < TCG.FLEX_SHOWCASE) rarity = nearest('showcase');
+            else if (roll < TCG.FLEX_SHOWCASE + TCG.FLEX_EPIC) rarity = nearest('epic');
+            else rarity = nearest('rare');
+        } else if (slot === 'foil') {
+            rarity = weightedPick(TCG.FOIL_SLOT_WEIGHTS);
+        } else {
+            rarity = nearest(slot);
+        }
+
+        const list = pool[rarity];
         const gameKey = list[Math.min(list.length - 1, Math.floor(rand() * list.length))];
-        // Le brillant se tire après la carte, et pour chaque carte : c'est un
-        // second dé, pas une rareté supplémentaire.
-        cards.push({ slot, gameKey, rarity: rarity.key, foil: rand() < TCG.FOIL_RATE });
-    }
+        // Rare et au-dessus sortent brillantes d'office, comme chez Riftbound.
+        // L'emplacement brillant, lui, l'est quelle que soit sa rareté.
+        const foil = slot === 'foil' || rarityIndex(rarity) <= alwaysFoil;
+        cards.push({ slot: index, gameKey, rarity, foil });
+    });
+
     return cards;
 }
 
@@ -820,7 +932,7 @@ function pityCount(tcg, uid) {
     let streak = 0;
     openedPacks(tcg).filter(pack => pack.uid === uid).forEach(pack => {
         const drawn = drawPack(tcgSetCards(tcg, pack.setId), packSeed(pack.id, pack), { pity: streak >= TCG.PITY });
-        streak = drawn.some(card => card.rarity === 'legendary') ? 0 : streak + 1;
+        streak = drawn.some(card => card.rarity === 'showcase') ? 0 : streak + 1;
     });
     return streak;
 }
@@ -843,7 +955,7 @@ function mintedCards(tcg) {
         const set = tcgSetCards(tcg, pack.setId);
         const streak = streaks[pack.uid] || 0;
         const drawn = drawPack(set, packSeed(pack.id, pack), { pity: streak >= TCG.PITY });
-        streaks[pack.uid] = drawn.some(card => card.rarity === 'legendary') ? 0 : streak + 1;
+        streaks[pack.uid] = drawn.some(card => card.rarity === 'showcase') ? 0 : streak + 1;
 
         drawn.forEach(card => {
             cards.push({

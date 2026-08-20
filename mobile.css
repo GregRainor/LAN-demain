@@ -734,7 +734,10 @@ textarea.m-input { resize: vertical; min-height: 84px; }
    ========================================================================== */
 
 :root {
-    --r-legendary: #d4af37;
+    /* Cinq raretés, comme Riftbound : prestige, épique, rare, peu commune,
+       commune. La couleur seule doit suffire à les distinguer de loin. */
+    --r-showcase: #d4af37;
+    --r-epic: #c264d8;
     --r-rare: #8c6fc9;
     --r-uncommon: #4e8fa8;
     --r-common: #6b6a67;
@@ -810,11 +813,13 @@ textarea.m-input { resize: vertical; min-height: 84px; }
     --rx: 0deg;
     --ry: 0deg;
 }
-.m-tcard--legendary { --rc: var(--r-legendary); --rc-soft: rgba(212, 175, 55, .5); }
-.m-tcard--rare      { --rc: var(--r-rare);      --rc-soft: rgba(140, 111, 201, .5); }
-.m-tcard--uncommon  { --rc: var(--r-uncommon);  --rc-soft: rgba(78, 143, 168, .5); }
-.m-tcard--common    { --rc: var(--r-common);    --rc-soft: rgba(107, 106, 103, .45); }
-.m-tcard--legendary { box-shadow: 0 0 14px rgba(212,175,55,.28); }
+.m-tcard--showcase { --rc: var(--r-showcase); --rc-soft: rgba(212, 175, 55, .5); }
+.m-tcard--epic     { --rc: var(--r-epic);     --rc-soft: rgba(194, 100, 216, .5); }
+.m-tcard--rare     { --rc: var(--r-rare);     --rc-soft: rgba(140, 111, 201, .5); }
+.m-tcard--uncommon { --rc: var(--r-uncommon); --rc-soft: rgba(78, 143, 168, .5); }
+.m-tcard--common   { --rc: var(--r-common);   --rc-soft: rgba(107, 106, 103, .45); }
+.m-tcard--showcase { box-shadow: 0 0 14px rgba(212, 175, 55, .28); }
+.m-tcard--epic     { box-shadow: 0 0 12px rgba(194, 100, 216, .22); }
 
 .m-tcard__art {
     position: relative;
@@ -943,43 +948,200 @@ textarea.m-input { resize: vertical; min-height: 84px; }
 }
 
 /* ---------- Ouverture d'un booster ----------
-   Plein écran, fond opaque : c'est le moment du produit, il ne partage rien. */
+   Plein écran, fond opaque : c'est le moment du produit, il ne partage rien.
+   Trois temps, trois classes sur le conteneur — is-pack, is-cards, is-spread. */
 .m-reveal {
     position: fixed; inset: 0; z-index: 60;
     display: none;
     flex-direction: column; align-items: center; justify-content: center;
-    gap: 18px;
-    padding: 24px 20px calc(24px + env(safe-area-inset-bottom));
+    gap: 16px;
+    padding: 20px 16px calc(20px + env(safe-area-inset-bottom));
     background: radial-gradient(70% 50% at 50% 40%, #14120c 0%, #050505 75%);
+    overflow: hidden;
 }
 .m-reveal.is-open { display: flex; }
 .m-reveal__seal {
-    font-size: .68rem; letter-spacing: .1em; text-transform: uppercase;
+    flex: 0 0 auto;
+    font-size: .66rem; letter-spacing: .1em; text-transform: uppercase;
     color: var(--text-3); text-align: center;
 }
-.m-reveal__stage {
+
+/* Les trois scènes ne coexistent jamais. */
+.m-reveal__pack,
+.m-reveal__stage,
+.m-reveal__spread { display: none; }
+.m-reveal.is-pack .m-reveal__pack { display: flex; }
+.m-reveal.is-cards .m-reveal__stage { display: flex; }
+.m-reveal.is-spread .m-reveal__spread { display: grid; }
+
+/* 1. LE PAQUET SCELLÉ
+   Il respire et un reflet le balaie : un objet fermé, qui demande à être
+   ouvert. Au toucher il se déchire — les deux moitiés partent de part et
+   d'autre pendant qu'un éclair blanc traverse l'écran. */
+.m-reveal__pack {
     flex: 1 1 auto;
-    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; align-items: center; justify-content: center;
+    gap: 18px;
     width: 100%;
 }
-.m-reveal__foot { width: 100%; display: flex; flex-direction: column; gap: 10px; align-items: center; }
-.m-reveal__count { font-size: .74rem; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.m-reveal__wrap {
+    position: relative;
+    width: min(60vw, 210px);
+    aspect-ratio: 5 / 7;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 10px;
+    border: 1px solid var(--gold-a30);
+    border-radius: 6px;
+    background:
+        linear-gradient(160deg, rgba(212,175,55,.16), transparent 55%),
+        linear-gradient(#161310, #0b0a08);
+    box-shadow: 0 18px 50px rgba(0,0,0,.7), inset 0 0 30px rgba(212,175,55,.08);
+    overflow: hidden;
+    animation: m-pack-breathe 2.8s ease-in-out infinite;
+}
+/* Le reflet qui glisse sur l'emballage. */
+.m-reveal__wrap::after {
+    content: '';
+    position: absolute; inset: -40% -120%;
+    background: linear-gradient(75deg, transparent 42%, rgba(255,255,255,.22) 50%, transparent 58%);
+    animation: m-pack-glint 2.8s ease-in-out infinite;
+}
+.m-reveal__mark { font-size: 2.4rem; color: var(--gold); line-height: 1; }
+.m-reveal__packname {
+    font-family: var(--fd); font-size: .95rem; color: var(--text);
+    text-align: center; padding: 0 12px;
+}
+.m-reveal__hint { font-size: .74rem; color: var(--text-3); }
+
+@keyframes m-pack-breathe {
+    0%, 100% { transform: scale(1) rotate(-.6deg); }
+    50%      { transform: scale(1.035) rotate(.6deg); }
+}
+@keyframes m-pack-glint {
+    0%, 65% { transform: translateX(-60%); }
+    100%    { transform: translateX(60%); }
+}
+
+/* La déchirure : l'emballage se fend et l'écran s'éclaire une fraction de
+   seconde. C'est court — 260 ms — parce que ce qu'on attend est derrière. */
+.m-reveal__pack.is-torn .m-reveal__wrap {
+    animation: m-pack-tear .26s ease-in forwards;
+}
+.m-reveal__pack.is-torn .m-reveal__hint { opacity: 0; }
+@keyframes m-pack-tear {
+    0%   { transform: scale(1); filter: brightness(1); }
+    45%  { transform: scale(1.12); filter: brightness(2.4); }
+    100% { transform: scale(1.35); filter: brightness(4); opacity: 0; }
+}
+
+/* 2. LES CARTES, UNE À UNE */
+.m-reveal__stage {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+    align-items: center; justify-content: center;
+    width: 100%;
+}
+
+/* L'éclat derrière la carte, teinté par sa rareté : on sait ce qu'on a sorti
+   avant même d'avoir lu le nom. */
+.m-reveal__burst {
+    position: absolute;
+    width: 80vw; height: 80vw;
+    max-width: 340px; max-height: 340px;
+    border-radius: 50%;
+    pointer-events: none;
+    opacity: 0;
+    background: radial-gradient(circle, var(--burst, rgba(255,255,255,.5)) 0%, transparent 68%);
+}
+.m-reveal__burst.is-common   { --burst: rgba(150,150,150,.4); }
+.m-reveal__burst.is-uncommon { --burst: rgba(78,143,168,.6); }
+.m-reveal__burst.is-rare     { --burst: rgba(140,111,201,.75); }
+.m-reveal__burst.is-epic     { --burst: rgba(194,100,216,.85); }
+.m-reveal__burst.is-showcase { --burst: rgba(212,175,55,.95); }
+.m-reveal__burst.is-firing { animation: m-burst .75s ease-out; }
+/* Plus la carte est rare, plus l'éclat insiste. */
+.m-reveal__burst.is-firing.is-epic,
+.m-reveal__burst.is-firing.is-showcase { animation-duration: 1.1s; }
+
+@keyframes m-burst {
+    0%   { opacity: 0; transform: scale(.2); }
+    18%  { opacity: 1; }
+    100% { opacity: 0; transform: scale(1.9); }
+}
+
+/* Le retournement, sans scène 3D : la carte pivote jusqu'à la tranche, son
+   contenu est échangé à mi-parcours, puis elle revient avec un léger
+   dépassement. Deux animations plates traversent Android et iOS sans les
+   surprises de preserve-3d mêlé aux modes de fusion du brillant. */
+.m-reveal__flip {
+    position: relative;
+    display: flex; align-items: center; justify-content: center;
+}
+.m-reveal__flip.is-out { animation: m-flip-out .17s ease-in forwards; }
+.m-reveal__flip.is-in  { animation: m-flip-in .26s cubic-bezier(.2,.9,.3,1.2); }
+@keyframes m-flip-out {
+    from { transform: rotateY(0) scale(1); }
+    to   { transform: rotateY(88deg) scale(.94); }
+}
+@keyframes m-flip-in {
+    from { transform: rotateY(-88deg) scale(.94); }
+    to   { transform: rotateY(0) scale(1); }
+}
 
 /* La carte révélée occupe l'écran : c'est elle qu'on regarde, pas l'interface. */
 .m-tcard--reveal {
-    width: min(72vw, 260px);
+    width: min(66vw, 240px);
     padding: 10px;
-    animation: m-flip .45s cubic-bezier(.2,.8,.2,1);
 }
 .m-tcard--reveal .m-tcard__name { font-size: 1rem; -webkit-line-clamp: 2; }
 .m-tcard--reveal .m-tcard__rarity { font-size: .72rem; }
 .m-tcard--reveal .m-tcard__badge { font-size: .66rem; }
-@keyframes m-flip {
-    from { transform: rotateY(90deg) scale(.9); opacity: 0; }
-    to   { transform: rotateY(0) scale(1); opacity: 1; }
+
+/* 3. LA PLANCHE : les quatorze cartes se posent l'une après l'autre. */
+.m-reveal__spread {
+    flex: 1 1 auto;
+    min-height: 0;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 7px;
+    width: 100%;
+    overflow-y: auto;
+    align-content: start;
 }
+.m-tcard--dealt { animation: m-deal .3s ease-out backwards; }
+@keyframes m-deal {
+    from { opacity: 0; transform: translateY(14px) scale(.9); }
+    to   { opacity: 1; transform: none; }
+}
+
+/* Le pied : pastilles de progression, puis les boutons. */
+.m-reveal__foot {
+    flex: 0 0 auto;
+    width: 100%;
+    display: flex; flex-direction: column; gap: 8px; align-items: center;
+}
+.m-reveal__dots { display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; }
+.m-reveal__dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: rgba(255,255,255,.14);
+    transition: background .2s ease, transform .2s ease;
+}
+.m-reveal__dot.is-done { transform: scale(1.25); }
+.m-reveal__dot.is-common   { background: var(--r-common); }
+.m-reveal__dot.is-uncommon { background: var(--r-uncommon); }
+.m-reveal__dot.is-rare     { background: var(--r-rare); }
+.m-reveal__dot.is-epic     { background: var(--r-epic); }
+.m-reveal__dot.is-showcase { background: var(--r-showcase); }
+
 @media (prefers-reduced-motion: reduce) {
-    .m-tcard--reveal { animation: none; }
+    .m-reveal__wrap,
+    .m-reveal__wrap::after,
+    .m-reveal__pack.is-torn .m-reveal__wrap,
+    .m-reveal__burst.is-firing,
+    .m-reveal__flip.is-out,
+    .m-reveal__flip.is-in,
+    .m-tcard--dealt { animation: none; }
+    .m-reveal__pack.is-torn .m-reveal__wrap { opacity: 0; }
 }
 
 /* Carte seule dans la feuille glissante. */

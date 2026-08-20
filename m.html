@@ -442,21 +442,26 @@
             </section>
 
             <!-- ---------- CARTES ---------- -->
-            <!-- Le set est frappé par le vote : les jeux demandés deviennent
-                 les cartes, et leur rareté est leur score. Rien n'est stocké
-                 ici — la collection se rejoue depuis les paquets ouverts. -->
+            <!-- Le set vient du vote : les jeux demandés deviennent les cartes,
+                 et leur rareté est leur score. Rien n'est stocké ici — la
+                 collection se rejoue depuis les paquets ouverts. -->
             <section class="m-screen" data-screen="cartes">
                 <div class="m-setband" id="m-set-band"></div>
 
-                <!-- Poste du maître du jeu : frapper le set au démarrage de la
+                <!-- Poste du maître du jeu : créer le set au démarrage de la
                      soirée, et offrir un booster (récompense, ou test). -->
                 <div class="m-section" id="m-mint-section" style="display:none">
                     <div class="m-section__head">
                         <h2 class="m-section__title">Maître du jeu</h2>
                     </div>
                     <p class="m-card__meta" id="m-mint-state"></p>
-                    <button class="m-btn m-btn--full" id="m-mint-set">Frapper le set de la soirée</button>
+                    <button class="m-btn m-btn--full" id="m-mint-set">Créer le set de la LAN</button>
+                    <button class="m-btn m-btn--quiet m-btn--full" id="m-remint-set" style="display:none">Recréer
+                        le set</button>
                     <button class="m-btn m-btn--quiet m-btn--full" id="m-gift-pack">Offrir un booster</button>
+                    <!-- Débogage : en attendant la boutique, l'admin ouvre
+                         autant de boosters qu'il veut pour éprouver le set. -->
+                    <button class="m-btn m-btn--solid m-btn--full" id="m-debug-pack">🧪 Ouvrir un booster</button>
                 </div>
 
                 <div class="m-section" id="m-packs-section" style="display:none">
@@ -588,13 +593,33 @@
 
     <!-- ===================== OUVERTURE D'UN BOOSTER =====================
          Plein écran : c'est le moment du produit, il ne partage l'écran avec
-         rien. On révèle carte par carte, de la plus commune à la plus rare. -->
+         rien. Trois temps — le paquet fermé, les cartes une à une de la plus
+         commune à la plus rare, puis la planche complète. -->
     <div class="m-reveal" id="m-reveal" role="dialog" aria-modal="true" aria-label="Ouverture d'un booster">
         <div class="m-reveal__seal" id="m-reveal-seal"></div>
-        <div class="m-reveal__stage" id="m-reveal-stage"></div>
+
+        <!-- 1. Le paquet scellé. Il respire, on le touche pour le déchirer. -->
+        <div class="m-reveal__pack" id="m-reveal-pack">
+            <div class="m-reveal__wrap">
+                <span class="m-reveal__mark">✦</span>
+                <span class="m-reveal__packname" id="m-reveal-packname">Booster</span>
+            </div>
+            <span class="m-reveal__hint">Touche pour ouvrir</span>
+        </div>
+
+        <!-- 2. Les cartes, une par une. -->
+        <div class="m-reveal__stage" id="m-reveal-stage">
+            <span class="m-reveal__burst" id="m-reveal-burst"></span>
+            <div class="m-reveal__flip" id="m-reveal-flip"></div>
+        </div>
+
+        <!-- 3. La planche : tout le paquet d'un coup d'œil. -->
+        <div class="m-reveal__spread" id="m-reveal-spread"></div>
+
         <div class="m-reveal__foot">
-            <span class="m-reveal__count" id="m-reveal-count"></span>
-            <button class="m-btn m-btn--solid m-btn--full" id="m-reveal-next">Révéler</button>
+            <span class="m-reveal__dots" id="m-reveal-dots"></span>
+            <button class="m-btn m-btn--solid m-btn--full" id="m-reveal-next">Ouvrir</button>
+            <button class="m-btn m-btn--quiet m-btn--sm" id="m-reveal-all">Tout révéler</button>
         </div>
     </div>
 

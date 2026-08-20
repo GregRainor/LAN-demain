@@ -62,6 +62,11 @@
                 <span id="notif-badge"
                     style="display:none; position:absolute; top:-5px; right:-5px; background:var(--danger-color); color:white; border-radius:50%; width:16px; height:16px; font-size:0.7em; align-items:center; justify-content:center;">0</span>
             </button>
+            <!-- Débogage : l'admin atteint la Collection même avant que la LAN
+                 soit lancée. Sans ça, impossible d'éprouver un set tant que la
+                 soirée n'a pas démarré. -->
+            <button id="btn-tcg-preview" class="gold-link-btn" title="Collection (admin)"
+                style="display: none;">🎴 Collection</button>
             <button id="btn-lan-history" class="gold-link-btn" title="Historique">Historique</button>
             <!-- Retour vers l'interface téléphone. Masqué sur grand écran : il ne
                  sert qu'au joueur qui a forcé la version bureau sur son mobile. -->
@@ -706,13 +711,22 @@
                             <p class="set-banner__hint" id="tcg-hint"></p>
                         </div>
 
-                        <!-- Poste du maître du jeu : frapper le set, offrir un booster -->
+                        <!-- Poste du maître du jeu : composer le set, offrir un booster -->
                         <div id="tcg-gm-panel" class="luxury-panel"
                             style="padding: 25px; margin-bottom: 25px; display: none; border-color: rgba(212,175,55,0.35);">
                             <h3 class="section-title section-title--accent">🎴 Le set de la soirée</h3>
                             <p class="panel-section__hint" id="tcg-mint-state"></p>
                             <div class="shop-grant-row">
-                                <button id="btn-mint-set" class="gold-btn shop-grant-btn">Frapper le set</button>
+                                <button id="btn-mint-set" class="gold-btn shop-grant-btn">Créer le set de la
+                                    LAN</button>
+                                <button id="btn-remint-set" class="gold-link-btn" style="display:none;">Recréer le
+                                    set</button>
+                                <!-- Débogage : en attendant la boutique, l'admin ouvre autant
+                                     de boosters qu'il veut pour éprouver le set. -->
+                                <button id="btn-debug-pack" class="gold-btn shop-grant-btn">🧪 Ouvrir un
+                                    booster</button>
+                            </div>
+                            <div class="shop-grant-row" style="margin-top: 12px;">
                                 <select id="tcg-gift-user" class="luxury-input shop-field">
                                     <option value="">Offrir un booster à...</option>
                                 </select>
@@ -1191,13 +1205,32 @@
     </div>
 
     <!-- Ouverture d'un booster : plein écran, parce que c'est le moment du
-         produit. On révèle une carte à la fois, la plus rare en dernier. -->
+         produit. Trois temps — le paquet fermé, les cartes une à une de la
+         plus commune à la plus rare, puis la planche complète. -->
     <div id="pack-reveal-overlay" class="reveal-overlay" style="display:none;">
         <p class="reveal-seal" id="reveal-seal"></p>
-        <div class="reveal-stage" id="reveal-stage"></div>
+
+        <div class="reveal-pack" id="reveal-pack">
+            <div class="reveal-wrap">
+                <span class="reveal-mark">✦</span>
+                <span class="reveal-packname" id="reveal-packname">Booster</span>
+            </div>
+            <span class="reveal-hint">Cliquer pour ouvrir</span>
+        </div>
+
+        <div class="reveal-stage" id="reveal-stage">
+            <span class="reveal-burst" id="reveal-burst"></span>
+            <div class="reveal-flip" id="reveal-flip"></div>
+        </div>
+
+        <div class="reveal-spread" id="reveal-spread"></div>
+
         <div class="reveal-foot">
-            <span class="reveal-count" id="reveal-count"></span>
-            <button id="reveal-next" class="gold-btn">Révéler</button>
+            <span class="reveal-dots" id="reveal-dots"></span>
+            <div class="reveal-actions">
+                <button id="reveal-next" class="gold-btn">Ouvrir</button>
+                <button id="reveal-all" class="gold-link-btn">Tout révéler</button>
+            </div>
         </div>
     </div>
 

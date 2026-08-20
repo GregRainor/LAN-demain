@@ -749,6 +749,10 @@ document.addEventListener('DOMContentLoaded', () => {
         updateVotingUIState();
     }
 
+    /* L'admin regarde la Collection hors soirée. Un simple drapeau : la vue
+       de LAN active est réaffichée telle quelle, ouverte sur cet onglet. */
+    let tcgAdminPreview = false;
+
     function updateVotingUIState() {
         const viewVotingOpen = document.getElementById('view-voting-open');
         const viewWaitingClosed = document.getElementById('view-waiting-closed');
@@ -768,6 +772,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const finalResultsModal = document.getElementById('final-results-modal');
         if (finalResultsModal) finalResultsModal.style.display = 'none';
+
+        // Le raccourci Collection ne s'affiche qu'à l'admin, et seulement quand
+        // la LAN n'est pas lancée — sinon l'onglet du menu latéral suffit.
+        const previewBtn = document.getElementById('btn-tcg-preview');
+        if (previewBtn) {
+            previewBtn.style.display = (window.currentUserIsAdmin && !globalSettings.isLanActive)
+                ? 'inline-block' : 'none';
+        }
+
+        /* Débogage : l'admin a demandé la Collection avant que la soirée soit
+           lancée. On lui montre la vue de LAN active, ouverte sur cet onglet,
+           et rien d'autre — c'est le seul moyen d'éprouver un set et d'ouvrir
+           un booster hors soirée. */
+        if (tcgAdminPreview && window.currentUserIsAdmin && !globalSettings.isLanActive) {
+            if (viewLanActive) viewLanActive.style.display = 'block';
+            document.querySelector('.lan-nav-list .nav-item[data-target="lan-tcg"]')?.click();
+            const btnNotifPreview = document.getElementById('btn-notifications');
+            if (btnNotifPreview) btnNotifPreview.style.display = 'inline-flex';
+            return;
+        }
 
         // La soirée terminée prime : c'est un état volontaire de l'admin, qui
         // ne doit pas être confondu avec l'attente d'avant-LAN.
@@ -5904,14 +5928,35 @@ document.addEventListener('DOMContentLoaded', () => {
         return `il y a ${Math.floor(hours / 24)} j`;
     }
 
+    /* Un set tiré des bibliothèques Steam compte plusieurs centaines de cartes.
+       Demander la jaquette de chacune au rendu, c'est trois cents appels réseau
+       d'un coup à l'ouverture de l'onglet. On ne résout l'illustration qu'à
+       l'approche de l'écran. */
+    const artObserver = ('IntersectionObserver' in window)
+        ? new IntersectionObserver((entries, observer) => {
+            entries.forEach(entry => {
+                if (!entry.isIntersecting) return;
+                observer.unobserve(entry.target);
+                const img = entry.target;
+                getGameImage(img.dataset.game || '').then(url => { if (url) img.src = url; });
+            });
+        }, { rootMargin: '320px' })
+        : null;
+
     /* Illustration : le dessin s'il existe, sinon la jaquette Steam. Le set est
        donc illustré dès le premier soir et se bonifie carte par carte. */
     function paintCardArt(imgEl, gameKey, name) {
         const drawn = cardArt(gameKey);
         if (drawn) { imgEl.src = drawn; return; }
-        const cached = getCachedGameImage(name || gameKey);
-        imgEl.src = cached || DEFAULT_GAME_ICON;
-        if (!cached) getGameImage(name || gameKey).then(url => { if (url) imgEl.src = url; });
+
+        const label = name || gameKey;
+        const cached = getCachedGameImage(label);
+        if (cached) { imgEl.src = cached; return; }
+
+        imgEl.src = DEFAULT_GAME_ICON;
+        imgEl.dataset.game = label;
+        if (artObserver) artObserver.observe(imgEl);
+        else getGameImage(label).then(url => { if (url) imgEl.src = url; });
     }
 
     /* Une seule fabrique de carte pour la grille, les doubles, l'échange et la
@@ -6070,8 +6115,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderCollection() {
         const user = auth.currentUser;
-        if (!user || !document.getElementById('lan-tcg')) return;
+        const panel = document.getElementById('lan-tcg');
+        if (!user || !panel) return;
+        /* Redessiner trois cents cartes à chaque mise à jour Firebase coûte
+           cher pour rien : hors de l'onglet Collection, personne ne regarde.
+           Le badge du menu, lui, se met à jour dans tous les cas. */
+        const visible = panel.offsetParent !== null;
         const view = tcgView();
+        if (!visible) { renderTcgBadge(view); return; }
 
         renderSetBanner(view);
         renderTcgGmPanel(view);
@@ -6096,7 +6147,7 @@ document.addEventListener('DOMContentLoaded', () => {
             name.textContent = 'Pas encore de set';
             value.textContent = '—';
             fill.style.width = '0%';
-            hint.textContent = 'Les cartes sont frappées à partir du vote : elles apparaîtront quand le maître du jeu aura ouvert la soirée.';
+            hint.textContent = 'Les cartes viennent du vote : elles apparaîtront quand le maître du jeu aura créé le set de la LAN.';
             return;
         }
 
@@ -6119,7 +6170,20 @@ document.addEventListener('DOMContentLoaded', () => {
         badge.textContent = waiting;
     }
 
-    /* --- Frapper le set (maître du jeu) ----------------------------------- */
+    /* --- Composer le set (maître du jeu) ---------------------------------- */
+
+    /* Tous les jeux qui peuvent devenir des cartes : les votés, plus tout ce
+       que les bibliothèques Steam du groupe et les soirées passées nous ont
+       appris. Sans elles, un set de trente cartes se complète en trois
+       boosters. */
+    function setPool() {
+        // Les bibliothèques seulement, et pas l'historique : les deux
+        // interfaces doivent composer exactement le même set, et le bureau ne
+        // garde pas l'historique en mémoire. C'est de toute façon là qu'est le
+        // volume — les palmarès des soirées passées font quelques jeux, déjà
+        // votés ou déjà dans une bibliothèque.
+        return knownGameNames({ libraries: groupLibraries });
+    }
 
     function renderTcgGmPanel(view) {
         const panel = document.getElementById('tcg-gm-panel');
@@ -6128,17 +6192,23 @@ document.addEventListener('DOMContentLoaded', () => {
         panel.style.display = isGm ? 'block' : 'none';
         if (!isGm) return;
 
-        const scores = calculateScores(globalVotes);
+        const pool = Object.keys(buildCardSet(calculateScores(globalVotes), setPool())).length;
         const state = document.getElementById('tcg-mint-state');
         if (!view.set) {
-            state.textContent = scores.length
-                ? `Aucun set frappé. ${scores.length} jeux votés attendent de devenir des cartes.`
-                : 'Aucun set, et aucun vote pour en frapper un.';
+            state.textContent = pool
+                ? `Aucun set. ${pool} jeux connus (votes + bibliothèques Steam) attendent de devenir des cartes.`
+                : 'Aucun set, et aucun jeu connu pour en composer un.';
         } else {
             state.textContent = `Set en cours : « ${view.set.name} », ${Object.keys(view.setCards).length} cartes. `
-                + 'En refrapper un en crée un nouveau ; les cartes déjà distribuées gardent leur set.';
+                + `${pool} jeux connus aujourd'hui.`;
         }
-        document.getElementById('btn-mint-set').disabled = !scores.length;
+        /* Le set existe déjà : le bouton principal disparaît au profit d'un
+           second, explicite. Recréer sans le vouloir repartirait sur un set
+           neuf alors que la soirée est lancée. */
+        document.getElementById('btn-mint-set').style.display = view.set ? 'none' : 'inline-block';
+        document.getElementById('btn-mint-set').disabled = !pool;
+        document.getElementById('btn-remint-set').style.display = view.set ? 'inline-block' : 'none';
+        document.getElementById('btn-debug-pack').disabled = !view.set;
 
         const select = document.getElementById('tcg-gift-user');
         const previous = select.value;
@@ -6155,30 +6225,72 @@ document.addEventListener('DOMContentLoaded', () => {
         if (previous) select.value = previous;
     }
 
-    /* On ne remplace jamais un set : on en frappe un nouveau et on pointe
+    /* On ne remplace jamais un set : on en compose un nouveau et on pointe
        dessus. Les cartes déjà ouvertes gardent le leur, et donc leur sens. */
-    document.getElementById('btn-mint-set')?.addEventListener('click', async () => {
+    async function mintSet(force) {
         const user = auth.currentUser;
         if (!user) return;
-        const cards = buildCardSet(calculateScores(globalVotes));
+
+        if (!force && tcgCurrentSetId(globalTcg)) {
+            showToast('Le set de la LAN existe déjà !', 'error');
+            return;
+        }
+
+        const cards = buildCardSet(calculateScores(globalVotes), setPool());
         const count = Object.keys(cards).length;
-        if (!count) { showToast('Aucun vote : rien à frapper.', 'error'); return; }
+        if (!count) { showToast('Aucun jeu connu : rien à composer.', 'error'); return; }
 
         const ok = await askConfirm(
-            `Frapper le set de « ${globalSettings.lanName || 'LAN Demain'} » : ${count} cartes, réparties par score de vote. `
-            + 'Les boosters achetés ensuite tireront dans ce set.',
-            { title: '🎴 Les cartes', confirmLabel: 'Frapper' });
+            force
+                ? `Recomposer le set : ${count} cartes. Les boosters ouverts jusqu'ici gardent leur set et ne changent pas ; les prochains tireront dans le nouveau.`
+                : `Créer le set de la LAN « ${globalSettings.lanName || 'LAN Demain'} » : ${count} cartes, du vote au fond des bibliothèques Steam.`,
+            { title: '🎴 Les cartes', confirmLabel: force ? 'Recréer' : 'Créer le set' });
         if (!ok) return;
 
         const ref = db.ref('lan/tcg/sets').push();
         ref.set({
-            name: globalSettings.lanName || 'LAN Demain',
+            name: `Set de la LAN ${globalSettings.lanName || 'LAN Demain'}`,
             ts: firebase.database.ServerValue.TIMESTAMP,
             by: user.uid,
             cards: cards
         })
             .then(() => db.ref('lan/tcg/currentSet').set(ref.key))
-            .then(() => showToast(`${count} cartes frappées !`, 'success'))
+            .then(() => showToast(`Set créé : ${count} cartes !`, 'success'))
+            .catch(err => showToast('Erreur : ' + err.message, 'error'));
+    }
+
+    document.getElementById('btn-mint-set')?.addEventListener('click', () => mintSet(false));
+    document.getElementById('btn-remint-set')?.addEventListener('click', () => mintSet(true));
+
+    document.getElementById('btn-tcg-preview')?.addEventListener('click', () => {
+        tcgAdminPreview = !tcgAdminPreview;
+        updateVotingUIState();
+        if (tcgAdminPreview) renderCollection();
+    });
+
+    /* Débogage : en attendant la boutique, le maître du jeu ouvre autant de
+       boosters qu'il veut. Le paquet est scellé puis ouvert dans la foulée —
+       même chemin qu'un booster acheté, même sceau serveur, même tirage. */
+    document.getElementById('btn-debug-pack')?.addEventListener('click', () => {
+        const user = auth.currentUser;
+        const setId = tcgCurrentSetId(globalTcg);
+        if (!user) return;
+        if (!setId) { showToast('Crée d\'abord le set de la LAN.', 'error'); return; }
+
+        const ref = db.ref('lan/tcg/packs').push();
+        ref.set({
+            uid: user.uid,
+            setId: setId,
+            status: 'sealed',
+            sealedAt: firebase.database.ServerValue.TIMESTAMP,
+            origin: 'debug',
+            label: 'Booster de test'
+        })
+            .then(() => ref.once('value'))
+            .then(snapshot => {
+                const pack = snapshot.val();
+                if (pack) openPack(Object.assign({ id: ref.key }, pack));
+            })
             .catch(err => showToast('Erreur : ' + err.message, 'error'));
     });
 
@@ -6186,7 +6298,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const uid = document.getElementById('tcg-gift-user').value;
         const setId = tcgCurrentSetId(globalTcg);
         if (!uid) { showToast('Choisis un joueur.', 'error'); return; }
-        if (!setId) { showToast('Frappe d\'abord le set.', 'error'); return; }
+        if (!setId) { showToast('Crée d\'abord le set de la LAN.', 'error'); return; }
 
         db.ref('lan/tcg/packs').push().set({
             uid: uid,
@@ -6325,54 +6437,186 @@ document.addEventListener('DOMContentLoaded', () => {
             .finally(() => { openingPack = false; });
     }
 
-    /* Du plus commun au plus rare, et le brillant en dernier à rareté égale :
-       la tension doit monter, jamais retomber. */
+    /* L'ouverture se joue en trois temps : le paquet scellé qu'on déchire, les
+       cartes une à une, puis la planche complète. Du plus commun au plus rare,
+       et le brillant en dernier à rareté égale — la tension doit monter,
+       jamais retomber. */
+    let revealPhase = 'pack';   // 'pack' → 'cards' → 'spread'
+    let revealFlipping = false;
+    /* Un clic arrivé pendant le demi-tour n'est pas perdu, il est mis de côté :
+       quatorze cartes s'enchaînent au rythme du joueur, pas à celui de
+       l'animation. */
+    let revealPending = false;
+
     function startReveal(pack, cards, ownedBefore) {
         revealQueue = cards.slice().sort((a, b) =>
             rarityIndex(b.rarity) - rarityIndex(a.rarity)
             || (a.foil ? 1 : 0) - (b.foil ? 1 : 0));
         revealDone = [];
         revealOwned = ownedBefore;
+        revealPhase = 'pack';
+        revealFlipping = false;
+        revealPending = false;
 
-        document.getElementById('reveal-stage').innerHTML = '';
         document.getElementById('reveal-seal').textContent =
-            `Sceau ${new Date(pack.sealedAt).toLocaleTimeString('fr-FR')} · ${pack.label || 'Booster'}`;
-        document.getElementById('reveal-next').textContent = 'Révéler';
-        document.getElementById('pack-reveal-overlay').style.display = 'flex';
-        updateRevealFoot();
+            `Sceau ${new Date(pack.sealedAt).toLocaleTimeString('fr-FR')}`;
+        document.getElementById('reveal-packname').textContent = pack.label || 'Booster';
+        document.getElementById('reveal-flip').innerHTML = '';
+        document.getElementById('reveal-spread').innerHTML = '';
+        document.getElementById('reveal-pack').className = 'reveal-pack';
+
+        const overlay = document.getElementById('pack-reveal-overlay');
+        overlay.className = 'reveal-overlay is-pack';
+        overlay.style.display = 'flex';
+        paintRevealFoot();
     }
 
-    function updateRevealFoot() {
-        document.getElementById('reveal-count').textContent =
-            `${revealDone.length} / ${revealDone.length + revealQueue.length}`;
-        if (!revealQueue.length) {
-            document.getElementById('reveal-next').textContent = 'Ranger dans ma collection';
-        }
-    }
+    /* Les pastilles disent où on en est sans qu'on ait à lire un compteur, et
+       se colorent à la rareté déjà sortie : la planche se dessine au fur et à
+       mesure. */
+    function paintRevealFoot() {
+        const dots = document.getElementById('reveal-dots');
+        const next = document.getElementById('reveal-next');
+        const all = document.getElementById('reveal-all');
+        dots.innerHTML = '';
 
-    document.getElementById('reveal-next')?.addEventListener('click', () => {
-        if (!revealQueue.length) {
-            document.getElementById('pack-reveal-overlay').style.display = 'none';
-            document.getElementById('reveal-stage').innerHTML = '';
-            renderCollection();
+        if (revealPhase !== 'cards') {
+            all.style.display = 'none';
+            next.textContent = revealPhase === 'pack' ? 'Ouvrir' : 'Ranger dans ma collection';
             return;
         }
 
+        revealDone.concat(revealQueue).forEach((card, i) => {
+            const dot = document.createElement('span');
+            dot.className = i < revealDone.length
+                ? `reveal-dot is-done is-${card.rarity}` : 'reveal-dot';
+            dots.appendChild(dot);
+        });
+        all.style.display = revealQueue.length > 1 ? 'inline-block' : 'none';
+        next.textContent = revealQueue.length ? 'Carte suivante' : 'Voir le paquet';
+    }
+
+    /* Le retournement, sans preserve-3d : la carte pivote jusqu'à la tranche,
+       son contenu est échangé à mi-parcours, puis elle revient. Deux animations
+       plates valent mieux qu'une scène 3D, qui se brouille avec les modes de
+       fusion du brillant. */
+    function flipToCard(card, isNew) {
+        const flip = document.getElementById('reveal-flip');
+        const burst = document.getElementById('reveal-burst');
+
+        revealFlipping = true;
+        flip.className = 'reveal-flip is-out';
+
+        setTimeout(() => {
+            const node = buildCard(card, { badge: isNew ? 'NOUVELLE' : 'double' });
+            node.classList.add('tcard--reveal');
+            flip.innerHTML = '';
+            flip.appendChild(node);
+            flip.className = 'reveal-flip is-in';
+
+            // L'éclat derrière la carte porte la couleur de sa rareté : on sait
+            // ce qu'on a sorti avant même d'avoir lu le nom.
+            burst.className = `reveal-burst is-firing is-${card.rarity}`;
+            if (card.foil) burst.classList.add('is-foil');
+            void burst.offsetWidth;
+
+            /* Rendu dès que la carte est posée, sans attendre la fin du
+               retour : quatorze cartes, ça s'enchaîne vite, et un verrou d'une
+               demi-seconde avalerait un clic sur deux. Seul le demi-tour aller
+               est protégé, parce que c'est là que le contenu s'échange. */
+            revealFlipping = false;
+            if (revealPending) { revealPending = false; revealNextCard(); }
+        }, 170);
+    }
+
+    function revealNextCard() {
+        if (!revealQueue.length) return;
+        if (revealFlipping) { revealPending = true; return; }
         const card = revealQueue.shift();
         const isNew = !revealOwned.has(card.gameKey);
         revealOwned.add(card.gameKey);
-
-        const node = buildCard(card, { badge: isNew ? 'NOUVELLE' : 'double' });
-        node.classList.add('tcard--reveal');
-        const stage = document.getElementById('reveal-stage');
-        stage.innerHTML = '';
-        stage.appendChild(node);
         revealDone.push(card);
+        flipToCard(card, isNew);
 
-        if (card.rarity === 'legendary' || card.foil) {
-            showToast(card.foil ? `✦ Brillante ! ${card.name}` : `★ Légendaire ! ${card.name}`, 'success');
+        if (rarityIndex(card.rarity) <= rarityIndex('epic')) {
+            showToast(`${rarityMeta(card.rarity).label} ! ${card.name}`, 'success');
         }
-        updateRevealFoot();
+        paintRevealFoot();
+    }
+
+    /* La planche : les quatorze cartes d'un coup d'œil, dans l'ordre où on les
+       a sorties, avec ce que le paquet a vraiment apporté. */
+    function showRevealSpread() {
+        revealPhase = 'spread';
+        const spread = document.getElementById('reveal-spread');
+        spread.innerHTML = '';
+
+        const fresh = revealDone.filter((card, i) =>
+            revealDone.findIndex(other => other.gameKey === card.gameKey) === i).length;
+
+        revealDone.forEach((card, i) => {
+            const node = buildCard(card, { onClick: () => openCardModal(card) });
+            node.style.animationDelay = `${i * 35}ms`;
+            node.classList.add('tcard--dealt');
+            spread.appendChild(node);
+        });
+
+        const best = revealDone.slice().sort((a, b) => rarityIndex(a.rarity) - rarityIndex(b.rarity))[0];
+        document.getElementById('reveal-seal').textContent =
+            `${revealDone.length} cartes · ${fresh} jeu${fresh > 1 ? 'x' : ''} différent${fresh > 1 ? 's' : ''}`
+            + (best ? ` · meilleure : ${rarityMeta(best.rarity).label}` : '');
+
+        document.getElementById('pack-reveal-overlay').className = 'reveal-overlay is-spread';
+        paintRevealFoot();
+    }
+
+    function closeReveal() {
+        const overlay = document.getElementById('pack-reveal-overlay');
+        overlay.className = 'reveal-overlay';
+        overlay.style.display = 'none';
+        document.getElementById('reveal-flip').innerHTML = '';
+        document.getElementById('reveal-spread').innerHTML = '';
+        revealQueue = [];
+        revealDone = [];
+        renderCollection();
+    }
+
+    document.getElementById('reveal-next')?.addEventListener('click', () => {
+        if (revealPhase === 'pack') {
+            revealPhase = 'cards';
+            document.getElementById('reveal-pack').classList.add('is-torn');
+            document.getElementById('pack-reveal-overlay').className = 'reveal-overlay is-cards';
+            // Le temps que le paquet se déchire avant que la première carte sorte.
+            setTimeout(revealNextCard, 260);
+            paintRevealFoot();
+            return;
+        }
+        if (revealPhase === 'cards') {
+            if (revealQueue.length) revealNextCard();
+            else if (!revealFlipping) showRevealSpread();
+            return;
+        }
+        closeReveal();
+    });
+
+    /* Le paquet entier d'un coup, pour qui a déjà ouvert dix boosters. */
+    document.getElementById('reveal-all')?.addEventListener('click', () => {
+        while (revealQueue.length) {
+            const card = revealQueue.shift();
+            revealOwned.add(card.gameKey);
+            revealDone.push(card);
+        }
+        revealFlipping = false;
+        revealPending = false;
+        showRevealSpread();
+    });
+
+    // Cliquer la scène révèle aussi : on ne vise pas un bouton quatorze fois.
+    document.getElementById('reveal-stage')?.addEventListener('click', () => {
+        if (revealPhase === 'cards' && revealQueue.length) revealNextCard();
+    });
+    document.getElementById('reveal-pack')?.addEventListener('click', () => {
+        if (revealPhase === 'pack') document.getElementById('reveal-next').click();
     });
 
     /* --- La grille du set ------------------------------------------------- */
