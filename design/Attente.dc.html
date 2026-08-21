@@ -1,0 +1,298 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap">
+  <style>
+    :root {
+      --dark-bg: #080808; --darker-bg: #030303; --card-bg: rgba(20, 20, 20, 0.75);
+      --primary-text: #f4f0ec; --secondary-text: #a8a6a1; --muted-text: #7d7b77;
+      --accent: #d4af37;
+      --accent-a05: rgba(212, 175, 55, 0.05); --accent-a08: rgba(212, 175, 55, 0.08);
+      --accent-a25: rgba(212, 175, 55, 0.25); --accent-a40: rgba(212, 175, 55, 0.4);
+      --border: rgba(212, 175, 55, 0.15); --border-subtle: rgba(255, 255, 255, 0.08);
+      --danger: #9e3636; --success: #3d7a4e;
+      --gold: #d4af37; --silver: #b5b7b9; --bronze: #b08d57;
+      --fd: 'Playfair Display', Georgia, serif;
+      --fb: 'Outfit', system-ui, -apple-system, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; width: 1440px; height: 900px; overflow: hidden;
+      font-family: var(--fb); font-size: 15px; line-height: 1.5;
+      color: var(--secondary-text);
+      background: radial-gradient(circle at 50% 0%, var(--dark-bg) 0%, var(--darker-bg) 100%);
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { color: #e6c65a; }
+    h1, h2, h3, h4, p { margin: 0; }
+    svg { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  </style>
+</helmet>
+
+<div style="display: grid; grid-template-rows: 56px 1fr; height: 900px;">
+
+  <div style="display: flex; align-items: center; gap: 24px; padding: 0 24px; border-bottom: 1px solid var(--border); background: rgba(8,8,8,0.92);">
+    <div style="display: flex; align-items: baseline; gap: 12px;">
+      <span style="font-family: var(--fd); font-size: 19px; color: var(--accent); letter-spacing: 1.5px;">LAN Demain</span>
+      <span style="font-size: 12px; color: var(--muted-text); letter-spacing: 1px; text-transform: uppercase;">Nuit du 14 mars &middot; chez Kevin</span>
+    </div>
+    <div style="flex-grow: 1;"></div>
+    <div style="display: flex; align-items: center; gap: 18px; padding: 6px 8px 6px 16px; border: 1px solid var(--border); background: rgba(20,20,20,0.75);">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="font-size: 11px; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted-text);">Niv.</span>
+        <span style="font-family: var(--fd); font-size: 19px; color: var(--primary-text); font-variant-numeric: tabular-nums;">6</span>
+        <div style="display: grid; grid-template-columns: repeat(12, 1fr); gap: 2px; width: 96px;">
+          <span style="height: 8px; background: var(--accent);"></span><span style="height: 8px; background: var(--accent);"></span>
+          <span style="height: 8px; background: var(--accent);"></span><span style="height: 8px; background: var(--accent);"></span>
+          <span style="height: 8px; background: var(--accent);"></span><span style="height: 8px; background: var(--accent);"></span>
+          <span style="height: 8px; background: var(--accent);"></span><span style="height: 8px; background: rgba(212,175,55,0.55);"></span>
+          <span style="height: 8px; background: rgba(255,255,255,0.07);"></span><span style="height: 8px; background: rgba(255,255,255,0.07);"></span>
+          <span style="height: 8px; background: rgba(255,255,255,0.07);"></span><span style="height: 8px; background: rgba(255,255,255,0.07);"></span>
+        </div>
+      </div>
+      <span style="width: 1px; height: 26px; background: var(--border-subtle);"></span>
+      <button style="position: relative; display: grid; place-items: center; width: 36px; height: 36px; border: 0; background: transparent; color: var(--secondary-text); cursor: pointer;">
+        <svg viewBox="0 0 24 24" width="19" height="19"><path d="M18 8a6 6 0 1 0-12 0c0 5-2 6-2 6h16s-2-1-2-6Z"></path><path d="M10.3 20a2 2 0 0 0 3.4 0"></path></svg>
+      </button>
+      <button style="display: flex; align-items: center; gap: 9px; padding: 4px 10px 4px 4px; border: 0; background: transparent; cursor: pointer;">
+        <span style="width: 30px; height: 30px; border-radius: 999px; background: linear-gradient(140deg, #3a3a3a, #1a1a1a); border: 1px solid var(--accent-a25);"></span>
+        <span style="font-size: 14px; color: var(--primary-text);">Gr&eacute;gory</span>
+      </button>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 216px 1fr; height: 844px; overflow: hidden;">
+
+    <div style="display: flex; flex-direction: column; padding: 20px 0; border-right: 1px solid var(--border); background: rgba(6,6,6,0.6);">
+      <div style="display: flex; flex-direction: column; flex-shrink: 0;">
+        <div style="display: flex; align-items: center; gap: 13px; padding: 12px 22px; color: var(--accent); font-weight: 600; background: var(--accent-a08); border-left: 3px solid var(--accent); cursor: pointer;">
+          <svg viewBox="0 0 24 24" width="19" height="19"><rect x="3" y="5" width="18" height="16" rx="1"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>
+          <span style="font-size: 14.5px;">&Eacute;v&eacute;nements</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 13px; padding: 12px 22px; color: var(--secondary-text); border-left: 3px solid transparent; cursor: pointer;">
+          <svg viewBox="0 0 24 24" width="19" height="19"><rect x="2.5" y="8" width="19" height="10" rx="4"></rect><path d="M7 11v4M5 13h4M15.6 12.6h.01M18 15.2h.01"></path></svg>
+          <span style="font-size: 14.5px;">Jeux</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 13px; padding: 12px 22px; color: var(--secondary-text); border-left: 3px solid transparent; opacity: 0.32; cursor: default;">
+          <svg viewBox="0 0 24 24" width="19" height="19"><path d="M4 8h16l-1.2 12H5.2L4 8Z"></path><path d="M8.5 8V6a3.5 3.5 0 0 1 7 0v2"></path></svg>
+          <span style="font-size: 14.5px; text-decoration: line-through;">Boutique</span>
+          <svg viewBox="0 0 24 24" width="15" height="15" style="margin-left: auto;"><path d="M8.5 10.5v-3a3.5 3.5 0 0 1 7 0v3"></path><rect x="5.5" y="10.5" width="13" height="9" rx="1.5"></rect></svg>
+        </div>
+        <div style="display: flex; align-items: center; gap: 13px; padding: 12px 22px; color: var(--secondary-text); border-left: 3px solid transparent; opacity: 0.32; cursor: default;">
+          <svg viewBox="0 0 24 24" width="19" height="19"><path d="M12 3s5 4.6 5 9.2a5 5 0 0 1-10 0c0-1.9 1-3.4 1-3.4s.6 1.7 1.6 2.4c-.2-3.2 2.4-8.2 2.4-8.2Z"></path></svg>
+          <span style="font-size: 14.5px; text-decoration: line-through;">D&eacute;fis</span>
+          <svg viewBox="0 0 24 24" width="15" height="15" style="margin-left: auto;"><path d="M8.5 10.5v-3a3.5 3.5 0 0 1 7 0v3"></path><rect x="5.5" y="10.5" width="13" height="9" rx="1.5"></rect></svg>
+        </div>
+        <div style="display: flex; align-items: center; gap: 13px; padding: 12px 22px; color: var(--secondary-text); border-left: 3px solid transparent; opacity: 0.32; cursor: default;">
+          <svg viewBox="0 0 24 24" width="19" height="19"><rect x="8.5" y="3.5" width="11" height="15" rx="1.5"></rect><path d="M5.5 7v11.5A2.5 2.5 0 0 0 8 21h8"></path></svg>
+          <span style="font-size: 14.5px; text-decoration: line-through;">Collection</span>
+          <svg viewBox="0 0 24 24" width="15" height="15" style="margin-left: auto;"><path d="M8.5 10.5v-3a3.5 3.5 0 0 1 7 0v3"></path><rect x="5.5" y="10.5" width="13" height="9" rx="1.5"></rect></svg>
+        </div>
+        <div style="display: flex; align-items: center; gap: 13px; padding: 12px 22px; color: var(--secondary-text); border-left: 3px solid transparent; cursor: pointer;">
+          <svg viewBox="0 0 24 24" width="19" height="19"><path d="M6 4h11v5a5.5 5.5 0 0 1-11 0V4Z"></path><path d="M17 5.5h2.1a2.3 2.3 0 0 1 0 4.6H17"></path><path d="M8 20.5h7"></path></svg>
+          <span style="font-size: 14.5px;">Les Fins Gourmets</span>
+        </div>
+      </div>
+      <p style="padding: 12px 22px 0; font-size: 11.5px; line-height: 1.45; color: var(--muted-text);">Boutique, D&eacute;fis et Collection s&#39;ouvrent samedi &agrave; 19 h.</p>
+
+      <div style="display: flex; flex-direction: column; flex-grow: 1; min-height: 0;">
+        <div style="height: 1px; background: var(--border-subtle); margin: 15px 22px 16px;"></div>
+        <div style="display: flex; align-items: center; gap: 9px; padding: 0 22px; margin-bottom: 10px;">
+          <span style="font-size: 11px; letter-spacing: 1.6px; text-transform: uppercase; color: var(--muted-text);">Autour de la table</span>
+          <span style="margin-left: auto; display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--secondary-text); font-variant-numeric: tabular-nums;">
+            <span style="width: 6px; height: 6px; border-radius: 999px; background: #57b368; box-shadow: 0 0 7px rgba(87,179,104,0.65);"></span>3
+          </span>
+        </div>
+        <div style="display: flex; flex-direction: column; overflow-y: auto; min-height: 0; flex-grow: 1;">
+          <div style="display: flex; align-items: center; gap: 11px; padding: 6px 22px; cursor: pointer;">
+            <span style="position: relative; display: block; flex-shrink: 0;">
+              <span style="display: grid; place-items: center; width: 28px; height: 28px; border-radius: 999px; background: linear-gradient(140deg, #3a3a3a, #1a1a1a); border: 1px solid rgba(255,255,255,0.1); font-size: 11.5px; color: #f4f0ec; opacity: 1; filter: none;">K</span>
+              <span style="position: absolute; right: -1px; bottom: -1px; width: 11px; height: 11px; border-radius: 999px; border: 2px solid #0b0b0b; background: #57b368; box-shadow: 0 0 8px rgba(87,179,104,0.65);"></span>
+            </span>
+            <span style="font-size: 13.5px; color: var(--primary-text);">Kevin</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 11px; padding: 6px 22px; cursor: pointer;">
+            <span style="position: relative; display: block; flex-shrink: 0;">
+              <span style="display: grid; place-items: center; width: 28px; height: 28px; border-radius: 999px; background: linear-gradient(140deg, #3a3a3a, #1a1a1a); border: 1px solid rgba(255,255,255,0.1); font-size: 11.5px; color: #f4f0ec; opacity: 1; filter: none;">S</span>
+              <span style="position: absolute; right: -1px; bottom: -1px; width: 11px; height: 11px; border-radius: 999px; border: 2px solid #0b0b0b; background: #57b368; box-shadow: 0 0 8px rgba(87,179,104,0.65);"></span>
+            </span>
+            <span style="font-size: 13.5px; color: var(--primary-text);">Sarah</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 11px; padding: 6px 22px; cursor: pointer;">
+            <span style="position: relative; display: block; flex-shrink: 0;">
+              <span style="display: grid; place-items: center; width: 28px; height: 28px; border-radius: 999px; background: linear-gradient(140deg, #3a3a3a, #1a1a1a); border: 1px solid rgba(255,255,255,0.1); font-size: 11.5px; color: #7d7b77; opacity: 0.5; filter: grayscale(100%);">T</span>
+              <span style="position: absolute; right: -1px; bottom: -1px; width: 11px; height: 11px; border-radius: 999px; border: 2px solid #0b0b0b; background: #6e6e6e; box-shadow: none;"></span>
+            </span>
+            <span style="font-size: 13.5px; color: var(--muted-text);">Thomas</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 11px; padding: 6px 22px; cursor: pointer;">
+            <span style="position: relative; display: block; flex-shrink: 0;">
+              <span style="display: grid; place-items: center; width: 28px; height: 28px; border-radius: 999px; background: linear-gradient(140deg, #3a3a3a, #1a1a1a); border: 1px solid rgba(255,255,255,0.1); font-size: 11.5px; color: #7d7b77; opacity: 0.5; filter: grayscale(100%);">L</span>
+              <span style="position: absolute; right: -1px; bottom: -1px; width: 11px; height: 11px; border-radius: 999px; border: 2px solid #0b0b0b; background: #6e6e6e; box-shadow: none;"></span>
+            </span>
+            <span style="font-size: 13.5px; color: var(--muted-text);">L&eacute;a</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 11px; padding: 6px 22px; cursor: pointer;">
+            <span style="position: relative; display: block; flex-shrink: 0;">
+              <span style="display: grid; place-items: center; width: 28px; height: 28px; border-radius: 999px; background: linear-gradient(140deg, #3a3a3a, #1a1a1a); border: 1px solid rgba(255,255,255,0.1); font-size: 11.5px; color: #7d7b77; opacity: 0.5; filter: grayscale(100%);">M</span>
+              <span style="position: absolute; right: -1px; bottom: -1px; width: 11px; height: 11px; border-radius: 999px; border: 2px solid #0b0b0b; background: #6e6e6e; box-shadow: none;"></span>
+            </span>
+            <span style="font-size: 13.5px; color: var(--muted-text);">Marc</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="padding: 0 22px; flex-shrink: 0;">
+        <div style="height: 1px; background: var(--border-subtle); margin-bottom: 14px;"></div>
+        <div style="display: flex; align-items: center; gap: 13px; padding: 11px 0; color: var(--accent); cursor: pointer;">
+          <svg viewBox="0 0 24 24" width="19" height="19"><path d="M4 7h9M18.5 7H20M4 17h4.5M14 17h6"></path><circle cx="15.5" cy="7" r="2.2"></circle><circle cx="11" cy="17" r="2.2"></circle></svg>
+          <span style="font-size: 14.5px;">Panneau admin</span>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ============ LA SALLE D'ATTENTE ============ -->
+    <div style="display: grid; grid-template-rows: auto 1fr; overflow: hidden;">
+
+      <!-- Le compte à rebours prend la place d'honneur : c'est la seule
+           information que tout le monde vient chercher ici. -->
+      <div style="display: flex; align-items: center; gap: 30px; padding: 26px 28px; border-bottom: 1px solid var(--border-subtle); background: linear-gradient(100deg, var(--accent-a05) 0%, transparent 55%);">
+        <div style="display: flex; align-items: baseline; gap: 10px;">
+          <span style="font-family: var(--fd); font-size: 66px; line-height: 1; color: var(--accent); font-variant-numeric: tabular-nums; text-shadow: 0 0 26px rgba(212,175,55,0.35);">J&minus;4</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 5px;">
+          <h2 style="font-family: var(--fd); font-size: 26px; color: var(--primary-text); font-weight: 400;">Samedi 14 mars, 19 h</h2>
+          <p style="font-size: 13.5px; color: var(--secondary-text);">Chez Kevin &mdash; 12 rue des Lilas. On s&#39;arr&ecirc;te quand on tombe.</p>
+        </div>
+        <div style="flex-grow: 1;"></div>
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <button style="display: inline-flex; align-items: center; gap: 9px; padding: 10px 18px; border: 1px solid var(--accent-a40); border-radius: 999px; background: rgba(20,20,20,0.85); color: var(--accent); font-family: var(--fb); font-size: 12.5px; letter-spacing: 0.8px; text-transform: uppercase; cursor: pointer;">
+            <svg viewBox="0 0 24 24" width="15" height="15"><rect x="3" y="5" width="18" height="16" rx="1"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>
+            Ajouter &agrave; mon agenda
+          </button>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 340px; gap: 24px; padding: 20px 28px 0; overflow: hidden;">
+
+        <!-- Le seul vrai travail de cette phase -->
+        <div style="display: flex; flex-direction: column; gap: 14px; overflow: hidden;">
+          <div style="display: flex; align-items: center; gap: 14px;">
+            <h3 style="font-family: var(--fd); font-size: 22px; color: var(--accent); font-weight: 400;">&Agrave; t&eacute;l&eacute;charger avant samedi</h3>
+            <span style="flex-grow: 1; height: 1px; background: var(--border-subtle);"></span>
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <div style="width: 90px; height: 4px; background: rgba(255,255,255,0.07);">
+                <span style="display: block; width: 37%; height: 4px; background: #4e9463; box-shadow: 0 0 8px rgba(78,148,99,0.5);"></span>
+              </div>
+              <span style="font-size: 12.5px; color: var(--secondary-text); font-variant-numeric: tabular-nums;">3 / 8 pr&ecirc;ts</span>
+            </div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 8px; overflow: hidden;">
+            <sc-for list="{{games}}" as="g" hint-placeholder-count="8">
+              <div style="display: grid; grid-template-columns: 26px 76px 1fr auto auto; align-items: center; gap: 15px; padding: 11px 14px; border-left: 2px solid {{g.edge}}; background: {{g.bg}}; cursor: pointer;">
+                <span style="font-family: var(--fd); font-size: 15px; color: {{g.color}}; font-variant-numeric: tabular-nums; text-align: center;">{{g.rank}}</span>
+                <span style="display: block; height: 34px; border-radius: 3px; background: {{g.art}}; border: 1px solid rgba(255,255,255,0.06);"></span>
+                <span style="font-size: 14px; color: var(--primary-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{g.name}}</span>
+                <span style="font-size: 12.5px; color: var(--muted-text); font-variant-numeric: tabular-nums;">{{g.size}}</span>
+                <span style="display: inline-flex; align-items: center; gap: 8px; min-width: 96px; justify-content: flex-end; font-size: 12.5px; color: {{g.stateColor}};">
+                  <svg viewBox="0 0 24 24" width="15" height="15"><path d="{{g.icon}}"></path></svg>{{g.state}}
+                </span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 16px; overflow: hidden;">
+
+          <div style="padding: 18px; border: 1px solid var(--border); background: var(--card-bg);">
+            <h3 style="font-size: 12px; letter-spacing: 1.6px; text-transform: uppercase; color: var(--muted-text); margin-bottom: 14px;">Le programme</h3>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+              <sc-for list="{{schedule}}" as="e" hint-placeholder-count="5">
+                <div style="display: flex; align-items: baseline; gap: 12px;">
+                  <span style="font-family: var(--fd); font-size: 13.5px; color: var(--accent); font-variant-numeric: tabular-nums; width: 44px; flex-shrink: 0;">{{e.time}}</span>
+                  <span style="font-size: 13px; color: var(--primary-text); line-height: 1.35;">{{e.label}}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <!-- Le rail dit que trois destinations sont verrouillées ; cette
+               carte dit quand elles s'ouvrent, plutôt que de laisser
+               chercher. -->
+          <div style="padding: 18px; border: 1px solid var(--border-subtle); background: rgba(255,255,255,0.015);">
+            <h3 style="font-size: 12px; letter-spacing: 1.6px; text-transform: uppercase; color: var(--muted-text); margin-bottom: 10px;">Samedi &agrave; 19 h</h3>
+            <p style="font-size: 13px; line-height: 1.5; color: var(--secondary-text);">La Boutique, les D&eacute;fis et la Collection s&#39;ouvrent au lancement de la soir&eacute;e. Le set de cartes sera frapp&eacute; &agrave; ce moment-l&agrave;, &agrave; partir de vos biblioth&egrave;ques.</p>
+          </div>
+
+          <div style="padding: 18px; border: 1px solid var(--border); background: var(--card-bg);">
+            <h3 style="font-size: 12px; letter-spacing: 1.6px; text-transform: uppercase; color: var(--muted-text); margin-bottom: 10px;">Le vote a parl&eacute;</h3>
+            <p style="font-size: 13px; line-height: 1.5; color: var(--secondary-text);">Six votants, dix-neuf jeux propos&eacute;s. Les huit premiers sont ci-contre&nbsp;; le reste attendra la prochaine.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    /* Un seul « d » par icône : un trou rend du TEXTE, jamais du balisage. */
+    const OK = "m5 12.5 4.5 4.5L19 7.5";
+    const DL = "M12 4.5v11 M7.5 11 12 15.5 16.5 11 M5 19.5h14";
+    const ARTS = [
+      "linear-gradient(120deg, #1d2b3a, #0a1018)",
+      "linear-gradient(120deg, #2f1c2c, #120a12)",
+      "linear-gradient(120deg, #1b2f24, #08120c)",
+      "linear-gradient(120deg, #33261a, #140d07)"
+    ];
+    const MEDALS = ["#d4af37", "#b5b7b9", "#b08d57"];
+
+    const LIST = [
+      ["Counter-Strike 2", "38 Go", true],
+      ["Baldur's Gate 3", "122 Go", true],
+      ["Rocket League", "21 Go", true],
+      ["Deep Rock Galactic", "9 Go", false],
+      ["Helldivers 2", "142 Go", false],
+      ["Lethal Company", "3 Go", false],
+      ["Overcooked! 2", "4 Go", false],
+      ["Trackmania", "12 Go", false]
+    ];
+
+    const games = LIST.map((g, i) => ({
+      rank: String(i + 1),
+      name: g[0],
+      size: g[1],
+      art: ARTS[i % ARTS.length],
+      color: i < 3 ? MEDALS[i] : "#a8a6a1",
+      edge: g[2] ? "#4e9463" : (i < 3 ? MEDALS[i] : "rgba(255,255,255,0.08)"),
+      bg: g[2] ? "rgba(78,148,99,0.06)" : "rgba(255,255,255,0.015)",
+      state: g[2] ? "installé" : "à prendre",
+      stateColor: g[2] ? "#4e9463" : "#7d7b77",
+      icon: g[2] ? OK : DL
+    }));
+
+    const schedule = [
+      { time: "19 h", label: "Arrivée, installation, premier verre" },
+      { time: "20 h", label: "Ouverture de la soirée — le set est frappé" },
+      { time: "21 h", label: "Tournoi Rocket League, en équipes tirées au sort" },
+      { time: "00 h", label: "Les shots de minuit" },
+      { time: "02 h", label: "Baldur's Gate, pour ceux qui tiennent" }
+    ];
+
+    return { games: games, schedule: schedule };
+  }
+}
+</script>
+</body>
+</html>

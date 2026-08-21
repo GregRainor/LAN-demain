@@ -1,13 +1,19 @@
 {
   "pages": [
-    { "id": "page-1", "name": "Le redesign" },
+    { "id": "page-3", "name": "Avant la LAN" },
+    { "id": "page-1", "name": "Pendant la LAN" },
     { "id": "page-2", "name": "Le raisonnement" }
   ],
   "artboards": [
-    { "file": "Main.dc.html", "title": "Boutique", "x": 0, "y": 0, "w": 1440, "h": 900, "page": "page-1" },
-    { "file": "Collection.dc.html", "title": "Collection", "x": 1560, "y": 0, "w": 1440, "h": 900, "page": "page-1" },
-    { "file": "Defis.dc.html", "title": "Défis", "x": 3120, "y": 0, "w": 1440, "h": 900, "page": "page-1" },
-    { "file": "Profil.dc.html", "title": "Profil & hauts faits", "x": 0, "y": 1040, "w": 1440, "h": 900, "page": "page-1" },
+    { "file": "Hall.dc.html", "title": "0 · Rien de prévu", "x": 0, "y": 0, "w": 1440, "h": 900, "page": "page-3" },
+    { "file": "Vote.dc.html", "title": "1 · Vote ouvert", "x": 1560, "y": 0, "w": 1440, "h": 900, "page": "page-3" },
+    { "file": "Attente.dc.html", "title": "2 · Avant la soirée", "x": 3120, "y": 0, "w": 1440, "h": 900, "page": "page-3" },
+    { "file": "Phases.dc.html", "title": "Le modèle de phases", "x": 0, "y": 1040, "w": 1560, "h": 880, "page": "page-3" },
+
+    { "file": "Main.dc.html", "title": "3 · Boutique", "x": 0, "y": 0, "w": 1440, "h": 900, "page": "page-1" },
+    { "file": "Collection.dc.html", "title": "3 · Collection", "x": 1560, "y": 0, "w": 1440, "h": 900, "page": "page-1" },
+    { "file": "Defis.dc.html", "title": "3 · Défis", "x": 3120, "y": 0, "w": 1440, "h": 900, "page": "page-1" },
+    { "file": "Profil.dc.html", "title": "3 · Profil & hauts faits", "x": 0, "y": 1040, "w": 1440, "h": 900, "page": "page-1" },
     { "file": "Mobile.dc.html", "title": "Téléphone", "x": 1560, "y": 1040, "w": 390, "h": 844, "page": "page-1" },
 
     { "file": "Systeme.dc.html", "title": "Le système", "x": 0, "y": 0, "w": 1440, "h": 1140, "page": "page-2" },
@@ -15,6 +21,30 @@
     { "file": "PisteC.dc.html", "title": "Piste C — La barre de commande", "x": 1560, "y": 760, "w": 900, "h": 620, "page": "page-2" }
   ],
   "annotations": [
+    {
+      "id": "note-phases",
+      "x": 0,
+      "y": -190,
+      "w": 620,
+      "page": "page-3",
+      "text": "Les trois états qui précèdent la soirée. La coquille est la même que pendant la LAN — même bandeau, même rail, même tablée — et ce sont les destinations qui s'ouvrent une phase après l'autre.\n\nVerrouillé, jamais caché : la règle vient de votre propre .m-tab.is-locked sur téléphone."
+    },
+    {
+      "id": "note-trou",
+      "x": 700,
+      "y": -190,
+      "w": 620,
+      "page": "page-3",
+      "text": "Le vrai trou est l'état 0. Aujourd'hui, quand le vote est clos et qu'aucune date n'est annoncée, le joueur voit « Les votes sont fermés » et un bandeau défilant — la description d'une attente qui n'a pas lieu.\n\nIci la page assume le creux : elle garde le souvenir de la dernière soirée et ouvre la porte de la suivante."
+    },
+    {
+      "id": "note-admin",
+      "x": 1700,
+      "y": 1040,
+      "w": 400,
+      "page": "page-3",
+      "text": "Une phase, un écran. Vote clos, l'application montre aujourd'hui un tableau de bord à l'admin et un bandeau défilant aux autres : deux écrans pour la même phase.\n\nDésormais tout le monde voit la salle d'attente, et l'admin a en plus son entrée dans le rail — comme partout ailleurs."
+    },
     {
       "id": "note-hud",
       "x": 0,
@@ -53,8 +83,8 @@
       "y": -170,
       "w": 560,
       "page": "page-2",
-      "text": "Deux pistes écartées, gardées pour la discussion. La piste A — rail + panneaux, page « Le redesign » — l'emporte parce qu'elle est la seule qui donne un plein écran aux deux surfaces qui en ont besoin : la planche de 43 cartes et le catalogue de 26 articles."
+      "text": "Deux pistes écartées, gardées pour la discussion. La piste A — rail + panneaux, page « Pendant la LAN » — l'emporte parce qu'elle est la seule qui donne un plein écran aux deux surfaces qui en ont besoin : la planche de 43 cartes et le catalogue de 26 articles."
     }
   ],
-  "launch": { "view": "canvas", "page": "page-1" }
+  "launch": { "view": "canvas", "page": "page-3" }
 }
