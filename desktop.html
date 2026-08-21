@@ -50,34 +50,67 @@
     </div>
 
     <div id="app-container" style="display: none;">
-        <div id="active-users-sidebar" class="gnome-band">
-            <!-- Javascript will insert users here directly -->
-        </div>
-
-        <div id="top-right-actions">
-            <!-- Notification Bell -->
-            <button id="btn-notifications" class="gold-link-btn" title="Notifications"
-                style="position: relative; display: none; margin-right: 10px;">
-                🔔
-                <span id="notif-badge"
-                    style="display:none; position:absolute; top:-5px; right:-5px; background:var(--danger-color); color:white; border-radius:50%; width:16px; height:16px; font-size:0.7em; align-items:center; justify-content:center;">0</span>
-            </button>
-            <!-- Débogage : l'admin atteint la Collection même avant que la LAN
-                 soit lancée. Sans ça, impossible d'éprouver un set tant que la
-                 soirée n'a pas démarré. -->
-            <button id="btn-tcg-preview" class="gold-link-btn" title="Collection (admin)"
-                style="display: none;">🎴 Collection</button>
-            <button id="btn-lan-history" class="gold-link-btn" title="Historique">Historique</button>
-            <!-- Retour vers l'interface téléphone. Masqué sur grand écran : il ne
-                 sert qu'au joueur qui a forcé la version bureau sur son mobile. -->
-            <button id="btn-mobile-version" class="gold-link-btn" title="Version téléphone">📱 Version
-                téléphone</button>
-            <div id="user-info-menu">
-                <span id="user-name"></span>
-                <img id="user-avatar" src="" alt="Avatar">
+        <!-- =====================================================================
+             LE BANDEAU
+             Identité à gauche, le joueur à droite, présent sur tous les écrans
+             quelle que soit la phase. Le solde ne s'y affiche que pendant la
+             soirée : hors soirée il n'existe pas, il se recalcule depuis le
+             registre de la nuit en cours. Le niveau, lui, est toujours là —
+             il compte les soirées, pas les points.
+             ===================================================================== -->
+        <header id="appbar">
+            <div class="appbar__brand">
+                <span class="appbar__mark">LAN Demain</span>
+                <span id="appbar-context" class="appbar__context"></span>
             </div>
-            <button id="logout-btn" class="danger-link-btn" title="Déconnexion">Déconnexion</button>
-        </div>
+
+            <div class="appbar__spacer"></div>
+
+            <div class="hud">
+                <button id="btn-hud-xp" class="hud__xp" title="Mon profil">
+                    <span class="hud__label">Niv.</span>
+                    <span id="hud-level" class="hud__level">1</span>
+                    <span id="hud-xp-segs" class="hud__segs"></span>
+                </button>
+
+                <span id="hud-wallet" class="hud__wallet" style="display: none;">
+                    <span class="hud__sep"></span>
+                    <strong id="hud-wallet-value" class="hud__money">0</strong>
+                    <span class="hud__cur">zł</span>
+                </span>
+
+                <span class="hud__sep"></span>
+
+                <button id="btn-notifications" class="hud__icon" title="Notifications" style="display: none;">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M18 8a6 6 0 1 0-12 0c0 5-2 6-2 6h16s-2-1-2-6Z"></path>
+                        <path d="M10.3 20a2 2 0 0 0 3.4 0"></path>
+                    </svg>
+                    <span id="notif-badge" class="hud__badge" style="display:none;">0</span>
+                </button>
+
+                <button id="btn-profil" class="hud__me" title="Mon profil">
+                    <img id="user-avatar" src="" alt="">
+                    <span id="user-name"></span>
+                </button>
+
+                <!-- Ce qu'on ouvre une fois par soirée n'a pas à occuper le
+                     bandeau en permanence. <details> suffit : pas de JS. -->
+                <details class="appbar-menu">
+                    <summary class="hud__icon" title="Plus">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M5 12h.01M12 12h.01M19 12h.01"></path>
+                        </svg>
+                    </summary>
+                    <div class="appbar-menu__panel">
+                        <button id="btn-tcg-preview" class="appbar-menu__item" style="display: none;">Collection (admin)</button>
+                        <button id="btn-lan-history" class="appbar-menu__item">Historique des LAN</button>
+                        <button id="btn-mobile-version" class="appbar-menu__item">Version téléphone</button>
+                        <button id="logout-btn" class="appbar-menu__item appbar-menu__item--danger">Déconnexion</button>
+                    </div>
+                </details>
+            </div>
+        </header>
 
         <div id="view-voting-open" class="container wide-container" style="display: none;">
 
@@ -381,44 +414,84 @@
         </div>
 
         <!-- VIEW 4: ACTIVE LAN PHASE -->
-        <div id="view-lan-active" style="display: none; padding-top: 20px;">
-            <div class="active-lan-layout two-column-layout">
-                <!-- Left Sidebar: Nav -->
-                <aside class="animated-section">
-                    <div class="luxury-panel sidebar-module">
+        <div id="view-lan-active" style="display: none;">
+            <div class="applayout">
+                <!-- =========================================================
+                     LE RAIL
+                     Six destinations, toujours les mêmes, aux mêmes places.
+                     L'ordre est celui d'une LAN : ce qui se joue avant ce qui
+                     s'achète. Chaque entrée est un GROUPE — ses sous-écrans
+                     apparaissent en onglets en haut du panneau, plutôt qu'en
+                     douze lignes ici.
+
+                     data-target reste le sous-écran par défaut du groupe :
+                     les sélecteurs existants (`[data-target="lan-tcg"]`,
+                     `[data-target="lan-calendar"]`) continuent de marcher.
+                     ========================================================= -->
+                <aside class="rail">
+                    <ul class="lan-nav-list rail__nav">
+                        <li class="nav-item" data-group="events" data-target="lan-calendar">
+                            <svg class="rail__ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="1"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>
+                            <span class="rail__label">Événements</span>
+                            <span id="poll-nav-badge" class="nav-badge" style="display:none;">0</span>
+                        </li>
+                        <li class="nav-item active" data-group="games" data-target="lan-dashboard">
+                            <svg class="rail__ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="8" width="19" height="10" rx="4"></rect><path d="M7 11v4M5 13h4M15.6 12.6h.01M18 15.2h.01"></path></svg>
+                            <span class="rail__label">Jeux</span>
+                        </li>
+                        <li class="nav-item" data-group="shop" data-target="lan-boutique">
+                            <svg class="rail__ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h16l-1.2 12H5.2L4 8Z"></path><path d="M8.5 8V6a3.5 3.5 0 0 1 7 0v2"></path></svg>
+                            <span class="rail__label">Boutique</span>
+                            <span id="shop-nav-badge" class="nav-badge" style="display:none;">0</span>
+                        </li>
+                        <li class="nav-item" data-group="defis" data-target="lan-defis">
+                            <svg class="rail__ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3s5 4.6 5 9.2a5 5 0 0 1-10 0c0-1.9 1-3.4 1-3.4s.6 1.7 1.6 2.4c-.2-3.2 2.4-8.2 2.4-8.2Z"></path></svg>
+                            <span class="rail__label">Défis</span>
+                            <span id="defis-nav-badge" class="nav-badge" style="display:none;">0</span>
+                        </li>
+                        <li class="nav-item" data-group="cards" data-target="lan-tcg">
+                            <svg class="rail__ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="8.5" y="3.5" width="11" height="15" rx="1.5"></rect><path d="M5.5 7v11.5A2.5 2.5 0 0 0 8 21h8"></path></svg>
+                            <span class="rail__label">Collection</span>
+                            <span id="tcg-nav-badge" class="nav-badge" style="display:none;">0</span>
+                        </li>
+                        <li class="nav-item" data-group="food" data-target="lan-kocktails">
+                            <svg class="rail__ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h11v5a5.5 5.5 0 0 1-11 0V4Z"></path><path d="M17 5.5h2.1a2.3 2.3 0 0 1 0 4.6H17"></path><path d="M8 20.5h7"></path></svg>
+                            <span class="rail__label">Les Fins Gourmets</span>
+                            <span id="food-nav-badge" class="nav-badge" style="display:none;">0</span>
+                        </li>
+                    </ul>
+
+                    <!-- La tablée. La bande flottante de gauche rentre dans le
+                         rail : elle comble son vide, et on lit qui est là sans
+                         quitter l'écran courant. Le joueur, lui, reste en haut
+                         à droite. L'id ne change pas : renderActiveUsers()
+                         écrit toujours ici. -->
+                    <div class="rail__table">
+                        <div class="rail__sep"></div>
+                        <div class="rail__tablehead">
+                            <span class="rail__tabletitle">Autour de la table</span>
+                            <span class="rail__tablecount"><i class="rail__live"></i><span id="rail-online-count">0</span></span>
+                        </div>
+                        <div id="active-users-sidebar" class="rail__people">
+                            <!-- renderActiveUsers() insère les joueurs ici -->
+                        </div>
+                    </div>
+
+                    <div class="rail__foot">
+                        <div class="rail__sep"></div>
                         <ul class="lan-nav-list">
-                            <li class="nav-item active" data-target="lan-dashboard">
-                                Dashboard</li>
-                            <li class="nav-item" data-target="lan-calendar">
-                                Programme</li>
-                            <li class="nav-item" data-target="lan-events">
-                                Événements</li>
-                            <li class="nav-item" data-target="lan-kocktails">
-                                Kocktails</li>
-                            <li class="nav-item" data-target="lan-defis">
-                                Défis <span id="defis-nav-badge" class="nav-badge" style="display:none;">0</span></li>
-                            <li class="nav-item" data-target="lan-boutique">
-                                Boutique <span id="shop-nav-badge" class="nav-badge" style="display:none;">0</span></li>
-                            <li class="nav-item" data-target="lan-tcg">
-                                Collection <span id="tcg-nav-badge" class="nav-badge" style="display:none;">0</span></li>
-                            <li class="nav-item" data-target="lan-food">
-                                Miam <span id="food-nav-badge" class="nav-badge" style="display:none;">0</span></li>
-                            <li class="nav-item" data-target="lan-polls">
-                                Sondages <span id="poll-nav-badge" class="nav-badge" style="display:none;">0</span></li>
-                            <li class="nav-item" data-target="lan-library">
-                                Bibliothèques Steam</li>
-                            <li class="nav-item" data-target="lan-games">
-                                Historique des Votes</li>
-                            <!-- Admin-only nav item, shown via JS -->
-                            <li id="lan-nav-admin" class="nav-item nav-item--admin" data-target="lan-admin"
-                                style="display: none;">
-                                ⚙️ Admin</li>
+                            <li id="lan-nav-admin" class="nav-item nav-item--admin" data-group="admin"
+                                data-target="lan-admin" style="display: none;">
+                                <svg class="rail__ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M18.5 7H20M4 17h4.5M14 17h6"></path><circle cx="15.5" cy="7" r="2.2"></circle><circle cx="11" cy="17" r="2.2"></circle></svg>
+                                <span class="rail__label">Panneau admin</span>
+                            </li>
                         </ul>
                     </div>
                 </aside>
 
-                <!-- Center Feed -->
-                <main class="animated-section" style="animation-delay: 0.2s;">
+                <!-- Le panneau : la seule zone qui défile. -->
+                <main class="pane">
+                    <div id="group-tabs" class="pane-tabs" style="display: none;"></div>
                     <!-- Subview: Dashboard -->
                     <div id="lan-dashboard" class="lan-subview active">
                         <h2 class="subview-title">Ressources & Tableau de Bord</h2>
@@ -673,19 +746,6 @@
                     <div id="lan-boutique" class="lan-subview" style="display: none;">
                         <h2 class="subview-title" style="margin-bottom: 30px;">Boutique</h2>
 
-                        <!-- L'expérience passe avant le solde : elle mesure les
-                             soirées, pas le portefeuille, et c'est la seule
-                             chose ici qui survive à la clôture. -->
-                        <div class="xp-banner luxury-panel">
-                            <div class="xp-banner__head">
-                                <span class="xp-banner__lvl"><small>Niveau</small> <span
-                                        id="xp-level">1</span></span>
-                                <span class="xp-banner__count" id="xp-count">0 / 200 XP</span>
-                            </div>
-                            <div class="xp-banner__segs" id="xp-segs"></div>
-                            <p class="xp-banner__foot" id="xp-foot"></p>
-                        </div>
-
                         <!-- Le booster : tête de gondole, pas une ligne de liste. -->
                         <div id="booster-panel" class="luxury-panel"
                             style="padding: 25px; margin-bottom: 25px; display: none;">
@@ -741,6 +801,33 @@
                                     style="font-size: 0.8em; display:none;">+ Ajouter un article</button>
                             </div>
                             <div id="shop-catalog"></div>
+                        </div>
+
+                    </div>
+
+
+                    <!-- =========================================================
+                         Subview: Profil — ce qui est à MOI
+                         Les hauts faits n'ont jamais eu leur place en boutique :
+                         on ne les achète pas, on les gagne. Ils vivent ici avec
+                         les titres, l'expérience, mes demandes et le registre.
+                         La boutique n'a plus à porter six panneaux qui ne
+                         parlent pas d'achat.
+                         ========================================================= -->
+                    <div id="lan-profil" class="lan-subview" style="display: none;">
+                        <h2 class="subview-title" style="margin-bottom: 30px;">Mon profil</h2>
+
+                        <!-- L'expérience passe avant le solde : elle mesure les
+                             soirées, pas le portefeuille, et c'est la seule
+                             chose ici qui survive à la clôture. -->
+                        <div class="xp-banner luxury-panel">
+                            <div class="xp-banner__head">
+                                <span class="xp-banner__lvl"><small>Niveau</small> <span
+                                        id="xp-level">1</span></span>
+                                <span class="xp-banner__count" id="xp-count">0 / 200 XP</span>
+                            </div>
+                            <div class="xp-banner__segs" id="xp-segs"></div>
+                            <p class="xp-banner__foot" id="xp-foot"></p>
                         </div>
 
                         <!-- Les hauts faits : les jalons sont acquis pour

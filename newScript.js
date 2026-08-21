@@ -427,12 +427,15 @@ document.addEventListener('DOMContentLoaded', () => {
         writeMyPresence();
     }
 
+    /* La tablée, rendue dans le rail plutôt que dans une bande flottante.
+       Même élément (#active-users-sidebar), mêmes pastilles : seule la forme
+       change — avatar, prénom, pastille — parce qu'un rail a la largeur
+       d'écrire les noms là où la bande n'avait qu'une infobulle. */
     function renderActiveUsers() {
-        const sidebar = document.getElementById('active-users-sidebar');
-        const body = document.body;
-        if (!sidebar) return;
+        const mount = document.getElementById('active-users-sidebar');
+        if (!mount) return;
 
-        sidebar.innerHTML = '';
+        mount.innerHTML = '';
         ['role-user-select', 'role-user-select-lan'].forEach(id => {
             const sel = document.getElementById(id);
             if (sel) sel.innerHTML = '<option value="">Sélectionner un joueur...</option>';
@@ -440,37 +443,43 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const roster = buildRoster();
 
-        if (roster.length > 0) {
-            sidebar.classList.add('visible');
-            body.classList.add('sidebar-visible');
-        } else {
-            sidebar.classList.remove('visible');
-            body.classList.remove('sidebar-visible');
-        }
+        const count = document.getElementById('rail-online-count');
+        if (count) count.textContent = roster.filter(p => p.online).length;
 
         roster.forEach(player => {
-            const slot = document.createElement('div');
-            slot.className = 'user-avatar-container ' + (player.online ? 'is-online' : 'is-offline');
-            slot.dataset.name = `${player.name || 'Joueur'} — ${player.online ? 'connecté' : 'déconnecté'}`;
+            const row = document.createElement('button');
+            row.type = 'button';
+            row.className = 'rail-person ' + (player.online ? 'is-online' : 'is-offline');
+            row.title = `${player.name || 'Joueur'} — ${player.online ? 'connecté' : 'déconnecté'}`;
+
+            const slot = document.createElement('span');
+            slot.className = 'rail-person__slot';
 
             const img = document.createElement('img');
             img.src = player.avatar || initialsAvatar(player.name);
-            img.alt = player.name || 'Joueur';
-            img.className = 'user-avatar-icon';
+            img.alt = '';
+            img.className = 'rail-person__img';
             // Une photo Google périmée renverrait une image cassée : on retombe
             // sur les initiales plutôt que sur l'icône de vignette absente.
             img.addEventListener('error', () => { img.src = initialsAvatar(player.name); });
             slot.appendChild(img);
 
             const dot = document.createElement('span');
-            dot.className = 'presence-dot';
+            dot.className = 'rail-person__dot';
             slot.appendChild(dot);
 
-            slot.addEventListener('click', () => {
+            row.appendChild(slot);
+
+            const name = document.createElement('span');
+            name.className = 'rail-person__name';
+            name.textContent = player.name || 'Joueur';
+            row.appendChild(name);
+
+            row.addEventListener('click', () => {
                 showPlayerVotesModal(player.uid, player.name, globalVotes);
             });
 
-            sidebar.appendChild(slot);
+            mount.appendChild(row);
 
             // Populate both role selects (View 3 admin panel + Active LAN admin panel)
             ['role-user-select', 'role-user-select-lan'].forEach(selectId => {
@@ -873,7 +882,33 @@ document.addEventListener('DOMContentLoaded', () => {
        de LAN active est réaffichée telle quelle, ouverte sur cet onglet. */
     let tcgAdminPreview = false;
 
+    /* La coquille (bandeau fixe, rail, panneau qui défile seul) n'a de sens
+       que pendant la soirée : les autres phases gardent le flux de page. */
+    function applyShellChrome() {
+        const active = document.getElementById('view-lan-active');
+        const on = !!active && active.style.display !== 'none';
+        document.body.classList.toggle('is-lan-shell', on);
+
+        /* #app-container est piloté en style en ligne (display: block à la
+           connexion) : une règle de feuille ne peut pas le passer en colonne
+           flex, l'attribut gagne toujours. On le pose donc de la même façon
+           que le reste du fichier, sans y toucher quand on est déconnecté. */
+        const container = document.getElementById('app-container');
+        if (container && container.style.display !== 'none') {
+            container.style.display = on ? 'flex' : 'block';
+        }
+        // La bande flottante d'avant poussait le corps de page vers la droite.
+        document.body.classList.remove('sidebar-visible');
+        renderHud();
+        renderAppbarContext();
+    }
+
     function updateVotingUIState() {
+        updateVotingUIStateInner();
+        applyShellChrome();
+    }
+
+    function updateVotingUIStateInner() {
         const viewVotingOpen = document.getElementById('view-voting-open');
         const viewWaitingClosed = document.getElementById('view-waiting-closed');
         const viewAdminDashboard = document.getElementById('view-admin-dashboard');
@@ -4429,48 +4464,149 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 4. Navigation : re-render data on tab switch
-    document.querySelectorAll('.lan-nav-list .nav-item').forEach(item => {
-        item.addEventListener('click', (e) => {
-            const targetId = e.currentTarget.dataset.target;
-            if (targetId === 'lan-kocktails' && window._latestCocktailsData) {
-                renderCocktails(window._latestCocktailsData, auth.currentUser);
-            }
-            if (targetId === 'lan-events' && window._latestEventsData) {
-                renderEvents(window._latestEventsData, auth.currentUser);
-            }
-            if (targetId === 'lan-defis') {
-                renderDefis();
-            }
-            if (targetId === 'lan-boutique') {
-                renderBoutique();
-            }
-            if (targetId === 'lan-calendar') {
-                renderWhenWhere();
-                renderAgenda();
-            }
-            // Deactivate all
-            document.querySelectorAll('.lan-nav-list .nav-item').forEach(nav => nav.classList.remove('active'));
-            document.querySelectorAll('.lan-subview').forEach(view => {
-                view.style.display = 'none';
-                view.classList.remove('active');
+    /* ======================================================================
+       LA NAVIGATION
+       Douze entrées sont devenues six destinations. Les sous-écrans n'ont pas
+       bougé d'un octet : ils passent en onglets en haut du panneau, sous le
+       groupe qui les contient. `data-target` reste le sous-écran par défaut
+       du groupe, donc les sélecteurs existants continuent de marcher.
+       ====================================================================== */
+    const LAN_GROUPS = {
+        events: [
+            { id: 'lan-calendar', label: 'Programme' },
+            { id: 'lan-events', label: 'Événements' },
+            { id: 'lan-polls', label: 'Sondages' }
+        ],
+        games: [
+            { id: 'lan-dashboard', label: 'Jeux de la LAN' },
+            { id: 'lan-library', label: 'Bibliothèques Steam' },
+            { id: 'lan-games', label: 'Historique des votes' }
+        ],
+        shop: [{ id: 'lan-boutique', label: 'La carte' }],
+        defis: [{ id: 'lan-defis', label: 'Les défis' }],
+        cards: [{ id: 'lan-tcg', label: 'La collection' }],
+        food: [
+            { id: 'lan-kocktails', label: 'Le bar' },
+            { id: 'lan-food', label: 'Miam' }
+        ],
+        admin: [{ id: 'lan-admin', label: 'Panneau admin' }],
+        profil: [{ id: 'lan-profil', label: 'Mon profil' }]
+    };
+
+    /* Ce qu'il faut redessiner en arrivant sur un sous-écran. La table
+       remplace la pile de `if` d'avant : ajouter un écran, c'est ajouter une
+       ligne. */
+    const LAN_RENDERERS = {
+        'lan-kocktails': () => window._latestCocktailsData
+            && renderCocktails(window._latestCocktailsData, auth.currentUser),
+        'lan-events': () => window._latestEventsData
+            && renderEvents(window._latestEventsData, auth.currentUser),
+        'lan-defis': () => renderDefis(),
+        'lan-boutique': () => renderBoutique(),
+        'lan-profil': () => renderBoutique(),
+        'lan-calendar': () => { renderWhenWhere(); renderAgenda(); },
+        /* Après l'affichage, pas avant : renderCollection ne dessine la grille
+           que si son panneau est visible (cinq cents cartes ne se redessinent
+           pas à chaque mise à jour Firebase pour personne), et au moment du
+           clic il ne l'était pas encore. */
+        'lan-tcg': () => renderCollection()
+    };
+
+    function groupOf(targetId) {
+        return Object.keys(LAN_GROUPS)
+            .find(key => LAN_GROUPS[key].some(sub => sub.id === targetId)) || null;
+    }
+
+    /* Montre un sous-écran, sans toucher à la sélection du rail. */
+    function showSubview(targetId) {
+        document.querySelectorAll('.lan-subview').forEach(view => {
+            view.style.display = 'none';
+            view.classList.remove('active');
+        });
+
+        const view = document.getElementById(targetId);
+        if (view) {
+            view.style.display = 'block';
+            view.classList.add('active');
+        }
+
+        const pane = document.querySelector('.pane');
+        if (pane) pane.scrollTop = 0;
+
+        const render = LAN_RENDERERS[targetId];
+        if (render) render();
+    }
+
+    /* Un seul sous-écran dans le groupe : pas d'onglets. Une barre à un seul
+       onglet ne renseigne sur rien et vole une ligne au contenu. */
+    function renderGroupTabs(groupKey, activeId) {
+        const bar = document.getElementById('group-tabs');
+        if (!bar) return;
+
+        const subs = LAN_GROUPS[groupKey] || [];
+        bar.innerHTML = '';
+
+        if (subs.length < 2) {
+            bar.style.display = 'none';
+            return;
+        }
+
+        bar.style.display = 'flex';
+        subs.forEach(sub => {
+            const tab = document.createElement('button');
+            tab.type = 'button';
+            tab.className = 'pane-tab' + (sub.id === activeId ? ' active' : '');
+            tab.textContent = sub.label;
+            tab.addEventListener('click', () => {
+                bar.querySelectorAll('.pane-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                showSubview(sub.id);
             });
+            bar.appendChild(tab);
+        });
+    }
 
-            // Activate target : reuse targetId already declared above
-            e.currentTarget.classList.add('active');
-            const targetView = document.getElementById(targetId);
-            if (targetView) {
-                targetView.style.display = 'block';
-                targetView.classList.add('active');
-            }
+    /* Ouvre une destination du rail. `targetId` permet d'atterrir directement
+       sur un sous-écran précis du groupe (le bouton « Programme » du tableau
+       de bord, par exemple). */
+    function openGroup(groupKey, targetId) {
+        const subs = LAN_GROUPS[groupKey] || [];
+        const landing = targetId && subs.some(s => s.id === targetId)
+            ? targetId
+            : (subs[0] && subs[0].id);
+        if (!landing) return;
 
-            /* Après l'affichage, pas avant : renderCollection ne dessine la
-               grille que si son panneau est visible (cinq cents cartes ne se
-               redessinent pas à chaque mise à jour Firebase pour personne), et
-               au moment du clic il ne l'était pas encore. */
-            if (targetId === 'lan-tcg') renderCollection();
+        document.querySelectorAll('.rail .nav-item').forEach(nav => {
+            nav.classList.toggle('active', nav.dataset.group === groupKey);
+        });
+
+        renderGroupTabs(groupKey, landing);
+        showSubview(landing);
+    }
+
+    document.querySelectorAll('.rail .nav-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+            const el = e.currentTarget;
+            // Verrouillé : la destination existe, mais pas encore à cette phase.
+            if (el.classList.contains('is-locked')) return;
+            openGroup(el.dataset.group, el.dataset.target);
         });
     });
+
+    // Le profil se rejoint par le HUD, pas par le rail : c'est à moi, pas une
+    // destination de la soirée.
+    ['btn-profil', 'btn-hud-xp'].forEach(id => {
+        document.getElementById(id)?.addEventListener('click', () => {
+            document.querySelectorAll('.rail .nav-item').forEach(n => n.classList.remove('active'));
+            renderGroupTabs('profil', 'lan-profil');
+            showSubview('lan-profil');
+        });
+    });
+
+    // Au chargement, le rail est déjà sur « Jeux » dans le balisage : on pose
+    // ses onglets pour que le groupe soit lisible avant le premier clic.
+    renderGroupTabs('games', 'lan-dashboard');
+
 
     // 2. Modals (Events & Kocktails)
     function openCreateEventModal() {
@@ -5712,6 +5848,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const user = auth.currentUser;
         if (!user || !document.getElementById('lan-boutique')) return;
 
+        renderHud();
+
         const isGm = !!window.currentUserIsGamemaster;
         const balance = economyBalance(globalEconomy, user.uid);
         const reserved = balance - availablePoints(globalEconomy, user.uid);
@@ -6744,6 +6882,79 @@ document.addEventListener('DOMContentLoaded', () => {
                 .catch(err => showToast('Erreur : ' + err.message, 'error'));
         });
     });
+
+    /* ======================================================================
+       LE HUD
+       Niveau, expérience, solde : dans le bandeau, sur tous les écrans. C'est
+       lui qui permet à la boutique de ne plus porter ni bannière XP ni
+       bannière de solde, et aux hauts faits d'aller vivre dans le profil.
+
+       Le solde ne s'affiche QUE pendant la soirée. Hors soirée il n'existe
+       pas : il se recalcule depuis le registre de la nuit en cours, et
+       montrer un zéro laisserait croire qu'on a tout dépensé. Le niveau, lui,
+       est toujours là — il compte les soirées, pas les points.
+       ====================================================================== */
+    const HUD_SEGMENTS = 12;
+
+    function renderHud() {
+        const user = auth.currentUser;
+        const segs = document.getElementById('hud-xp-segs');
+        if (!user || !segs) return;
+
+        const info = xpLevel(xpTotal(globalXp, user.uid));
+
+        const level = document.getElementById('hud-level');
+        if (level) level.textContent = info.level;
+
+        const btn = document.getElementById('btn-hud-xp');
+        if (btn) btn.title = `Niveau ${info.level} — ${info.into} / ${info.span} XP`;
+
+        segs.innerHTML = '';
+        // Même arrondi que la grande bannière : un joueur qui vient de gagner
+        // 25 XP doit voir un segment s'allumer, pas rien.
+        const lit = info.into > 0 ? Math.max(1, Math.round(info.ratio * HUD_SEGMENTS)) : 0;
+        for (let i = 0; i < HUD_SEGMENTS; i += 1) {
+            const seg = document.createElement('span');
+            seg.className = 'hud__seg'
+                + (i < lit ? (i === lit - 1 ? ' is-edge' : ' is-on') : '');
+            segs.appendChild(seg);
+        }
+
+        const wallet = document.getElementById('hud-wallet');
+        const money = document.getElementById('hud-wallet-value');
+        if (wallet && money) {
+            if (globalSettings.isLanActive) {
+                money.textContent = formatPoints(economyBalance(globalEconomy, user.uid));
+                wallet.style.display = 'flex';
+            } else {
+                wallet.style.display = 'none';
+            }
+        }
+    }
+
+    /* La ligne de contexte du bandeau : où on en est, en trois mots. On
+       réutilise describeLanSchedule() plutôt que de reformater la date ici —
+       c'est déjà lui qui écrit « Samedi 14 mars » partout ailleurs. */
+    function renderAppbarContext() {
+        const el = document.getElementById('appbar-context');
+        if (!el) return;
+
+        const schedule = describeLanSchedule(globalSettings, new Date());
+        const where = schedule && schedule.place ? ` · ${schedule.place}` : '';
+        const day = schedule && schedule.when ? schedule.when : '';
+
+        if (globalSettings.isLanActive) {
+            el.textContent = day ? `${day}${where}` : (globalSettings.lanName || 'La soirée');
+        } else if (globalSettings.lanFinished) {
+            el.textContent = 'Soirée close';
+        } else if (globalSettings.isVotingOpen) {
+            el.textContent = day ? `Vote ouvert · ${day}${where}` : 'Vote ouvert';
+        } else if (day || where) {
+            el.textContent = `${day}${where}`.replace(/^ · /, '');
+        } else {
+            el.textContent = 'Aucune date annoncée';
+        }
+    }
 
     function renderXpBanner() {
         const user = auth.currentUser;
