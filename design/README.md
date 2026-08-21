@@ -36,7 +36,7 @@ multiple de 4, pas de police tierce.
 | `PisteB.dc.html` | Piste écartée : tout en tuiles sur un tableau unique |
 | `PisteC.dc.html` | Piste écartée : une barre de commande, plus aucun menu |
 
-`canvas.json` place les planches sur la toile et définit les deux pages.
+`canvas.json` place les planches sur la toile et définit les trois pages.
 `lan-demain-redesign.html` est la toile assemblée (fichier généré, publiée
 comme Artifact) — on ne l'édite jamais à la main : on modifie les `*.dc.html`,
 puis on ré-assemble.
