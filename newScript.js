@@ -124,6 +124,286 @@ document.addEventListener('DOMContentLoaded', () => {
     let appInitialized = false;
     let isEditing = false;
     const imageCache = new Map();
+
+    /* ======================================================================
+       DESKTOP OS
+
+       The desktop now has one stable shell for every LAN phase. The feature
+       panels below remain the source of truth: global navigation activates
+       their existing hidden nav items, so Firebase writes and permissions are
+       not duplicated in a second implementation.
+       ====================================================================== */
+
+    let desktopAdminOverride = false;
+
+    function desktopPhase() {
+        if (globalSettings.lanFinished && !globalSettings.isLanActive) return 'finished';
+        if (globalSettings.isLanActive) return 'active';
+
+        const hasVotes = Object.keys(globalVotes || {}).length > 0;
+        const hasAnnouncement = !!(globalSettings.lanDate || globalSettings.lanPlace);
+        if (!hasAnnouncement && !hasVotes) return 'idle';
+        return globalSettings.isVotingOpen ? 'voting' : 'locked';
+    }
+
+    function desktopData() {
+        return {
+            economy: globalEconomy,
+            tcg: globalTcg,
+            cards: tcgCards(globalTcg),
+            xp: globalXp,
+            history: globalHistory,
+            votes: globalVotes,
+            settings: globalSettings
+        };
+    }
+
+    function desktopLatestHistory() {
+        return Object.values(globalHistory || {})
+            .filter(Boolean)
+            .sort((a, b) => (Number(b.timestamp) || 0) - (Number(a.timestamp) || 0))[0] || null;
+    }
+
+    function desktopProfile() {
+        const user = auth.currentUser;
+        if (!user) return null;
+        return playerProfile(desktopData(), user.uid);
+    }
+
+    function renderDesktopIdle() {
+        const user = auth.currentUser;
+        if (!user) return;
+
+        const history = desktopLatestHistory();
+        const profile = desktopProfile();
+        const subtitle = document.getElementById('desktop-idle-subtitle');
+        const podium = document.getElementById('desktop-last-podium');
+        const setName = document.getElementById('desktop-last-set');
+        const setCopy = document.getElementById('desktop-last-set-copy');
+
+        if (subtitle) {
+            subtitle.textContent = history
+                ? `La dernière, « ${history.name || 'LAN Demain'} », s’est terminée le ${history.date || 'dernier'}. Tout le reste a été archivé.`
+                : 'Le premier vote ouvrira la prochaine histoire du groupe.';
+        }
+
+        if (podium) {
+            podium.innerHTML = '';
+            const games = history && Array.isArray(history.topGames) ? history.topGames.slice(0, 3) : [];
+            if (!games.length) {
+                podium.innerHTML = '<p class="panel-section__hint">Aucun podium archivé pour le moment.</p>';
+            } else {
+                games.forEach((game, index) => {
+                    const row = document.createElement('div');
+                    row.className = 'desktop-mini-list__row';
+                    const rank = document.createElement('i');
+                    rank.textContent = String(index + 1);
+                    const name = document.createElement('span');
+                    name.textContent = game.name || 'Jeu sans nom';
+                    const score = document.createElement('small');
+                    score.textContent = `${Number(game.score) || 0} pts`;
+                    row.append(rank, name, score);
+                    podium.appendChild(row);
+                });
+            }
+        }
+
+        const archivedSet = history && history.tcgStandings;
+        if (setName) setName.textContent = archivedSet?.setName || 'Aucun set archivé';
+        if (setCopy) {
+            const mine = archivedSet && Array.isArray(archivedSet.standings)
+                ? archivedSet.standings.find(row => row.name === playerLabel(user.uid))
+                : null;
+            setCopy.textContent = mine
+                ? `${mine.owned} cartes sur ${mine.total}, dont ${mine.foils || 0} brillante(s).`
+                : 'Les cartes de la prochaine soirée naîtront du vote.';
+        }
+
+        if (profile) {
+            const title = document.getElementById('desktop-player-title');
+            const titleCopy = document.getElementById('desktop-player-title-copy');
+            const level = document.getElementById('desktop-idle-level');
+            const achievements = document.getElementById('desktop-idle-achievements');
+            const xpCopy = document.getElementById('desktop-idle-xp-copy');
+            if (title) title.textContent = profile.nickname || levelTitle(profile.level.level);
+            if (titleCopy) {
+                titleCopy.textContent = profile.nickname
+                    ? `${playerFullName(user.displayName || user.email || 'Joueur', profile.nickname)} — un titre gagné, jamais choisi.`
+                    : `Encore ${profile.level.toNext} XP avant le niveau ${profile.level.level + 1}.`;
+            }
+            if (level) level.textContent = String(profile.level.level);
+            if (achievements) achievements.textContent = `${profile.achievementCount} / ${profile.achievementTotal}`;
+            if (xpCopy) {
+                xpCopy.textContent = `${profile.level.total} XP au total · ${levelTitle(profile.level.level)}. Le solde, lui, repart à zéro avec la soirée.`;
+            }
+        }
+
+        const panel = document.getElementById('desktop-announce-panel');
+        if (panel) panel.style.display = window.currentUserIsAdmin ? 'block' : 'none';
+    }
+
+    function desktopPendingCount() {
+        let count = 0;
+        if (window.currentUserIsGamemaster) {
+            count += pendingPurchases(globalEconomy).length;
+            count += Object.values(globalQuests.claims || {}).filter(item => item && item.status === 'pending').length;
+            count += Object.values(globalQuests.challenges || {}).filter(item => item && item.status === 'pending').length;
+        }
+        return count;
+    }
+
+    function renderDesktopShell() {
+        const user = auth.currentUser;
+        if (!user) return;
+
+        const phase = desktopPhase();
+        const schedule = describeLanSchedule(globalSettings, new Date());
+        const meta = document.getElementById('desktop-lan-meta');
+        if (meta) {
+            const details = schedule
+                ? [schedule.when, schedule.time && `à ${schedule.time}`, schedule.place && `chez ${schedule.place}`].filter(Boolean).join(' · ')
+                : '';
+            meta.textContent = details || (phase === 'idle' ? 'AUCUNE DATE ANNONCÉE' : (globalSettings.lanName || 'LAN À VENIR'));
+        }
+
+        const profile = desktopProfile();
+        const level = profile ? profile.level : xpLevel(0);
+        const levelValue = document.getElementById('desktop-level-value');
+        if (levelValue) levelValue.textContent = String(level.level);
+        const bars = document.getElementById('desktop-level-bars');
+        if (bars) {
+            const filled = Math.max(0, Math.min(10, Math.round(level.ratio * 10)));
+            bars.innerHTML = Array.from({ length: 10 }, (_, index) =>
+                `<i class="${index < filled ? 'is-filled' : ''}"></i>`).join('');
+        }
+
+        const wallet = document.getElementById('desktop-wallet-value');
+        if (wallet) {
+            wallet.textContent = formatPoints(economyBalance(globalEconomy, user.uid));
+            wallet.style.display = phase === 'idle' ? 'none' : 'block';
+        }
+
+        const liveUnlocked = phase === 'active';
+        document.querySelectorAll('[data-live-only]').forEach(item => {
+            item.classList.toggle('is-locked', !liveUnlocked);
+            item.disabled = !liveUnlocked;
+            item.setAttribute('aria-disabled', String(!liveUnlocked));
+        });
+
+        const challengeBadge = document.getElementById('desktop-challenge-badge');
+        const challengeCount = window.currentUserIsGamemaster
+            ? Object.values(globalQuests.claims || {}).filter(item => item && item.status === 'pending').length
+            : Object.values(globalQuests.claims || {}).filter(item => item && item.uid === user.uid && item.status === 'pending').length;
+        if (challengeBadge) challengeBadge.textContent = challengeCount ? String(challengeCount) : '';
+
+        const collectionBadge = document.getElementById('desktop-collection-badge');
+        const collectionCount = sealedPacksOf(globalTcg, user.uid).length + pendingTradesFor(globalTcg, user.uid).length;
+        if (collectionBadge) collectionBadge.textContent = collectionCount ? String(collectionCount) : '';
+
+        const admin = document.getElementById('desktop-admin-nav');
+        if (admin) admin.style.display = window.currentUserIsAdmin ? 'grid' : 'none';
+        const adminBadge = document.getElementById('desktop-admin-badge');
+        const waiting = desktopPendingCount();
+        if (adminBadge) adminBadge.textContent = waiting ? String(waiting) : '';
+
+        renderDesktopIdle();
+        syncDesktopNavigation();
+    }
+
+    function syncDesktopNavigation(targetId) {
+        const phase = desktopPhase();
+        const currentSubview = targetId || document.querySelector('#view-lan-active .lan-subview.active')?.id || '';
+        document.querySelectorAll('.desktop-nav__item').forEach(item => {
+            let active = false;
+            if (item.dataset.desktopTarget) active = currentSubview === item.dataset.desktopTarget;
+            if (item.dataset.desktopDestination === 'home') {
+                active = !desktopAdminOverride && (phase !== 'active' || currentSubview === 'lan-dashboard');
+            }
+            if (item.dataset.desktopDestination === 'games') {
+                active = !desktopAdminOverride && (phase === 'voting' || (phase === 'active' && currentSubview === 'lan-games'));
+            }
+            item.classList.toggle('active', active);
+        });
+        document.getElementById('desktop-admin-nav')?.classList.toggle('active', desktopAdminOverride || currentSubview === 'lan-admin');
+    }
+
+    function activateDesktopSubview(targetId) {
+        if (desktopPhase() !== 'active') return;
+        desktopAdminOverride = false;
+        const legacy = document.querySelector(`.lan-nav-list .nav-item[data-target="${targetId}"]`);
+        if (legacy) legacy.click();
+        syncDesktopNavigation(targetId);
+    }
+
+    function setupDesktopShell() {
+        document.querySelectorAll('.desktop-nav__item, .desktop-brand').forEach(item => {
+            item.addEventListener('click', () => {
+                if (item.disabled || item.classList.contains('is-locked')) return;
+                const destination = item.dataset.desktopDestination;
+                const target = item.dataset.desktopTarget;
+                if (target) {
+                    activateDesktopSubview(target);
+                    return;
+                }
+                desktopAdminOverride = false;
+                tcgAdminPreview = false;
+                updateVotingUIState();
+                if (destination === 'home' && desktopPhase() === 'active') activateDesktopSubview('lan-dashboard');
+                if (destination === 'games' && desktopPhase() === 'active') activateDesktopSubview('lan-games');
+                syncDesktopNavigation();
+            });
+        });
+
+        document.getElementById('desktop-admin-nav')?.addEventListener('click', () => {
+            if (!window.currentUserIsAdmin) return;
+            if (desktopPhase() === 'active') {
+                activateDesktopSubview('lan-admin');
+                return;
+            }
+            desktopAdminOverride = true;
+            updateVotingUIState();
+            syncDesktopNavigation('lan-admin');
+        });
+
+        document.getElementById('desktop-open-history')?.addEventListener('click', () => {
+            document.getElementById('btn-lan-history')?.click();
+        });
+
+        document.getElementById('user-info-menu')?.addEventListener('click', () => {
+            const user = auth.currentUser;
+            if (user) showPlayerVotesModal(user.uid, user.displayName || user.email || 'Joueur', globalVotes);
+        });
+
+        document.getElementById('desktop-announce-submit')?.addEventListener('click', async () => {
+            if (!window.currentUserIsAdmin) return;
+            const date = document.getElementById('desktop-announce-date')?.value || '';
+            const time = document.getElementById('desktop-announce-time')?.value || '';
+            const place = document.getElementById('desktop-announce-place')?.value.trim() || '';
+            if (!date) {
+                showToast('Choisis au moins une date pour annoncer la LAN.', 'error');
+                return;
+            }
+            const button = document.getElementById('desktop-announce-submit');
+            if (button) button.disabled = true;
+            try {
+                await db.ref('lan/settings').update({
+                    lanDate: date,
+                    lanStartTime: time,
+                    lanPlace: place,
+                    isVotingOpen: true,
+                    isLanActive: false,
+                    lanFinished: false
+                });
+                showToast('La prochaine LAN est annoncée, les votes sont ouverts.', 'success');
+            } catch (error) {
+                showToast('Impossible d’annoncer la LAN : ' + error.message, 'error');
+            } finally {
+                if (button) button.disabled = false;
+            }
+        });
+    }
+
+    setupDesktopShell();
     const DEFAULT_GAME_ICON = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23666'%3E%3Cpath d='M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-2.5 14H6.5v-1.5h11V18zm0-2.5H6.5v-1.5h11V15.5zm0-2.5H6.5v-1.5h11V13zm-5-3.25L10.25 8h1.5l2.25 1.75V8h1.5v6h-1.5v-1.75L13.25 14h-1.5L9.5 12.25V14H8V8h1.5v1.75z'/%3E%3C/svg%3E`;
 
     const voteForm = document.getElementById('vote-form');
@@ -132,6 +412,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     auth.onAuthStateChanged(user => {
         if (user) {
+            document.body.classList.add('desktop-authenticated');
             authContainer.style.display = 'none';
             appContainer.style.display = 'block';
             userNameSpan.textContent = user.displayName || user.email;
@@ -140,6 +421,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (settingsRef) settingsRef.off();
             initializeApp(user);
         } else {
+            document.body.classList.remove('desktop-authenticated');
             authContainer.style.display = 'block';
             appContainer.style.display = 'none';
             if (votesRef) votesRef.off();
@@ -466,6 +748,11 @@ document.addEventListener('DOMContentLoaded', () => {
             dot.className = 'presence-dot';
             slot.appendChild(dot);
 
+            const name = document.createElement('span');
+            name.className = 'user-roster-name';
+            name.textContent = player.name || 'Joueur';
+            slot.appendChild(name);
+
             slot.addEventListener('click', () => {
                 showPlayerVotesModal(player.uid, player.name, globalVotes);
             });
@@ -483,6 +770,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         });
+
+        const online = roster.filter(player => player.online).length;
+        const onlineCount = document.getElementById('desktop-online-count');
+        if (onlineCount) onlineCount.textContent = String(online);
+        renderDesktopShell();
     }
 
     // Table « nom normalisé -> casse d'affichage », construite une fois par
@@ -558,20 +850,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const badges = document.getElementById('player-prof-badges');
         if (badges) {
             badges.innerHTML = '';
-            profile.achievements.forEach(row => {
+            achievementState(achData(), uid).forEach(row => {
                 const path = ACH_ICONS[row.ach.icon] || ACH_ICONS.trophy;
                 const badge = document.createElement('span');
-                badge.className = 'prof-badge';
+                badge.className = 'prof-badge ' + (row.owned ? 'is-owned' : 'is-locked');
                 badge.title = row.ach.hint;
-                badge.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${path}"></path></svg>${escapeHtml(row.ach.label)}`;
+                badge.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${path}"></path></svg>
+                    <span><strong>${escapeHtml(row.ach.label)}</strong>
+                    <small>${row.owned ? 'Acquis' : `${row.current} / ${row.goal}`}</small></span>`;
                 badges.appendChild(badge);
             });
-            if (profile.nextUp) {
-                const next = document.createElement('span');
-                next.className = 'prof-badge is-next';
-                next.textContent = `Bientôt : ${profile.nextUp.ach.label} (${profile.nextUp.current}/${profile.nextUp.goal})`;
-                badges.appendChild(next);
-            }
         }
     }
 
@@ -667,6 +955,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // rôle arrive après le premier rendu, il faut redessiner.
             renderBoutique();
             renderCollection();
+            renderDesktopShell();
         });
 
         // Une clé par session ouverte : le même compte tourne souvent sur le PC
@@ -743,19 +1032,23 @@ document.addEventListener('DOMContentLoaded', () => {
             tcgViewCache = null;
             sealBoughtPacks();
             renderCollection();
+            renderDesktopShell();
         });
 
         watchValue(db.ref('lan/challenges'), (snapshot) => {
             globalQuests.challenges = snapshot.val() || {};
             renderDefis();
+            renderDesktopShell();
         });
         watchValue(db.ref('lan/claims'), (snapshot) => {
             globalQuests.claims = snapshot.val() || {};
             renderDefis();
+            renderDesktopShell();
         });
         watchValue(db.ref('lan/suggestions'), (snapshot) => {
             globalQuests.suggestions = snapshot.val() || {};
             renderDefis();
+            renderDesktopShell();
         });
 
         watchValue(db.ref('lan/xp'), (snapshot) => {
@@ -763,6 +1056,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderBoutique();
             renderAchievements();
             grantPendingAchievements();
+            renderDesktopShell();
         });
 
         /* L'historique sert à compter les LAN de chacun : « Habitué », c'est
@@ -770,6 +1064,7 @@ document.addEventListener('DOMContentLoaded', () => {
         watchValue(db.ref('lan/history'), (snapshot) => {
             globalHistory = snapshot.val() || {};
             renderAchievements();
+            renderDesktopShell();
         });
         startTickEngine();
 
@@ -778,6 +1073,7 @@ document.addEventListener('DOMContentLoaded', () => {
             tcgViewCache = null;
             sealBoughtPacks();
             renderCollection();
+            renderDesktopShell();
         });
 
         watchValue(notificationsRef, (snapshot) => {
@@ -823,6 +1119,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             globalSettings = newSettings;
             updateVotingUIState();
+            renderDesktopShell();
             // La date de la LAN sert de jour par défaut au programme : les deux
             // se rafraîchissent ensemble.
             renderWhenWhere();
@@ -858,6 +1155,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderDashboard(globalVotes, user);
             // Un nouveau votant doit rejoindre le trombinoscope même hors ligne.
             renderActiveUsers();
+            renderDesktopShell();
 
             const selectedUserId = voterSelectMenu.value || user.uid;
             if (!isEditing || selectedUserId !== user.uid) {
@@ -874,6 +1172,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let tcgAdminPreview = false;
 
     function updateVotingUIState() {
+        const viewNoLan = document.getElementById('view-no-lan');
         const viewVotingOpen = document.getElementById('view-voting-open');
         const viewWaitingClosed = document.getElementById('view-waiting-closed');
         const viewAdminDashboard = document.getElementById('view-admin-dashboard');
@@ -883,6 +1182,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const viewLanFinished = document.getElementById('view-lan-finished');
 
+        if (viewNoLan) viewNoLan.style.display = 'none';
         if (viewVotingOpen) viewVotingOpen.style.display = 'none';
         if (viewWaitingClosed) viewWaitingClosed.style.display = 'none';
         if (viewAdminDashboard) viewAdminDashboard.style.display = 'none';
@@ -892,6 +1192,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const finalResultsModal = document.getElementById('final-results-modal');
         if (finalResultsModal) finalResultsModal.style.display = 'none';
+
+        if (!window.currentUserIsAdmin) desktopAdminOverride = false;
+        const phase = desktopPhase();
 
         // Le raccourci Collection ne s'affiche qu'à l'admin, et seulement quand
         // la LAN n'est pas lancée — sinon l'onglet du menu latéral suffit.
@@ -915,7 +1218,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // La soirée terminée prime : c'est un état volontaire de l'admin, qui
         // ne doit pas être confondu avec l'attente d'avant-LAN.
-        if (globalSettings.lanFinished && !globalSettings.isLanActive) {
+        if (phase === 'finished') {
+            desktopAdminOverride = false;
             if (viewLanFinished) viewLanFinished.style.display = 'block';
             const btnNotifRecap = document.getElementById('btn-notifications');
             if (btnNotifRecap) btnNotifRecap.style.display = 'inline-flex';
@@ -923,7 +1227,8 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        if (globalSettings.isLanActive) {
+        if (phase === 'active') {
+            desktopAdminOverride = false;
             if (viewLanActive) viewLanActive.style.display = 'block';
             // Clear all marquee tracks when LAN goes active
             ['waiting-marquee-1', 'waiting-marquee-2', 'waiting-marquee-3', 'waiting-marquee-4'].forEach(id => {
@@ -945,7 +1250,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const btnNotif = document.getElementById('btn-notifications');
         if (btnNotif) btnNotif.style.display = 'inline-flex';
 
-        if (globalSettings.isVotingOpen) {
+        if (desktopAdminOverride && window.currentUserIsAdmin) {
+            if (form) form.style.display = 'none';
+            if (viewAdminDashboard) viewAdminDashboard.style.display = 'block';
+            const openLanBtn = document.getElementById('btn-open-lan-dashboard');
+            if (openLanBtn) openLanBtn.style.display = phase === 'locked' ? 'block' : 'none';
+            renderDesktopShell();
+            return;
+        }
+
+        if (phase === 'idle') {
+            desktopAdminOverride = false;
+            if (form) form.style.display = 'none';
+            if (viewNoLan) viewNoLan.style.display = 'flex';
+            renderDesktopIdle();
+        } else if (phase === 'voting') {
             if (viewVotingOpen) viewVotingOpen.style.display = 'block';
             if (form) form.style.display = 'flex';
             if (window.currentUserIsAdmin && adminPanelOpen) {
@@ -957,7 +1276,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Show btn-open-lan-dashboard only when votes are closed and LAN not active
             const openLanBtn = document.getElementById('btn-open-lan-dashboard');
 
-            if (window.currentUserIsAdmin) {
+            if (window.currentUserIsAdmin && desktopAdminOverride) {
                 if (viewAdminDashboard) viewAdminDashboard.style.display = 'block';
                 if (openLanBtn && !globalSettings.isLanActive) openLanBtn.style.display = 'block';
             } else {
@@ -965,6 +1284,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderMarquee();
             }
         }
+        renderDesktopShell();
     }
 
     const handleToggleVoting = () => {
@@ -1189,7 +1509,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function showCorrectionModal(suggestions, voteData) {
-        const listElement = document.getElementById('suggestions-list');
+        const listElement = document.getElementById('correction-suggestions-list');
         listElement.innerHTML = '';
         suggestions.forEach(sugg => {
             const li = document.createElement('li');
