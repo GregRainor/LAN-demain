@@ -45,19 +45,34 @@ function showToast(message, type = 'success') {
    et rien n'indiquait pourquoi. C'est ce qui a laissé l'application morte sur
    certains navigateurs sans que personne puisse la diagnostiquer. */
 const reportedDbErrors = new Set();
+const activeValueWatches = [];
+let connectionWatchTimer = null;
 
 function watchValue(ref, handler) {
-    ref.on('value', handler, (error) => {
+    const onError = (error) => {
         const path = String(ref);
         console.error('Lecture Firebase refusée :', path, error);
-        // Un seul message par chemin : une coupure fait échouer les douze
-        // listeners d'un coup, et douze toasts identiques n'apprennent rien
-        // de plus que le premier.
-        if (reportedDbErrors.has(path)) return;
-        reportedDbErrors.add(path);
+        // Une déconnexion retire le jeton avant que Firebase ait fini de vider
+        // sa file. Ces refus sont attendus et ne concernent plus l'utilisateur.
+        if (!auth.currentUser) return;
+        // Un seul message par type d'erreur : une coupure fait échouer les
+        // douze listeners d'un coup, et douze toasts identiques n'apprennent
+        // rien de plus que le premier.
+        const errorKey = error.code || 'database-error';
+        if (reportedDbErrors.has(errorKey)) return;
+        reportedDbErrors.add(errorKey);
         showToast(`Base de données inaccessible (${error.code || 'erreur'}).`, 'error');
-    });
+    };
+    ref.on('value', handler, onError);
+    activeValueWatches.push({ ref, handler });
     return ref;
+}
+
+function stopValueWatches() {
+    activeValueWatches.splice(0).forEach(({ ref, handler }) => ref.off('value', handler));
+    reportedDbErrors.clear();
+    if (connectionWatchTimer) clearTimeout(connectionWatchTimer);
+    connectionWatchTimer = null;
 }
 
 /* Un transport bloqué (extension, CSP, pare-feu) ne déclenche aucune erreur :
@@ -65,7 +80,8 @@ function watchValue(ref, handler) {
    raison. Au bout de dix secondes sans connexion, on le dit. */
 function watchConnection(connectedRef, isConnected) {
     let announced = false;
-    setTimeout(() => {
+    if (connectionWatchTimer) clearTimeout(connectionWatchTimer);
+    connectionWatchTimer = setTimeout(() => {
         if (announced || isConnected()) return;
         announced = true;
         console.error('Aucune connexion à la Realtime Database après 10 s.');
@@ -123,6 +139,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let firebaseConnected = false;
     let appInitialized = false;
     let isEditing = false;
+    let agendaMinuteTimer = null;
+    let tickTimer = null;
     const imageCache = new Map();
 
     /* ======================================================================
@@ -146,7 +164,9 @@ document.addEventListener('DOMContentLoaded', () => {
         '#challenge-list .shop-item',
         '#tcg-set-grid .rarity-bar',
         '#tcg-set-grid .tcard',
-        '#tcg-dupes .tcard'
+        '#tcg-dupes .tcard',
+        '#vote-history-podium .vote-history-podium__card',
+        '#active-lan-all-games .vote-history-row'
     ].join(', ');
     let desktopRevealObserver = null;
     let desktopMotionRefreshFrame = 0;
@@ -372,6 +392,17 @@ document.addEventListener('DOMContentLoaded', () => {
             item.setAttribute('aria-disabled', String(!liveUnlocked));
         });
 
+        // Jeux désigne le bulletin pendant le vote, puis l'historique pendant
+        // la soirée. Entre deux LAN et après la clôture, il n'y a plus d'action
+        // possible : le laisser cliquable promettait une page qui ne s'ouvrait pas.
+        const gamesNav = document.querySelector('.desktop-nav__item[data-desktop-destination="games"]');
+        const gamesUnlocked = phase === 'voting' || phase === 'active';
+        if (gamesNav) {
+            gamesNav.classList.toggle('is-locked', !gamesUnlocked);
+            gamesNav.disabled = !gamesUnlocked;
+            gamesNav.setAttribute('aria-disabled', String(!gamesUnlocked));
+        }
+
         const challengeBadge = document.getElementById('desktop-challenge-badge');
         const challengeCount = window.currentUserIsGamemaster
             ? Object.values(globalQuests.claims || {}).filter(item => item && item.status === 'pending').length
@@ -395,19 +426,21 @@ document.addEventListener('DOMContentLoaded', () => {
     function syncDesktopNavigation(targetId) {
         const phase = desktopPhase();
         const currentSubview = targetId || document.querySelector('#view-lan-active .lan-subview.active')?.id || '';
+        const adminActive = !!desktopAdminOverride || currentSubview === 'lan-admin';
         document.querySelectorAll('.desktop-nav__item').forEach(item => {
             let active = false;
             if (item.dataset.desktopTarget) active = currentSubview === item.dataset.desktopTarget;
             if (item.dataset.desktopDestination === 'home') {
                 const isEventSpace = ['lan-dashboard', 'lan-calendar', 'lan-events'].includes(currentSubview);
-                active = !desktopAdminOverride && (phase !== 'active' || isEventSpace);
+                active = !adminActive && (phase === 'active' ? isEventSpace : phase !== 'voting');
             }
             if (item.dataset.desktopDestination === 'games') {
-                active = !desktopAdminOverride && (phase === 'voting' || (phase === 'active' && currentSubview === 'lan-games'));
+                active = !adminActive && (phase === 'voting' || (phase === 'active' && currentSubview === 'lan-games'));
             }
+            if (item.disabled || item.classList.contains('is-locked')) active = false;
             item.classList.toggle('active', active);
         });
-        document.getElementById('desktop-admin-nav')?.classList.toggle('active', desktopAdminOverride || currentSubview === 'lan-admin');
+        document.getElementById('desktop-admin-nav')?.classList.toggle('active', adminActive);
     }
 
     function activateDesktopSubview(targetId) {
@@ -449,6 +482,16 @@ document.addEventListener('DOMContentLoaded', () => {
             desktopAdminOverride = true;
             updateVotingUIState();
             syncDesktopNavigation('lan-admin');
+            if (desktopPhase() === 'finished') {
+                const recapAdmin = document.getElementById('recap-admin');
+                if (recapAdmin) {
+                    recapAdmin.classList.remove('is-admin-focus');
+                    requestAnimationFrame(() => {
+                        recapAdmin.classList.add('is-admin-focus');
+                        recapAdmin.scrollIntoView({ behavior: desktopMotionIsReduced() ? 'auto' : 'smooth', block: 'center' });
+                    });
+                }
+            }
         });
 
         document.getElementById('desktop-open-history')?.addEventListener('click', () => {
@@ -506,20 +549,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     auth.onAuthStateChanged(user => {
         if (user) {
+            stopValueWatches();
+            if (agendaMinuteTimer) clearInterval(agendaMinuteTimer);
             document.body.classList.add('desktop-authenticated');
             authContainer.style.display = 'none';
             appContainer.style.display = 'block';
             userNameSpan.textContent = user.displayName || user.email;
             userAvatarImg.src = user.photoURL || '';
-            if (votesRef) votesRef.off();
-            if (settingsRef) settingsRef.off();
             initializeApp(user);
         } else {
+            stopValueWatches();
+            if (agendaMinuteTimer) clearInterval(agendaMinuteTimer);
+            agendaMinuteTimer = null;
+            if (tickTimer) clearInterval(tickTimer);
+            tickTimer = null;
+            globalPolls = {};
+            globalFoodRuns = {};
+            announcedPolls.clear();
+            firebaseConnected = false;
+            appInitialized = false;
             document.body.classList.remove('desktop-authenticated');
             authContainer.style.display = 'block';
             appContainer.style.display = 'none';
-            if (votesRef) votesRef.off();
-            if (settingsRef) settingsRef.off();
         }
     });
 
@@ -547,17 +598,27 @@ document.addEventListener('DOMContentLoaded', () => {
         window.location.replace('/');
     });
 
-    logoutBtn.addEventListener('click', () => {
+    logoutBtn.addEventListener('click', async () => {
         const user = auth.currentUser;
+        logoutBtn.disabled = true;
         // On ne retire que cette session : le téléphone du même joueur, s'il est
         // ouvert, reste connecté.
-        if (myConnectionRef) {
-            myConnectionRef.remove();
-            myConnectionRef = null;
-        } else if (user) {
-            db.ref('/status/' + user.uid).remove();
+        try {
+            if (myConnectionRef) {
+                await myConnectionRef.remove();
+                myConnectionRef = null;
+            } else if (user) {
+                await db.ref('/status/' + user.uid).remove();
+            }
+        } catch (error) {
+            console.debug('Présence déjà retirée :', error);
+        } finally {
+            stopValueWatches();
+            const toastContainer = document.getElementById('toast-container');
+            if (toastContainer) toastContainer.innerHTML = '';
+            await auth.signOut();
+            logoutBtn.disabled = false;
         }
-        auth.signOut();
     });
 
     // Vérifie qu'une URL d'image se charge vraiment : le CDN Steam renvoie parfois
@@ -1058,7 +1119,7 @@ document.addEventListener('DOMContentLoaded', () => {
         myConnectionKey = myConnectionRef.key;
         const connectedRef = db.ref('.info/connected');
 
-        connectedRef.on('value', (snap) => {
+        watchValue(connectedRef, (snap) => {
             firebaseConnected = snap.val() === true;
             if (firebaseConnected) {
                 writeMyPresence();
@@ -1101,7 +1162,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Une minute suffit : rappels, compte à rebours et repère « maintenant »
         // du programme se rafraîchissent ensemble.
-        setInterval(() => {
+        if (agendaMinuteTimer) clearInterval(agendaMinuteTimer);
+        agendaMinuteTimer = setInterval(() => {
             if (auth.currentUser) {
                 renderWhenWhere();
                 renderAgenda();
@@ -1271,6 +1333,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const viewWaitingClosed = document.getElementById('view-waiting-closed');
         const viewAdminDashboard = document.getElementById('view-admin-dashboard');
         const viewLanActive = document.getElementById('view-lan-active');
+        const leftSidebar = document.getElementById('left-sidebar');
         const adminPanelOpen = document.getElementById('admin-panel-open');
         const form = document.getElementById('vote-form');
 
@@ -1282,6 +1345,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (viewAdminDashboard) viewAdminDashboard.style.display = 'none';
         if (viewLanActive) viewLanActive.style.display = 'none';
         if (viewLanFinished) viewLanFinished.style.display = 'none';
+        if (leftSidebar) leftSidebar.style.display = 'none';
         if (adminPanelOpen) adminPanelOpen.style.display = 'none';
 
         const finalResultsModal = document.getElementById('final-results-modal');
@@ -1313,7 +1377,6 @@ document.addEventListener('DOMContentLoaded', () => {
         // La soirée terminée prime : c'est un état volontaire de l'admin, qui
         // ne doit pas être confondu avec l'attente d'avant-LAN.
         if (phase === 'finished') {
-            desktopAdminOverride = false;
             if (viewLanFinished) viewLanFinished.style.display = 'block';
             const btnNotifRecap = document.getElementById('btn-notifications');
             if (btnNotifRecap) btnNotifRecap.style.display = 'inline-flex';
@@ -1362,7 +1425,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (viewVotingOpen) viewVotingOpen.style.display = 'block';
             if (form) form.style.display = 'flex';
             if (window.currentUserIsAdmin && adminPanelOpen) {
-                adminPanelOpen.style.display = 'block';
+                if (leftSidebar) leftSidebar.style.display = 'block';
+                adminPanelOpen.style.display = 'grid';
             }
         } else {
             if (form) form.style.display = 'none';
@@ -1812,7 +1876,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function populateVoterMenu(votes, currentUser) {
         if (!voterSelectMenu) return;
         const currentSelection = voterSelectMenu.value;
-        voterSelectMenu.innerHTML = '<option value="">-- Mon Vote --</option>';
+        voterSelectMenu.innerHTML = '<option value="">Mon bulletin</option>';
         const sortedVoters = Object.entries(votes).sort((a, b) => a[1].name.localeCompare(b[1].name));
         sortedVoters.forEach(([uid, voteData]) => {
             if (uid === currentUser.uid) return;
@@ -2818,6 +2882,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!ok) return;
 
         try {
+            desktopAdminOverride = false;
             const archived = await startNewLan(newName);
             await db.ref('lan/settings').update({ lanFinished: false });
             if (input) input.value = '';
@@ -2857,6 +2922,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const lanName = globalSettings.lanName || 'LAN Demain';
         document.getElementById('recap-title').textContent = lanName;
+        const sealDate = document.getElementById('recap-seal-date');
+        if (sealDate) {
+            sealDate.textContent = globalSettings.lanClosedAt
+                ? new Date(globalSettings.lanClosedAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase()
+                : 'ARCHIVÉE';
+        }
 
         const sorted = calculateScores(globalVotes);
         const voterCount = Object.keys(globalVotes || {}).length;
@@ -2896,7 +2967,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const adminBox = document.getElementById('recap-admin');
-        if (adminBox) adminBox.style.display = window.currentUserIsAdmin ? 'block' : 'none';
+        if (adminBox) adminBox.style.display = window.currentUserIsAdmin ? 'grid' : 'none';
     }
 
     // --- NOUVELLE LAN --------------------------------------------------------
@@ -3079,6 +3150,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!ok) return;
 
         try {
+            desktopAdminOverride = false;
             const archived = await startNewLan(newName);
             if (input) input.value = '';
             showToast(archived > 0
@@ -4674,39 +4746,50 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!container) return;
         container.innerHTML = '';
 
+        const gameCount = document.getElementById('vote-history-game-count');
+        const voterCount = document.getElementById('vote-history-voter-count');
+        const cutCount = document.getElementById('vote-history-cut-count');
+        if (gameCount) gameCount.textContent = String(sortedGames.length);
+        if (voterCount) voterCount.textContent = String(Object.keys(globalVotes || {}).length);
+        if (cutCount) cutCount.textContent = String(Math.min(sortedGames.length, globalSettings.topGamesCount || 10));
+
+        const podium = document.getElementById('vote-history-podium');
+        if (podium) podium.innerHTML = '';
+
         if (sortedGames.length === 0) {
-            container.innerHTML = '<p style="color:var(--secondary-text); font-style:italic;">Aucun vote enregistré.</p>';
+            container.innerHTML = '<div class="vote-history-empty"><strong>Le tableau est encore vierge.</strong><span>Les premiers bulletins feront apparaître le podium ici.</span></div>';
             return;
         }
 
-        const table = document.createElement('table');
-        table.className = 'results-table';
-        table.style.width = '100%';
-        table.innerHTML = `
-            <thead>
-                <tr>
-                    <th style="text-align:left; padding: 12px; border-bottom: 2px solid rgba(255,255,255,0.1);">Jeu</th>
-                    <th style="text-align:right; padding: 12px; border-bottom: 2px solid rgba(255,255,255,0.1); width: 100px;">Points</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        `;
+        if (podium) {
+            sortedGames.slice(0, 3).forEach((game, index) => {
+                const card = document.createElement('article');
+                card.className = `vote-history-podium__card vote-history-podium__card--${index + 1}`;
+                card.innerHTML = `
+                    <span class="vote-history-podium__place">${index === 0 ? 'LE CHOIX DU GROUPE' : `PLACE ${index + 1}`}</span>
+                    <strong>${escapeHtml(game.name)}</strong>
+                    <small>${game.score} point${game.score > 1 ? 's' : ''}</small>
+                `;
+                podium.appendChild(card);
+            });
+        }
 
-        const tbody = table.querySelector('tbody');
+        container.className = 'vote-history-list';
+        const maxScore = Math.max(1, Number(sortedGames[0].score) || 1);
         sortedGames.forEach((game, index) => {
-            const row = document.createElement('tr');
-            row.style.borderBottom = "1px solid rgba(255,255,255,0.05)";
+            const row = document.createElement('article');
+            row.className = 'vote-history-row';
+            row.style.setProperty('--vote-share', `${Math.max(4, ((Number(game.score) || 0) / maxScore) * 100).toFixed(2)}%`);
             row.innerHTML = `
-                <td style="padding: 12px; color: var(--primary-text); display: flex; align-items: center; gap: 10px;">
-                    <span style="color:var(--accent-color); font-weight:bold; min-width:25px;">#${index + 1}</span>
-                    ${escapeHtml(game.name)}
-                </td>
-                <td style="padding: 12px; text-align:right; color: var(--secondary-text); font-weight: bold;">${game.score}</td>
+                <span class="vote-history-row__rank">${String(index + 1).padStart(2, '0')}</span>
+                <div class="vote-history-row__game">
+                    <strong>${escapeHtml(game.name)}</strong>
+                    <i></i>
+                </div>
+                <span class="vote-history-row__score">${game.score}<small>pts</small></span>
             `;
-            tbody.appendChild(row);
+            container.appendChild(row);
         });
-
-        container.appendChild(table);
     }
 
     function showFinalResults() {
@@ -6079,8 +6162,6 @@ document.addEventListener('DOMContentLoaded', () => {
        Le registre lui-même est en écriture unique et réservé aux maîtres du
        jeu : c'est ce qui empêche quiconque de s'enrichir tout seul.
        ====================================================================== */
-
-    let tickTimer = null;
 
     /* Le gain passif. Les règles imposent le rythme (une tranche par dix
        minutes) et le plafond ; ce minuteur ne fait que proposer la tranche

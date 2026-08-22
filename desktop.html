@@ -195,20 +195,32 @@
 
         <div id="view-voting-open" class="container wide-container" style="display: none;">
 
+            <header class="desktop-vote-intro">
+                <div>
+                    <p class="desktop-eyebrow">LE CONSEIL D'AVANT-LAN</p>
+                    <h2>Composez la prochaine nuit.</h2>
+                </div>
+                <p>Chaque priorité pèse vraiment dans la sélection. Votez, observez la tendance, puis préparez ce qui monte.</p>
+            </header>
+
             <div class="two-column-layout">
                 <!-- LEFT SIDEBAR -->
                 <aside id="left-sidebar" class="animated-section">
                     <div id="admin-panel-open" class="luxury-panel sidebar-module admin-sidebar-card"
                         style="display: none;">
-                        <h3 class="admin-sidebar-title">Mode Admin</h3>
+                        <div class="admin-sidebar-copy">
+                            <p class="desktop-eyebrow">RÉGIE DU VOTE</p>
+                            <h3 class="admin-sidebar-title">Le scrutin est ouvert</h3>
+                            <p>Arbitrez la sélection ou corrigez un bulletin sans quitter la table.</p>
+                        </div>
                         <div class="admin-sidebar-actions">
                             <button id="toggle-voting-btn-open" class="gold-btn admin-sidebar-btn">Clôturer le
                                 Vote</button>
 
                             <div class="admin-select-group">
-                                <label>Éditer le vote de :</label>
+                                <label for="voter-select-menu">Bulletin à éditer</label>
                                 <select id="voter-select-menu" class="luxury-select">
-                                    <option value="">-- Mon Vote --</option>
+                                    <option value="">Mon bulletin</option>
                                 </select>
                             </div>
                         </div>
@@ -248,7 +260,11 @@
                              classement, plus haut qu'elle. -->
                         <div class="vote-main">
                             <div class="form-container luxury-panel">
-                                <h2>Mon Vote</h2>
+                                <div class="vote-panel-heading">
+                                    <p class="desktop-eyebrow">MON BULLETIN</p>
+                                    <h2>Mes priorités</h2>
+                                    <span>5 · 3 · 2 · 1 points</span>
+                                </div>
                                 <form id="vote-form">
                                     <div class="priority-group" data-priority="p1">
                                         <h3>Priorité 1 <span>(5 pts)</span></h3>
@@ -293,7 +309,10 @@
                         <div class="vote-side">
                             <!-- Le classement en premier : c'est ce qu'on regarde en votant -->
                             <div class="results-container luxury-panel">
-                                <h2>Classement &amp; Scores</h2>
+                                <div class="vote-panel-heading vote-panel-heading--compact">
+                                    <p class="desktop-eyebrow">EN DIRECT</p>
+                                    <h2>Tendance du groupe</h2>
+                                </div>
                                 <div class="scroll-area scroll-area--sm">
                                     <table class="results-table" id="results-table">
                                         <thead>
@@ -329,9 +348,15 @@
         <!-- VIEW: LAN TERMINEE (bilan de la soirée) -->
         <div id="view-lan-finished" class="container" style="display: none;">
             <div class="luxury-panel recap-hero">
-                <p class="recap-hero__kicker">C'est fini</p>
-                <h2 id="recap-title" class="recap-hero__title">LAN Demain</h2>
-                <p id="recap-subtitle" class="recap-hero__subtitle"></p>
+                <div class="recap-hero__copy">
+                    <p class="recap-hero__kicker">ARCHIVE DE LA NUIT</p>
+                    <h2 id="recap-title" class="recap-hero__title">LAN Demain</h2>
+                    <p id="recap-subtitle" class="recap-hero__subtitle"></p>
+                </div>
+                <div class="recap-hero__seal" aria-hidden="true">
+                    <span>SESSION CLOSE</span>
+                    <strong id="recap-seal-date">—</strong>
+                </div>
             </div>
 
             <div class="recap-grid">
@@ -347,16 +372,21 @@
             </div>
 
             <!-- Bloc admin : relancer une soirée quand on a fini de regarder -->
-            <div id="recap-admin" class="luxury-panel" style="padding: 25px; margin-top: 25px; display: none;">
-                <h3 class="section-title">Et maintenant ?</h3>
-                <p class="panel-section__text">Vous pouvez laisser ce bilan affiché aussi longtemps que vous voulez.
-                    Quand vous lancez une nouvelle soirée, tout est archivé puis remis à zéro.</p>
-                <div class="field-row">
-                    <input type="text" id="recap-new-lan-name" class="luxury-input" placeholder="Nom de la prochaine LAN"
-                        style="flex: 1;">
-                    <button id="recap-new-lan" class="gold-btn btn-inline">Nouvelle LAN</button>
+            <div id="recap-admin" class="luxury-panel recap-admin" style="display: none;">
+                <div class="recap-admin__copy">
+                    <p class="desktop-eyebrow">PROCHAIN CHAPITRE</p>
+                    <h3>La table est rangée. On remet ça ?</h3>
+                    <p>Le bilan reste consultable tant que vous le souhaitez. Démarrer une nouvelle LAN archive cette nuit, remet l'économie à zéro et rouvre les votes.</p>
                 </div>
-                <button id="recap-reopen-lan" class="gold-link-btn" style="margin-top: 12px;">Rouvrir cette LAN</button>
+                <div class="recap-admin__actions">
+                    <label for="recap-new-lan-name">Nom de la prochaine LAN</label>
+                    <div class="field-row">
+                        <input type="text" id="recap-new-lan-name" class="luxury-input" placeholder="Ex. La Revanche"
+                            style="flex: 1;">
+                        <button id="recap-new-lan" class="gold-btn btn-inline">Ouvrir un nouveau vote</button>
+                    </div>
+                    <button id="recap-reopen-lan" class="gold-link-btn">Rouvrir cette LAN à l'identique</button>
+                </div>
             </div>
         </div>
 
@@ -1004,11 +1034,27 @@
 
                     <!-- Subview: Jeux / Votes Archived -->
                     <div id="lan-games" class="lan-subview" style="display: none;">
-                        <h2 class="subview-title">Historique des Votes</h2>
-                        <div class="luxury-panel" style="padding: 25px;">
-                            <p style="margin-bottom: 20px; font-size: 1.1em; color: var(--primary-text);">Vous pouvez
-                                voir ici qui voulait jouer à quoi ! Cliquez sur le profil d'un joueur dans le menu
-                                latéral pour voir le détail de ses votes.</p>
+                        <header class="vote-history-head">
+                            <div>
+                                <p class="desktop-eyebrow">LE VERDICT DU GROUPE</p>
+                                <h2>Historique des votes</h2>
+                                <p>Le classement qui a façonné la soirée, du consensus absolu au plaisir coupable.</p>
+                            </div>
+                            <div class="vote-history-metrics">
+                                <span><b id="vote-history-game-count">0</b> jeux cités</span>
+                                <span><b id="vote-history-voter-count">0</b> votants</span>
+                                <span><b id="vote-history-cut-count">0</b> retenus</span>
+                            </div>
+                        </header>
+                        <div id="vote-history-podium" class="vote-history-podium"></div>
+                        <div class="luxury-panel vote-history-ledger">
+                            <div class="panel-head">
+                                <div>
+                                    <p class="desktop-eyebrow">LE CLASSEMENT COMPLET</p>
+                                    <h3 class="section-title">Tous les jeux, tous les points</h3>
+                                </div>
+                                <p>Le détail d'un joueur reste accessible depuis son profil.</p>
+                            </div>
                             <div id="active-lan-all-games"></div>
                         </div>
                     </div>
