@@ -12,6 +12,7 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js" integrity="sha384-fuqdSwJXSvcAuKu5FbSJcHqHK474liv5ji8tuDnHz1rpfrnuXZPdM0oRaSK6c95L" crossorigin="anonymous"></script>
 
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="desktop-v2.css">
 </head>
 
 <body>
@@ -26,10 +27,27 @@
 
     <h1 id="main-title" data-text="LAN Demain">LAN Demain</h1>
 
-    <div id="auth-container" class="luxury-panel">
-        <p>Connecte-toi pour organiser la meilleure LAN !</p>
-        <button id="google-login-btn">
-            <svg id="google-icon" viewBox="0 0 24 24" fill="white">
+    <div id="auth-container" class="luxury-panel desktop-login">
+        <section class="desktop-login__story">
+            <p class="desktop-login__kicker">LE QG DE VOS NUITS BLANCHES</p>
+            <h2>La soirée commence bien avant le premier lancement.</h2>
+            <p class="desktop-login__copy">Votez pour les jeux, préparez le programme, relevez les défis et faites vivre la collection de votre groupe.</p>
+
+            <div class="desktop-login__steps" aria-label="Le cycle d’une LAN">
+                <div><span>01</span><strong>Votez</strong><small>La sélection se décide ensemble.</small></div>
+                <div><span>02</span><strong>Préparez</strong><small>Tout le monde sait quoi installer.</small></div>
+                <div><span>03</span><strong>Jouez</strong><small>La nuit laisse enfin une trace.</small></div>
+            </div>
+
+            <p class="desktop-login__signature">LAN Demain · depuis la veille</p>
+        </section>
+
+        <section class="desktop-login__action">
+            <span class="desktop-login__access">ACCÈS JOUEUR</span>
+            <h3>Rejoins la table.</h3>
+            <p>Un seul compte pour voter, collectionner et retrouver ton niveau d’une LAN à l’autre.</p>
+            <button id="google-login-btn">
+            <svg id="google-icon" viewBox="0 0 24 24" fill="white" aria-hidden="true">
                 <path
                     d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
                     fill="#4285F4" />
@@ -43,22 +61,32 @@
                     d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                     fill="#EA4335" />
             </svg>
-            <span id="login-btn-text">Se connecter à Google</span>
-            <div id="login-spinner"></div>
-        </button>
-        <p id="auth-error" style="color: var(--danger-color); margin-top: 15px;"></p>
+                <span id="login-btn-text">Continuer avec Google</span>
+                <div id="login-spinner" aria-hidden="true"></div>
+            </button>
+            <small class="desktop-login__privacy">Ton compte sert uniquement à reconnaître ta place autour de la table.</small>
+            <p id="auth-error" role="alert"></p>
+        </section>
     </div>
 
-    <div id="app-container" style="display: none;">
-        <div id="active-users-sidebar" class="gnome-band">
-            <!-- Javascript will insert users here directly -->
-        </div>
+    <div id="app-container" class="desktop-os" style="display: none;">
+        <header class="desktop-topbar">
+            <button type="button" class="desktop-brand" data-desktop-destination="home">
+                <span>LAN Demain</span>
+                <small id="desktop-lan-meta">AUCUNE DATE ANNONCÉE</small>
+            </button>
 
-        <div id="top-right-actions">
+            <div id="top-right-actions" class="desktop-account">
+                <div class="desktop-level" aria-label="Progression permanente">
+                    <span>NIV.</span>
+                    <strong id="desktop-level-value">1</strong>
+                    <span id="desktop-level-bars" class="desktop-level-bars" aria-hidden="true"></span>
+                </div>
+                <div class="desktop-wallet" id="desktop-wallet-value">0 zł</div>
             <!-- Notification Bell -->
             <button id="btn-notifications" class="gold-link-btn" title="Notifications"
                 style="position: relative; display: none; margin-right: 10px;">
-                🔔
+                <span aria-hidden="true">♢</span><span class="sr-only">Notifications</span>
                 <span id="notif-badge"
                     style="display:none; position:absolute; top:-5px; right:-5px; background:var(--danger-color); color:white; border-radius:50%; width:16px; height:16px; font-size:0.7em; align-items:center; justify-content:center;">0</span>
             </button>
@@ -77,6 +105,92 @@
                 <img id="user-avatar" src="" alt="Avatar">
             </div>
             <button id="logout-btn" class="danger-link-btn" title="Déconnexion">Déconnexion</button>
+            </div>
+        </header>
+
+        <aside class="desktop-sidebar" aria-label="Navigation principale">
+            <nav class="desktop-nav">
+                <button type="button" class="desktop-nav__item active" data-desktop-destination="home">
+                    <span class="desktop-nav__icon" aria-hidden="true">▣</span><span>Événements</span>
+                </button>
+                <button type="button" class="desktop-nav__item" data-desktop-destination="games">
+                    <span class="desktop-nav__icon" aria-hidden="true">▱</span><span>Jeux</span>
+                </button>
+                <button type="button" class="desktop-nav__item" data-desktop-target="lan-boutique" data-live-only>
+                    <span class="desktop-nav__icon" aria-hidden="true">♧</span><span>Boutique</span><i></i>
+                </button>
+                <button type="button" class="desktop-nav__item" data-desktop-target="lan-defis" data-live-only>
+                    <span class="desktop-nav__icon" aria-hidden="true">♨</span><span>Défis</span><b id="desktop-challenge-badge"></b><i></i>
+                </button>
+                <button type="button" class="desktop-nav__item" data-desktop-target="lan-tcg" data-live-only>
+                    <span class="desktop-nav__icon" aria-hidden="true">▤</span><span>Collection</span><b id="desktop-collection-badge"></b><i></i>
+                </button>
+                <button type="button" class="desktop-nav__item" data-desktop-target="lan-food" data-live-only>
+                    <span class="desktop-nav__icon" aria-hidden="true">♨</span><span>Les Fins Gourmets</span><i></i>
+                </button>
+            </nav>
+
+            <section class="desktop-roster" aria-labelledby="desktop-roster-title">
+                <div id="desktop-roster-title" class="desktop-roster__title">
+                    <span>AUTOUR DE LA TABLE</span>
+                    <span><i></i><strong id="desktop-online-count">0</strong></span>
+                </div>
+                <div id="active-users-sidebar" class="gnome-band">
+                    <!-- Javascript insère les joueurs ici -->
+                </div>
+            </section>
+
+            <button type="button" id="desktop-admin-nav" class="desktop-admin-nav" data-desktop-destination="admin" style="display:none;">
+                <span aria-hidden="true">⌘</span><span>Panneau admin</span><b id="desktop-admin-badge"></b>
+            </button>
+        </aside>
+
+        <main id="desktop-stage" class="desktop-stage">
+
+        <!-- VIEW 0: aucune LAN annoncée -->
+        <div id="view-no-lan" class="container desktop-phase desktop-idle" style="display:none;">
+            <div class="desktop-phase__intro">
+                <p class="desktop-eyebrow">ENTRE DEUX SOIRÉES</p>
+                <h2>Aucune LAN de prévue</h2>
+                <p id="desktop-idle-subtitle">La dernière soirée est rangée. Les souvenirs, eux, restent.</p>
+            </div>
+
+            <div class="desktop-idle__summary">
+                <section class="luxury-panel desktop-summary-card">
+                    <span class="desktop-card-label">LE PODIUM</span>
+                    <div id="desktop-last-podium" class="desktop-mini-list"></div>
+                </section>
+                <section class="luxury-panel desktop-summary-card desktop-summary-card--set">
+                    <span class="desktop-card-label">LE SET</span>
+                    <h3 id="desktop-last-set">Aucun set archivé</h3>
+                    <p id="desktop-last-set-copy">Les cartes de la prochaine soirée naîtront du vote.</p>
+                    <button type="button" id="desktop-open-history" class="gold-link-btn">Revoir l’historique</button>
+                </section>
+                <section class="luxury-panel desktop-summary-card">
+                    <span class="desktop-card-label">TON TITRE</span>
+                    <h3 id="desktop-player-title">Parfumé</h3>
+                    <p id="desktop-player-title-copy">Ton niveau et tes hauts faits restent d’une LAN à l’autre.</p>
+                </section>
+            </div>
+
+            <section class="desktop-xp-strip">
+                <span>NIVEAU</span><strong id="desktop-idle-level">1</strong><i></i>
+                <span>HAUTS FAITS</span><strong id="desktop-idle-achievements">0 / 21</strong>
+                <p id="desktop-idle-xp-copy">L’expérience mesure les soirées, pas le portefeuille.</p>
+            </section>
+
+            <section id="desktop-announce-panel" class="luxury-panel desktop-announce" style="display:none;">
+                <div class="desktop-announce__head">
+                    <h3>Annoncer la prochaine</h3>
+                    <p>Visible de l’admin seulement — annoncer ouvre le vote dans la foulée.</p>
+                </div>
+                <div class="desktop-announce__form">
+                    <input type="date" id="desktop-announce-date" class="luxury-input" aria-label="Date de la LAN">
+                    <input type="time" id="desktop-announce-time" class="luxury-input" aria-label="Heure de début">
+                    <input type="text" id="desktop-announce-place" class="luxury-input" maxlength="200" placeholder="Lieu">
+                    <button type="button" id="desktop-announce-submit" class="gold-btn">Annoncer & ouvrir le vote</button>
+                </div>
+            </section>
         </div>
 
         <div id="view-voting-open" class="container wide-container" style="display: none;">
@@ -981,6 +1095,7 @@
                 </main>
             </div>
         </div>
+        </main>
     </div>
 
     <div id="correction-modal" class="modal-overlay">
@@ -988,7 +1103,7 @@
             <h3>Correction Automatique</h3>
             <p>Nous avons détecté des noms de jeux qui ressemblent à d'autres déjà votés. Voulez-vous les fusionner ?
             </p>
-            <ul id="suggestions-list"></ul>
+            <ul id="correction-suggestions-list"></ul>
             <div class="modal-actions">
                 <button id="modal-cancel">Annuler</button>
                 <button id="modal-ignore">Ignorer & Sauvegarder tel quel</button>
