@@ -6,6 +6,7 @@ const root = path.resolve(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'desktop.html'), 'utf8');
 const baseCss = fs.readFileSync(path.join(root, 'style.css'), 'utf8');
 const desktopCss = fs.readFileSync(path.join(root, 'desktop-v2.css'), 'utf8');
+const script = fs.readFileSync(path.join(root, 'newScript.js'), 'utf8');
 
 function ruleBody(css, selector) {
     const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -31,8 +32,20 @@ assert(/animation\s*:\s*none\s*!important\s*;/.test(activeMain), 'Active LAN mai
 assert(/opacity\s*:\s*1\s*;/.test(activeMain), 'Active LAN main disables an opacity-revealing animation without restoring visibility');
 assert(/transform\s*:\s*none\s*;/.test(activeMain), 'Active LAN main must establish the animation final transform');
 
+const scopedSizing = ruleBody(desktopCss, 'body.desktop-authenticated #app-container.desktop-os *::after');
+assert(/box-sizing\s*:\s*border-box\s*;/.test(scopedSizing), 'Desktop OS must use border-box sizing so padded 100% panels stay inside the canvas');
+
+const stageView = ruleBody(desktopCss, '.desktop-stage > #view-waiting-closed');
+assert(/overflow-x\s*:\s*hidden\s*;/.test(stageView), 'Desktop phase views must contain horizontal overflow');
+
+assert(ids.includes('btn-calendar-back'), 'Programme is missing its explicit back action');
+assert(/btn-calendar-back[\s\S]{0,180}activateDesktopSubview\('lan-dashboard'\)/.test(script), 'Programme back action must return to the active LAN dashboard');
+assert(/event\.target\s*===\s*playerModal/.test(script), 'Player profile must close when its overlay is clicked');
+assert(/id="user-info-menu"[^>]*role="button"[^>]*tabindex="0"/.test(html), 'Own-profile trigger must remain keyboard accessible');
+assert(/admin-command-card--broadcast/.test(html) && /admin-command-card--danger/.test(html), 'Active admin console structure is incomplete');
+
 for (const id of ['view-no-lan', 'view-voting-open', 'view-waiting-closed', 'view-lan-active', 'view-lan-finished']) {
     assert(ids.includes(id), `Missing desktop phase view #${id}`);
 }
 
-console.log(`Desktop visibility checks passed (${ids.length} unique IDs, ${navTargets.length} navigation targets).`);
+console.log(`Desktop shell checks passed (${ids.length} unique IDs, ${navTargets.length} navigation targets).`);

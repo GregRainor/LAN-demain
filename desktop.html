@@ -100,7 +100,7 @@
                  sert qu'au joueur qui a forcé la version bureau sur son mobile. -->
             <button id="btn-mobile-version" class="gold-link-btn" title="Version téléphone">📱 Version
                 téléphone</button>
-            <div id="user-info-menu">
+            <div id="user-info-menu" role="button" tabindex="0" aria-label="Ouvrir mon profil">
                 <span id="user-name"></span>
                 <img id="user-avatar" src="" alt="Avatar">
             </div>
@@ -388,9 +388,11 @@
         <div id="view-admin-dashboard" class="container" style="display: none; padding-top: 40px;">
             <div class="admin-dashboard-card luxury-panel"
                 style="max-width: 800px; margin: 0 auto; padding: 50px; animation: etherealFadeInUp 0.8s ease forwards;">
-                <h2
-                    style="font-size: 2.2em; border-bottom: none; margin-bottom: 40px; text-shadow: 0 0 15px var(--accent-glow);">
-                    Console d'Administration</h2>
+                <header class="admin-console-head">
+                    <p class="desktop-eyebrow">CONTROL ROOM</p>
+                    <h2>Console d’administration</h2>
+                    <p>Les commandes essentielles de la soirée, regroupées sans bruit autour de ce qui demande votre attention.</p>
+                </header>
 
                 <div class="admin-controls-grid">
                     <div class="admin-control-item panel-section">
@@ -588,9 +590,11 @@
 
                     <!-- Subview: Programme (le calendrier de la soirée) -->
                     <div id="lan-calendar" class="lan-subview" style="display: none;">
-                        <div
-                            style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); margin-bottom: 20px; padding-bottom: 10px;">
-                            <h2 class="subview-title" style="border: none; margin: 0;">Programme</h2>
+                        <div class="desktop-subview-head">
+                            <div class="desktop-subview-head__title">
+                                <button type="button" id="btn-calendar-back" class="desktop-back-btn">← Retour</button>
+                                <h2 class="subview-title" style="border: none; margin: 0;">Programme</h2>
+                            </div>
                             <button id="btn-create-event-calendar" class="gold-link-btn">+ Créer</button>
                         </div>
 
@@ -603,8 +607,7 @@
 
                     <!-- Subview: Events -->
                     <div id="lan-events" class="lan-subview" style="display: none;">
-                        <div
-                            style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); margin-bottom: 20px; padding-bottom: 10px;">
+                        <div class="desktop-subview-head">
                             <h2 class="subview-title" style="border: none; margin: 0;">Événements</h2>
                             <button id="btn-create-event" class="gold-link-btn">+ Créer</button>
                         </div>
@@ -1012,10 +1015,14 @@
 
                     <!-- Subview: Admin (admin only) -->
                     <div id="lan-admin" class="lan-subview" style="display: none;">
-                        <h2 class="subview-title">⚙️ Panneau Administrateur</h2>
+                        <header class="admin-console-head">
+                            <p class="desktop-eyebrow">CONTROL ROOM</p>
+                            <h2>Console d’administration</h2>
+                            <p>Diffusez, organisez et arbitrez la soirée depuis un seul poste de commande.</p>
+                        </header>
 
                         <!-- Broadcast Notification -->
-                        <div class="luxury-panel" style="padding: 25px; margin-bottom: 25px;">
+                        <div class="luxury-panel admin-command-card admin-command-card--broadcast" style="padding: 25px; margin-bottom: 25px;">
                             <h3 style="margin-top: 0; color: var(--accent-color); border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px;">📣 Envoyer un message</h3>
                             <p style="color: var(--secondary-text); font-size: 0.9em; margin-bottom: 15px;">Un toast s'affichera immédiatement pour tous les joueurs connectés.</p>
                             <div style="display: flex; gap: 10px;">
@@ -1026,7 +1033,7 @@
                         </div>
 
                         <!-- Quand & où (mêmes champs que la console d'admin fermée) -->
-                        <div class="luxury-panel schedule-form" style="padding: 25px; margin-bottom: 25px;">
+                        <div class="luxury-panel schedule-form admin-command-card admin-command-card--schedule" style="padding: 25px; margin-bottom: 25px;">
                             <h3 style="margin-top: 0; color: var(--accent-color); border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px;">📅 Quand & où</h3>
                             <div class="admin-select-group" style="gap: 12px;">
                                 <label for="lan-date-active">Date de la LAN</label>
@@ -1045,7 +1052,7 @@
                         </div>
 
                         <!-- Role Management -->
-                        <div class="luxury-panel" style="padding: 25px; margin-bottom: 25px;">
+                        <div class="luxury-panel admin-command-card admin-command-card--roles" style="padding: 25px; margin-bottom: 25px;">
                             <h3 style="margin-top: 0; color: var(--accent-color); border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px;">🛡️ Gestion des Rôles</h3>
                             <div class="admin-select-group" style="gap: 12px;">
                                 <label>Joueur</label>
@@ -1065,7 +1072,7 @@
                         </div>
 
                         <!-- Voting Controls -->
-                        <div class="luxury-panel" style="padding: 25px;">
+                        <div class="luxury-panel admin-command-card admin-command-card--danger" style="padding: 25px;">
                             <h3 class="section-title section-title--danger">⚠️ Contrôles Avancés</h3>
                             <button id="toggle-voting-btn-dashboard-lan" class="danger-btn btn-block">Clore le
                                 Vote</button>

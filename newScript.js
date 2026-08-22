@@ -317,7 +317,8 @@ document.addEventListener('DOMContentLoaded', () => {
             let active = false;
             if (item.dataset.desktopTarget) active = currentSubview === item.dataset.desktopTarget;
             if (item.dataset.desktopDestination === 'home') {
-                active = !desktopAdminOverride && (phase !== 'active' || currentSubview === 'lan-dashboard');
+                const isEventSpace = ['lan-dashboard', 'lan-calendar', 'lan-events'].includes(currentSubview);
+                active = !desktopAdminOverride && (phase !== 'active' || isEventSpace);
             }
             if (item.dataset.desktopDestination === 'games') {
                 active = !desktopAdminOverride && (phase === 'voting' || (phase === 'active' && currentSubview === 'lan-games'));
@@ -369,9 +370,16 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('btn-lan-history')?.click();
         });
 
-        document.getElementById('user-info-menu')?.addEventListener('click', () => {
+        const openOwnProfile = () => {
             const user = auth.currentUser;
             if (user) showPlayerVotesModal(user.uid, user.displayName || user.email || 'Joueur', globalVotes);
+        };
+        const userInfoMenu = document.getElementById('user-info-menu');
+        userInfoMenu?.addEventListener('click', openOwnProfile);
+        userInfoMenu?.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+            event.preventDefault();
+            openOwnProfile();
         });
 
         document.getElementById('desktop-announce-submit')?.addEventListener('click', async () => {
@@ -4812,7 +4820,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-create-event-calendar')?.addEventListener('click', openCreateEventModal);
 
     document.getElementById('btn-goto-calendar')?.addEventListener('click', () => {
-        document.querySelector('.lan-nav-list .nav-item[data-target="lan-calendar"]')?.click();
+        activateDesktopSubview('lan-calendar');
+    });
+    document.getElementById('btn-calendar-back')?.addEventListener('click', () => {
+        activateDesktopSubview('lan-dashboard');
     });
 
     bindScheduleForms();
@@ -4822,9 +4833,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (createModal) createModal.style.display = 'none';
     });
 
-    document.getElementById('close-player-votes-btn')?.addEventListener('click', () => {
-        const playerModal = document.getElementById('player-votes-modal');
+    const playerModal = document.getElementById('player-votes-modal');
+    const closePlayerModal = () => {
         if (playerModal) playerModal.style.display = 'none';
+    };
+    document.getElementById('close-player-votes-btn')?.addEventListener('click', closePlayerModal);
+    playerModal?.addEventListener('click', (event) => {
+        if (event.target === playerModal) closePlayerModal();
+    });
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && playerModal?.style.display === 'flex') closePlayerModal();
     });
 
     // --- HISTORIQUE ---
