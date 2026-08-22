@@ -136,6 +136,88 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let desktopAdminOverride = false;
 
+    /* Long desktop catalogues need motion where the eye is, not only when the
+       tab opens. Items are observed once and revealed in short waves as they
+       enter the scroll viewport. A mutation observer catches Firebase renders
+       and filter changes without coupling the effect to every renderer. */
+    const DESKTOP_SCROLL_MOTION_SELECTOR = [
+        '#shop-catalog .shop-cat-title',
+        '#shop-catalog .shop-item',
+        '#challenge-list .shop-item',
+        '#tcg-set-grid .rarity-bar',
+        '#tcg-set-grid .tcard',
+        '#tcg-dupes .tcard'
+    ].join(', ');
+    let desktopRevealObserver = null;
+    let desktopMotionRefreshFrame = 0;
+    let desktopScrollProgressFrame = 0;
+
+    function desktopMotionIsReduced() {
+        return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    }
+
+    function desktopRevealItems(scope) {
+        if (!scope) return;
+        const candidates = [];
+        if (scope.matches && scope.matches(DESKTOP_SCROLL_MOTION_SELECTOR)) candidates.push(scope);
+        if (scope.querySelectorAll) candidates.push(...scope.querySelectorAll(DESKTOP_SCROLL_MOTION_SELECTOR));
+        const fresh = candidates.filter(item => !item.classList.contains('desktop-scroll-item'));
+        if (!fresh.length) return;
+
+        if (!desktopRevealObserver && 'IntersectionObserver' in window && !desktopMotionIsReduced()) {
+            desktopRevealObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (!entry.isIntersecting) return;
+                    entry.target.classList.add('is-scroll-revealed');
+                    observer.unobserve(entry.target);
+                });
+            }, { root: null, rootMargin: '0px 0px -6% 0px', threshold: 0.08 });
+        }
+
+        fresh.forEach((item, index) => {
+            item.classList.add('desktop-scroll-item');
+            item.style.setProperty('--desktop-reveal-delay', `${(index % 6) * 42}ms`);
+            if (desktopMotionIsReduced() || !desktopRevealObserver) item.classList.add('is-scroll-revealed');
+            else desktopRevealObserver.observe(item);
+        });
+    }
+
+    function updateDesktopScrollProgress() {
+        desktopScrollProgressFrame = 0;
+        const stage = document.querySelector('.desktop-stage');
+        if (!stage) return;
+        const root = [...stage.children].find(child => child.offsetParent !== null && child.scrollHeight > child.clientHeight + 2);
+        const max = root ? root.scrollHeight - root.clientHeight : 0;
+        const progress = max > 0 ? Math.min(1, Math.max(0, root.scrollTop / max)) : 0;
+        stage.style.setProperty('--desktop-scroll-progress', progress.toFixed(4));
+        stage.classList.toggle('is-scrollable', max > 0);
+    }
+
+    function scheduleDesktopMotionRefresh() {
+        if (desktopMotionRefreshFrame) return;
+        desktopMotionRefreshFrame = requestAnimationFrame(() => {
+            desktopMotionRefreshFrame = 0;
+            desktopRevealItems(document.getElementById('view-lan-active'));
+            updateDesktopScrollProgress();
+        });
+    }
+
+    function scheduleDesktopScrollProgress() {
+        if (desktopScrollProgressFrame) return;
+        desktopScrollProgressFrame = requestAnimationFrame(updateDesktopScrollProgress);
+    }
+
+    function setupDesktopScrollMotion() {
+        const stage = document.querySelector('.desktop-stage');
+        const activeView = document.getElementById('view-lan-active');
+        if (!stage || !activeView) return;
+
+        [...stage.children].forEach(root => root.addEventListener('scroll', scheduleDesktopScrollProgress, { passive: true }));
+        window.addEventListener('resize', scheduleDesktopScrollProgress, { passive: true });
+        new MutationObserver(scheduleDesktopMotionRefresh).observe(activeView, { childList: true, subtree: true });
+        scheduleDesktopMotionRefresh();
+    }
+
     function desktopPhase() {
         if (globalSettings.lanFinished && !globalSettings.isLanActive) return 'finished';
         if (globalSettings.isLanActive) return 'active';
@@ -331,9 +413,12 @@ document.addEventListener('DOMContentLoaded', () => {
     function activateDesktopSubview(targetId) {
         if (desktopPhase() !== 'active') return;
         desktopAdminOverride = false;
+        const activeView = document.getElementById('view-lan-active');
+        if (activeView) activeView.scrollTop = 0;
         const legacy = document.querySelector(`.lan-nav-list .nav-item[data-target="${targetId}"]`);
         if (legacy) legacy.click();
         syncDesktopNavigation(targetId);
+        scheduleDesktopMotionRefresh();
     }
 
     function setupDesktopShell() {
@@ -412,6 +497,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     setupDesktopShell();
+    setupDesktopScrollMotion();
     const DEFAULT_GAME_ICON = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23666'%3E%3Cpath d='M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-2.5 14H6.5v-1.5h11V18zm0-2.5H6.5v-1.5h11V15.5zm0-2.5H6.5v-1.5h11V13zm-5-3.25L10.25 8h1.5l2.25 1.75V8h1.5v6h-1.5v-1.75L13.25 14h-1.5L9.5 12.25V14H8V8h1.5v1.75z'/%3E%3C/svg%3E`;
 
     const voteForm = document.getElementById('vote-form');
