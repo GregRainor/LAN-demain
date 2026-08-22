@@ -1189,6 +1189,11 @@ body.desktop-authenticated #app-container.desktop-os {
 #view-lan-active .active-lan-layout > main {
     width: 100%;
     max-width: none;
+    /* style.css starts every .animated-section at opacity: 0 and relies on
+       its entrance animation to reveal it. This layout disables that legacy
+       animation, so it must also establish the final visible state. */
+    opacity: 1;
+    transform: none;
     animation: none !important;
 }
 
