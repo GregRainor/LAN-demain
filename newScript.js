@@ -153,6 +153,7 @@ document.addEventListener('DOMContentLoaded', () => {
        ====================================================================== */
 
     let desktopAdminOverride = false;
+    let desktopVotingDestination = 'games';
 
     /* Long desktop catalogues need motion where the eye is, not only when the
        tab opens. Items are observed once and revealed in short waves as they
@@ -432,10 +433,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (item.dataset.desktopTarget) active = currentSubview === item.dataset.desktopTarget;
             if (item.dataset.desktopDestination === 'home') {
                 const isEventSpace = ['lan-dashboard', 'lan-calendar', 'lan-events'].includes(currentSubview);
-                active = !adminActive && (phase === 'active' ? isEventSpace : phase !== 'voting');
+                active = !adminActive && (phase === 'active'
+                    ? isEventSpace
+                    : (phase === 'voting' ? desktopVotingDestination === 'events' : true));
             }
             if (item.dataset.desktopDestination === 'games') {
-                active = !adminActive && (phase === 'voting' || (phase === 'active' && currentSubview === 'lan-games'));
+                active = !adminActive && ((phase === 'voting' && desktopVotingDestination === 'games')
+                    || (phase === 'active' && currentSubview === 'lan-games'));
             }
             if (item.disabled || item.classList.contains('is-locked')) active = false;
             item.classList.toggle('active', active);
@@ -444,7 +448,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function activateDesktopSubview(targetId) {
-        if (desktopPhase() !== 'active') return;
+        const phase = desktopPhase();
+        const votingProgramme = phase === 'voting' && targetId === 'lan-calendar';
+        if (phase !== 'active' && !votingProgramme) return;
+        if (votingProgramme) desktopVotingDestination = 'events';
         desktopAdminOverride = false;
         const activeView = document.getElementById('view-lan-active');
         if (activeView) activeView.scrollTop = 0;
@@ -466,9 +473,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 desktopAdminOverride = false;
                 tcgAdminPreview = false;
+                const phase = desktopPhase();
+                if (phase === 'voting' && destination === 'home') {
+                    desktopVotingDestination = 'events';
+                    updateVotingUIState();
+                    return;
+                }
+                if (phase === 'voting' && destination === 'games') {
+                    desktopVotingDestination = 'games';
+                    updateVotingUIState();
+                    return;
+                }
                 updateVotingUIState();
-                if (destination === 'home' && desktopPhase() === 'active') activateDesktopSubview('lan-dashboard');
-                if (destination === 'games' && desktopPhase() === 'active') activateDesktopSubview('lan-games');
+                if (destination === 'home' && phase === 'active') activateDesktopSubview('lan-dashboard');
+                if (destination === 'games' && phase === 'active') activateDesktopSubview('lan-games');
                 syncDesktopNavigation();
             });
         });
@@ -1422,6 +1440,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (viewNoLan) viewNoLan.style.display = 'flex';
             renderDesktopIdle();
         } else if (phase === 'voting') {
+            if (desktopVotingDestination === 'events') {
+                if (viewLanActive) viewLanActive.style.display = 'block';
+                if (form) form.style.display = 'none';
+                activateDesktopSubview('lan-calendar');
+                return;
+            }
             if (viewVotingOpen) viewVotingOpen.style.display = 'block';
             if (form) form.style.display = 'flex';
             if (window.currentUserIsAdmin && adminPanelOpen) {
@@ -1527,8 +1551,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         voteForm.addEventListener('click', (e) => {
-            if (e.target.classList.contains('add-game-btn')) {
-                const list = e.target.previousElementSibling;
+            const addButton = e.target.closest('.add-game-btn');
+            if (addButton) {
+                const list = addButton.previousElementSibling;
                 createInput('', false, list);
             }
             if (e.target.classList.contains('remove-game-btn')) {
@@ -4992,6 +5017,11 @@ document.addEventListener('DOMContentLoaded', () => {
         activateDesktopSubview('lan-calendar');
     });
     document.getElementById('btn-calendar-back')?.addEventListener('click', () => {
+        if (desktopPhase() === 'voting') {
+            desktopVotingDestination = 'games';
+            updateVotingUIState();
+            return;
+        }
         activateDesktopSubview('lan-dashboard');
     });
 
@@ -5445,7 +5475,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return day || (time ? `à ${time}` : '');
     }
 
-    /* --- Quand & où ------------------------------------------------------ */
+    /* --- Quand et où ----------------------------------------------------- */
 
     const WHEN_WHERE_MOUNTS = ['when-where-voting', 'when-where-waiting', 'when-where-calendar'];
 
@@ -5520,7 +5550,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 mount.style.display = 'flex';
                 const hint = document.createElement('p');
                 hint.className = 'when-where__hint';
-                hint.textContent = 'Ni date ni lieu annoncés. Renseignez-les dans « Quand & où », au panneau Admin.';
+                hint.textContent = 'Ni date ni lieu annoncés. Renseignez-les dans « Quand et où », au panneau Admin.';
                 mount.appendChild(hint);
                 return;
             }

@@ -196,11 +196,16 @@
         <div id="view-voting-open" class="container wide-container" style="display: none;">
 
             <header class="desktop-vote-intro">
-                <div>
-                    <p class="desktop-eyebrow">LE CONSEIL D'AVANT-LAN</p>
-                    <h2>Composez la prochaine nuit.</h2>
+                <div class="desktop-vote-intro__copy">
+                    <p class="desktop-eyebrow">LE SCRUTIN EST OUVERT</p>
+                    <h2>À quoi joue-t-on&nbsp;?</h2>
+                    <p>Classe tes envies. Le groupe fait le reste.</p>
                 </div>
-                <p>Chaque priorité pèse vraiment dans la sélection. Votez, observez la tendance, puis préparez ce qui monte.</p>
+                <div class="desktop-vote-intro__rule">
+                    <span>POIDS DU BULLETIN</span>
+                    <strong>5 · 3 · 2 · 1</strong>
+                    <small>Une hiérarchie simple, un vrai classement.</small>
+                </div>
             </header>
 
             <div class="two-column-layout">
@@ -230,7 +235,7 @@
                 <!-- CENTER FEED -->
                 <main id="main-center-feed">
 
-                    <!-- Quand & où : pendant le vote, c'est la première question que
+                    <!-- Quand et où : pendant le vote, c'est la première question que
                          tout le monde se pose. Masqué tant qu'aucune date n'est annoncée. -->
                     <div id="when-where-voting" class="when-where when-where--banner animated-section"
                         style="display: none;"></div>
@@ -273,17 +278,17 @@
                                     <div class="priority-group" data-priority="p2">
                                         <h3>Priorité 2 <span>(3 pts)</span></h3>
                                         <div class="game-input-list"></div>
-                                        <button type="button" class="add-game-btn">+</button>
+                                        <button type="button" class="add-game-btn"><span aria-hidden="true">+</span> Ajouter un jeu</button>
                                     </div>
                                     <div class="priority-group" data-priority="p3">
                                         <h3>Priorité 3 <span>(2 pts)</span></h3>
                                         <div class="game-input-list"></div>
-                                        <button type="button" class="add-game-btn">+</button>
+                                        <button type="button" class="add-game-btn"><span aria-hidden="true">+</span> Ajouter un jeu</button>
                                     </div>
                                     <div class="priority-group" data-priority="p_other">
                                         <h3>Autres <span>(1 pt)</span></h3>
                                         <div class="game-input-list"></div>
-                                        <button type="button" class="add-game-btn">+</button>
+                                        <button type="button" class="add-game-btn"><span aria-hidden="true">+</span> Ajouter un jeu</button>
                                     </div>
                                     <!-- Les erreurs s'affichent ici, sous les yeux : un toast
                                          en bas à droite passe inaperçu pendant la saisie -->
@@ -403,7 +408,7 @@
                 <p style="font-size: 1.25em; margin: 0;">L'administrateur prépare la suite de la LAN...</p>
             </div>
 
-            <!-- Quand & où : la seule chose utile à savoir tant que les votes sont clos -->
+            <!-- Quand et où : la seule chose utile à savoir tant que les votes sont clos -->
             <div id="when-where-waiting" class="when-where when-where--banner"
                 style="display: none; width: 100%; max-width: 800px; margin-bottom: 40px;"></div>
 
@@ -452,11 +457,11 @@
                         <button id="save-config-btn" class="btn-block">Sauvegarder Configuration</button>
                     </div>
 
-                    <!-- Quand & où : renseigné ici, affiché partout ailleurs.
+                    <!-- Quand et où : renseigné ici, affiché partout ailleurs.
                          Les champs portent data-schedule pour que le même code
                          serve ce panneau et celui de la LAN active. -->
                     <div class="admin-control-item panel-section schedule-form">
-                        <h3 class="section-title">📅 Quand & où</h3>
+                        <h3 class="section-title">Quand et où</h3>
                         <p class="panel-section__text">Annoncé sur l'écran de vote, l'écran d'attente et le
                             programme. Laissez vide tant que rien n'est décidé.</p>
 
@@ -628,7 +633,7 @@
                             <button id="btn-create-event-calendar" class="gold-link-btn">+ Créer</button>
                         </div>
 
-                        <!-- Quand & où : rempli par renderWhenWhere(), masqué tant que
+                        <!-- Quand et où : rempli par renderWhenWhere(), masqué tant que
                              l'admin n'a annoncé ni date ni lieu. -->
                         <div id="when-where-calendar" class="when-where" style="display: none;"></div>
 
@@ -1078,9 +1083,9 @@
                             </div>
                         </div>
 
-                        <!-- Quand & où (mêmes champs que la console d'admin fermée) -->
+                        <!-- Quand et où (mêmes champs que la console d'admin fermée) -->
                         <div class="luxury-panel schedule-form admin-command-card admin-command-card--schedule" style="padding: 25px; margin-bottom: 25px;">
-                            <h3 style="margin-top: 0; color: var(--accent-color); border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px;">📅 Quand & où</h3>
+                            <h3 style="margin-top: 0; color: var(--accent-color); border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px;">Quand et où</h3>
                             <div class="admin-select-group" style="gap: 12px;">
                                 <label for="lan-date-active">Date de la LAN</label>
                                 <input type="date" id="lan-date-active" class="luxury-input" data-schedule="lanDate">
