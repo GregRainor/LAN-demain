@@ -17,6 +17,10 @@
     --desktop-purple: #bd54d2;
     --desktop-green: #54a66d;
     --desktop-red: #c74d4d;
+    --desktop-motion-fast: 160ms;
+    --desktop-motion-base: 380ms;
+    --desktop-motion-slow: 720ms;
+    --desktop-ease: cubic-bezier(0.22, 0.8, 0.24, 1);
 }
 
 .sr-only {
@@ -515,6 +519,20 @@ body.desktop-authenticated #app-container.desktop-os {
         var(--desktop-bg);
 }
 
+body.desktop-authenticated #app-container.desktop-os::before {
+    content: "";
+    position: absolute;
+    inset: -16%;
+    z-index: 0;
+    pointer-events: none;
+    background:
+        radial-gradient(circle at 71% 30%, rgba(212, 175, 55, 0.055), transparent 25%),
+        radial-gradient(circle at 36% 78%, rgba(255, 131, 60, 0.022), transparent 30%);
+    opacity: 0.58;
+    transform: translate3d(-1.5%, -1%, 0) scale(1.02);
+    animation: desktopAmbientDrift 18s ease-in-out infinite alternate;
+}
+
 /* The legacy desktop stylesheet intentionally has no global box-sizing reset.
    Inside the fixed OS shell that makes every width:100% panel grow by its own
    padding and border, pushing all subviews past the right edge. Keep the reset
@@ -529,6 +547,9 @@ body.desktop-authenticated #app-container.desktop-os *::after {
 /* Top bar */
 
 .desktop-topbar {
+    position: relative;
+    z-index: 1;
+    animation: desktopShellDown var(--desktop-motion-base) var(--desktop-ease) backwards;
     grid-column: 1 / -1;
     grid-row: 1;
     min-width: 0;
@@ -539,6 +560,7 @@ body.desktop-authenticated #app-container.desktop-os *::after {
 }
 
 .desktop-brand {
+    position: relative;
     height: 100%;
     min-width: var(--desktop-sidebar);
     display: flex;
@@ -549,6 +571,26 @@ body.desktop-authenticated #app-container.desktop-os *::after {
     background: transparent;
     cursor: pointer;
     text-align: left;
+    overflow: hidden;
+}
+
+.desktop-brand::after {
+    content: "";
+    position: absolute;
+    left: 28px;
+    right: 28px;
+    bottom: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent-color), transparent);
+    opacity: 0;
+    transform: scaleX(0.25);
+    transition: opacity var(--desktop-motion-fast) ease, transform var(--desktop-motion-base) var(--desktop-ease);
+}
+
+.desktop-brand:hover::after,
+.desktop-brand:focus-visible::after {
+    opacity: 0.75;
+    transform: scaleX(1);
 }
 
 .desktop-brand > span {
@@ -702,6 +744,9 @@ body.desktop-authenticated #app-container.desktop-os *::after {
 /* Sidebar */
 
 .desktop-sidebar {
+    position: relative;
+    z-index: 1;
+    animation: desktopShellSide var(--desktop-motion-slow) var(--desktop-ease) backwards;
     grid-column: 1;
     grid-row: 2;
     min-height: 0;
@@ -729,6 +774,20 @@ body.desktop-authenticated #app-container.desktop-os *::after {
     cursor: pointer;
     font: 400 14px/1.2 var(--font-body);
     text-align: left;
+    overflow: hidden;
+    transition: color var(--desktop-motion-fast) ease, background var(--desktop-motion-fast) ease, border-color var(--desktop-motion-fast) ease;
+}
+
+.desktop-nav__item::after {
+    content: "";
+    position: absolute;
+    inset: 7px 0 7px auto;
+    width: 42%;
+    pointer-events: none;
+    background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.065));
+    opacity: 0;
+    transform: translateX(35%);
+    transition: opacity var(--desktop-motion-fast) ease, transform var(--desktop-motion-base) var(--desktop-ease);
 }
 
 .desktop-nav__icon {
@@ -736,6 +795,7 @@ body.desktop-authenticated #app-container.desktop-os *::after {
     color: currentColor;
     font: 400 20px/1 var(--font-display);
     text-align: center;
+    transition: transform var(--desktop-motion-base) var(--desktop-ease), color var(--desktop-motion-fast) ease;
 }
 
 .desktop-nav__item:hover {
@@ -828,6 +888,7 @@ body.desktop-authenticated #app-container.desktop-os *::after {
     border-radius: 50%;
     background: #60c477;
     box-shadow: 0 0 8px #60c477;
+    animation: desktopPresencePulse 2.4s ease-in-out infinite;
 }
 
 #active-users-sidebar.gnome-band {
@@ -863,6 +924,15 @@ body.desktop-authenticated #app-container.desktop-os *::after {
     transition: background 160ms ease, border-color 160ms ease;
 }
 
+.desktop-nav__item:hover::after,
+.desktop-nav__item.active::after {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.desktop-nav__item:hover .desktop-nav__icon { transform: translateX(3px) scale(1.04); }
+.desktop-nav__item.active .desktop-nav__icon { animation: desktopNavSettle 430ms var(--desktop-ease) both; }
+
 #active-users-sidebar .user-avatar-container:hover {
     transform: none;
     border-left-color: rgba(212, 175, 55, 0.55);
@@ -880,6 +950,10 @@ body.desktop-authenticated #app-container.desktop-os *::after {
 }
 
 #active-users-sidebar .user-avatar-container.is-online .user-avatar-icon { filter: none; }
+
+#active-users-sidebar .user-avatar-container.is-online .presence-dot {
+    animation: desktopPresencePulse 2.4s ease-in-out infinite;
+}
 
 #active-users-sidebar .presence-dot {
     right: auto;
@@ -939,6 +1013,9 @@ body.desktop-authenticated #app-container.desktop-os *::after {
 /* Main stage and phase rhythm */
 
 .desktop-stage {
+    position: relative;
+    z-index: 1;
+    animation: desktopStageReveal var(--desktop-motion-slow) var(--desktop-ease) 90ms backwards;
     grid-column: 2;
     grid-row: 2;
     min-width: 0;
@@ -1280,6 +1357,36 @@ body.desktop-authenticated #app-container.desktop-os *::after {
     overflow-x: hidden;
 }
 
+#view-lan-active .lan-subview.active {
+    animation: desktopViewIn var(--desktop-motion-base) var(--desktop-ease) backwards;
+}
+
+#view-lan-active .lan-subview.active > .subview-title,
+#view-lan-active .lan-subview.active > .desktop-subview-head,
+#view-lan-active .lan-subview.active > .admin-console-head {
+    animation: desktopHeadingIn 480ms var(--desktop-ease) backwards;
+}
+
+#view-lan-active .lan-subview.active > .luxury-panel,
+#view-lan-active .lan-subview.active > .xp-banner,
+#view-lan-active .lan-subview.active > .wallet-banner,
+#view-lan-active .lan-subview.active > .set-banner,
+#view-lan-active .lan-subview.active > .dashboard-grid {
+    animation: desktopPanelIn 460ms var(--desktop-ease) backwards;
+}
+
+#view-lan-active .lan-subview.active > :nth-child(2) { animation-delay: 35ms; }
+#view-lan-active .lan-subview.active > :nth-child(3) { animation-delay: 70ms; }
+#view-lan-active .lan-subview.active > :nth-child(4) { animation-delay: 105ms; }
+#view-lan-active .lan-subview.active > :nth-child(5) { animation-delay: 140ms; }
+#view-lan-active .lan-subview.active > :nth-child(n+6) { animation-delay: 175ms; }
+
+#lan-dashboard.active .dashboard-grid > * {
+    animation: desktopPanelIn 480ms var(--desktop-ease) backwards;
+}
+
+#lan-dashboard.active .dashboard-grid > :nth-child(2) { animation-delay: 90ms; }
+
 #view-lan-active .dashboard-grid {
     width: 100%;
     max-width: 100%;
@@ -1356,6 +1463,13 @@ body.desktop-authenticated #app-container.desktop-os *::after {
     padding: 24px !important;
     border-top: 2px solid rgba(212, 175, 55, 0.24);
     background: linear-gradient(145deg, rgba(212, 175, 55, 0.04), transparent 48%), var(--desktop-panel);
+    transition: border-color var(--desktop-motion-base) ease, background var(--desktop-motion-base) ease, transform var(--desktop-motion-base) var(--desktop-ease), box-shadow var(--desktop-motion-base) ease;
+}
+
+#lan-admin.active > .admin-command-card:hover {
+    border-top-color: rgba(212, 175, 55, 0.62);
+    transform: translateY(-3px);
+    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.34);
 }
 
 #lan-admin.active > .admin-command-card--danger {
@@ -1429,7 +1543,32 @@ body.desktop-authenticated #app-container.desktop-os *::after {
     min-height: 150px;
     margin: 0;
     border-radius: 0;
+    overflow: hidden;
+    transition: border-color var(--desktop-motion-base) ease, transform var(--desktop-motion-base) var(--desktop-ease), box-shadow var(--desktop-motion-base) ease;
 }
+
+#shop-catalog .shop-item::after,
+#challenge-list .shop-item::after {
+    content: "";
+    position: absolute;
+    left: -35%;
+    top: 0;
+    width: 34%;
+    height: 1px;
+    pointer-events: none;
+    background: linear-gradient(90deg, transparent, var(--si, var(--accent-color)), transparent);
+    opacity: 0;
+    transition: left 520ms var(--desktop-ease), opacity var(--desktop-motion-fast) ease;
+}
+
+#shop-catalog .shop-item:hover,
+#challenge-list .shop-item:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 15px 28px rgba(0, 0, 0, 0.32);
+}
+
+#shop-catalog .shop-item:hover::after,
+#challenge-list .shop-item:hover::after { left: 100%; opacity: 0.9; }
 
 /* Challenges: catalogue on the left, decisions and ideas on the right. */
 
@@ -1491,7 +1630,16 @@ body.desktop-authenticated #app-container.desktop-os *::after {
 }
 
 #tcg-set-grid .tcg-card,
-#tcg-set-grid .shop-card { border-radius: 0; }
+#tcg-set-grid .shop-card {
+    border-radius: 0;
+    transition: transform var(--desktop-motion-base) var(--desktop-ease), border-color var(--desktop-motion-base) ease, filter var(--desktop-motion-base) ease;
+}
+
+#tcg-set-grid .tcg-card:hover,
+#tcg-set-grid .shop-card:hover {
+    transform: translateY(-5px) rotateX(1.5deg);
+    filter: brightness(1.06) saturate(1.06);
+}
 
 #btn-debug-pack { display: none !important; }
 
@@ -1512,7 +1660,15 @@ body.desktop-authenticated #app-container.desktop-os *::after {
     max-height: 88vh;
     padding: 30px !important;
     overflow: auto;
+    animation: desktopProfileOpen 480ms var(--desktop-ease) backwards;
 }
+
+.desktop-level-bars i.is-filled {
+    animation: desktopLevelBreathe 3.2s ease-in-out infinite;
+}
+
+.desktop-level-bars i.is-filled:nth-child(2n) { animation-delay: 120ms; }
+.desktop-level-bars i.is-filled:nth-child(3n) { animation-delay: 240ms; }
 
 #player-votes-modal .prof-head {
     min-height: 104px;
@@ -1586,6 +1742,62 @@ body.desktop-authenticated #app-container.desktop-os *::after {
 
 #toast-container { z-index: 4000; }
 
+@keyframes desktopAmbientDrift {
+    from { transform: translate3d(-1.5%, -1%, 0) scale(1.02); opacity: 0.48; }
+    to { transform: translate3d(1.8%, 1.4%, 0) scale(1.08); opacity: 0.72; }
+}
+
+@keyframes desktopShellDown {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes desktopShellSide {
+    from { opacity: 0; transform: translateX(-10px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes desktopStageReveal {
+    from { opacity: 0; transform: scale(0.997); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes desktopNavSettle {
+    0% { transform: translateX(-4px); opacity: 0.55; }
+    65% { transform: translateX(2px); opacity: 1; }
+    100% { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes desktopPresencePulse {
+    0%, 100% { box-shadow: 0 0 5px rgba(96, 196, 119, 0.45); }
+    50% { box-shadow: 0 0 12px rgba(96, 196, 119, 0.9); }
+}
+
+@keyframes desktopViewIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes desktopHeadingIn {
+    from { opacity: 0; transform: translateX(-12px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes desktopPanelIn {
+    from { opacity: 0; transform: translateY(12px) scale(0.995); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes desktopProfileOpen {
+    from { opacity: 0; transform: translateY(18px) scale(0.975); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes desktopLevelBreathe {
+    0%, 100% { filter: brightness(0.88); box-shadow: 0 0 0 rgba(212, 175, 55, 0); }
+    50% { filter: brightness(1.18); box-shadow: 0 0 7px rgba(212, 175, 55, 0.24); }
+}
+
 @media (max-width: 1360px) {
     :root { --desktop-sidebar: 220px; }
     .desktop-brand { padding: 0 22px; }
@@ -1633,4 +1845,24 @@ body.desktop-authenticated #app-container.desktop-os *::after {
     .desktop-os *,
     .desktop-os *::before,
     .desktop-os *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+
+    .desktop-os::before,
+    .desktop-os .desktop-topbar,
+    .desktop-os .desktop-sidebar,
+    .desktop-os .desktop-stage,
+    .desktop-os .desktop-nav__item.active .desktop-nav__icon,
+    .desktop-os .desktop-roster__title i,
+    .desktop-os .presence-dot,
+    .desktop-os .desktop-level-bars i,
+    .desktop-os .lan-subview.active,
+    .desktop-os .lan-subview.active > *,
+    .desktop-os #lan-dashboard.active .dashboard-grid > *,
+    #player-votes-modal > .modal-content {
+        animation: none !important;
+    }
+
+    .desktop-os .animated-section {
+        opacity: 1 !important;
+        transform: none !important;
+    }
 }
