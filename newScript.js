@@ -921,10 +921,19 @@ document.addEventListener('DOMContentLoaded', () => {
             dot.className = 'presence-dot';
             slot.appendChild(dot);
 
-            const name = document.createElement('span');
+            const identity = document.createElement('span');
+            identity.className = 'user-roster-copy';
+
+            const name = document.createElement('strong');
             name.className = 'user-roster-name';
             name.textContent = player.name || 'Joueur';
-            slot.appendChild(name);
+
+            const state = document.createElement('small');
+            state.className = 'user-roster-state';
+            state.textContent = player.online ? 'À la table' : 'Hors ligne';
+
+            identity.append(name, state);
+            slot.appendChild(identity);
 
             slot.addEventListener('click', () => {
                 showPlayerVotesModal(player.uid, player.name, globalVotes);

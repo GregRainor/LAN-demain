@@ -58,6 +58,8 @@ assert(/globalPolls = \{\};\s*globalFoodRuns = \{\};\s*announcedPolls\.clear\(\)
 assert(/if \(leftSidebar\) leftSidebar\.style\.display = 'none'/.test(script), 'The hidden voting admin rail must not reserve space for players');
 assert(/#view-voting-open \.add-game-btn\s*\{[\s\S]{0,120}position: static/.test(desktopCss), 'Voting add controls must sit in document flow below each priority');
 assert(/const addButton = e\.target\.closest\('\.add-game-btn'\)/.test(script), 'Nested add-control content must preserve the click target');
+assert(/className = 'user-roster-copy'/.test(script) && /À la table/.test(script), 'Desktop roster must use the name and presence space beside each avatar');
+assert(/#view-voting-open #vote-form\s*\{[\s\S]{0,180}grid-template-columns: repeat\(2/.test(desktopCss), 'Voting ballot must use the ranked-card composition');
 assert(/const gamesUnlocked = phase === 'voting' \|\| phase === 'active'/.test(script), 'Games navigation must lock outside voting and active LAN phases');
 assert(/phase === 'voting' \? desktopVotingDestination === 'events' : true/.test(script)
     && /phase === 'voting' && desktopVotingDestination === 'games'/.test(script), 'Events and Games navigation highlights must remain exclusive');
