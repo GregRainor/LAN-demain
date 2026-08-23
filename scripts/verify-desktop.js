@@ -40,8 +40,10 @@ assert(/box-sizing\s*:\s*border-box\s*;/.test(scopedSizing), 'Desktop OS must us
 const stageView = ruleBody(desktopCss, '.desktop-stage > #view-waiting-closed');
 assert(/overflow-x\s*:\s*hidden\s*;/.test(stageView), 'Desktop phase views must contain horizontal overflow');
 
-assert(ids.includes('btn-calendar-back'), 'Programme is missing its explicit back action');
-assert(/btn-calendar-back[\s\S]{0,360}activateDesktopSubview\('lan-dashboard'\)/.test(script), 'Programme back action must return to the active LAN dashboard');
+// Le rail et la barre secondaire sont la route : un « ← Retour » de plus dans
+// l'écran était un vestige de l'époque sans coque.
+assert(!ids.includes('btn-calendar-back') && !/desktop-back-btn/.test(desktopCss),
+    'Programme must rely on the rail, not on a leftover back button');
 assert(/event\.target\s*===\s*playerModal/.test(script), 'Player profile must close when its overlay is clicked');
 assert(/id="user-info-menu"[^>]*role="button"[^>]*tabindex="0"/.test(html), 'Own-profile trigger must remain keyboard accessible');
 assert(/admin-command-card--broadcast/.test(html) && /admin-command-card--danger/.test(html), 'Active admin console structure is incomplete');
@@ -50,7 +52,10 @@ assert(/class="desktop-vote-intro"/.test(html) && /class="vote-panel-heading/.te
 assert(/desktop-vote-intro__rule/.test(html) && /À quoi joue-t-on/.test(html), 'Voting intro must use the compact ballot framing');
 assert((html.match(/class="add-game-btn"/g) || []).length === 3 && /add-game-btn"><span[^>]*>\+<\/span> Ajouter un jeu/.test(html), 'Voting add controls must be explicit and remain below their lists');
 assert(/let desktopVotingDestination = 'games'/.test(script) && /phase === 'voting' && destination === 'home'/.test(script), 'Events must route to Programme while voting is open');
-assert(/desktopPhase\(\) === 'voting'[\s\S]{0,180}desktopVotingDestination = 'games'/.test(script), 'Programme back action must return to the voting ballot');
+// Pendant le vote, on quitte le Programme par le rail : « Jeux » ramène au
+// bulletin. C'est la seule route depuis que le bouton « Retour » a disparu.
+assert(/phase === 'voting' && destination === 'games'\)\s*\{\s*desktopVotingDestination = 'games'/.test(script),
+    'The rail must lead back to the ballot while voting is open');
 assert(!/Quand & où/.test(html) && !/Quand & où/.test(script), 'Desktop copy must use Quand et où');
 assert(/class="luxury-panel recap-admin"/.test(html) && /id="recap-seal-date"/.test(html), 'Finished LAN must expose the redesigned next-chapter panel');
 

@@ -5603,15 +5603,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-goto-calendar')?.addEventListener('click', () => {
         activateDesktopSubview('lan-calendar');
     });
-    document.getElementById('btn-calendar-back')?.addEventListener('click', () => {
-        if (desktopPhase() === 'voting') {
-            desktopVotingDestination = 'games';
-            updateVotingUIState();
-            return;
-        }
-        activateDesktopSubview('lan-dashboard');
-    });
-
     bindScheduleForms();
 
     document.getElementById('cancel-event-btn')?.addEventListener('click', () => {

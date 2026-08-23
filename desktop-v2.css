@@ -2511,30 +2511,7 @@ body.desktop-authenticated #app-container.desktop-os *::after {
     border-bottom: 1px solid var(--desktop-line);
 }
 
-.desktop-subview-head__title {
-    min-width: 0;
-    display: flex;
-    align-items: center;
-    gap: 17px;
-}
-
 .desktop-subview-head .subview-title { margin: 0 !important; }
-
-.desktop-back-btn {
-    flex: 0 0 auto;
-    padding: 7px 10px !important;
-    border: 1px solid var(--desktop-line-white) !important;
-    background: transparent !important;
-    color: var(--secondary-text) !important;
-    font-size: 11px !important;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-}
-
-.desktop-back-btn:hover {
-    border-color: rgba(212, 175, 55, 0.45) !important;
-    color: var(--accent-color) !important;
-}
 
 /* Active admin: a composed control room rather than a stack of legacy cards. */
 #lan-admin.active {
