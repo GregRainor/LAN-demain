@@ -6,6 +6,7 @@ const root = path.resolve(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'm.html'), 'utf8');
 const css = fs.readFileSync(path.join(root, 'mobile.css'), 'utf8');
 const script = fs.readFileSync(path.join(root, 'mobile.js'), 'utf8');
+const vercel = fs.readFileSync(path.join(root, 'vercel.json'), 'utf8');
 
 function functionSource(name) {
     const start = script.indexOf('function ' + name + '(');
@@ -51,6 +52,23 @@ assert(/\.m-sheet__body\s*\{[\s\S]{0,260}flex:\s*1 1 auto[\s\S]{0,180}min-height
     && /touch-action:\s*pan-y/.test(css), 'Long mobile sheets must own a bounded touch scroll area');
 assert(/#m-btn-notifs svg\s*\{[\s\S]{0,180}display:\s*block/.test(css)
     && /\.m-iconbtn\s*\{[\s\S]{0,180}padding:\s*0/.test(css), 'The notification glyph must be explicitly centered in its button');
+assert(!html.includes('m-goto-desktop')
+    && !script.includes('lan_vue=bureau')
+    && !vercel.includes('"key": "lan_vue"'), 'Mobile routing must not expose or honor a persistent desktop switch');
+assert(/id="m-editorial"/.test(html)
+    && /id="m-overview"/.test(html)
+    && /function renderEditorialHome\(/.test(script)
+    && /Composez la prochaine nuit/.test(script), 'Direction A editorial home is incomplete');
+assert((html.match(/class="m-tab(?:\s|")/g) || []).length === 5
+    && /grid-template-columns:\s*repeat\(5,\s*minmax\(0,\s*1fr\)\)/.test(css)
+    && /data-goto="cartes"/.test(html), 'The mobile dock must mirror the five-destination desktop architecture');
+assert(/data-goto="miam"/.test(html)
+    && /data-goto="sondages"/.test(html)
+    && /m-plus-miam/.test(html)
+    && /m-plus-sondages/.test(html), 'Food runs and polls must remain reachable from Plus');
+for (const motion of ['m-shell-down', 'm-title-in', 'm-line-draw', 'm-stat-in', 'm-rank-in', 'm-tab-ink', 'm-action-sweep', 'm-phase-shift']) {
+    assert(css.includes('@keyframes ' + motion), 'Missing Bureau en poche motion: ' + motion);
+}
 
 /* Régression exacte du cas signalé : vote ouvert, LAN non active. Les écrans
    de soirée sont fermés, mais Jeux et Vote restent atteignables et la racine

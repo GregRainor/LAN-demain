@@ -14,7 +14,7 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js" integrity="sha384-p62xBRve8PdqGDGASZtZMuHgPsyPcT5VsFwgmz2p4zaFdEtt5ZzNqxK+CLzQS7xP" crossorigin="anonymous"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js" integrity="sha384-fuqdSwJXSvcAuKu5FbSJcHqHK474liv5ji8tuDnHz1rpfrnuXZPdM0oRaSK6c95L" crossorigin="anonymous"></script>
 
-    <link rel="stylesheet" href="mobile.css?v=20260823-mobile-shell">
+    <link rel="stylesheet" href="mobile.css?v=20260823-pocket-office">
 </head>
 
 <body>
@@ -46,7 +46,10 @@
                         <path d="M15 6l-6 6 6 6" />
                     </svg>
                 </button>
-                <span class="m-appbar__name" id="m-lan-name">LAN Demain</span>
+                <span class="m-appbar__brand">
+                    <span class="m-appbar__name" id="m-lan-name">LAN Demain</span>
+                    <span class="m-appbar__meta" id="m-lan-meta">La prochaine nuit</span>
+                </span>
                 <span class="m-live" id="m-phase" style="display:none"><span class="m-live__dot"></span><span
                         id="m-phase-label">En cours</span></span>
                 <button class="m-iconbtn" id="m-btn-notifs" aria-label="Notifications">
@@ -70,6 +73,18 @@
 
             <!-- ---------- SOIRÉE ---------- -->
             <section class="m-screen is-active" data-screen="soiree">
+                <section class="m-editorial" id="m-editorial" data-phase="waiting">
+                    <p class="m-editorial__kicker" id="m-editorial-kicker">Entre deux nuits</p>
+                    <h1 class="m-editorial__title" id="m-editorial-title">La prochaine soirée se prépare.</h1>
+                    <p class="m-editorial__copy" id="m-editorial-copy">Retrouvez ici le prochain chapitre de la LAN.</p>
+                </section>
+
+                <div class="m-overview" id="m-overview" aria-label="Résumé de la phase">
+                    <div class="m-overview__stat"><strong id="m-overview-value-1">—</strong><span id="m-overview-label-1">Joueurs</span></div>
+                    <div class="m-overview__stat"><strong id="m-overview-value-2">—</strong><span id="m-overview-label-2">Jeux</span></div>
+                    <div class="m-overview__stat"><strong id="m-overview-value-3">—</strong><span id="m-overview-label-3">État</span></div>
+                </div>
+
                 <!-- Quand & où : la première question avant la LAN, masquée tant
                      que l'admin n'a annoncé ni date ni lieu. -->
                 <div class="m-section" id="m-when-where-section" style="display:none">
@@ -100,12 +115,16 @@
                     <div id="m-next-event"></div>
                 </div>
 
-                <div class="m-section">
+                <div class="m-section m-section--editorial">
                     <div class="m-section__head">
-                        <h2 class="m-section__title">Podium des votes</h2>
+                        <div>
+                            <span class="m-section__eyebrow">En direct</span>
+                            <h2 class="m-section__display">Tendance du groupe</h2>
+                        </div>
                         <button class="m-section__link" data-goto="jeux">Tout voir</button>
                     </div>
                     <div id="m-podium"></div>
+                    <button class="m-editorial__action" id="m-editorial-action" type="button">Voir les jeux</button>
                 </div>
             </section>
 
@@ -171,6 +190,27 @@
                             </svg>
                             <span class="m-list__label">Kocktails</span>
                             <span class="m-list__hint" id="m-plus-kocktails"></span>
+                            <svg class="m-list__chev" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="m9 6 6 6-6 6" />
+                            </svg>
+                        </button>
+                        <button class="m-list__row" data-goto="miam">
+                            <svg class="m-list__ico" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M4 11h16a8 8 0 0 1-16 0z" />
+                                <path d="M3 20h18M12 4v3" />
+                            </svg>
+                            <span class="m-list__label">Les Fins Gourmets</span>
+                            <span class="m-list__hint" id="m-plus-miam"></span>
+                            <svg class="m-list__chev" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="m9 6 6 6-6 6" />
+                            </svg>
+                        </button>
+                        <button class="m-list__row" data-goto="sondages">
+                            <svg class="m-list__ico" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M6 20V11M12 20V4M18 20v-6" />
+                            </svg>
+                            <span class="m-list__label">Sondages</span>
+                            <span class="m-list__hint" id="m-plus-sondages"></span>
                             <svg class="m-list__chev" viewBox="0 0 24 24" aria-hidden="true">
                                 <path d="m9 6 6 6-6 6" />
                             </svg>
@@ -268,16 +308,6 @@
                             <span class="m-list__label" id="m-plus-name"></span>
                             <span class="m-list__hint" id="m-plus-role"></span>
                         </div>
-                        <button class="m-list__row" id="m-goto-desktop">
-                            <svg class="m-list__ico" viewBox="0 0 24 24" aria-hidden="true">
-                                <rect x="2" y="4" width="20" height="13" rx="2" />
-                                <path d="M8 21h8M12 17v4" />
-                            </svg>
-                            <span class="m-list__label">Passer en version bureau</span>
-                            <svg class="m-list__chev" viewBox="0 0 24 24" aria-hidden="true">
-                                <path d="m9 6 6 6-6 6" />
-                            </svg>
-                        </button>
                         <button class="m-list__row m-list__row--danger" id="m-logout">
                             <svg class="m-list__ico" viewBox="0 0 24 24" aria-hidden="true">
                                 <path d="M15 17l5-5-5-5M20 12H9M11 21H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5" />
@@ -706,20 +736,12 @@
                 <span class="m-tab__label">Boutique</span>
                 <span class="m-tab__dot" id="m-tab-shop" style="display:none">0</span>
             </button>
-            <button class="m-tab" data-goto="miam">
+            <button class="m-tab" data-goto="cartes">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M4 11h16a8 8 0 0 1-16 0z" />
-                    <path d="M3 20h18M12 4v3" />
+                    <rect x="8" y="3" width="12" height="16" rx="2" />
+                    <path d="M15.5 21H6a2 2 0 0 1-2-2V7.5" />
                 </svg>
-                <span class="m-tab__label">Miam</span>
-                <span class="m-tab__dot" id="m-tab-food" style="display:none">0</span>
-            </button>
-            <button class="m-tab" data-goto="sondages">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M6 20V11M12 20V4M18 20v-6" />
-                </svg>
-                <span class="m-tab__label">Sondages</span>
-                <span class="m-tab__dot" id="m-tab-polls" style="display:none">0</span>
+                <span class="m-tab__label">Collection</span>
             </button>
             <button class="m-tab" data-goto="plus">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -728,6 +750,7 @@
                     <circle cx="19" cy="12" r="1.5" fill="currentColor" stroke="none" />
                 </svg>
                 <span class="m-tab__label">Plus</span>
+                <span class="m-tab__dot" id="m-tab-more" style="display:none">0</span>
             </button>
         </nav>
     </div>
@@ -802,7 +825,7 @@
     <script src="config.js"></script>
     <script src="core.js"></script>
     <script src="sound.js"></script>
-    <script src="mobile.js?v=20260823-mobile-shell"></script>
+    <script src="mobile.js?v=20260823-pocket-office"></script>
 </body>
 
 </html>

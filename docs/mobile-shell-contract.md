@@ -2,6 +2,24 @@
 
 Ce document fixe les invariants de la coque téléphone de LAN Demain. Il sert de garde-fou aux prochaines refontes : l'interface peut changer d'apparence, pas devenir une impasse selon la phase de la LAN.
 
+## Direction visuelle retenue
+
+La coque suit la piste **A — Bureau en poche**. Elle reprend le rythme éditorial du bureau sans tenter de miniaturiser ses colonnes :
+
+1. un en-tête compact avec nom, date/lieu, phase, notifications et profil ;
+2. un chapitre de phase en Playfair (`m-editorial`) ;
+3. trois chiffres de contexte (`m-overview`) ;
+4. la tendance du groupe et l'action principale ;
+5. un dock à cinq racines : Soirée, Jeux, Boutique, Collection, Plus.
+
+Miam et Sondages restent des fonctionnalités complètes. Elles sont accessibles depuis Plus et deviennent donc des écrans secondaires avec un vrai retour. Les animations racontent la hiérarchie — arrivée du chapitre, tracé de la ligne, entrée des chiffres et du classement — et sont neutralisées par `prefers-reduced-motion`.
+
+## Choix automatique de l'interface
+
+Il n'existe plus de bouton « version bureau » ou « version téléphone ». Vercel choisit `m.html` d'après le user-agent du téléphone et `desktop.html` sinon. Le cookie historique `lan_vue` n'est plus lu par le routage et les deux interfaces l'effacent au chargement pour réparer les appareils ayant forcé une ancienne vue.
+
+Invariant : ajouter un nouveau sélecteur manuel recréerait une route sans retour et est interdit. La parité doit être obtenue dans les composants mobiles, pas en envoyant un téléphone vers le canvas desktop.
+
 ## Phases et destinations
 
 La fonction `phase()` est l'unique source de vérité pour l'accès aux écrans.
@@ -36,6 +54,8 @@ La fonction `phase()` est l'unique source de vérité pour l'accès aux écrans.
 
 Les boutons ronds de l'en-tête ont une boîte tactile de 44 px. Le pictogramme de notification est un SVG `display: block` dans un bouton sans padding ni hauteur de ligne implicite ; cela évite le décalage optique introduit par les styles natifs des boutons.
 
+La cloche du bureau suit le même contrat. Le JavaScript doit la révéler avec `display: grid`, jamais `inline-flex`, faute de quoi le centrage défini par `place-items` est perdu selon la phase.
+
 ## Matrice de vérification avant publication
 
 - Largeurs : 320, 360, 390 et 430 px.
@@ -43,7 +63,8 @@ Les boutons ronds de l'en-tête ont une boîte tactile de 44 px. Le pictogramme 
 - Parcours : onglet racine → écran secondaire → Retour ; changement de phase sur un écran secondaire ; retour navigateur vers une destination devenue verrouillée.
 - Feuilles : profil sans titre, Signature longue, Polonia, atelier de personnalisation, notifications longues.
 - En-tête : cloche sans badge, avec un chiffre et avec deux chiffres.
-- Lancer `node scripts/verify-mobile.js`, puis vérifier la version réellement servie par Vercel. Une publication Vercel ne publie pas les règles Firebase.
+- Routage : un user-agent iPhone/Android Mobile reçoit `m.html` même si son navigateur conserve un ancien cookie `lan_vue=bureau`.
+- Lancer `node scripts/verify-mobile.js` et `node scripts/verify-desktop.js`, puis vérifier la version réellement servie par Vercel. Une publication Vercel ne publie pas les règles Firebase.
 
 ## Publication et retour arrière
 

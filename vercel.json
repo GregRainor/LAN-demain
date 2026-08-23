@@ -18,16 +18,6 @@
     "rewrites": [
         {
             "source": "/",
-            "has": [{ "type": "cookie", "key": "lan_vue", "value": "bureau" }],
-            "destination": "/desktop.html"
-        },
-        {
-            "source": "/",
-            "has": [{ "type": "cookie", "key": "lan_vue", "value": "mobile" }],
-            "destination": "/m.html"
-        },
-        {
-            "source": "/",
             "has": [
                 {
                     "type": "header",

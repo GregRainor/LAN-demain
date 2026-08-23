@@ -1,6 +1,10 @@
 // normalizeGameName, escapeHtml, levenshtein, checkTypos et calculateScores
 // vivent désormais dans core.js, partagé avec l'interface téléphone.
 
+/* Les interfaces suivent à nouveau l'appareil sans choix persistant. Effacer
+   l'ancien cookie répare les téléphones qui avaient forcé la vue bureau. */
+document.cookie = 'lan_vue=; path=/; max-age=0; samesite=lax';
+
 function animateCounter(element, target) {
     if (element.animationFrameId) cancelAnimationFrame(element.animationFrameId);
     const startValue = parseInt(element.textContent) || 0;
@@ -615,13 +619,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 loginBtnText.style.display = 'inline-block';
                 loginSpinner.style.display = 'none';
             });
-    });
-
-    // Repasser en interface téléphone. Le choix est un cookie et non un
-    // localStorage : c'est Vercel qui le lit pour servir la bonne page.
-    document.getElementById('btn-mobile-version')?.addEventListener('click', () => {
-        document.cookie = 'lan_vue=mobile; path=/; max-age=31536000; samesite=lax';
-        window.location.replace('/');
     });
 
     logoutBtn.addEventListener('click', async () => {
@@ -1547,7 +1544,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (viewLanActive) viewLanActive.style.display = 'block';
             document.querySelector('.lan-nav-list .nav-item[data-target="lan-tcg"]')?.click();
             const btnNotifPreview = document.getElementById('btn-notifications');
-            if (btnNotifPreview) btnNotifPreview.style.display = 'inline-flex';
+            if (btnNotifPreview) btnNotifPreview.style.display = 'grid';
             return;
         }
 
@@ -1556,7 +1553,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (phase === 'finished') {
             if (viewLanFinished) viewLanFinished.style.display = 'block';
             const btnNotifRecap = document.getElementById('btn-notifications');
-            if (btnNotifRecap) btnNotifRecap.style.display = 'inline-flex';
+            if (btnNotifRecap) btnNotifRecap.style.display = 'grid';
             renderLanRecap();
             return;
         }
@@ -1571,7 +1568,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             // Show notification bell in LAN active phase
             const btnNotif = document.getElementById('btn-notifications');
-            if (btnNotif) btnNotif.style.display = 'inline-flex';
+            if (btnNotif) btnNotif.style.display = 'grid';
             // Show admin/mixologist buttons
             if (window.currentUserIsAdmin || window.currentUserIsMixologist) {
                 const addMasterBtn = document.getElementById('btn-add-master-kocktail');
@@ -1582,7 +1579,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Show notification bell always (not just in LAN active)
         const btnNotif = document.getElementById('btn-notifications');
-        if (btnNotif) btnNotif.style.display = 'inline-flex';
+        if (btnNotif) btnNotif.style.display = 'grid';
 
         if (desktopAdminOverride && window.currentUserIsAdmin) {
             if (form) form.style.display = 'none';
@@ -6342,7 +6339,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!notifList || !badge || !btnNotif) return;
 
         // Bell is always visible once authenticated
-        btnNotif.style.display = 'inline-flex';
+        btnNotif.style.display = 'grid';
 
         const notifsArray = Object.entries(notifsData).map(([id, data]) => ({ id, ...data }));
         notifsArray.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));

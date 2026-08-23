@@ -666,25 +666,29 @@ body.desktop-authenticated #app-container.desktop-os *::after {
 }
 
 #top-right-actions #btn-tcg-preview,
-#top-right-actions #btn-lan-history,
-#top-right-actions #btn-mobile-version {
+#top-right-actions #btn-lan-history {
     display: none !important;
 }
 
 #top-right-actions #btn-notifications {
+    box-sizing: border-box;
     width: 40px;
     height: 40px;
     margin: 0 !important;
     padding: 0;
     display: grid;
     place-items: center;
+    align-content: center;
+    justify-content: center;
     border: 1px solid var(--desktop-line-white);
     border-radius: 50%;
     background: rgba(255,255,255,.025);
     color: #c8c5bc;
+    font-size: 0;
+    line-height: 0;
     transition: color 160ms ease, border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
 }
-#top-right-actions #btn-notifications svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.85; stroke-linecap: round; stroke-linejoin: round; }
+#top-right-actions #btn-notifications svg { display: block; width: 20px; height: 20px; margin: 0; fill: none; stroke: currentColor; stroke-width: 1.85; stroke-linecap: round; stroke-linejoin: round; transform: none; }
 #top-right-actions #btn-notifications:hover,
 #top-right-actions #btn-notifications:focus-visible { color: var(--accent-color); border-color: rgba(212,175,55,.52); background: rgba(212,175,55,.08); box-shadow: 0 0 18px rgba(212,175,55,.12); outline: 0; }
 

@@ -1260,18 +1260,6 @@ body.sidebar-visible {
     }
 }
 
-/* Le retour vers l'interface téléphone n'a de sens que sur un petit écran :
-   sur un vrai PC, ce bouton n'aurait rien à faire dans la barre du haut. */
-#btn-mobile-version {
-    display: none;
-}
-
-@media (max-width: 820px) {
-    #btn-mobile-version {
-        display: inline-flex;
-    }
-}
-
 @media (max-width: 768px) {
     body {
         padding: 15px;

@@ -20,6 +20,7 @@
     --gold-a08: rgba(212, 175, 55, .08);
     --gold-a15: rgba(212, 175, 55, .15);
     --gold-a30: rgba(212, 175, 55, .3);
+    --gold-a50: rgba(212, 175, 55, .5);
 
     --text: #f4f0ec;
     --text-2: #a8a6a1;
@@ -115,9 +116,11 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 
 .m-appbar {
     flex: 0 0 auto;
-    padding: calc(8px + env(safe-area-inset-top)) 14px 9px;
+    padding: calc(8px + env(safe-area-inset-top)) 14px 8px;
     border-bottom: 1px solid var(--line);
-    background: rgba(8, 8, 8, .94);
+    background: rgba(8, 8, 8, .96);
+    backdrop-filter: blur(18px);
+    animation: m-shell-down .42s cubic-bezier(.2,.8,.2,1) both;
 }
 .m-appbar__row { display: flex; align-items: center; gap: 9px; }
 
@@ -135,15 +138,37 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .m-back.is-shown { display: grid; }
 .m-back:active { background: var(--gold-a08); }
 .m-back svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.m-appbar__brand {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
 .m-appbar__name {
+    display: block;
     font-family: var(--fd);
     font-size: 1.16rem;
     font-weight: 600;
-    color: var(--text);
-    flex: 1;
+    color: var(--gold);
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: 1.15;
+}
+.m-appbar__meta {
+    display: block;
+    min-width: 0;
+    margin-top: 2px;
+    overflow: hidden;
+    color: var(--text-3);
+    font-size: .56rem;
+    font-weight: 500;
+    letter-spacing: .12em;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
     white-space: nowrap;
 }
 
@@ -259,6 +284,128 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .m-screen.is-active { display: flex; animation: m-fade .3s cubic-bezier(.25, .8, .25, 1); }
 @keyframes m-fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
+/* ---------- Accueil A · « Bureau en poche » ----------
+   Même rythme éditorial que le bureau : un chapitre, ses chiffres, puis la
+   tendance. La densité reste celle d'un téléphone, pas celle d'un dashboard. */
+.m-screen[data-screen="soiree"] {
+    position: relative;
+    padding-top: 0;
+    background:
+        radial-gradient(95% 260px at 5% 0, rgba(212,175,55,.065), transparent 68%);
+}
+.m-editorial {
+    position: relative;
+    padding: 24px 1px 21px;
+    overflow: hidden;
+    border-bottom: 1px solid var(--gold-a30);
+}
+.m-editorial.is-phase-changing { animation: m-phase-shift .46s cubic-bezier(.2,.8,.2,1) both; }
+.m-editorial::after {
+    content: "";
+    position: absolute;
+    right: 0;
+    bottom: -1px;
+    width: 82px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--gold));
+    transform-origin: right center;
+    animation: m-line-draw .72s .22s cubic-bezier(.2,.8,.2,1) both;
+}
+.m-editorial__kicker,
+.m-section__eyebrow {
+    display: block;
+    margin: 0 0 7px;
+    color: var(--gold);
+    font-size: .62rem;
+    font-weight: 500;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+}
+.m-editorial__kicker {
+    animation: m-kicker-in .45s .06s cubic-bezier(.2,.8,.2,1) both;
+}
+.m-editorial__title {
+    max-width: 11ch;
+    color: var(--text);
+    font-family: var(--fd);
+    font-size: clamp(2rem, 9vw, 2.45rem);
+    font-weight: 400;
+    line-height: 1.04;
+    text-wrap: balance;
+    animation: m-title-in .58s .1s cubic-bezier(.18,.82,.2,1) both;
+}
+.m-editorial__copy {
+    max-width: 38ch;
+    margin: 12px 0 0;
+    color: var(--text-2);
+    font-size: .81rem;
+    line-height: 1.55;
+    animation: m-copy-in .5s .2s cubic-bezier(.2,.8,.2,1) both;
+}
+.m-overview {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin-top: -17px;
+    border-bottom: 1px solid var(--line-2);
+}
+.m-overview__stat {
+    min-width: 0;
+    padding: 14px 5px 13px;
+    border-right: 1px solid var(--line-2);
+    text-align: center;
+    animation: m-stat-in .42s cubic-bezier(.2,.8,.2,1) both;
+}
+.m-overview__stat:nth-child(2) { animation-delay: 65ms; }
+.m-overview__stat:nth-child(3) { animation-delay: 130ms; }
+.m-overview__stat:last-child { border-right: 0; }
+.m-overview__stat strong {
+    display: block;
+    overflow: hidden;
+    color: var(--text);
+    font: 400 1.08rem/1.15 var(--fd);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.m-overview__stat span {
+    display: block;
+    margin-top: 3px;
+    overflow: hidden;
+    color: var(--text-3);
+    font-size: .55rem;
+    letter-spacing: .12em;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+.m-section--editorial { padding-top: 3px; }
+.m-section--editorial .m-section__head { align-items: flex-end; }
+.m-section--editorial .m-section__eyebrow { margin-bottom: 2px; color: var(--text-3); }
+.m-section__display {
+    color: var(--text);
+    font: 400 1.42rem/1.1 var(--fd);
+}
+.m-editorial__action {
+    position: relative;
+    min-height: 48px;
+    overflow: hidden;
+    border: 1px solid var(--gold-a30);
+    background: var(--gold-a08);
+    color: var(--gold);
+    font-size: .7rem;
+    font-weight: 500;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+}
+.m-editorial__action::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(105deg, transparent 22%, rgba(255,255,255,.11) 47%, transparent 72%);
+    transform: translateX(-120%);
+    animation: m-action-sweep 4.8s 1.1s ease-in-out infinite;
+}
+.m-editorial__action:active { border-color: var(--gold); background: var(--gold-a15); }
+
 .m-section { display: flex; flex-direction: column; gap: 10px; }
 .m-section__head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
 .m-section__title {
@@ -367,6 +514,11 @@ textarea.m-input { resize: vertical; min-height: 84px; }
     border-bottom: 1px solid var(--line-2);
     width: 100%; text-align: left; overflow: hidden;
 }
+.m-screen.is-active .m-rank__row {
+    animation: m-rank-in .38s cubic-bezier(.2,.8,.2,1) both;
+}
+.m-screen.is-active .m-rank__row:nth-child(2) { animation-delay: 55ms; }
+.m-screen.is-active .m-rank__row:nth-child(3) { animation-delay: 110ms; }
 .m-rank__row:last-child { border-bottom: 0; }
 .m-rank__bar {
     position: absolute; inset: 0 auto 0 0;
@@ -538,9 +690,10 @@ textarea.m-input { resize: vertical; min-height: 84px; }
 .m-tabbar {
     flex: 0 0 auto;
     display: grid;
-    grid-template-columns: repeat(6, 1fr);
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     border-top: 1px solid var(--line);
-    background: rgba(8, 8, 8, .97);
+    background: rgba(8, 8, 8, .98);
+    box-shadow: 0 -14px 32px rgba(0,0,0,.34);
     padding-bottom: env(safe-area-inset-bottom);
 }
 .m-tab {
@@ -568,6 +721,7 @@ button[data-goto]:disabled { cursor: not-allowed; }
     content: ""; position: absolute; top: 0; left: 50%;
     transform: translateX(-50%);
     width: 26px; height: 2px; background: var(--gold);
+    animation: m-tab-ink .28s cubic-bezier(.2,.8,.2,1) both;
 }
 .m-tab__dot {
     position: absolute; top: 10px; right: calc(50% - 17px);
@@ -578,6 +732,24 @@ button[data-goto]:disabled { cursor: not-allowed; }
     font-size: .59rem; font-weight: 600;
     border: 2px solid #080808;
     font-variant-numeric: tabular-nums;
+}
+
+@keyframes m-shell-down { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+@keyframes m-kicker-in { from { opacity: 0; letter-spacing: .26em; transform: translateY(5px); } to { opacity: 1; letter-spacing: .18em; transform: none; } }
+@keyframes m-title-in { from { opacity: 0; clip-path: inset(0 100% 0 0); transform: translateY(10px); } to { opacity: 1; clip-path: inset(0); transform: none; } }
+@keyframes m-copy-in { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+@keyframes m-line-draw { from { opacity: 0; transform: scaleX(0); } to { opacity: 1; transform: scaleX(1); } }
+@keyframes m-stat-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes m-rank-in { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
+@keyframes m-tab-ink { from { opacity: 0; transform: translateX(-50%) scaleX(.15); } to { opacity: 1; transform: translateX(-50%) scaleX(1); } }
+@keyframes m-action-sweep { 0%, 68% { transform: translateX(-120%); } 88%, 100% { transform: translateX(120%); } }
+@keyframes m-phase-shift { from { opacity: .55; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+
+@media (max-width: 350px) {
+    .m-appbar { padding-inline: 10px; }
+    .m-appbar__row { gap: 6px; }
+    .m-live { padding-inline: 6px; }
+    .m-editorial__title { font-size: 1.9rem; }
 }
 
 /* ---------- Feuilles glissantes ---------- */

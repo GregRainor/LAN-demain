@@ -11,6 +11,11 @@ const auth = firebase.auth();
 const db = firebase.database();
 const googleProvider = new firebase.auth.GoogleAuthProvider();
 
+/* L'interface est désormais choisie uniquement d'après l'appareil. Cette
+   suppression répare aussi les téléphones restés prisonniers d'un ancien
+   cookie « version bureau ». */
+document.cookie = 'lan_vue=; path=/; max-age=0; samesite=lax';
+
 const state = {
     user: null,
     isAdmin: false,
@@ -238,13 +243,15 @@ function gameDetails(gameName) {
    Navigation
    ========================================================================== */
 
-const TABS = ['soiree', 'jeux', 'boutique', 'miam', 'sondages', 'plus'];
+const TABS = ['soiree', 'jeux', 'boutique', 'cartes', 'plus'];
 
 const SCREEN_TITLES = {
     vote: 'Mon vote',
     cartes: 'Mes cartes',
     'hauts-faits': 'Hauts faits',
     defis: 'Défis',
+    miam: 'Les Fins Gourmets',
+    sondages: 'Sondages',
     evenements: 'Événements',
     kocktails: 'Kocktails',
     biblio: 'Bibliothèques',
@@ -456,13 +463,6 @@ $('m-logout').addEventListener('click', () => {
     auth.signOut();
 });
 
-/* Le choix de version est un cookie et non un localStorage : c'est Vercel qui
-   le lit pour servir la bonne page, et il ne voit pas le localStorage. */
-$('m-goto-desktop').addEventListener('click', () => {
-    document.cookie = 'lan_vue=bureau; path=/; max-age=31536000; samesite=lax';
-    location.reload();
-});
-
 /* Le second callback de .on() manquait : quand une lecture échouait (règle
    refusée, jeton expiré, transport bloqué), l'écran restait vide sans le
    moindre message. On le dit désormais, une fois par chemin — une coupure les
@@ -600,6 +600,7 @@ function renderAll() {
     tcgView = null;
     renderHeader();
     renderPresence();
+    renderEditorialHome();
     renderWhenWhere();
     renderSealedTeaser();
     renderSoiree();
@@ -635,6 +636,11 @@ function renderHeader() {
     if (TABS.includes(currentScreen)) {
         $('m-lan-name').textContent = state.settings.lanName || 'LAN Demain';
     }
+    const schedule = describeLanSchedule(state.settings, new Date());
+    const meta = [];
+    if (schedule && schedule.when) meta.push(schedule.when);
+    if (schedule && schedule.place) meta.push(schedule.place);
+    $('m-lan-meta').textContent = meta.length ? meta.join(' · ') : 'La prochaine nuit';
     const pill = $('m-phase');
     const label = $('m-phase-label');
     pill.style.display = 'inline-flex';
@@ -709,15 +715,12 @@ function renderBadges() {
        d'inaccessible : on ne compte que ce qui est ouvert. */
     const openRuns = screenAvailable('miam')
         ? Object.entries(state.foodRuns).filter(([, run]) => !isRunClosed(run)).length : 0;
-    const foodDot = $('m-tab-food');
-    foodDot.style.display = openRuns ? 'grid' : 'none';
-    foodDot.textContent = openRuns;
-
     const openPolls = screenAvailable('sondages')
         ? visiblePolls().filter(([, poll]) => !isPollClosed(poll)).length : 0;
-    const pollDot = $('m-tab-polls');
-    pollDot.style.display = openPolls ? 'grid' : 'none';
-    pollDot.textContent = openPolls;
+    const moreDot = $('m-tab-more');
+    const moreCount = openRuns + openPolls;
+    moreDot.style.display = moreCount ? 'grid' : 'none';
+    moreDot.textContent = moreCount;
 
     /* La pastille de la boutique ne parle qu'au maître du jeu : pour tous les
        autres, une file d'attente n'est pas une nouvelle à traiter. */
@@ -757,6 +760,76 @@ function renderLocks() {
    Écran Soirée
    ========================================================================== */
 
+/* Traduction mobile du cadrage éditorial du bureau. Un même composant raconte
+   les quatre états de la LAN ; seules les données et l'action changent. */
+function renderEditorialHome() {
+    const p = phase();
+    const hero = $('m-editorial');
+    const schedule = describeLanSchedule(state.settings, new Date());
+    const voterTotal = Object.keys(state.votes).length;
+    const gameTotal = state.scores.length;
+    const onlineTotal = Object.keys(state.status).filter(uid => statusIdentity(state.status[uid])).length;
+    const eventTotal = Object.keys(state.events).length;
+    const lanTotal = Object.keys(state.history).length;
+    const knownPlayers = new Set([
+        ...Object.keys(state.status),
+        ...Object.keys(state.votes),
+        ...Object.keys(state.profiles)
+    ]).size;
+
+    const views = {
+        waiting: {
+            kicker: 'Entre deux nuits',
+            title: schedule ? 'Le prochain rendez-vous est posé.' : 'La prochaine nuit se prépare.',
+            copy: schedule
+                ? 'La date est annoncée. Revenez ici quand le conseil ouvrira les votes.'
+                : 'Les archives restent ouvertes pendant que l’admin prépare le prochain chapitre.',
+            stats: [[knownPlayers || '—', 'Joueurs'], [lanTotal, 'LAN'], [(schedule && schedule.countdown) || 'À fixer', 'Prochaine']],
+            action: state.isAdmin ? ['Préparer la prochaine LAN', 'admin'] : ['Voir les archives', 'historique']
+        },
+        vote: {
+            kicker: 'Le conseil d’avant-LAN',
+            title: 'Composez la prochaine nuit.',
+            copy: 'Chaque priorité pèse vraiment dans la sélection. Votez, observez la tendance, puis préparez ce qui monte.',
+            stats: [[voterTotal, 'Votants'], [gameTotal, 'Jeux'], [(schedule && schedule.countdown) || 'Ouvert', 'Échéance']],
+            action: ['Composer mon bulletin', 'vote']
+        },
+        lan: {
+            kicker: 'La soirée est lancée',
+            title: 'Autour de la table.',
+            copy: 'Le programme, les défis et les décisions du groupe vivent ici pendant toute la nuit.',
+            stats: [[onlineTotal, 'En ligne'], [eventTotal, 'Événements'], [gameTotal, 'Jeux retenus']],
+            action: ['Voir le programme', 'evenements']
+        },
+        finished: {
+            kicker: 'Le lendemain',
+            title: 'La nuit laisse une trace.',
+            copy: 'Le podium est figé, les hauts faits restent et la prochaine LAN peut déjà commencer à se raconter.',
+            stats: [[voterTotal, 'Votants'], [gameTotal, 'Jeux'], [eventTotal, 'Événements']],
+            action: ['Voir le bilan', 'bilan']
+        }
+    };
+    const view = views[p] || views.waiting;
+
+    if (hero.dataset.phase !== p) {
+        hero.dataset.phase = p;
+        hero.classList.remove('is-phase-changing');
+        void hero.offsetWidth;
+        hero.classList.add('is-phase-changing');
+    }
+    $('m-editorial-kicker').textContent = view.kicker;
+    $('m-editorial-title').textContent = view.title;
+    $('m-editorial-copy').textContent = view.copy;
+    view.stats.forEach((stat, index) => {
+        $('m-overview-value-' + (index + 1)).textContent = String(stat[0]);
+        $('m-overview-label-' + (index + 1)).textContent = stat[1];
+    });
+    const action = $('m-editorial-action');
+    action.textContent = view.action[0];
+    action.dataset.goto = view.action[1];
+    action.disabled = !screenAvailable(view.action[1]);
+}
+
 /* Quand & où : la seule question qui compte avant que la LAN démarre, donc
    affichée sur Soirée, dans toutes les phases. */
 function renderWhenWhere() {
@@ -772,7 +845,7 @@ function renderWhenWhere() {
         // contempler un cadre vide.
         if (!state.isAdmin) { section.style.display = 'none'; return; }
         section.style.display = 'flex';
-        mount.appendChild(emptyState('Ni date ni lieu annoncés. À renseigner dans Admin › Quand & où.'));
+        mount.appendChild(emptyState('Ni date ni lieu annoncés. À renseigner dans Admin › Quand et où.'));
         return;
     }
 
@@ -2045,6 +2118,10 @@ function renderPlus() {
     $('m-plus-events').textContent = events ? String(events) : '';
     const orders = Object.keys(state.cocktails.orders || {}).length;
     $('m-plus-kocktails').textContent = orders ? `${orders} en attente` : '';
+    const openRuns = Object.entries(state.foodRuns).filter(([, run]) => !isRunClosed(run)).length;
+    $('m-plus-miam').textContent = openRuns ? `${openRuns} ouverte${openRuns > 1 ? 's' : ''}` : '';
+    const openPolls = visiblePolls().filter(([, poll]) => !isPollClosed(poll)).length;
+    $('m-plus-sondages').textContent = openPolls ? `${openPolls} en cours` : '';
     const view = tcgSnapshot();
     const sealed = view.uid ? sealedPacksOf(state.tcg, view.uid).length : 0;
     const progress = setProgress(view.setCards, view.cards, view.uid);

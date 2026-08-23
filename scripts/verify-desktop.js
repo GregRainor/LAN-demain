@@ -83,6 +83,10 @@ assert(/equippedTitleId/.test(script) && /featuredAchievement/.test(script), 'Pl
 assert(/dataset\.playerNameLength/.test(script), 'Long desktop player names must adjust the centered Signature composition');
 assert(/id="player-prof-customize-btn"[\s\S]{0,320}<svg/.test(html), 'Profile customization needs its visible brush icon');
 assert(/id="btn-notifications"[\s\S]{0,260}<svg/.test(html), 'Desktop notifications must use a real bell icon');
+assert(!html.includes('btn-mobile-version') && !script.includes('lan_vue=mobile'), 'Desktop must not expose the obsolete reciprocal interface switch');
+assert(/#top-right-actions #btn-notifications\s*\{[\s\S]{0,500}display:\s*grid;[\s\S]{0,260}place-items:\s*center;[\s\S]{0,260}line-height:\s*0;/.test(desktopCss)
+    && /#top-right-actions #btn-notifications svg\s*\{[\s\S]{0,180}display:\s*block;/.test(desktopCss)
+    && !/btnNotif(?:Preview|Recap)?\.style\.display\s*=\s*'inline-flex'/.test(script), 'Desktop bell must remain centered in every phase');
 assert(/applyProfileTheme/.test(script) && /data-title-rarity/.test(html) && /data-title-motion/.test(html), 'Equipped titles must drive a controlled visual and motion theme');
 assert(/PROFILE_ROLE_TITLES/.test(core)
     && /administrator/.test(core)
