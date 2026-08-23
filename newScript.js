@@ -398,7 +398,9 @@ document.addEventListener('DOMContentLoaded', () => {
             wallet.style.display = phase === 'idle' ? 'none' : 'block';
         }
 
-        const liveUnlocked = phase === 'active';
+        /* Verrouillé pour la table, ouvert pour l'admin : c'est hors soirée
+           qu'on prépare la soirée. */
+        const liveUnlocked = phase === 'active' || !!window.currentUserIsAdmin;
         document.querySelectorAll('[data-live-only]').forEach(item => {
             item.classList.toggle('is-locked', !liveUnlocked);
             item.disabled = !liveUnlocked;
@@ -409,7 +411,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // la soirée. Entre deux LAN et après la clôture, il n'y a plus d'action
         // possible : le laisser cliquable promettait une page qui ne s'ouvrait pas.
         const gamesNav = document.querySelector('.desktop-nav__item[data-desktop-destination="games"]');
-        const gamesUnlocked = phase === 'voting' || phase === 'active';
+        const gamesUnlocked = phase === 'voting' || phase === 'active' || !!window.currentUserIsAdmin;
         if (gamesNav) {
             gamesNav.classList.toggle('is-locked', !gamesUnlocked);
             gamesNav.disabled = !gamesUnlocked;
@@ -484,7 +486,7 @@ document.addEventListener('DOMContentLoaded', () => {
         subnav.style.display = group ? 'flex' : 'none';
         // Pendant le vote, seul le Programme existe : les autres se verrouillent
         // au lieu de disparaître, comme le rail au-dessus.
-        const live = desktopPhase() === 'active';
+        const live = desktopPhase() === 'active' || !!window.currentUserIsAdmin;
         subnav.querySelectorAll('.desktop-subnav__item').forEach(item => {
             const mine = item.dataset.desktopGroup === group;
             item.hidden = !mine;
@@ -504,9 +506,19 @@ document.addEventListener('DOMContentLoaded', () => {
     function activateDesktopSubview(targetId) {
         const phase = desktopPhase();
         const votingProgramme = phase === 'voting' && targetId === 'lan-calendar';
-        if (phase !== 'active' && !votingProgramme) return;
+        const adminPreview = phase !== 'active' && !votingProgramme && !!window.currentUserIsAdmin;
+        if (phase !== 'active' && !votingProgramme && !adminPreview) return;
         if (votingProgramme) desktopVotingDestination = 'events';
         desktopAdminOverride = false;
+        // Hors soirée, l'admin visite : la phase reste ce qu'elle est, seul
+        // l'écran change. updateVotingUIState() se charge d'afficher la coque
+        // de LAN active autour.
+        desktopPreviewSubview = adminPreview ? targetId : '';
+        if (adminPreview) {
+            updateVotingUIState();
+            if (targetId === 'lan-tcg') renderCollection();
+            return;
+        }
         const activeView = document.getElementById('view-lan-active');
         if (activeView) activeView.scrollTop = 0;
         const legacy = document.querySelector(`.lan-nav-list .nav-item[data-target="${targetId}"]`);
@@ -537,7 +549,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
                 desktopAdminOverride = false;
-                tcgAdminPreview = false;
+                desktopPreviewSubview = '';
                 const phase = desktopPhase();
                 if (phase === 'voting' && destination === 'home') {
                     desktopVotingDestination = 'events';
@@ -568,6 +580,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             desktopAdminOverride = true;
+            desktopPreviewSubview = '';
             updateVotingUIState();
             syncDesktopNavigation('lan-admin');
         });
@@ -1575,9 +1588,12 @@ document.addEventListener('DOMContentLoaded', () => {
         updateVotingUIState();
     }
 
-    /* L'admin regarde la Collection hors soirée. Un simple drapeau : la vue
-       de LAN active est réaffichée telle quelle, ouverte sur cet onglet. */
-    let tcgAdminPreview = false;
+    /* L'admin travaille hors soirée : garnir la carte de la boutique, écrire
+       des défis, composer le set. Tous les écrans de la LAN active lui sont
+       donc ouverts en permanence — ce drapeau retient lequel il regarde, et la
+       vue de LAN active est réaffichée telle quelle, ouverte dessus.
+       Auparavant seule la Collection y avait droit, par un bouton caché. */
+    let desktopPreviewSubview = '';
 
     function updateVotingUIState() {
         const viewNoLan = document.getElementById('view-no-lan');
@@ -1606,23 +1622,20 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!window.currentUserIsAdmin) desktopAdminOverride = false;
         const phase = desktopPhase();
 
-        // Le raccourci Collection ne s'affiche qu'à l'admin, et seulement quand
-        // la LAN n'est pas lancée — sinon l'onglet du menu latéral suffit.
-        const previewBtn = document.getElementById('btn-tcg-preview');
-        if (previewBtn) {
-            previewBtn.style.display = (window.currentUserIsAdmin && !globalSettings.isLanActive)
-                ? 'inline-block' : 'none';
-        }
+        if (!window.currentUserIsAdmin) desktopPreviewSubview = '';
 
-        /* Débogage : l'admin a demandé la Collection avant que la soirée soit
-           lancée. On lui montre la vue de LAN active, ouverte sur cet onglet,
-           et rien d'autre — c'est le seul moyen d'éprouver un set et d'ouvrir
-           un booster hors soirée. */
-        if (tcgAdminPreview && window.currentUserIsAdmin && !globalSettings.isLanActive) {
+        /* L'admin a ouvert un écran de la soirée alors qu'elle n'a pas
+           commencé. On lui montre la vue de LAN active, ouverte sur cet
+           onglet, et rien d'autre : c'est ainsi qu'on prépare une carte, une
+           liste de défis ou un set avant le jour J. On clique l'aiguillage
+           hérité plutôt que d'appeler activateDesktopSubview(), qui
+           rappellerait cette fonction. */
+        if (desktopPreviewSubview && window.currentUserIsAdmin && phase !== 'active') {
             if (viewLanActive) viewLanActive.style.display = 'block';
-            document.querySelector('.lan-nav-list .nav-item[data-target="lan-tcg"]')?.click();
             const btnNotifPreview = document.getElementById('btn-notifications');
             if (btnNotifPreview) btnNotifPreview.style.display = 'grid';
+            document.querySelector(`.lan-nav-list .nav-item[data-target="${desktopPreviewSubview}"]`)?.click();
+            renderDesktopShell();
             return;
         }
 
@@ -8498,9 +8511,50 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /* Illustration d'une carte. Quand la carte porte son appId — tous les sets
        composés à partir de maintenant — l'adresse de la jaquette Steam s'en
-       déduit et le set entier ne déclenche pas une seule requête. */
+       déduit et le set entier ne déclenche pas une seule requête.
+
+       La jaquette d'une carte se déduit de l'appId, sans le moindre appel
+       réseau : c'est ce qui rend le set instantané. Mais tous les appId n'ont
+       pas de `header.jpg` — un jeu retiré du magasin, un DLC, une entrée de
+       bibliothèque sans fiche, un identifiant d'une autre boutique. Sans
+       repli, ces cartes-là affichaient un cadre vide, au hasard des sets.
+
+       Trois marches, de la moins chère à la plus chère : l'autre CDN de Steam,
+       puis la recherche par nom (qui passe par l'API et tente Wikipédia), puis
+       l'icône générique. Chaque image ne descend l'escalier qu'une fois. */
+    function armCardArtFallback(imgEl, card) {
+        if (imgEl.dataset.artFallback) return;
+        imgEl.dataset.artFallback = '1';
+
+        imgEl.addEventListener('error', () => {
+            const step = imgEl.dataset.artStep || '';
+            const label = card.name || card.gameKey;
+
+            if (!step && card.appId) {
+                imgEl.dataset.artStep = 'mirror';
+                imgEl.src = 'https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/'
+                    + encodeURIComponent(card.appId) + '/header.jpg';
+                return;
+            }
+
+            if (step !== 'search') {
+                imgEl.dataset.artStep = 'search';
+                getGameImage(label)
+                    .then(url => { imgEl.src = url || DEFAULT_GAME_ICON; })
+                    .catch(() => { imgEl.src = DEFAULT_GAME_ICON; });
+                return;
+            }
+
+            // Dernière marche : une icône en data: URI, qui ne peut pas échouer
+            // à son tour et donc pas boucler.
+            imgEl.dataset.artStep = 'done';
+            imgEl.src = DEFAULT_GAME_ICON;
+        });
+    }
+
     function paintCardArt(imgEl, card) {
         if (card.rarity === 'signature') ensureGeneratedArt(card.gameKey);
+        armCardArtFallback(imgEl, card);
 
         const known = cardImage(card, generatedArt);
         if (known) { imgEl.src = known; return; }
@@ -9131,12 +9185,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('btn-mint-set')?.addEventListener('click', () => mintSet(false));
     document.getElementById('btn-remint-set')?.addEventListener('click', () => mintSet(true));
-
-    document.getElementById('btn-tcg-preview')?.addEventListener('click', () => {
-        tcgAdminPreview = !tcgAdminPreview;
-        updateVotingUIState();
-        if (tcgAdminPreview) renderCollection();
-    });
 
     /* Débogage : en attendant la boutique, le maître du jeu ouvre autant de
        boosters qu'il veut. Le paquet est scellé puis ouvert dans la foulée —

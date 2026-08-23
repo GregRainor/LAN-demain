@@ -67,7 +67,19 @@ assert(/#view-voting-open \.add-game-btn\s*\{[\s\S]{0,120}position: static/.test
 assert(/const addButton = e\.target\.closest\('\.add-game-btn'\)/.test(script), 'Nested add-control content must preserve the click target');
 assert(/className = 'user-roster-copy'/.test(script) && /À la table/.test(script), 'Desktop roster must use the name and presence space beside each avatar');
 assert(/#view-voting-open #vote-form\s*\{[\s\S]{0,180}grid-template-columns: repeat\(2/.test(desktopCss), 'Voting ballot must use the ranked-card composition');
-assert(/const gamesUnlocked = phase === 'voting' \|\| phase === 'active'/.test(script), 'Games navigation must lock outside voting and active LAN phases');
+/* Une destination verrouillée l'est pour la table, pas pour l'admin : c'est
+   hors soirée qu'on garnit la carte, qu'on écrit des défis et qu'on compose le
+   set. Avant, seule la Collection y avait droit, par un bouton caché en CSS. */
+assert(/const gamesUnlocked = phase === 'voting' \|\| phase === 'active' \|\| !!window\.currentUserIsAdmin/.test(script)
+    && /const liveUnlocked = phase === 'active' \|\| !!window\.currentUserIsAdmin/.test(script),
+    'Every LAN screen must stay open to the admin, whatever the phase');
+assert(/let desktopPreviewSubview = ''/.test(script)
+    && /desktopPreviewSubview && window\.currentUserIsAdmin && phase !== 'active'/.test(script),
+    'The admin preview must remember which screen is open');
+assert(!/tcgAdminPreview/.test(script) && !ids.includes('btn-tcg-preview'),
+    'The Collection-only preview button must be gone: the rail opens it in every phase');
+assert(/const adminPreview = phase !== 'active' && !votingProgramme && !!window\.currentUserIsAdmin/.test(script),
+    'activateDesktopSubview must let the admin through outside the active LAN');
 assert(/phase === 'voting' \? desktopVotingDestination === 'events' : true/.test(script)
     && /phase === 'voting' && desktopVotingDestination === 'games'/.test(script), 'Events and Games navigation highlights must remain exclusive');
 // Le panneau admin est une destination, pas une phase. Testé après la branche
@@ -257,6 +269,22 @@ assert(!/id="lan-events"/.test(html) && !/events-list/.test(html) && !/events-li
     'Programme is the single events screen: the flat card list must be gone');
 assert(/item\.classList\.toggle\('is-locked', locked\)[\s\S]{0,120}item\.disabled = locked/.test(script),
     'Subnav destinations must lock, never disappear');
+
+/* --- L'illustration d'une carte -------------------------------------------
+   La jaquette se déduit de l'appId sans appel réseau, mais tous les appId n'ont
+   pas de header.jpg : jeu retiré du magasin, DLC, entrée de bibliothèque sans
+   fiche. Sans repli, ces cartes-là affichaient un cadre vide. L'escalier doit
+   finir sur une data: URI, qui ne peut pas échouer à son tour et donc pas
+   boucler. */
+assert(/function armCardArtFallback\(imgEl, card\)/.test(script)
+    && /imgEl\.addEventListener\('error'/.test(script),
+    'A card cover that fails to load must fall back instead of leaving a hole');
+assert(/imgEl\.dataset\.artStep = 'mirror'/.test(script)
+    && /imgEl\.dataset\.artStep = 'search'/.test(script)
+    && /imgEl\.dataset\.artStep = 'done';[\s\S]{0,80}imgEl\.src = DEFAULT_GAME_ICON;/.test(script),
+    'The cover fallback must end on the inline icon so it cannot loop');
+assert(/const DEFAULT_GAME_ICON = `data:image\/svg\+xml/.test(script),
+    'The last fallback must be an inline image that cannot 404');
 
 /* --- Les onglets internes -------------------------------------------------
    Un seul mécanisme pour la Boutique et Les Fins Gourmets : un onglet par

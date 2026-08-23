@@ -663,8 +663,6 @@ body.desktop-authenticated #app-container.desktop-os *::after {
     white-space: nowrap;
 }
 
-#top-right-actions #btn-tcg-preview { display: none !important; }
-
 #top-right-actions #btn-notifications {
     box-sizing: border-box;
     width: 40px;
