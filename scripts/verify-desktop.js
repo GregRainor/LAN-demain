@@ -105,6 +105,14 @@ assert(/equippedTitleId/.test(script) && /featuredAchievement/.test(script), 'Pl
 assert(/dataset\.playerNameLength/.test(script), 'Long desktop player names must adjust the centered Signature composition');
 assert(/id="player-prof-customize-btn"[\s\S]{0,320}<svg/.test(html), 'Profile customization needs its visible brush icon');
 assert(/id="btn-notifications"[\s\S]{0,260}<svg/.test(html), 'Desktop notifications must use a real bell icon');
+/* La déconnexion se dépliait au survol du bandeau : le mot apparaissait sous
+   le curseur au moment où l'on visait son profil, et tout glissait vers la
+   gauche. Une largeur fixe ne déplace rien. */
+assert(/id="logout-btn"[\s\S]{0,400}<svg/.test(html) && /id="logout-btn"[\s\S]{0,400}class="sr-only"/.test(html),
+    'Logout must be an icon with an accessible name, not a word that appears on hover');
+assert(!/#top-right-actions:hover #logout-btn/.test(desktopCss)
+    && /#top-right-actions #logout-btn \{[\s\S]{0,200}width: 40px;/.test(desktopCss),
+    'The account bar must not reflow when the pointer enters it');
 assert(!html.includes('btn-mobile-version') && !script.includes('lan_vue=mobile'), 'Desktop must not expose the obsolete reciprocal interface switch');
 assert(/#top-right-actions #btn-notifications\s*\{[\s\S]{0,500}display:\s*grid;[\s\S]{0,260}place-items:\s*center;[\s\S]{0,260}line-height:\s*0;/.test(desktopCss)
     && /#top-right-actions #btn-notifications svg\s*\{[\s\S]{0,180}display:\s*block;/.test(desktopCss)

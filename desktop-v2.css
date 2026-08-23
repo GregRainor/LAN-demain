@@ -724,23 +724,44 @@ body.desktop-authenticated #app-container.desktop-os *::after {
     object-fit: cover;
 }
 
+/* La déconnexion se dépliait au survol du bandeau : le mot « Déconnexion »
+   apparaissait sous le curseur au moment précis où l'on visait son profil, et
+   tout le reste glissait vers la gauche. Un bouton de largeur fixe, de la même
+   facture que la cloche, ne déplace plus rien et ne surprend personne. */
 #top-right-actions #logout-btn {
-    width: 0;
-    max-width: 0;
+    box-sizing: border-box;
+    width: 40px;
+    height: 40px;
+    margin: 0;
     padding: 0;
-    overflow: hidden;
-    border: 0;
-    opacity: 0;
-    white-space: nowrap;
-    transition: width 160ms ease, max-width 160ms ease, opacity 160ms ease;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--desktop-line-white);
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .025);
+    color: #c8c5bc;
+    font-size: 0;
+    line-height: 0;
+    transition: color 160ms ease, border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
 }
 
-#top-right-actions:hover #logout-btn,
-#top-right-actions:focus-within #logout-btn {
-    width: auto;
-    max-width: 90px;
-    padding: 6px 8px;
-    opacity: 1;
+#top-right-actions #logout-btn svg {
+    display: block;
+    width: 19px;
+    height: 19px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.85;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+#top-right-actions #logout-btn:hover,
+#top-right-actions #logout-btn:focus-visible {
+    border-color: rgba(188, 70, 70, .55);
+    background: rgba(188, 70, 70, .12);
+    color: #d47b7b;
+    outline: 0;
 }
 
 /* Sidebar */

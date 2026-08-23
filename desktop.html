@@ -88,7 +88,16 @@
                 <span id="user-name"></span>
                 <img id="user-avatar" src="" alt="Avatar">
             </div>
-            <button id="logout-btn" class="danger-link-btn" title="Déconnexion">Déconnexion</button>
+            <!-- Une icône fixe, de la même facture que la cloche. Le libellé
+                 qui se dépliait au survol poussait tout le bandeau vers la
+                 gauche : on visait son profil et on cliquait « Déconnexion ». -->
+            <button id="logout-btn" class="danger-link-btn" type="button" title="Déconnexion">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M15 17l5-5-5-5"></path>
+                    <path d="M20 12H9"></path>
+                    <path d="M12 20H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h6"></path>
+                </svg><span class="sr-only">Déconnexion</span>
+            </button>
             </div>
         </header>
 
