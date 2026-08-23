@@ -5573,49 +5573,6 @@ select.luxury-input option:disabled {
 
 .booster-buy__go { flex: 0 0 auto; }
 
-/* ---------- Les hauts faits ---------- */
-.ach-row {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    padding: 11px 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.ach-row:last-child { border-bottom: 0; }
-
-.ach-row__ico {
-    width: 38px;
-    height: 38px;
-    flex: 0 0 auto;
-    border-radius: 50%;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    display: grid;
-    place-items: center;
-    color: var(--secondary-text);
-}
-
-.ach-row__ico svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-.ach-row__main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.ach-row__name { font-size: 0.95em; color: var(--secondary-text); }
-.ach-row__hint { font-size: 0.8em; color: var(--secondary-text); opacity: 0.75; }
-.ach-row__bar { height: 3px; background: rgba(255, 255, 255, 0.06); border-radius: 2px; overflow: hidden; }
-.ach-row__fill { height: 100%; background: rgba(212, 175, 55, 0.55); }
-
-.ach-row__xp {
-    flex: 0 0 auto;
-    font-size: 0.82em;
-    font-weight: 600;
-    color: var(--secondary-text);
-    font-variant-numeric: tabular-nums;
-}
-
-.ach-row.is-owned .ach-row__ico { color: var(--accent-color); border-color: rgba(212, 175, 55, 0.35); background: rgba(212, 175, 55, 0.08); }
-.ach-row.is-owned .ach-row__name { color: var(--primary-text); }
-.ach-row.is-owned .ach-row__xp { color: var(--accent-color); }
-.ach-row.is-pending .ach-row__ico { color: #4e9463; border-color: rgba(78, 148, 99, 0.4); }
-.ach-row.is-pending .ach-row__hint { color: #8fd0a2; opacity: 1; }
-
 .lan-title-row {
     display: flex;
     align-items: center;

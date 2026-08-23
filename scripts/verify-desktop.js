@@ -56,7 +56,7 @@ assert(/class="luxury-panel recap-admin"/.test(html) && /id="recap-seal-date"/.t
 
 assert(/const activeValueWatches = \[\]/.test(script) && /function stopValueWatches\(\)/.test(script), 'Firebase value listeners must be tracked for logout teardown');
 assert(/stopValueWatches\(\);[\s\S]{0,240}await auth\.signOut\(\)/.test(script), 'Logout must detach Firebase listeners before removing authentication');
-assert(/globalPolls = \{\};\s*globalFoodRuns = \{\};\s*announcedPolls\.clear\(\)/.test(script), 'Logout must clear stale countdown data');
+assert(/globalPolls = \{\};\s*globalFoodRuns = \{\};\s*globalInstalled = \{\};\s*announcedPolls\.clear\(\)/.test(script), 'Logout must clear stale countdown and checklist data');
 assert(/if \(leftSidebar\) leftSidebar\.style\.display = 'none'/.test(script), 'The hidden voting admin rail must not reserve space for players');
 assert(/#view-voting-open \.add-game-btn\s*\{[\s\S]{0,120}position: static/.test(desktopCss), 'Voting add controls must sit in document flow below each priority');
 assert(/const addButton = e\.target\.closest\('\.add-game-btn'\)/.test(script), 'Nested add-control content must preserve the click target');
@@ -178,17 +178,23 @@ assert(/"history":\s*\{\s*"\.read"[^}]*"\.write":\s*"auth != null && \(root\.chi
 /* --- La Boutique : trois volets, plus aucun panneau éteint ---------------- */
 assert(!/#lan-boutique[^{]*\.dashboard-grid\s*\{[^}]*display:\s*none/.test(desktopCss),
     'Shop panels must have a route, not a display:none');
-for (const id of ['shop-feed', 'shop-leaderboard', 'shop-my-purchases', 'ach-list', 'lan-titles', 'xp-board']) {
+for (const id of ['shop-feed', 'shop-leaderboard', 'shop-my-purchases', 'lan-titles', 'xp-board']) {
     assert(ids.includes(id), `Shop panel #${id} disappeared instead of getting a route`);
 }
 const shopPanes = [...html.matchAll(/data-shop-pane="([a-z-]+)"/g)].map(match => match[1]);
-for (const pane of ['carte', 'registre', 'hauts-faits']) {
+for (const pane of ['carte', 'registre']) {
     assert(shopPanes.filter(name => name === pane).length === 2,
         `Shop pane "${pane}" needs both its tab and its panel`);
 }
+// Les hauts faits sont personnels : ils appartiennent à la Signature, pas à la
+// boutique. Le badge verrouillé doit dire quoi faire, pas seulement « 1 / 7 ».
+assert(!ids.includes('ach-list') && !/renderAchievements/.test(script),
+    'Achievements belong to the profile: the shop must not list them a second time');
+assert(/row\.ach\.hint\)\} · \$\{row\.current\} \/ \$\{row\.goal\}/.test(script),
+    'A locked Signature badge must state what unlocks it, not just a ratio');
 // Un volet fermé ne se construit pas : six panneaux se redessinaient à chaque
 // mouvement de l'économie pour un DOM que personne ne regardait.
-for (const fn of ['renderShopFeed', 'renderShopLeaderboard', 'renderAchievements']) {
+for (const fn of ['renderShopFeed', 'renderShopLeaderboard', 'renderLanTitlesPanel', 'renderXpBoard']) {
     assert(new RegExp(`function ${fn}\\(\\) \\{\\s*if \\(!shopPaneIsOpen\\(`).test(script),
         `${fn} must not build DOM for a closed pane`);
 }
@@ -209,8 +215,19 @@ assert(/Les jeux sont faits/.test(html)
     'The locked phase must show the countdown banner from the design');
 assert(/VAINQUEUR DES VOTES/.test(html) && /À INSTALLER/.test(html) && /PROGRAMME ANNONCÉ/.test(html),
     'The locked phase must show its three columns');
-assert(/function renderWaitingInstall/.test(script) && /knownGames\(\{ libraries:/.test(script),
-    'Readiness must be read from the declared Steam libraries, not from a new write path');
+/* Posséder un jeu et l'avoir installé sont deux choses différentes : la
+   checklist est déclarative, chacun ne coche que la sienne. Le nœud est neuf,
+   donc les règles Firebase doivent voyager avec — une mise en ligne Vercel ne
+   les publie pas, et sans elles la coche est refusée en silence. */
+assert(/function renderWaitingInstall/.test(script)
+    && /db\.ref\('lan\/installed\/' \+ user\.uid \+ '\/' \+ key\)/.test(script),
+    'Readiness must be a personal declaration, not a guess from the Steam library');
+assert(/"installed":\s*\{[\s\S]{0,700}"\$uid":\s*\{\s*"\.write":\s*"auth != null && \(\$uid === auth\.uid/.test(rules),
+    'lan/installed must be writable only by its own player');
+assert(/"\$game_key":\s*\{\s*"\.validate":\s*"!newData\.exists\(\) \|\| newData\.isBoolean\(\)"/.test(rules),
+    'lan/installed entries must be booleans');
+assert(/db\.ref\('lan\/installed'\)\.remove\(\)/.test(script),
+    'A new LAN must start from an empty install checklist');
 assert(!/renderMarquee/.test(script) && !/marquee/.test(html) && !/marquee/.test(baseCss),
     'The scrolling backdrop was hidden in every phase: it must be gone, not hidden');
 

@@ -100,7 +100,7 @@
         <aside class="desktop-sidebar" aria-label="Navigation principale">
             <nav class="desktop-nav">
                 <button type="button" class="desktop-nav__item active" data-desktop-destination="home">
-                    <span class="desktop-nav__icon" aria-hidden="true">▣</span><span>Événements</span>
+                    <span class="desktop-nav__icon" aria-hidden="true">▣</span><span>La soirée</span>
                 </button>
                 <button type="button" class="desktop-nav__item" data-desktop-destination="games">
                     <span class="desktop-nav__icon" aria-hidden="true">▱</span><span>Jeux</span>
@@ -615,95 +615,103 @@
                          Pendant la soirée, cet écran répond à quatre questions
                          et une seule fois chacune : on joue à quoi, il se passe
                          quoi ensuite, on mange quoi, et qu'est-ce qui attend
-                         une décision. Le reste a sa propre destination. -->
+                         une décision. Le reste a sa propre destination.
+
+                         Une seule règle de mise en page, pour que l'œil n'ait
+                         pas à chercher : un bandeau, puis deux colonnes. Toutes
+                         les cartes de la colonne de droite ont la même largeur
+                         et s'empilent — aucune ne flotte, aucun trou. -->
                     <div id="lan-dashboard" class="lan-subview active">
                         <h2 class="subview-title" style="margin-bottom: 21px;">Ce soir</h2>
 
-                        <div class="board-grid">
-                            <section class="luxury-panel board-card board-now">
-                                <span class="desktop-card-label">LA PARTIE EN COURS</span>
-                                <strong id="board-now-title" class="board-now__title">Rien de lancé</strong>
-                                <p id="board-now-meta" class="board-now__meta"></p>
-                            </section>
-
-                            <section class="luxury-panel board-card board-next">
-                                <div class="board-card__head">
-                                    <span class="desktop-card-label">ENSUITE</span>
-                                    <button id="btn-goto-calendar" class="gold-link-btn">Programme</button>
+                        <div class="board">
+                            <section class="luxury-panel board-hero">
+                                <div class="board-hero__now">
+                                    <span class="desktop-card-label">LA PARTIE EN COURS</span>
+                                    <strong id="board-now-title" class="board-now__title">Rien de lancé</strong>
+                                    <p id="board-now-meta" class="board-now__meta"></p>
                                 </div>
-                                <div id="upcoming-events-preview" class="stack stack--sm">
-                                    <p style="font-style:italic; color:var(--secondary-text);">Aucun événement prévu.</p>
-                                </div>
-                            </section>
 
-                            <section class="luxury-panel board-card board-order">
-                                <div class="board-card__head">
-                                    <span class="desktop-card-label">COMMANDE OUVERTE</span>
-                                    <button type="button" class="gold-link-btn" data-desktop-target="lan-food">Ouvrir</button>
-                                </div>
-                                <div id="board-order-body" class="stack stack--sm"></div>
-                            </section>
-
-                            <!-- Les actions rapides ne font rien elles-mêmes :
-                                 elles emmènent là où l'action se fait. Un bouton
-                                 qui ouvrirait un sondage ici dupliquerait le
-                                 formulaire de Sondages. -->
-                            <section class="luxury-panel board-card board-actions">
-                                <span class="desktop-card-label">ACTIONS RAPIDES</span>
-                                <div class="board-actions__grid">
-                                    <button type="button" class="board-action" data-desktop-target="lan-polls">
-                                        <span aria-hidden="true">▮</span>Lancer un sondage</button>
-                                    <button type="button" class="board-action" data-desktop-target="lan-food">
-                                        <span aria-hidden="true">♨</span>Ouvrir une commande</button>
-                                    <button type="button" class="board-action" data-desktop-target="lan-defis">
-                                        <span aria-hidden="true">★</span>Relever un défi</button>
-                                    <button type="button" class="board-action" data-desktop-target="lan-tcg">
-                                        <span aria-hidden="true">▤</span>Ouvrir un booster</button>
-                                    <button type="button" class="board-action" id="board-action-event">
-                                        <span aria-hidden="true">＋</span>Créer un événement</button>
-                                    <button type="button" class="board-action" data-desktop-target="lan-boutique">
-                                        <span aria-hidden="true">♧</span>Dépenser mes points</button>
+                                <!-- Les raccourcis ne font rien eux-mêmes : ils
+                                     emmènent là où l'action se fait. Un bouton
+                                     qui ouvrirait un sondage ici dupliquerait
+                                     le formulaire de Sondages. -->
+                                <div class="board-hero__actions">
+                                    <span class="desktop-card-label">ACTIONS RAPIDES</span>
+                                    <div class="board-actions__grid">
+                                        <button type="button" class="board-action" data-desktop-target="lan-polls">
+                                            <span aria-hidden="true">▮</span>Lancer un sondage</button>
+                                        <button type="button" class="board-action" data-desktop-target="lan-food">
+                                            <span aria-hidden="true">♨</span>Ouvrir une commande</button>
+                                        <button type="button" class="board-action" data-desktop-target="lan-defis">
+                                            <span aria-hidden="true">★</span>Relever un défi</button>
+                                        <button type="button" class="board-action" data-desktop-target="lan-tcg">
+                                            <span aria-hidden="true">▤</span>Ouvrir un booster</button>
+                                        <button type="button" class="board-action" id="board-action-event">
+                                            <span aria-hidden="true">＋</span>Créer un événement</button>
+                                        <button type="button" class="board-action" data-desktop-target="lan-boutique">
+                                            <span aria-hidden="true">♧</span>Dépenser mes points</button>
+                                    </div>
                                 </div>
                             </section>
 
-                            <section class="luxury-panel board-card board-review">
-                                <div class="board-card__head">
-                                    <span class="desktop-card-label">À VALIDER</span>
-                                    <span id="board-review-count" class="board-card__count"></span>
+                            <div class="board-columns">
+                                <div class="luxury-panel results-container board-main">
+                                    <h3 class="section-title">Les jeux de la soirée</h3>
+                                    <div id="games-filter-bar" class="filter-bar">
+                                        <span class="filter-bar__label">Filtrer</span>
+                                        <span id="filter-top-tags" class="filter-bar__chips"></span>
+                                        <details id="filter-all-tags" class="tag-menu">
+                                            <summary class="filter-chip">Tous les tags ▾</summary>
+                                            <div class="tag-menu__panel">
+                                                <input type="text" id="tag-search" class="luxury-input tag-menu__search"
+                                                    placeholder="Rechercher un tag…">
+                                                <div id="tag-menu-list" class="tag-menu__list"></div>
+                                            </div>
+                                        </details>
+                                        <button id="filter-reset" class="filter-chip filter-chip--reset"
+                                            style="display: none;">✕ Effacer</button>
+                                        <span id="filter-count" class="filter-bar__count"></span>
+                                    </div>
+                                    <div id="active-lan-games-list" class="rank-list scroll-area"></div>
                                 </div>
-                                <div id="board-review-body" class="stack stack--sm"></div>
-                            </section>
 
-                            <div class="luxury-panel results-container board-card board-games" style="padding: 25px;">
-                                <h3 class="section-title">Les jeux de la soirée</h3>
-                                <div id="games-filter-bar" class="filter-bar">
-                                    <span class="filter-bar__label">Filtrer</span>
-                                    <span id="filter-top-tags" class="filter-bar__chips"></span>
-                                    <details id="filter-all-tags" class="tag-menu">
-                                        <summary class="filter-chip">Tous les tags ▾</summary>
-                                        <div class="tag-menu__panel">
-                                            <input type="text" id="tag-search" class="luxury-input tag-menu__search"
-                                                placeholder="Rechercher un tag…">
-                                            <div id="tag-menu-list" class="tag-menu__list"></div>
+                                <div class="board-side">
+                                    <section class="luxury-panel board-card">
+                                        <div class="board-card__head">
+                                            <span class="desktop-card-label">ENSUITE</span>
+                                            <button id="btn-goto-calendar" class="gold-link-btn">Programme</button>
                                         </div>
-                                    </details>
-                                    <button id="filter-reset" class="filter-chip filter-chip--reset"
-                                        style="display: none;">✕ Effacer</button>
-                                    <span id="filter-count" class="filter-bar__count"></span>
-                                </div>
-                                <div id="active-lan-games-list" class="rank-list scroll-area">
-                                </div>
-                            </div>
+                                        <div id="upcoming-events-preview" class="stack stack--sm">
+                                            <p style="font-style:italic; color:var(--secondary-text);">Aucun événement prévu.</p>
+                                        </div>
+                                    </section>
 
-                            <div class="board-aside">
-                                <div id="dashboard-polls-panel" class="luxury-panel board-card" style="display: none;">
-                                    <span class="desktop-card-label">SONDAGES EN COURS</span>
-                                    <div id="dashboard-polls" class="stack stack--sm"></div>
-                                </div>
+                                    <section class="luxury-panel board-card">
+                                        <div class="board-card__head">
+                                            <span class="desktop-card-label">COMMANDE OUVERTE</span>
+                                            <button type="button" class="gold-link-btn" data-desktop-target="lan-food">Ouvrir</button>
+                                        </div>
+                                        <div id="board-order-body" class="stack stack--sm"></div>
+                                    </section>
 
-                                <div class="luxury-panel board-card">
-                                    <span class="desktop-card-label">AU BAR</span>
-                                    <div id="dashboard-cocktails" class="stack stack--sm"></div>
+                                    <section class="luxury-panel board-card">
+                                        <div class="board-card__head">
+                                            <span class="desktop-card-label">À VALIDER</span>
+                                            <span id="board-review-count" class="board-card__count"></span>
+                                        </div>
+                                        <div id="board-review-body" class="stack stack--sm"></div>
+                                    </section>
+
+                                    <section id="dashboard-polls-panel" class="luxury-panel board-card" style="display: none;">
+                                        <span class="desktop-card-label">SONDAGES EN COURS</span>
+                                        <div id="dashboard-polls" class="stack stack--sm"></div>
+                                    </section>
+
+                                    <section class="luxury-panel board-card">
+                                        <span class="desktop-card-label">AU BAR</span>
+                                        <div id="dashboard-cocktails" class="stack stack--sm"></div>
+                                    </section>
                                 </div>
                             </div>
                         </div>
@@ -931,7 +939,6 @@
                         <nav class="desktop-subnav desktop-subnav--shop" aria-label="Écrans de la boutique">
                             <button type="button" class="desktop-subnav__item active" data-shop-pane="carte">La carte</button>
                             <button type="button" class="desktop-subnav__item" data-shop-pane="registre">Le registre<b id="shop-pane-requests-badge"></b></button>
-                            <button type="button" class="desktop-subnav__item" data-shop-pane="hauts-faits">Hauts faits</button>
                         </nav>
 
                         <div class="shop-pane" data-shop-pane="carte">
@@ -985,34 +992,6 @@
                             </div>
                         </div><!-- /carte -->
 
-                        <!-- Les hauts faits : les jalons sont acquis pour
-                             toujours, les titres se décernent à la clôture. -->
-                        <div class="shop-pane" data-shop-pane="hauts-faits" hidden>
-                            <div class="dashboard-grid">
-                                <div class="luxury-panel" style="padding: 25px;">
-                                    <div class="panel-head">
-                                        <h3 class="section-title" style="margin: 0;">Hauts faits</h3>
-                                        <span id="ach-progress" class="panel-section__hint"
-                                            style="margin: 0;"></span>
-                                    </div>
-                                    <div id="ach-list" class="stack stack--sm scroll-area"></div>
-                                </div>
-                                <div class="dashboard-side">
-                                    <div id="titles-panel" class="luxury-panel"
-                                        style="padding: 25px; display: none;">
-                                        <h3 class="section-title">Titres de la soirée</h3>
-                                        <div id="lan-titles" class="stack stack--sm"></div>
-                                    </div>
-                                    <div class="luxury-panel" style="padding: 25px;">
-                                        <h3 class="section-title">Expérience</h3>
-                                        <p class="panel-section__hint">Elle ne se dépense pas et ne s'efface
-                                            pas : elle compte les soirées.</p>
-                                        <div id="xp-board" class="rank-list"></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div><!-- /hauts-faits -->
-
                         <div class="shop-pane" data-shop-pane="registre" hidden>
                             <div class="dashboard-grid">
                                 <div class="luxury-panel" style="padding: 25px;">
@@ -1030,6 +1009,23 @@
                                         style="padding: 25px; display: none;">
                                         <h3 class="section-title">Mes demandes</h3>
                                         <div id="shop-my-purchases" class="stack stack--sm"></div>
+                                    </div>
+                                    <!-- Deux états du groupe, comme les fortunes
+                                         juste au-dessus : ce que la soirée est
+                                         en train de décerner, et ce qui lui
+                                         survit. Les hauts faits, eux, sont
+                                         personnels : ils vivent dans la
+                                         Signature, verrouillés compris. -->
+                                    <div id="titles-panel" class="luxury-panel"
+                                        style="padding: 25px; display: none;">
+                                        <h3 class="section-title">Titres de la soirée</h3>
+                                        <div id="lan-titles" class="stack stack--sm"></div>
+                                    </div>
+                                    <div class="luxury-panel" style="padding: 25px;">
+                                        <h3 class="section-title">Expérience</h3>
+                                        <p class="panel-section__hint">Elle ne se dépense pas et ne
+                                            s'efface pas : elle compte les soirées.</p>
+                                        <div id="xp-board" class="rank-list"></div>
                                     </div>
                                 </div>
                             </div>

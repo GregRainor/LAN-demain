@@ -300,6 +300,15 @@
         }
       },
 
+      "installed": {
+        "//": "Ce que chacun a installé avant la soirée. Posséder un jeu ne suffit pas à le lancer : cette liste est déclarative, chacun ne coche que la sienne.",
+        ".read": "auth != null",
+        "$uid": {
+          ".write": "auth != null && ($uid === auth.uid || root.child('lan/roles').child(auth.uid).val() === 'admin' || auth.uid === 'ITe5VPuwewMzO7JnJA5oPWMdfvt2')",
+          "$game_key": { ".validate": "!newData.exists() || newData.isBoolean()" }
+        }
+      },
+
       "polls": {
         ".read": "auth != null",
         ".write": "auth != null && (root.child('lan/roles').child(auth.uid).val() === 'admin' || auth.uid === 'ITe5VPuwewMzO7JnJA5oPWMdfvt2')",

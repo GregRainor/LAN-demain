@@ -2104,24 +2104,40 @@ body.desktop-authenticated #app-container.desktop-os *::after {
 
 .waiting-install__list { display: grid; }
 
+/* Une case à cocher, pas un voyant : posséder un jeu et l'avoir installé sont
+   deux choses différentes, et seule la seconde se déclare. */
 .waiting-install__row {
     display: grid;
-    grid-template-columns: 18px minmax(0, 1fr) auto;
-    align-items: baseline;
-    gap: 11px;
+    grid-template-columns: 16px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
     padding: 10px 0;
     border-top: 1px solid var(--desktop-line);
+    cursor: pointer;
 }
 
 .waiting-install__row:first-child { border-top: 0; }
 
-.waiting-install__mark {
-    color: #3f3f3c;
-    font: 400 13px/1.2 var(--font-body);
-    text-align: center;
+.waiting-install__box {
+    box-sizing: border-box;
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    appearance: none;
+    border: 1px solid var(--desktop-line-white);
+    background: rgba(0, 0, 0, 0.3);
+    cursor: pointer;
+    transition: border-color var(--desktop-motion-fast) ease, background var(--desktop-motion-fast) ease;
 }
 
-.waiting-install__row.is-ready .waiting-install__mark { color: #4e9463; }
+.waiting-install__row:hover .waiting-install__box { border-color: rgba(212, 175, 55, 0.5); }
+
+.waiting-install__box:checked {
+    border-color: #4e9463;
+    background: #4e9463 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2 5 8.6l4.5-5' fill='none' stroke='%230b0b0b' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 12px no-repeat;
+}
+
+.waiting-install__box:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 2px; }
 
 .waiting-install__name {
     overflow: hidden;
@@ -2139,6 +2155,7 @@ body.desktop-authenticated #app-container.desktop-os *::after {
     white-space: nowrap;
 }
 
+.waiting-install__row.is-ready .waiting-install__name { color: var(--accent-color); }
 .waiting-install__row.is-ready .waiting-install__state { color: #4e9463; }
 
 .waiting-programme__list { display: grid; }
@@ -2175,15 +2192,87 @@ body.desktop-authenticated #app-container.desktop-os *::after {
 
 /* ==========================================================================
    LE TABLEAU DE BORD DE LA SOIRÉE
-   Une grille, pas une pile : la partie en cours tient la largeur, les trois
-   cartes d'action tiennent la deuxième ligne, la liste des jeux passe dessous.
+   Une seule règle de mise en page : un bandeau, puis deux colonnes. Les cartes
+   de la colonne de droite ont toutes la même largeur et s'empilent — aucune ne
+   flotte, et la grille ne peut pas laisser de trou.
    ========================================================================== */
 
-.board-grid {
+.board { display: grid; gap: 15px; }
+
+/* Ce qui se passe maintenant et ce que je peux faire maintenant partagent la
+   même bande, parce que c'est la même question. */
+.board-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+    align-items: center;
+    gap: 25px 34px;
+    padding: 25px 30px;
+    border-top: 2px solid rgba(212, 175, 55, 0.32);
+    background: linear-gradient(110deg, rgba(212, 175, 55, 0.07), transparent 52%), var(--desktop-panel);
+}
+
+.board-hero__now,
+.board-hero__actions { min-width: 0; display: grid; align-content: start; gap: 11px; }
+
+.board-now__title {
+    color: var(--accent-color);
+    font: 400 38px/1.08 var(--font-display);
+    overflow-wrap: anywhere;
+}
+
+.board-now__meta {
+    margin: 0;
+    color: var(--secondary-text);
+    font: 400 13px/1.5 var(--font-body);
+}
+
+.board-actions__grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 7px;
+}
+
+.board-action {
+    display: grid;
+    grid-template-columns: 17px minmax(0, 1fr);
+    align-items: center;
+    gap: 9px;
+    padding: 11px 12px;
+    border: 1px solid var(--desktop-line);
+    background: rgba(255, 255, 255, 0.018);
+    color: var(--secondary-text);
+    cursor: pointer;
+    font: 400 12px/1.2 var(--font-body);
+    text-align: left;
+    transition: color var(--desktop-motion-fast) ease, border-color var(--desktop-motion-fast) ease, background var(--desktop-motion-fast) ease;
+}
+
+.board-action > span {
+    color: var(--accent-color);
+    font: 400 14px/1 var(--font-display);
+    text-align: center;
+}
+
+.board-action:hover {
+    border-color: rgba(212, 175, 55, 0.42);
+    background: rgba(212, 175, 55, 0.07);
+    color: var(--primary-text);
+}
+
+.board-columns {
+    display: grid;
+    grid-template-columns: minmax(0, 1.9fr) minmax(300px, 0.75fr);
     gap: 15px;
     align-items: start;
+}
+
+.board-main { min-width: 0; padding: 25px; }
+
+.board-side {
+    min-width: 0;
+    display: grid;
+    align-content: start;
+    gap: 15px;
 }
 
 .board-card {
@@ -2223,66 +2312,6 @@ body.desktop-authenticated #app-container.desktop-os *::after {
     font: 400 12px/1.5 var(--font-body);
 }
 
-/* La partie en cours : la seule chose qu'on lit debout, un verre à la main. */
-.board-now {
-    grid-column: 1 / 3;
-    grid-row: 1;
-    border-top: 2px solid rgba(212, 175, 55, 0.32);
-    background: linear-gradient(110deg, rgba(212, 175, 55, 0.07), transparent 48%), var(--desktop-panel);
-}
-
-.board-now__title {
-    color: var(--accent-color);
-    font: 400 38px/1.08 var(--font-display);
-    overflow-wrap: anywhere;
-}
-
-.board-now__meta {
-    margin: 0;
-    color: var(--secondary-text);
-    font: 400 13px/1.5 var(--font-body);
-}
-
-.board-next { grid-column: 3; grid-row: 1 / 3; }
-.board-order { grid-column: 1; grid-row: 2; }
-.board-review { grid-column: 2; grid-row: 2; }
-.board-actions { grid-column: 1 / -1; grid-row: 3; }
-
-/* Six raccourcis en bande : une barre d'outils se lit d'un coup d'œil, une
-   colonne de six lignes se lit une par une. */
-.board-actions__grid {
-    display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-    gap: 7px;
-}
-
-.board-action {
-    display: grid;
-    grid-template-columns: 17px minmax(0, 1fr);
-    align-items: center;
-    gap: 9px;
-    padding: 11px 12px;
-    border: 1px solid var(--desktop-line);
-    background: rgba(255, 255, 255, 0.018);
-    color: var(--secondary-text);
-    cursor: pointer;
-    font: 400 12px/1.2 var(--font-body);
-    text-align: left;
-    transition: color var(--desktop-motion-fast) ease, border-color var(--desktop-motion-fast) ease, background var(--desktop-motion-fast) ease;
-}
-
-.board-action > span {
-    color: var(--accent-color);
-    font: 400 14px/1 var(--font-display);
-    text-align: center;
-}
-
-.board-action:hover {
-    border-color: rgba(212, 175, 55, 0.42);
-    background: rgba(212, 175, 55, 0.07);
-    color: var(--primary-text);
-}
-
 .board-order__row,
 .board-review__row {
     display: grid;
@@ -2317,25 +2346,9 @@ body.desktop-authenticated #app-container.desktop-os *::after {
 .board-order__row:hover strong,
 .board-review__row:hover strong { color: var(--accent-color); }
 
-.board-games { grid-column: 1 / 3; grid-row: 4; }
-
-.board-aside {
-    grid-column: 3;
-    grid-row: 4;
-    min-width: 0;
-    display: grid;
-    align-content: start;
-    gap: 15px;
-}
-
-@media (max-width: 1320px) {
-    .board-actions__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-}
-
-@media (max-width: 1180px) {
-    .board-grid { grid-template-columns: minmax(0, 1fr); }
-    .board-grid > * { grid-column: 1; grid-row: auto; }
-    .board-actions__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 1240px) {
+    .board-hero { grid-template-columns: minmax(0, 1fr); }
+    .board-columns { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* Active LAN: global sidebar replaces the old local navigation. */
@@ -2458,13 +2471,14 @@ body.desktop-authenticated #app-container.desktop-os *::after {
 #view-lan-active .lan-subview.active > :nth-child(5) { animation-delay: 140ms; }
 #view-lan-active .lan-subview.active > :nth-child(n+6) { animation-delay: 175ms; }
 
-#lan-dashboard.active .board-grid > * {
+#lan-dashboard.active .board > *,
+#lan-dashboard.active .board-side > * {
     animation: desktopPanelIn 480ms var(--desktop-ease) backwards;
 }
 
-#lan-dashboard.active .board-grid > :nth-child(2) { animation-delay: 60ms; }
-#lan-dashboard.active .board-grid > :nth-child(3) { animation-delay: 120ms; }
-#lan-dashboard.active .board-grid > :nth-child(n+4) { animation-delay: 170ms; }
+#lan-dashboard.active .board-side > :nth-child(2) { animation-delay: 60ms; }
+#lan-dashboard.active .board-side > :nth-child(3) { animation-delay: 120ms; }
+#lan-dashboard.active .board-side > :nth-child(n+4) { animation-delay: 170ms; }
 
 #view-lan-active .dashboard-grid {
     width: 100%;
@@ -3793,7 +3807,8 @@ body.desktop-authenticated #app-container.desktop-os *::after {
     .desktop-os .desktop-level-bars i,
     .desktop-os .lan-subview.active,
     .desktop-os .lan-subview.active > *,
-    .desktop-os #lan-dashboard.active .board-grid > *,
+    .desktop-os #lan-dashboard.active .board > *,
+    .desktop-os #lan-dashboard.active .board-side > *,
     #player-votes-modal > .modal-content {
         animation: none !important;
     }

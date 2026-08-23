@@ -636,6 +636,7 @@ document.addEventListener('DOMContentLoaded', () => {
             tickTimer = null;
             globalPolls = {};
             globalFoodRuns = {};
+            globalInstalled = {};
             announcedPolls.clear();
             firebaseConnected = false;
             appInitialized = false;
@@ -1061,7 +1062,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const path = ACH_ICONS[row.ach.icon] || ACH_ICONS.trophy;
         return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${path}"></path></svg>
             <span><strong>${escapeHtml(row.ach.label)}</strong>
-            <small>${row.owned ? (compact ? row.ach.hint : 'Acquis') : `${row.current} / ${row.goal}`}</small></span>`;
+            <small>${row.owned
+        ? (compact ? escapeHtml(row.ach.hint) : 'Acquis')
+        : `${escapeHtml(row.ach.hint)} · ${row.current} / ${row.goal}`}</small></span>`;
     }
 
     function renderProfileCustomizer(profile) {
@@ -1432,7 +1435,6 @@ document.addEventListener('DOMContentLoaded', () => {
         watchValue(db.ref('lan/xp'), (snapshot) => {
             globalXp = snapshot.val() || {};
             renderBoutique();
-            renderAchievements();
             grantPendingAchievements();
             renderDesktopShell();
         });
@@ -1441,7 +1443,6 @@ document.addEventListener('DOMContentLoaded', () => {
            trois soirées, et une soirée est une entrée d'historique. */
         watchValue(db.ref('lan/history'), (snapshot) => {
             globalHistory = snapshot.val() || {};
-            renderAchievements();
             renderDesktopShell();
         });
         startTickEngine();
@@ -1468,6 +1469,12 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 renderGroupLibrary();
             }
+            renderWaitingClosed();
+        });
+
+        // Ce que chacun a déjà installé, pour la checklist d'avant-soirée.
+        watchValue(db.ref('lan/installed'), (snapshot) => {
+            globalInstalled = snapshot.val() || {};
             renderWaitingClosed();
         });
 
@@ -3348,6 +3355,9 @@ document.addEventListener('DOMContentLoaded', () => {
             db.ref('lan/polls').remove(),
             db.ref('lan/foodRuns').remove(),
             db.ref('lan/steamLibraries').remove(),
+            // Une soirée s'installe pour ses jeux à elle : les coches de la
+            // précédente annonceraient des jeux prêts qui ne le sont plus.
+            db.ref('lan/installed').remove(),
             db.ref('lan/economy/ledger').remove(),
             db.ref('lan/economy/ticks').remove(),
             db.ref('lan/economy/purchases').remove()
@@ -5310,9 +5320,44 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    /* « Prêt » se lit dans les bibliothèques déjà déposées : un jeu que tout le
-       monde possède ne se télécharge plus. Rien de nouveau n'est écrit en base,
-       donc aucune règle Firebase à publier pour que cet écran fonctionne. */
+    /* La checklist d'installation.
+
+       Posséder un jeu et l'avoir installé sont deux choses différentes — et
+       c'est justement la seconde qui décide si la soirée peut commencer à
+       l'heure. Les bibliothèques Steam ne peuvent donc pas y répondre : chacun
+       coche ses jeux lui-même, sous `lan/installed/<uid>/<clé du jeu>`.
+
+       Les règles Firebase n'autorisent l'écriture qu'à son propre nœud. Elles
+       doivent être publiées à part : une mise en ligne Vercel ne les publie
+       pas, et sans elles la coche sera refusée en silence côté serveur. */
+    let globalInstalled = {};
+
+    function installedKey(name) {
+        return cardKey(name);
+    }
+
+    function installedCount(gameName) {
+        const key = installedKey(gameName);
+        if (!key) return 0;
+        return Object.values(globalInstalled).filter(node => node && node[key] === true).length;
+    }
+
+    function iHaveInstalled(gameName) {
+        const user = auth.currentUser;
+        const key = installedKey(gameName);
+        if (!user || !key) return false;
+        return !!(globalInstalled[user.uid] && globalInstalled[user.uid][key] === true);
+    }
+
+    function toggleInstalled(gameName, checked) {
+        const user = auth.currentUser;
+        const key = installedKey(gameName);
+        if (!user || !key) return;
+        const ref = db.ref('lan/installed/' + user.uid + '/' + key);
+        const write = checked ? ref.set(true) : ref.remove();
+        write.catch(error => showToast('Impossible d’enregistrer : ' + error.message, 'error'));
+    }
+
     function renderWaitingInstall(sortedGames) {
         const mount = document.getElementById('closed-download-list');
         const count = document.getElementById('waiting-install-count');
@@ -5320,9 +5365,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!mount) return;
 
         const top = sortedGames.slice(0, globalSettings.topGamesCount || 10);
-        const pool = knownGames({ libraries: groupLibraries || {} });
-        const owned = new Map();
-        pool.games.forEach(game => owned.set(normalizeGameName(game.name), game.owners));
+        const players = Math.max(1, economyPlayers().length);
 
         mount.innerHTML = '';
         if (!top.length) {
@@ -5332,20 +5375,19 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        let ready = 0;
+        let mine = 0;
         top.forEach((game, index) => {
-            const owners = owned.get(normalizeGameName(game.name)) || 0;
-            const missing = Math.max(0, pool.libraries - owners);
-            const isReady = pool.libraries > 0 && missing === 0;
-            if (isReady) ready += 1;
+            const checked = iHaveInstalled(game.name);
+            if (checked) mine += 1;
 
-            const row = document.createElement('div');
-            row.className = 'waiting-install__row' + (isReady ? ' is-ready' : '');
+            const row = document.createElement('label');
+            row.className = 'waiting-install__row' + (checked ? ' is-ready' : '');
 
-            const mark = document.createElement('span');
-            mark.className = 'waiting-install__mark';
-            mark.setAttribute('aria-hidden', 'true');
-            mark.textContent = isReady ? '✓' : '·';
+            const box = document.createElement('input');
+            box.type = 'checkbox';
+            box.className = 'waiting-install__box';
+            box.checked = checked;
+            box.addEventListener('change', () => toggleInstalled(game.name, box.checked));
 
             const label = document.createElement('span');
             label.className = 'waiting-install__name';
@@ -5353,19 +5395,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const state = document.createElement('span');
             state.className = 'waiting-install__state';
-            if (!pool.libraries) state.textContent = '';
-            else if (isReady) state.textContent = 'prêt';
-            else state.textContent = 'manque à ' + missing + ' joueur' + (missing > 1 ? 's' : '');
+            state.textContent = installedCount(game.name) + ' / ' + players + ' installé' + (players > 1 ? 's' : '');
 
-            row.append(mark, label, state);
+            row.append(box, label, state);
             mount.appendChild(row);
         });
 
-        if (count) count.textContent = pool.libraries ? ready + ' / ' + top.length + ' prêts' : '';
+        if (count) count.textContent = mine + ' / ' + top.length + ' prêts';
         if (hint) {
-            hint.textContent = pool.libraries
-                ? 'Prêt : tous ceux qui ont déposé leur bibliothèque possèdent déjà le jeu.'
-                : 'Personne n’a encore déposé sa bibliothèque Steam : impossible de savoir qui doit télécharger quoi.';
+            hint.textContent = mine === top.length
+                ? 'Tout est installé chez toi. Il ne reste plus qu’à attendre.'
+                : 'Coche ce que tu as vraiment installé — posséder un jeu ne suffit pas à le lancer samedi.';
         }
     }
 
@@ -6821,7 +6861,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /* Volet ouvert de la Boutique. Les trois volets sont des destinations, donc
        leur contenu ne se construit qu'à l'ouverture : renderShopFeed(),
-       renderAchievements() et renderXpBoard() tournaient à chaque mise à jour
+       renderXpBoard() et renderLanTitlesPanel() tournaient à chaque mise à jour
        de l'économie pour peupler un DOM que personne ne regardait. */
     let shopPane = 'carte';
 
@@ -6877,7 +6917,8 @@ document.addEventListener('DOMContentLoaded', () => {
         renderShopFeed();
         renderShopLeaderboard();
         renderMyShopRequests(user);
-        renderAchievements();
+        renderLanTitlesPanel();
+        renderXpBoard();
         updateShopPaneBadge(user);
     }
 
@@ -7891,59 +7932,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    function renderAchievements() {
-        if (!shopPaneIsOpen('hauts-faits')) return;
-        const user = auth.currentUser;
-        const mount = document.getElementById('ach-list');
-        if (!user || !mount) return;
-
-        const rows = achievementState(achData(), user.uid);
-        const owned = rows.filter(r => r.owned).length;
-        document.getElementById('ach-progress').textContent = `${owned} / ${rows.length}`;
-
-        mount.innerHTML = '';
-        // Obtenus d'abord, puis ce qui est à portée, puis le reste.
-        rows.slice()
-            .sort((a, b) => (b.owned ? 1 : 0) - (a.owned ? 1 : 0)
-                || (b.pending ? 1 : 0) - (a.pending ? 1 : 0)
-                || b.ratio - a.ratio)
-            .forEach(row => mount.appendChild(buildAchRow(row)));
-
-        renderLanTitlesPanel();
-        renderXpBoard();
-    }
-
-    function buildAchRow(row) {
-        const line = document.createElement('div');
-        line.className = 'ach-row'
-            + (row.owned ? ' is-owned' : (row.pending ? ' is-pending' : ''));
-
-        const path = ACH_ICONS[row.ach.icon] || ACH_ICONS.trophy;
-        let body;
-        if (row.owned) {
-            body = `<span class="ach-row__hint">${escapeHtml(row.ach.hint)}</span>`;
-        } else if (row.pending) {
-            body = '<span class="ach-row__hint">Atteint — en attente d\'un maître du jeu</span>';
-        } else {
-            body = `<span class="ach-row__hint">${escapeHtml(row.ach.hint)} · ${row.current} / ${row.goal}</span>
-                <div class="ach-row__bar"><div class="ach-row__fill" style="width:${Math.round(row.ratio * 100)}%"></div></div>`;
-        }
-
-        line.innerHTML = `
-            <span class="ach-row__ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="${path}"></path></svg></span>
-            <span class="ach-row__main">
-                <span class="ach-row__name">${escapeHtml(row.ach.label)}</span>
-                ${body}
-            </span>
-            <span class="ach-row__xp">+${row.ach.xp}</span>
-        `;
-        return line;
-    }
-
     /* Les titres de la soirée en cours : comparatifs, donc provisoires tant
        que la LAN n'est pas close. On le dit — un titre qui change de main sans
        prévenir passerait pour un bug. */
     function renderLanTitlesPanel() {
+        if (!shopPaneIsOpen('registre')) return;
         const panel = document.getElementById('titles-panel');
         const mount = document.getElementById('lan-titles');
         if (!panel || !mount) return;
@@ -7973,6 +7966,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderXpBoard() {
+        if (!shopPaneIsOpen('registre')) return;
         const mount = document.getElementById('xp-board');
         if (!mount) return;
         mount.innerHTML = '';
