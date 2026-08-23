@@ -69,6 +69,7 @@ assert(/class="luxury-panel modal-content prof-dossier"/.test(html)
     && ids.includes('player-prof-progress-copy')
     && ids.includes('player-prof-achievement-count')
     && /class="prof-dossier__body"/.test(html), 'Player profile must use the compact desktop dossier structure');
+assert(/class="prof-identity"/.test(html) && /prof-identity__label/.test(html), 'Player avatar and identity must share one aligned header unit');
 assert(/class="results-table__score-col"/.test(html), 'Live ranking must reserve a stable score column');
 assert(/class="results-empty"/.test(script) && /La tendance apparaîtra ici en direct/.test(script), 'Live ranking must have an intentional empty state');
 assert(/prof-votes-empty/.test(script) && /prof-vote-group--\$\{tier\}/.test(script), 'Player votes must use dossier components instead of inline legacy styles');
@@ -80,7 +81,7 @@ assert(/width\s*:\s*78px\s*;/.test(scoreColumn), 'Live ranking score column must
 const profileBody = ruleBody(desktopCss, '#player-votes-modal .prof-dossier__body');
 assert(/grid-template-columns\s*:\s*minmax\(0, 1fr\) 320px\s*;/.test(profileBody), 'Desktop profile must separate achievements from the compact ballot');
 
-for (const animation of ['desktopAmbientDrift', 'desktopShellDown', 'desktopShellSide', 'desktopStageReveal', 'desktopNavSettle', 'desktopPresencePulse', 'desktopViewIn', 'desktopPanelIn', 'desktopScrollReveal', 'desktopScrollRevealSide', 'desktopAdminFocus', 'desktopProfileOpen', 'desktopLevelBreathe']) {
+for (const animation of ['desktopAmbientDrift', 'desktopShellDown', 'desktopShellSide', 'desktopStageReveal', 'desktopNavSettle', 'desktopPresencePulse', 'desktopViewIn', 'desktopPanelIn', 'desktopScrollReveal', 'desktopScrollRevealSide', 'desktopAdminFocus', 'desktopProfileOpen', 'desktopLevelBreathe', 'profileTitleShimmer']) {
     assert(desktopCss.includes(`@keyframes ${animation}`), `Missing desktop motion keyframes: ${animation}`);
 }
 assert(/\.lan-subview\.active\s*\{[^}]*animation:\s*desktopViewIn/.test(desktopCss), 'Active desktop views must animate when navigation changes');
@@ -90,6 +91,7 @@ assert(/#tcg-set-grid \.tcard/.test(desktopCss), 'Collection motion must target 
 assert(/--desktop-scroll-progress/.test(desktopCss) && /updateDesktopScrollProgress/.test(script), 'Long desktop views must expose scroll progress');
 assert(/@media\s*\(prefers-reduced-motion:\s*reduce\)[\s\S]*\.desktop-os \.animated-section\s*\{[\s\S]*opacity:\s*1\s*!important/.test(desktopCss), 'Reduced-motion mode must keep legacy animated sections visible');
 assert(/@media\s*\(prefers-reduced-motion:\s*reduce\)[\s\S]*#player-votes-modal > \.modal-content[\s\S]*animation:\s*none\s*!important/.test(desktopCss), 'Reduced-motion mode must disable profile animation');
+assert(/@media\s*\(prefers-reduced-motion:\s*reduce\)[\s\S]*#player-votes-modal \.prof-head__nick::after[\s\S]*animation:\s*none\s*!important/.test(desktopCss), 'Reduced-motion mode must disable earned-title shimmer');
 
 for (const id of ['view-no-lan', 'view-voting-open', 'view-waiting-closed', 'view-lan-active', 'view-lan-finished']) {
     assert(ids.includes(id), `Missing desktop phase view #${id}`);
