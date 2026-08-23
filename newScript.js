@@ -436,10 +436,17 @@ document.addEventListener('DOMContentLoaded', () => {
         syncDesktopNavigation();
     }
 
-    /* La porte « Événements » du rail ouvre sur cinq pièces. Elles sont
-       listées ici plutôt que dispersées : c'est cette liste qui décide à la
-       fois du surlignage du rail et de l'affichage de la barre secondaire. */
-    const DESKTOP_EVENT_SPACE = ['lan-dashboard', 'lan-calendar', 'lan-events', 'lan-polls', 'lan-library'];
+    /* Deux portes du rail ouvrent sur plusieurs pièces. Les groupes sont
+       listés ici plutôt que dispersés : c'est cette table qui décide à la fois
+       du surlignage du rail et du contenu de la barre secondaire. */
+    const DESKTOP_GROUPS = {
+        soiree: ['lan-dashboard', 'lan-calendar', 'lan-polls'],
+        jeux: ['lan-games', 'lan-library']
+    };
+
+    function desktopGroupOf(subviewId) {
+        return Object.keys(DESKTOP_GROUPS).find(name => DESKTOP_GROUPS[name].includes(subviewId)) || '';
+    }
 
     function syncDesktopNavigation(targetId) {
         const phase = desktopPhase();
@@ -449,14 +456,13 @@ document.addEventListener('DOMContentLoaded', () => {
             let active = false;
             if (item.dataset.desktopTarget) active = currentSubview === item.dataset.desktopTarget;
             if (item.dataset.desktopDestination === 'home') {
-                const isEventSpace = DESKTOP_EVENT_SPACE.includes(currentSubview);
                 active = !adminActive && (phase === 'active'
-                    ? isEventSpace
+                    ? desktopGroupOf(currentSubview) === 'soiree'
                     : (phase === 'voting' ? desktopVotingDestination === 'events' : true));
             }
             if (item.dataset.desktopDestination === 'games') {
                 active = !adminActive && ((phase === 'voting' && desktopVotingDestination === 'games')
-                    || (phase === 'active' && currentSubview === 'lan-games'));
+                    || (phase === 'active' && desktopGroupOf(currentSubview) === 'jeux'));
             }
             // L'historique est une fenêtre, pas une destination : il ne
             // s'allume jamais, sinon le rail mentirait sur l'écran ouvert.
@@ -468,22 +474,25 @@ document.addEventListener('DOMContentLoaded', () => {
         syncDesktopSubnav(currentSubview, adminActive);
     }
 
-    /* La barre secondaire n'apparaît que dans l'espace soirée : ailleurs elle
-       proposerait un retour vers un endroit où l'on n'est pas. */
+    /* La barre secondaire ne montre que les pièces de la porte ouverte :
+       proposer celles d'une autre destination serait un retour vers un endroit
+       où l'on n'est pas. */
     function syncDesktopSubnav(currentSubview, adminActive) {
         const subnav = document.getElementById('desktop-subnav');
         if (!subnav) return;
-        const inside = !adminActive && DESKTOP_EVENT_SPACE.includes(currentSubview);
-        subnav.style.display = inside ? 'flex' : 'none';
-        // Pendant le vote, seul le Programme existe : les quatre autres se
-        // verrouillent au lieu de disparaître, comme le rail au-dessus.
+        const group = adminActive ? '' : desktopGroupOf(currentSubview);
+        subnav.style.display = group ? 'flex' : 'none';
+        // Pendant le vote, seul le Programme existe : les autres se verrouillent
+        // au lieu de disparaître, comme le rail au-dessus.
         const live = desktopPhase() === 'active';
         subnav.querySelectorAll('.desktop-subnav__item').forEach(item => {
+            const mine = item.dataset.desktopGroup === group;
+            item.hidden = !mine;
             const locked = !live && item.dataset.desktopTarget !== 'lan-calendar';
             item.classList.toggle('is-locked', locked);
             item.disabled = locked;
             item.setAttribute('aria-disabled', String(locked));
-            item.classList.toggle('active', !locked && item.dataset.desktopTarget === currentSubview);
+            item.classList.toggle('active', mine && !locked && item.dataset.desktopTarget === currentSubview);
         });
         const pollBadge = document.getElementById('desktop-subnav-poll-badge');
         if (pollBadge) {
@@ -545,7 +554,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 updateVotingUIState();
                 if (destination === 'home' && phase === 'active') activateDesktopSubview('lan-dashboard');
-                if (destination === 'games' && phase === 'active') activateDesktopSubview('lan-games');
+                if (destination === 'games' && phase === 'active') {
+                    // On rouvre la dernière pièce visitée de cet espace plutôt
+                    // que de toujours retomber sur l'historique.
+                    const current = document.querySelector('#view-lan-active .lan-subview.active')?.id;
+                    activateDesktopSubview(desktopGroupOf(current) === 'jeux' ? current : 'lan-games');
+                }
                 syncDesktopNavigation();
             });
         });
@@ -1373,7 +1387,7 @@ document.addEventListener('DOMContentLoaded', () => {
         watchValue(eventsRef, (snapshot) => {
             const eventsData = snapshot.val() || {};
             window._latestEventsData = eventsData;
-            renderEvents(eventsData, user);
+            renderEvents(eventsData);
             renderAgenda();
             renderWaitingClosed();
             renderBoard();
@@ -5523,9 +5537,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderFoodRuns();
                 if (window._latestCocktailsData) renderCocktails(window._latestCocktailsData, auth.currentUser);
             }
-            if (targetId === 'lan-events' && window._latestEventsData) {
-                renderEvents(window._latestEventsData, auth.currentUser);
-            }
             if (targetId === 'lan-defis') {
                 renderDefis();
             }
@@ -5581,7 +5592,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    document.getElementById('btn-create-event')?.addEventListener('click', openCreateEventModal);
     document.getElementById('board-action-event')?.addEventListener('click', openCreateEventModal);
     document.getElementById('btn-create-event-calendar')?.addEventListener('click', openCreateEventModal);
 
@@ -6383,153 +6393,27 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- RENDER EVENTS ---
-    function renderEvents(eventsData, currentUser) {
-        const eventsList = document.getElementById('events-list');
-        const previewList = document.getElementById('upcoming-events-preview');
-        if (!eventsList || !previewList) return;
+    /* --- L'aperçu du programme sur le tableau de bord ---------------------
 
-        eventsList.innerHTML = '';
+       Il n'y a plus qu'un écran d'événements : le Programme, qui les groupe par
+       jour et marque celui « à suivre ». La liste de fiches à plat montrait les
+       mêmes données avec les mêmes actions — deux écrans pour une chose. Ne
+       reste ici que les trois prochains, pour le tableau de bord. */
+    function renderEvents(eventsData) {
+        const previewList = document.getElementById('upcoming-events-preview');
+        if (!previewList) return;
         previewList.innerHTML = '';
 
-        // Ordre du programme, et non ordre de création : la liste se lit comme
-        // la soirée se déroule, jour par jour puis heure par heure.
         const now = new Date();
-        const agenda = buildAgenda(eventsData, globalSettings.lanDate || '');
-        const eventsArray = flattenAgenda(agenda);
+        const eventsArray = flattenAgenda(buildAgenda(eventsData, globalSettings.lanDate || ''));
 
         if (eventsArray.length === 0) {
-            eventsList.innerHTML = '<p style="color:var(--secondary-text); font-style:italic;">Aucun événement actuellement.</p>';
             previewList.innerHTML = '<p style="color:var(--secondary-text); font-style:italic;">Rien de prévu pour le moment.</p>';
             return;
         }
 
-        let previewCount = 0;
-
-        eventsArray.forEach(evt => {
-            // Create the card
-            const card = document.createElement('div');
-            card.className = `event-card ${evt.isGlobal ? 'global' : ''}`;
-
-            const titleContainer = document.createElement('div');
-            titleContainer.className = 'event-header';
-            const title = document.createElement('h3');
-            title.innerHTML = `${evt.isGlobal ? '🌍 ' : ''}${escapeHtml(evt.title)} <span style="font-size: 0.6em; color: var(--secondary-text); font-family: 'Outfit'; font-weight: normal; margin-left: 10px;">par ${escapeHtml(evt.creatorName || 'Inconnu')}</span>`;
-            titleContainer.appendChild(title);
-            card.appendChild(titleContainer);
-
-            const meta = document.createElement('div');
-            meta.className = 'event-meta';
-            if (evt.game) meta.innerHTML += `<span>🎮 ${escapeHtml(evt.game)}</span>`;
-            // Le jour n'apparaît que s'il n'est pas celui de la LAN : sur une
-            // soirée d'un seul soir, le répéter sur chaque carte est du bruit.
-            if (evt.dayKey && evt.dayKey !== (globalSettings.lanDate || '')) {
-                meta.innerHTML += `<span>📅 ${escapeHtml(formatDayLabel(evt.dayKey, now))}</span>`;
-            }
-            if (evt.time) meta.innerHTML += `<span>🕒 ${escapeHtml(evt.time)}</span>`;
-
-            const rsvpCount = evt.rsvps ? Object.values(evt.rsvps).filter(v => v === 'accepted').length : 0;
-            if (evt.slots > 0) {
-                meta.innerHTML += `<span>👥 ${rsvpCount} / ${escapeHtml(String(evt.slots))}</span>`;
-            } else {
-                meta.innerHTML += `<span>👥 ${rsvpCount} participant(s)</span>`;
-            }
-            if (evt.isAlcohol) {
-                meta.innerHTML += `<span style="color: #ff9800; font-weight: bold;">🥃 Jeu à boire</span>`;
-            }
-            card.appendChild(meta);
-
-            if (evt.description || (evt.isAlcohol && evt.alcoholRules)) {
-                const descBox = document.createElement('div');
-                descBox.className = 'desc-box';
-                if (evt.description) descBox.innerHTML += `<div>${escapeHtml(evt.description)}</div>`;
-                if (evt.isAlcohol && evt.alcoholRules) {
-                    descBox.innerHTML += `<div style="margin-top: 5px; color: #ff9800; font-size: 0.85em;"><strong>Règles:</strong> ${escapeHtml(evt.alcoholRules)}</div>`;
-                }
-                card.appendChild(descBox);
-            }
-
-            // Action buttons (RSVP)
-            const actions = document.createElement('div');
-            actions.className = 'row-actions';
-
-            const hasAccepted = evt.rsvps && evt.rsvps[currentUser.uid] === 'accepted';
-            const isCreator = evt.creatorId === currentUser.uid;
-
-            if (hasAccepted) {
-                const acceptedBadge = document.createElement('span');
-
-                if (isCreator) {
-                    // Static non-interactive badge for creator
-                    acceptedBadge.className = 'badge badge--accent';
-                    acceptedBadge.textContent = '✓ Organisateur';
-                    acceptedBadge.title = "Vous êtes le créateur.";
-                } else {
-                    // Muted green badge : clickable to un-register
-                    acceptedBadge.className = 'badge badge--success badge--clickable';
-                    acceptedBadge.textContent = '✓ Inscrit';
-                    acceptedBadge.title = "Cliquer pour annuler votre participation";
-                    acceptedBadge.addEventListener('click', () => {
-                        db.ref(`lan/events/${evt.id}/rsvps/${currentUser.uid}`).remove();
-                    });
-                }
-                actions.appendChild(acceptedBadge);
-            } else {
-                const rsvpBtn = document.createElement('button');
-                rsvpBtn.className = 'gold-link-btn';
-                rsvpBtn.textContent = 'Participer';
-                rsvpBtn.addEventListener('click', () => {
-                    db.ref(`lan/events/${evt.id}/rsvps/${currentUser.uid}`).set('accepted');
-                    // On demande l'autorisation ici : c'est le moment où le rappel
-                    // devient utile, et un clic est nécessaire pour que le
-                    // navigateur accepte d'afficher la demande.
-                    requestReminderPermission();
-                });
-                actions.appendChild(rsvpBtn);
-            }
-
-            // Admin or Creator can delete
-            if (window.currentUserIsAdmin || isCreator) {
-                const delBtn = document.createElement('button');
-                delBtn.className = 'danger-link-btn';
-                delBtn.textContent = 'Supprimer';
-                delBtn.addEventListener('click', () => {
-                    askConfirm(`Supprimer l'événement « ${evt.title} » ?`, { danger: true }).then(ok => {
-                        if (ok) db.ref(`lan/events/${evt.id}`).remove();
-                    });
-                });
-                actions.appendChild(delBtn);
-            }
-
-            // Distribute shot if alcohol game
-            if (evt.isAlcohol && (window.currentUserIsAdmin || isCreator)) {
-                const shotBtn = document.createElement('button');
-                shotBtn.className = 'gold-btn';
-                shotBtn.style.padding = '8px 15px';
-                shotBtn.style.fontSize = '0.9em';
-                shotBtn.style.background = '#ff9800';
-                shotBtn.style.color = '#fff';
-                shotBtn.innerHTML = '🥃 Shot !';
-                shotBtn.addEventListener('click', () => {
-                    if (evt.rsvps) {
-                        const rsvpUids = Object.entries(evt.rsvps).filter(([uid, status]) => status === 'accepted').map(([uid]) => uid);
-                        rsvpUids.forEach(uid => {
-                            sendNotification(uid, `🥃 SHOT ! L'organisateur de "${evt.title}" vient de lancer un shot ! SANTÉ !`, 'alert');
-                        });
-                        showToast(`Shot lancé à ${rsvpUids.length} participants !`, "success");
-                    } else {
-                        showToast("Personne n'a encore rejoint l'événement.", "error");
-                    }
-                });
-                actions.appendChild(shotBtn);
-            }
-
-            card.appendChild(actions);
-            eventsList.appendChild(card);
-        });
-
-        /* Aperçu du tableau de bord : ce qui reste à venir. Une soirée entière
-           déjà jouée retombe sur les derniers événements, faute de mieux. */
+        // Une soirée entièrement jouée retombe sur les derniers événements,
+        // faute de mieux : un cadre vide n'apprendrait rien.
         const upcoming = eventsArray.filter(evt => !isEventPast(evt, now));
         const previewSource = upcoming.length ? upcoming : eventsArray.slice(-3);
 
@@ -6546,12 +6430,7 @@ document.addEventListener('DOMContentLoaded', () => {
                    <div style="font-size: 0.85em; color: var(--accent-color);">👥 ${rsvpCount}</div>
                `;
             previewList.appendChild(previewItem);
-            previewCount++;
         });
-
-        if (previewCount === 0 && eventsArray.length > 0) {
-            previewList.innerHTML = '<p style="color:var(--secondary-text); font-style:italic;">Consultez l\'onglet Événements.</p>';
-        }
     }
 
     // Bouton de suppression d'un kocktail. La permission est vérifiée par les

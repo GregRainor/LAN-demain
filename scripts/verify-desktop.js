@@ -241,11 +241,42 @@ assert(/#lan-dashboard \[data-desktop-target\]/.test(script),
     'Dashboard shortcuts must reuse the rail routing instead of their own');
 
 /* --- La barre secondaire de la soirée ------------------------------------- */
+/* Deux portes du rail abritent plusieurs pièces. La barre secondaire ne doit
+   montrer que celles de la porte ouverte, et aucune de ses étiquettes ne doit
+   répéter un nom du rail — c'est ce qui rendait « Événements » illisible. */
 assert(/id="desktop-subnav"/.test(html)
-    && /const DESKTOP_EVENT_SPACE = \['lan-dashboard', 'lan-calendar', 'lan-events', 'lan-polls', 'lan-library'\]/.test(script),
-    'The five rooms behind Événements need one shared list');
+    && /soiree: \['lan-dashboard', 'lan-calendar', 'lan-polls'\]/.test(script)
+    && /jeux: \['lan-games', 'lan-library'\]/.test(script),
+    'Rooms behind a rail door need one shared group table');
+const railLabels = [...html.matchAll(/desktop-nav__item[^>]*>[\s\S]*?<span>([^<]+)<\/span>/g)].map(m => m[1].trim());
+const subnavLabels = [...html.matchAll(/class="desktop-subnav__item"[^>]*data-desktop-target="[^"]*">([^<]+)/g)].map(m => m[1].trim());
+for (const label of subnavLabels) {
+    assert(!railLabels.includes(label), `Subnav entry "${label}" repeats a rail destination`);
+}
+assert(!/id="lan-events"/.test(html) && !/events-list/.test(html) && !/events-list/.test(script),
+    'Programme is the single events screen: the flat card list must be gone');
 assert(/item\.classList\.toggle\('is-locked', locked\)[\s\S]{0,120}item\.disabled = locked/.test(script),
     'Subnav destinations must lock, never disappear');
+
+/* ==========================================================================
+   LES RÈGLES FIREBASE DOIVENT ÊTRE LISIBLES PAR FIREBASE
+   Une clé sans point n'est pas un commentaire : Firebase la lit comme un
+   chemin enfant et attend un objet derrière. Un `"//": "…"` bien intentionné
+   fait échouer toute la publication sur un « Expected '{' », et le fichier
+   reste pourtant du JSON parfaitement valide — donc rien ne le signale.
+   ========================================================================== */
+
+const ruleTree = JSON.parse(rules).rules;
+const RULE_KEYWORDS = new Set(['.read', '.write', '.validate', '.indexOn', '.priority']);
+(function walkRules(node, path) {
+    assert(node && typeof node === 'object' && !Array.isArray(node),
+        `Firebase rules: ${path || '/'} must be an object`);
+    for (const [key, value] of Object.entries(node)) {
+        if (RULE_KEYWORDS.has(key)) continue;
+        assert(!key.startsWith('.'), `Firebase rules: unknown keyword ${path}/${key}`);
+        walkRules(value, `${path}/${key}`);
+    }
+}(ruleTree, ''));
 
 for (const id of ['view-no-lan', 'view-voting-open', 'view-waiting-closed', 'view-lan-active', 'view-lan-finished']) {
     assert(ids.includes(id), `Missing desktop phase view #${id}`);
