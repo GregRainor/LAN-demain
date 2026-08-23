@@ -297,13 +297,31 @@ function lockReason(screen) {
     return '';
 }
 
+/* Une destination peut devenir indisponible pendant que son entrée existe
+   encore dans l'historique du navigateur. Le repli doit toujours être une
+   vraie racine accessible, jamais un écran interne qui ajouterait une seconde
+   impasse au bouton Retour. */
+function phaseFallbackScreen() {
+    return phase() === 'finished' ? 'bilan' : 'soiree';
+}
+
+function repairUnavailableNavigation() {
+    const fallback = phaseFallbackScreen();
+    history.replaceState({ screen: fallback }, '');
+    goto(fallback, { fromHistory: true, silent: true });
+}
+
 function goto(screen, options) {
     const opts = options || {};
 
     if (!screenAvailable(screen)) {
         const reason = lockReason(screen);
         if (reason && !opts.silent) showToast(reason, 'error');
-        return;
+        /* Un bouton verrouillé ne crée aucune entrée. En revanche, un ancien
+           état de l'historique peut toujours pointer vers cet écran : on le
+           remplace alors par une racine saine pour que Retour reste fiable. */
+        if (opts.fromHistory) repairUnavailableNavigation();
+        return false;
     }
 
     const isTab = TABS.includes(screen);
@@ -343,6 +361,7 @@ function goto(screen, options) {
     if (screen === 'admin') renderAdmin();
     if (screen === 'hauts-faits') renderHautsFaits();
     if (screen === 'defis') renderDefis();
+    return true;
 }
 
 $('m-back').addEventListener('click', () => history.back());
@@ -369,11 +388,18 @@ function openSheet(heading, buildBody) {
         head.style.display = 'none';
     }
     buildBody(body);
+    /* La Signature est volontairement une grande feuille. Sa hauteur bornée
+       donne au corps flex une vraie zone à faire défiler ; un simple
+       max-height laissait son contenu conserver sa hauteur intrinsèque. */
+    sheet.classList.toggle('m-sheet--profile', body.classList.contains('m-sheet__body--profile'));
     sheet.classList.add('is-open');
+    /* Une feuille réutilise toujours le même corps. Sans remise à zéro, une
+       fiche longue pouvait se rouvrir au milieu de son contenu. */
+    body.scrollTop = 0;
 }
 
 function closeSheet() {
-    $('m-sheet').classList.remove('is-open');
+    $('m-sheet').classList.remove('is-open', 'm-sheet--profile');
 }
 
 /* ==========================================================================
@@ -702,24 +728,28 @@ function renderBadges() {
     shopDot.textContent = waiting;
 }
 
-/* Grise les destinations qui n'appartiennent pas à la phase en cours, dans
-   la barre du bas comme dans la liste "Plus". */
+/* Grise ET désactive toutes les destinations qui n'appartiennent pas à la
+   phase en cours. Un simple aspect grisé laissait encore le bouton focusable
+   et cliquable ; avec l'historique du téléphone, cela pouvait fabriquer une
+   route sans écran visible. */
 function renderLocks() {
-    document.querySelectorAll('.m-tab').forEach(tab => {
-        tab.classList.toggle('is-locked', !screenAvailable(tab.dataset.goto));
-    });
-    document.querySelectorAll('.m-list__row[data-goto]').forEach(row => {
-        const target = row.dataset.goto;
+    document.querySelectorAll('[data-goto]').forEach(control => {
+        const target = control.dataset.goto;
         const locked = !screenAvailable(target);
-        row.classList.toggle('is-locked', locked);
-        const hint = row.querySelector('.m-list__hint');
+        control.classList.toggle('is-locked', locked);
+        control.setAttribute('aria-disabled', locked ? 'true' : 'false');
+        if ('disabled' in control) control.disabled = locked;
+        if (locked) control.dataset.lockReason = lockReason(target);
+        else delete control.dataset.lockReason;
+
+        const hint = control.querySelector('.m-list__hint');
         if (hint && locked) hint.textContent = 'plus tard';
     });
 
     /* Si la phase change pendant qu'on est sur un écran devenu interdit
        (un admin clôt le vote), on ramène le joueur là où ça a du sens. */
     if (!screenAvailable(currentScreen)) {
-        goto(phase() === 'finished' ? 'bilan' : 'soiree', { silent: true });
+        repairUnavailableNavigation();
     }
 }
 
@@ -6094,7 +6124,17 @@ $('m-suggest-send').addEventListener('click', () => {
 
 document.addEventListener('click', (e) => {
     const nav = e.target.closest('[data-goto]');
-    if (nav) { goto(nav.dataset.goto); return; }
+    if (nav) {
+        e.preventDefault();
+        const target = nav.dataset.goto;
+        if (!screenAvailable(target)) {
+            const reason = lockReason(target);
+            if (reason) showToast(reason, 'error');
+            return;
+        }
+        goto(target);
+        return;
+    }
     if (e.target.closest('[data-sheet-close]')) closeSheet();
 });
 

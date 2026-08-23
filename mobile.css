@@ -173,15 +173,17 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .m-iconbtn {
     position: relative;
     width: var(--tap); height: var(--tap);
+    padding: 0;
     display: grid; place-items: center;
     flex: 0 0 auto;
     border-radius: var(--r-pill);
     color: var(--text-2);
+    line-height: 0;
 }
 .m-iconbtn:active { color: var(--gold); background: var(--gold-a08); }
 .m-iconbtn svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 #m-btn-notifs { border: 1px solid var(--line-2); background: rgba(255,255,255,.025); color: var(--text); box-shadow: 0 0 0 1px rgba(255,255,255,.015); }
-#m-btn-notifs svg { width: 22px; height: 22px; stroke-width: 1.85; }
+#m-btn-notifs svg { display: block; width: 22px; height: 22px; margin: 0; stroke-width: 1.85; transform: translateY(-.5px); }
 #m-btn-notifs:active { border-color: var(--gold-a50); color: var(--gold); box-shadow: 0 0 16px var(--gold-a08); }
 
 .m-badge {
@@ -558,6 +560,10 @@ textarea.m-input { resize: vertical; min-height: 84px; }
 .m-tab.is-locked .m-tab__label { text-decoration: line-through; }
 .m-list__row.is-locked { opacity: .4; }
 .m-list__row.is-locked .m-list__hint { color: var(--gold-dim); }
+button[data-goto].is-locked,
+button[data-goto]:disabled { cursor: not-allowed; }
+.m-section__link.is-locked,
+.m-achsum.is-locked { opacity: .36; filter: grayscale(1); }
 .m-tab.is-active::before {
     content: ""; position: absolute; top: 0; left: 50%;
     transform: translateX(-50%);
@@ -581,18 +587,26 @@ textarea.m-input { resize: vertical; min-height: 84px; }
 .m-sheet__panel {
     position: absolute; left: 0; right: 0; bottom: 0;
     max-height: 90dvh;
+    min-height: 0;
     display: flex; flex-direction: column;
+    overflow: hidden;
     background: var(--panel);
     border-top: 1px solid var(--gold-a30);
     border-radius: 14px 14px 0 0;
     animation: m-rise .34s cubic-bezier(.25, .8, .25, 1);
 }
+.m-sheet.m-sheet--profile .m-sheet__panel { height: 90dvh; }
 @keyframes m-rise { from { transform: translateY(100%); } to { transform: none; } }
 .m-sheet__grab { width: 38px; height: 4px; border-radius: 99px; background: rgba(255, 255, 255, .18); margin: 9px auto 0; flex: 0 0 auto; }
 .m-sheet__head { display: flex; align-items: center; gap: 10px; padding: 10px 14px 0; flex: 0 0 auto; }
 .m-sheet__heading { flex: 1; font-family: var(--fd); font-size: 1.2rem; color: var(--text); font-weight: 600; }
 .m-sheet__body {
+    flex: 1 1 auto;
+    min-height: 0;
     overflow-y: auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
     padding: 13px 14px calc(18px + env(safe-area-inset-bottom));
     display: flex; flex-direction: column; gap: 13px;
     scrollbar-width: none;
@@ -1706,6 +1720,7 @@ textarea.m-input { resize: vertical; min-height: 84px; }
     --m-prof-accent-rgb: 212, 175, 55;
     display: flex;
     flex-direction: column;
+    flex: 0 0 auto;
     gap: 13px;
     min-width: 0;
     position: relative;
@@ -1751,7 +1766,12 @@ textarea.m-input { resize: vertical; min-height: 84px; }
 }
 .m-prof[data-title-motion="polonia"] { background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(220,20,60,.07) 30%, rgba(7,7,6,.98) 72%); }
 .m-prof[data-title-motion="polonia"]::before { animation: m-prof-polonia 14s ease-in-out infinite; }
-.m-sheet__body--profile { padding-inline: 9px; background: radial-gradient(circle at 50% 12%, rgba(212,175,55,.045), transparent 35%); }
+.m-sheet__body--profile {
+    padding-inline: 9px;
+    padding-bottom: calc(30px + env(safe-area-inset-bottom));
+    scroll-padding-bottom: calc(30px + env(safe-area-inset-bottom));
+    background: radial-gradient(circle at 50% 12%, rgba(212,175,55,.045), transparent 35%);
+}
 .m-prof .m-shop__cat { color: var(--m-prof-accent); }
 .m-prof .m-title { border-color: rgba(var(--m-prof-accent-rgb), .3); background: rgba(var(--m-prof-accent-rgb), .075); }
 .m-prof .m-title__who { color: var(--m-prof-accent); }

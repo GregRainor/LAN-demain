@@ -7,6 +7,19 @@ const html = fs.readFileSync(path.join(root, 'm.html'), 'utf8');
 const css = fs.readFileSync(path.join(root, 'mobile.css'), 'utf8');
 const script = fs.readFileSync(path.join(root, 'mobile.js'), 'utf8');
 
+function functionSource(name) {
+    const start = script.indexOf('function ' + name + '(');
+    assert(start >= 0, 'Missing function ' + name);
+    const brace = script.indexOf('{', start);
+    let depth = 0;
+    for (let index = brace; index < script.length; index += 1) {
+        if (script[index] === '{') depth += 1;
+        if (script[index] === '}') depth -= 1;
+        if (depth === 0) return script.slice(start, index + 1);
+    }
+    throw new Error('Unclosed function ' + name);
+}
+
 const ids = [...html.matchAll(/id="([^"]+)"/g)].map(match => match[1]);
 const duplicates = ids.filter((id, index) => ids.indexOf(id) !== index);
 assert.deepStrictEqual([...new Set(duplicates)], [], 'm.html contains duplicate IDs');
@@ -25,6 +38,45 @@ assert(/body\.classList\.add\('m-sheet__body--profile'\)/.test(script)
 assert(/Personnaliser ma Signature/.test(script)
     && /featuredAchievement/.test(script)
     && /equippedTitleId/.test(script), 'Mobile Signature customization is incomplete');
+assert(/function phaseFallbackScreen/.test(script)
+    && /function repairUnavailableNavigation/.test(script)
+    && /history\.replaceState\(\{ screen: fallback \}/.test(script), 'Unavailable history entries must repair to a safe mobile root');
+assert(/document\.querySelectorAll\('\[data-goto\]'\)/.test(script)
+    && /control\.disabled\s*=\s*locked/.test(script)
+    && /aria-disabled/.test(script), 'Every unavailable mobile destination must be truly disabled');
+assert(/\.m-sheet__body\s*\{[\s\S]{0,260}flex:\s*1 1 auto[\s\S]{0,180}min-height:\s*0[\s\S]{0,240}overflow-y:\s*auto/.test(css)
+    && /\.m-sheet\.m-sheet--profile \.m-sheet__panel\s*\{\s*height:\s*90dvh/.test(css)
+    && /classList\.toggle\('m-sheet--profile'/.test(script)
+    && /\.m-prof\s*\{[\s\S]{0,260}flex:\s*0 0 auto/.test(css)
+    && /touch-action:\s*pan-y/.test(css), 'Long mobile sheets must own a bounded touch scroll area');
+assert(/#m-btn-notifs svg\s*\{[\s\S]{0,180}display:\s*block/.test(css)
+    && /\.m-iconbtn\s*\{[\s\S]{0,180}padding:\s*0/.test(css), 'The notification glyph must be explicitly centered in its button');
+
+/* Régression exacte du cas signalé : vote ouvert, LAN non active. Les écrans
+   de soirée sont fermés, mais Jeux et Vote restent atteignables et la racine
+   de secours ne peut jamais être une destination verrouillée. */
+const navState = { settings: {} };
+const navFactory = new Function('state', 'LAN_SCREENS', [
+    functionSource('phase'),
+    functionSource('screenAvailable'),
+    functionSource('phaseFallbackScreen'),
+    'return { phase, screenAvailable, phaseFallbackScreen };'
+].join('\n'));
+const nav = navFactory(navState, ['miam', 'sondages', 'evenements', 'kocktails', 'boutique']);
+
+navState.settings = { isVotingOpen: true, isLanActive: false, lanFinished: false };
+assert.strictEqual(nav.phase(), 'vote');
+assert.strictEqual(nav.screenAvailable('vote'), true);
+assert.strictEqual(nav.screenAvailable('jeux'), true);
+assert.strictEqual(nav.screenAvailable('evenements'), false);
+assert.strictEqual(nav.screenAvailable('boutique'), false);
+assert.strictEqual(nav.phaseFallbackScreen(), 'soiree');
+
+navState.settings = { isVotingOpen: false, isLanActive: false, lanFinished: true };
+assert.strictEqual(nav.phase(), 'finished');
+assert.strictEqual(nav.screenAvailable('bilan'), true);
+assert.strictEqual(nav.screenAvailable('vote'), false);
+assert.strictEqual(nav.phaseFallbackScreen(), 'bilan');
 
 for (const motion of ['m-prof-sweep', 'm-prof-prism', 'm-prof-lock', 'm-prof-orbit', 'm-prof-impact', 'm-prof-vote', 'm-prof-scan', 'm-prof-polonia']) {
     assert(css.includes('@keyframes ' + motion), 'Missing mobile Signature motion: ' + motion);
