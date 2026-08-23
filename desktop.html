@@ -320,6 +320,10 @@
                                 </div>
                                 <div class="scroll-area scroll-area--sm">
                                     <table class="results-table" id="results-table">
+                                        <colgroup>
+                                            <col>
+                                            <col class="results-table__score-col">
+                                        </colgroup>
                                         <thead>
                                             <tr>
                                                 <th>Jeu</th>
@@ -333,7 +337,7 @@
 
                                 <!-- Le graphique visualise ce même classement : sa place est ici -->
                                 <details class="chart-details">
-                                    <summary>📊 Voir le Top 8 en graphique</summary>
+                                    <summary>Voir le classement en graphique</summary>
                                     <div id="chart-container"></div>
                                 </details>
                             </div>
@@ -1296,24 +1300,52 @@
 
     <!-- View Player Votes Modal -->
     <div id="player-votes-modal" class="modal-overlay">
-        <div class="luxury-panel modal-content" style="max-width: 560px;">
+        <div class="luxury-panel modal-content prof-dossier">
+            <button type="button" id="close-player-votes-btn" class="prof-close" aria-label="Fermer le profil">×</button>
             <!-- La fiche d'un joueur : qui il est, ce qu'il a fait, puis ses
                  voeux. Le surnom vient du plus rare de ses hauts faits. -->
             <div class="prof-head">
-                <img id="player-prof-face" class="prof-head__face" src="" alt="">
+                <div class="prof-head__portrait">
+                    <img id="player-prof-face" class="prof-head__face" src="" alt="">
+                </div>
                 <div class="prof-head__ident">
+                    <p class="desktop-eyebrow">DOSSIER JOUEUR</p>
                     <h3 id="player-votes-name" class="prof-head__name">Joueur</h3>
                     <p id="player-prof-nick" class="prof-head__nick"></p>
                     <p id="player-prof-lvl" class="prof-head__lvl"></p>
                 </div>
+                <div id="player-prof-stats" class="prof-stats"></div>
             </div>
-            <div class="xp-banner__segs" id="player-prof-segs"></div>
-            <div id="player-prof-stats" class="prof-stats"></div>
-            <div id="player-prof-badges" class="prof-badges"></div>
-            <h4 class="prof-sub" id="player-prof-votes-title">Ses voeux</h4>
-            <div id="player-votes-content" class="stack"></div>
-            <div class="modal-actions" style="margin-top: 25px;">
-                <button id="close-player-votes-btn" class="gold-link-btn" style="width: 100%;">Fermer</button>
+
+            <div class="prof-progress">
+                <div class="prof-progress__label">
+                    <span>PROGRESSION PERMANENTE</span>
+                    <strong id="player-prof-progress-copy"></strong>
+                </div>
+                <div class="xp-banner__segs" id="player-prof-segs"></div>
+            </div>
+
+            <div class="prof-dossier__body">
+                <section class="prof-achievements">
+                    <div class="prof-section-head">
+                        <div>
+                            <p class="desktop-eyebrow">COLLECTION PERSONNELLE</p>
+                            <h4>Hauts faits</h4>
+                        </div>
+                        <strong id="player-prof-achievement-count"></strong>
+                    </div>
+                    <div id="player-prof-badges" class="prof-badges"></div>
+                </section>
+
+                <aside class="prof-votes-panel">
+                    <div class="prof-section-head prof-section-head--compact">
+                        <div>
+                            <p class="desktop-eyebrow">SON BULLETIN</p>
+                            <h4 id="player-prof-votes-title">Ses vœux</h4>
+                        </div>
+                    </div>
+                    <div id="player-votes-content" class="prof-votes"></div>
+                </aside>
             </div>
         </div>
     </div>

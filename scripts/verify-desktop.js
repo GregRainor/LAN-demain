@@ -65,6 +65,20 @@ assert(/phase === 'voting' \? desktopVotingDestination === 'events' : true/.test
     && /phase === 'voting' && desktopVotingDestination === 'games'/.test(script), 'Events and Games navigation highlights must remain exclusive');
 assert(/recapAdmin\.scrollIntoView/.test(script), 'Closed-LAN admin navigation must lead to the next-LAN controls');
 assert(/adminBox\.style\.display = window\.currentUserIsAdmin \? 'grid' : 'none'/.test(script), 'Finished-LAN admin controls must preserve their grid layout');
+assert(/class="luxury-panel modal-content prof-dossier"/.test(html)
+    && ids.includes('player-prof-progress-copy')
+    && ids.includes('player-prof-achievement-count')
+    && /class="prof-dossier__body"/.test(html), 'Player profile must use the compact desktop dossier structure');
+assert(/class="results-table__score-col"/.test(html), 'Live ranking must reserve a stable score column');
+assert(/class="results-empty"/.test(script) && /La tendance apparaîtra ici en direct/.test(script), 'Live ranking must have an intentional empty state');
+assert(/prof-votes-empty/.test(script) && /prof-vote-group--\$\{tier\}/.test(script), 'Player votes must use dossier components instead of inline legacy styles');
+
+const adminNav = ruleBody(desktopCss, '.desktop-admin-nav');
+assert(/margin\s*:\s*auto 25px 0\s*;/.test(adminNav), 'Desktop Admin navigation must stay anchored at the bottom-left');
+const scoreColumn = ruleBody(desktopCss, '#view-voting-open .results-table__score-col');
+assert(/width\s*:\s*78px\s*;/.test(scoreColumn), 'Live ranking score column must remain aligned');
+const profileBody = ruleBody(desktopCss, '#player-votes-modal .prof-dossier__body');
+assert(/grid-template-columns\s*:\s*minmax\(0, 1fr\) 320px\s*;/.test(profileBody), 'Desktop profile must separate achievements from the compact ballot');
 
 for (const animation of ['desktopAmbientDrift', 'desktopShellDown', 'desktopShellSide', 'desktopStageReveal', 'desktopNavSettle', 'desktopPresencePulse', 'desktopViewIn', 'desktopPanelIn', 'desktopScrollReveal', 'desktopScrollRevealSide', 'desktopAdminFocus', 'desktopProfileOpen', 'desktopLevelBreathe']) {
     assert(desktopCss.includes(`@keyframes ${animation}`), `Missing desktop motion keyframes: ${animation}`);

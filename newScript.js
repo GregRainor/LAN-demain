@@ -992,8 +992,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const lvl = document.getElementById('player-prof-lvl');
         if (lvl) {
-            lvl.textContent = `Niveau ${profile.level.level} « ${levelTitle(profile.level.level)} » · ${profile.level.total} XP`
-                + ` · ${profile.achievementCount} / ${profile.achievementTotal} hauts faits`;
+            lvl.textContent = `Niveau ${profile.level.level} · ${levelTitle(profile.level.level)}`;
+        }
+
+        const progressCopy = document.getElementById('player-prof-progress-copy');
+        if (progressCopy) {
+            progressCopy.textContent = `${profile.level.total} XP · encore ${profile.level.toNext}`
+                + ` avant le niveau ${profile.level.level + 1}`;
+        }
+
+        const achievementCount = document.getElementById('player-prof-achievement-count');
+        if (achievementCount) {
+            achievementCount.textContent = `${profile.achievementCount} / ${profile.achievementTotal}`;
         }
 
         const segs = document.getElementById('player-prof-segs');
@@ -1058,24 +1068,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const userVoteData = votesData[uid];
         if (!userVoteData || !userVoteData.votes) {
-            listEl.innerHTML = '<p style="color:var(--secondary-text); font-style:italic;">Aucun vote enregistré.</p>';
+            listEl.innerHTML = '<p class="prof-votes-empty">Aucun vote enregistré.</p>';
         } else {
             const p = userVoteData.votes;
             const displayNames = buildDisplayNameMap();
             const displayGameName = (raw) => displayNames.get(normalizeGameName(raw)) || raw;
 
-            const createSection = (title, gamesArray, color) => {
+            const createSection = (title, gamesArray, tier) => {
                 if (!gamesArray || gamesArray.length === 0) return;
-                const sec = document.createElement('div');
-                sec.style.marginBottom = '15px';
-                sec.innerHTML = `<h5 style="color: ${color}; margin-bottom: 5px; font-family: 'Outfit'; font-size: 0.9em;">${title}</h5>`;
+                const sec = document.createElement('section');
+                sec.className = `prof-vote-group prof-vote-group--${tier}`;
+                const heading = document.createElement('h5');
+                heading.textContent = title;
+                sec.appendChild(heading);
                 gamesArray.forEach(g => {
                     const row = document.createElement('div');
-                    row.className = 'player-row';
+                    row.className = 'player-row prof-vote-row';
                     // Les votes stockent la saisie brute, souvent en minuscules :
                     // on réutilise la casse d'affichage calculée pour le classement
                     const label = displayGameName(g);
-                    row.innerHTML = `<span style="color: var(--primary-text);">${escapeHtml(label)}</span>`;
+                    row.innerHTML = `<span>${escapeHtml(label)}</span>`;
 
                     // Reprendre un jeu vu chez un autre joueur, pendant le vote
                     if (globalSettings.isVotingOpen && document.getElementById('vote-form')) {
@@ -1085,7 +1097,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         add.textContent = '+';
                         add.title = `Ajouter « ${label} » à mon vote`;
                         add.setAttribute('aria-label', `Ajouter ${label} à mon vote`);
-                        add.style.marginLeft = 'auto';
                         add.addEventListener('click', () => addGameToVote(label));
                         row.appendChild(add);
                     }
@@ -1095,10 +1106,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 listEl.appendChild(sec);
             };
 
-            createSection('P1 (5 pts)', p.p1, 'var(--accent-color)');
-            createSection('P2 (3 pts)', p.p2, 'silver');
-            createSection('P3 (2 pts)', p.p3, '#cd7f32'); // bronze
-            createSection('Autres (1 pt)', p.p_other, 'var(--secondary-text)');
+            createSection('Priorité 1 · 5 pts', p.p1, 'gold');
+            createSection('Priorité 2 · 3 pts', p.p2, 'silver');
+            createSection('Priorité 3 · 2 pts', p.p3, 'bronze');
+            createSection('Autres · 1 pt', p.p_other, 'other');
         }
 
         modal.style.display = 'flex';
@@ -1835,7 +1846,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         tableBody.innerHTML = '';
         if (gamesData.length === 0) {
-            tableBody.innerHTML = `<tr><td colspan="2" style="text-align: center;">Aucun vote pour le moment...</td></tr>`;
+            tableBody.innerHTML = `<tr class="results-empty"><td colspan="2">
+                <strong>Le classement attend son premier vote.</strong>
+                <small>La tendance apparaîtra ici en direct.</small>
+            </td></tr>`;
             return;
         }
         gamesData.forEach((game, index) => {
