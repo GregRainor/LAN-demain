@@ -361,6 +361,7 @@ function openSheet(heading, buildBody) {
     const body = $('m-sheet-body');
     const head = $('m-sheet-head');
     body.innerHTML = '';
+    body.classList.remove('m-sheet__body--profile');
     if (heading) {
         head.style.display = 'flex';
         $('m-sheet-heading').textContent = heading;
@@ -396,6 +397,11 @@ auth.onAuthStateChanged(user => {
         $('m-auth').style.display = 'flex';
         $('m-app').style.display = 'none';
     }
+});
+
+$('m-profile-trigger').addEventListener('click', () => {
+    const user = state.user || auth.currentUser;
+    if (user) openProfile(user.uid);
 });
 
 $('m-login').addEventListener('click', () => {
@@ -5269,19 +5275,22 @@ function mobileProfileSerial(uid) {
     return String((hash % 900) + 100);
 }
 
-function applyMobileProfileTheme(card, title) {
+function applyMobileProfileTheme(root, title) {
     const theme = title || {
         rarity: 'none', material: 'graphite', motif: 'grid', motion: 'calm',
         accent: '#d4af37', accent2: '#f1dd8a'
     };
-    card.dataset.titleRarity = theme.rarity;
-    card.dataset.titleMotif = theme.motif;
-    card.dataset.titleMaterial = theme.material;
-    card.dataset.titleMotion = theme.motion || 'calm';
-    card.style.setProperty('--m-prof-accent', theme.accent);
-    card.style.setProperty('--m-prof-accent-2', theme.accent2);
-    card.style.setProperty('--m-prof-accent-rgb', hexRgb(theme.accent).join(', '));
-    const family = card.querySelector('.m-prof-card__family');
+    const card = root.matches('.m-prof-card') ? root : root.querySelector('.m-prof-card');
+    [root, card].filter(Boolean).forEach(node => {
+        node.dataset.titleRarity = theme.rarity;
+        node.dataset.titleMotif = theme.motif;
+        node.dataset.titleMaterial = theme.material;
+        node.dataset.titleMotion = theme.motion || 'calm';
+    });
+    root.style.setProperty('--m-prof-accent', theme.accent);
+    root.style.setProperty('--m-prof-accent-2', theme.accent2);
+    root.style.setProperty('--m-prof-accent-rgb', hexRgb(theme.accent).join(', '));
+    const family = root.querySelector('.m-prof-card__family');
     if (family) {
         family.textContent = title
             ? theme.material.toUpperCase() + ' · ' + theme.rarity.toUpperCase()
@@ -5306,6 +5315,7 @@ function openProfile(uid) {
     const isMe = uid === (state.user && state.user.uid);
 
     openSheet(null, (body) => {
+        body.classList.add('m-sheet__body--profile');
         const root = el('div', 'm-prof');
 
         /* La carte : portrait, titre équipé et famille visuelle. */
@@ -5334,8 +5344,8 @@ function openProfile(uid) {
         serial.appendChild(el('span', 'm-prof-card__family'));
         serial.appendChild(el('span', null, '№ ' + mobileProfileSerial(uid)));
         card.appendChild(serial);
-        applyMobileProfileTheme(card, profile.equippedTitle);
         root.appendChild(card);
+        applyMobileProfileTheme(root, profile.equippedTitle);
 
         /* La barre : la même que dans la boutique, en plus discret. */
         const progress = el('section', 'm-prof__progress');
@@ -5395,7 +5405,10 @@ function openProfile(uid) {
         /* Sur son propre profil, le téléphone est un atelier complet : titre et
            trois trophées, avec le même contrôle Firebase que le bureau. */
         if (isMe) {
-            const customizeButton = el('button', 'm-prof__customize', 'Personnaliser ma Signature');
+            const customizeButton = el('button', 'm-prof__customize');
+            customizeButton.appendChild(iconSvg('M14.5 4.5l5 5L10 19H5v-5zM13 6l5 5M5 19c-1.7 0-3 1.3-3 3 2 0 3-.8 3-3z'));
+            const customizeLabel = el('span', null, 'Personnaliser ma Signature');
+            customizeButton.appendChild(customizeLabel);
             const customizer = el('section', 'm-prof-customizer');
             customizer.hidden = true;
             let draftTitleId = profile.equippedTitle ? profile.equippedTitle.id : '';
@@ -5420,7 +5433,7 @@ function openProfile(uid) {
                     button.appendChild(copy);
                     button.addEventListener('click', () => {
                         draftTitleId = title.id;
-                        applyMobileProfileTheme(card, title.id ? title : null);
+                        applyMobileProfileTheme(root, title.id ? title : null);
                         nickname.textContent = title.id ? '« ' + title.label + ' »' : '';
                         nickname.hidden = !title.id;
                         renderCustomizer();
@@ -5474,7 +5487,7 @@ function openProfile(uid) {
 
             customizeButton.addEventListener('click', () => {
                 customizer.hidden = !customizer.hidden;
-                customizeButton.textContent = customizer.hidden ? 'Personnaliser ma Signature' : 'Fermer l’atelier';
+                customizeLabel.textContent = customizer.hidden ? 'Personnaliser ma Signature' : 'Fermer l’atelier';
                 if (!customizer.hidden) {
                     renderCustomizer();
                     setTimeout(() => customizer.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 0);

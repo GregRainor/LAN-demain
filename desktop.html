@@ -86,7 +86,10 @@
             <!-- Notification Bell -->
             <button id="btn-notifications" class="gold-link-btn" title="Notifications"
                 style="position: relative; display: none; margin-right: 10px;">
-                <span aria-hidden="true">♢</span><span class="sr-only">Notifications</span>
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M18 9a6 6 0 1 0-12 0c0 6-2 7-2 7h16s-2-1-2-7z"></path>
+                    <path d="M13.7 20a2 2 0 0 1-3.4 0"></path>
+                </svg><span class="sr-only">Notifications</span>
                 <span id="notif-badge"
                     style="display:none; position:absolute; top:-5px; right:-5px; background:var(--danger-color); color:white; border-radius:50%; width:16px; height:16px; font-size:0.7em; align-items:center; justify-content:center;">0</span>
             </button>
@@ -1307,14 +1310,16 @@
                     <div class="prof-signature-card__foil" aria-hidden="true"></div>
                     <div class="prof-signature-card__motif" aria-hidden="true"></div>
                     <p class="desktop-eyebrow prof-signature-card__label">SIGNATURE JOUEUR</p>
-                    <div class="prof-signature-card__portrait">
-                        <span class="prof-signature-card__halo" aria-hidden="true"></span>
-                        <img id="player-prof-face" class="prof-head__face" src="" alt="">
-                    </div>
-                    <div class="prof-signature-card__identity">
-                        <h3 id="player-votes-name" class="prof-head__name">Joueur</h3>
-                        <p id="player-prof-nick" class="prof-head__nick"></p>
-                        <p id="player-prof-lvl" class="prof-head__lvl"></p>
+                    <div class="prof-signature-card__core">
+                        <div class="prof-signature-card__portrait">
+                            <span class="prof-signature-card__halo" aria-hidden="true"></span>
+                            <img id="player-prof-face" class="prof-head__face" src="" alt="">
+                        </div>
+                        <div class="prof-signature-card__identity">
+                            <h3 id="player-votes-name" class="prof-head__name">Joueur</h3>
+                            <p id="player-prof-nick" class="prof-head__nick"></p>
+                            <p id="player-prof-lvl" class="prof-head__lvl"></p>
+                        </div>
                     </div>
                     <div class="prof-signature-card__serial">
                         <span id="player-prof-card-family">LAN DEMAIN</span>
@@ -1328,7 +1333,14 @@
                             <p class="desktop-eyebrow">DOSSIER PERMANENT</p>
                             <h4>Palmarès du joueur</h4>
                         </div>
-                        <button type="button" id="player-prof-customize-btn" class="prof-customize-btn" hidden>Personnaliser</button>
+                        <button type="button" id="player-prof-customize-btn" class="prof-customize-btn" hidden>
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M14.5 4.5l5 5L10 19H5v-5z"></path>
+                                <path d="M13 6l5 5"></path>
+                                <path d="M5 19c-1.7 0-3 1.3-3 3 2 0 3-.8 3-3z"></path>
+                            </svg>
+                            <span>Personnaliser</span>
+                        </button>
                     </header>
 
                     <div id="player-prof-stats" class="prof-stats"></div>

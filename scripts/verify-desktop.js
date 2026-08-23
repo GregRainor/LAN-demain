@@ -72,10 +72,17 @@ assert(/class="luxury-panel modal-content prof-dossier"/.test(html)
     && ids.includes('player-prof-achievement-count')
     && /class="prof-signature-layout"/.test(html), 'Player profile must use the centered Signature Card structure');
 assert(/class="prof-signature-card"/.test(html)
+    && /class="prof-signature-card__core"/.test(html)
     && ids.includes('player-prof-customizer')
     && ids.includes('player-prof-title-options')
     && ids.includes('player-prof-feature-options'), 'Player profile customization structure is incomplete');
+assert(/\.prof-signature-card__core\s*\{[\s\S]*?place-content:\s*center;[\s\S]*?justify-items:\s*center;/.test(desktopCss), 'Signature identity block must be centered horizontally and vertically');
+assert(/\.prof-featured-trophy\s*>\s*svg\s*\{[\s\S]*?box-sizing:\s*border-box;/.test(desktopCss)
+    && /\.prof-badge\s*>\s*svg\s*\{[\s\S]*?box-sizing:\s*border-box;/.test(desktopCss), 'Achievement icons must keep a bounded column separate from their labels');
 assert(/equippedTitleId/.test(script) && /featuredAchievement/.test(script), 'Player title and trophy choices must persist on the durable profile');
+assert(/dataset\.playerNameLength/.test(script), 'Long desktop player names must adjust the centered Signature composition');
+assert(/id="player-prof-customize-btn"[\s\S]{0,320}<svg/.test(html), 'Profile customization needs its visible brush icon');
+assert(/id="btn-notifications"[\s\S]{0,260}<svg/.test(html), 'Desktop notifications must use a real bell icon');
 assert(/applyProfileTheme/.test(script) && /data-title-rarity/.test(html) && /data-title-motion/.test(html), 'Equipped titles must drive a controlled visual and motion theme');
 assert(/PROFILE_ROLE_TITLES/.test(core)
     && /administrator/.test(core)

@@ -1078,6 +1078,11 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderPlayerProfileHead(uid, userName) {
         const profile = playerProfile(achData(), uid);
         applyProfileTheme(profile.equippedTitle);
+        const dossier = document.querySelector('#player-votes-modal .prof-dossier');
+        if (dossier) {
+            const nameLength = Array.from(String(userName || 'Joueur').trim()).length;
+            dossier.dataset.playerNameLength = nameLength > 27 ? 'long' : (nameLength > 18 ? 'medium' : 'short');
+        }
 
         const face = document.getElementById('player-prof-face');
         if (face) {

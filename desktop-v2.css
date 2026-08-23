@@ -672,16 +672,21 @@ body.desktop-authenticated #app-container.desktop-os *::after {
 }
 
 #top-right-actions #btn-notifications {
-    width: 32px;
-    height: 32px;
+    width: 40px;
+    height: 40px;
     margin: 0 !important;
     padding: 0;
     display: grid;
     place-items: center;
-    border: 0;
-    color: var(--secondary-text);
-    font-size: 20px;
+    border: 1px solid var(--desktop-line-white);
+    border-radius: 50%;
+    background: rgba(255,255,255,.025);
+    color: #c8c5bc;
+    transition: color 160ms ease, border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
 }
+#top-right-actions #btn-notifications svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.85; stroke-linecap: round; stroke-linejoin: round; }
+#top-right-actions #btn-notifications:hover,
+#top-right-actions #btn-notifications:focus-visible { color: var(--accent-color); border-color: rgba(212,175,55,.52); background: rgba(212,175,55,.08); box-shadow: 0 0 18px rgba(212,175,55,.12); outline: 0; }
 
 #top-right-actions #user-info-menu {
     height: 44px;
@@ -2891,11 +2896,28 @@ body.desktop-authenticated #app-container.desktop-os *::after {
 
 #player-votes-modal .prof-signature-card__label { width: 100%; margin: 0; text-align: left; color: var(--prof-accent); }
 
+#player-votes-modal .prof-signature-card__core {
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+    flex: 1;
+    padding-block: clamp(22px, 4vh, 54px);
+    display: grid;
+    grid-auto-flow: row;
+    place-content: center;
+    justify-items: center;
+    gap: clamp(22px, 3vh, 34px);
+    text-align: center;
+    transition: transform 280ms var(--desktop-ease);
+}
+#player-votes-modal .prof-dossier[data-player-name-length="medium"] .prof-signature-card__core { transform: translateY(-10px); }
+#player-votes-modal .prof-dossier[data-player-name-length="long"] .prof-signature-card__core { transform: translateY(-24px); }
+
 #player-votes-modal .prof-signature-card__portrait {
     position: relative;
     width: 190px;
     height: 190px;
-    margin: clamp(44px, 7vh, 78px) auto 30px;
+    margin: 0 auto;
     display: grid;
     place-items: center;
 }
@@ -2931,7 +2953,7 @@ body.desktop-authenticated #app-container.desktop-os *::after {
     filter: saturate(.92) contrast(1.04);
 }
 
-#player-votes-modal .prof-signature-card__identity { width: 100%; min-width: 0; padding-inline: 8px; display: grid; justify-items: center; gap: 11px; }
+#player-votes-modal .prof-signature-card__identity { width: 100%; min-width: 0; margin-inline: auto; padding-inline: 8px; display: grid; justify-items: center; gap: 11px; text-align: center; }
 #player-votes-modal .prof-head__name {
     width: 100%;
     max-width: 100%;
@@ -2992,15 +3014,21 @@ body.desktop-authenticated #app-container.desktop-os *::after {
 #player-votes-modal .prof-profile-main__head h4 { margin: 5px 0 0; font: 400 27px/1 var(--font-display); }
 
 #player-votes-modal .prof-customize-btn {
-    padding: 9px 14px;
+    min-height: 42px;
+    padding: 10px 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
     border: 1px solid rgba(var(--prof-accent-rgb), .42);
     background: rgba(var(--prof-accent-rgb), .06);
     color: var(--prof-accent-2);
-    font: 600 9px/1 var(--font-body);
+    font: 600 11px/1 var(--font-body);
     letter-spacing: .12em;
     text-transform: uppercase;
     cursor: pointer;
 }
+#player-votes-modal .prof-customize-btn svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.65; stroke-linecap: round; stroke-linejoin: round; }
 #player-votes-modal .prof-customize-btn:hover { background: rgba(var(--prof-accent-rgb), .15); box-shadow: 0 0 22px rgba(var(--prof-accent-rgb), .12); }
 
 #player-votes-modal .prof-stats { margin: 0; display: grid; grid-template-columns: repeat(4, 1fr); border-bottom: 1px solid var(--desktop-line-white); border-left: 0; }
@@ -3021,15 +3049,15 @@ body.desktop-authenticated #app-container.desktop-os *::after {
     min-height: 76px;
     padding: 11px;
     display: grid;
-    grid-template-columns: 42px minmax(0, 1fr);
+    grid-template-columns: 48px minmax(0, 1fr);
     align-items: center;
-    gap: 11px;
+    column-gap: 14px;
     border: 1px solid rgba(var(--prof-accent-rgb), .24);
     background: linear-gradient(120deg, rgba(var(--prof-accent-rgb), .105), rgba(255,255,255,.012));
     animation: profileTrophyRise 520ms var(--desktop-ease) var(--trophy-delay) backwards;
 }
-#player-votes-modal .prof-featured-trophy svg { width: 42px; height: 42px; padding: 9px; border: 1px solid rgba(var(--prof-accent-rgb), .42); border-radius: 50%; color: var(--prof-accent); filter: drop-shadow(0 0 7px rgba(var(--prof-accent-rgb), .3)); }
-#player-votes-modal .prof-featured-trophy > span { min-width: 0; display: grid; gap: 4px; }
+#player-votes-modal .prof-featured-trophy > svg { box-sizing: border-box; display: block; width: 44px; height: 44px; max-width: 44px; padding: 9px; justify-self: center; border: 1px solid rgba(var(--prof-accent-rgb), .42); border-radius: 50%; color: var(--prof-accent); filter: drop-shadow(0 0 7px rgba(var(--prof-accent-rgb), .3)); }
+#player-votes-modal .prof-featured-trophy > span { min-width: 0; padding-left: 2px; display: grid; gap: 4px; }
 #player-votes-modal .prof-featured-trophy strong { overflow: hidden; display: -webkit-box; color: var(--primary-text); font-size: 11px; line-height: 1.25; text-overflow: ellipsis; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 #player-votes-modal .prof-featured-trophy small { color: var(--desktop-dim); font-size: 8px; line-height: 1.3; }
 #player-votes-modal .prof-featured__empty { grid-column: 1 / -1; margin: 0; padding: 20px; border: 1px dashed var(--desktop-line-white); color: var(--desktop-dim); font: italic 13px var(--font-display); text-align: center; }
@@ -3050,7 +3078,7 @@ body.desktop-authenticated #app-container.desktop-os *::after {
 
 #player-votes-modal .prof-feature-options { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 7px; }
 #player-votes-modal .prof-feature-choice { min-width: 0; min-height: 58px; padding: 8px; display: grid; grid-template-columns: 32px minmax(0,1fr); align-items: center; gap: 9px; border: 1px solid var(--desktop-line-white); background: rgba(0,0,0,.2); color: #777; text-align: left; cursor: pointer; }
-#player-votes-modal .prof-feature-choice svg { width: 30px; height: 30px; padding: 6px; border: 1px solid currentColor; border-radius: 50%; }
+#player-votes-modal .prof-feature-choice > svg { box-sizing: border-box; display: block; width: 30px; height: 30px; max-width: 30px; padding: 6px; justify-self: center; border: 1px solid currentColor; border-radius: 50%; }
 #player-votes-modal .prof-feature-choice > span { min-width: 0; display: grid; gap: 2px; }
 #player-votes-modal .prof-feature-choice strong { overflow: hidden; display: -webkit-box; color: var(--primary-text); font-size: 10px; line-height: 1.25; text-overflow: ellipsis; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 #player-votes-modal .prof-feature-choice small { color: var(--desktop-dim); font-size: 8px; }
@@ -3060,6 +3088,9 @@ body.desktop-authenticated #app-container.desktop-os *::after {
 #player-votes-modal .prof-dossier__body { min-height: 360px; display: grid; grid-template-columns: minmax(0, 1fr) 300px; overflow: visible; }
 #player-votes-modal .prof-achievements { overflow: visible; }
 #player-votes-modal .prof-badges { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+#player-votes-modal .prof-badge { grid-template-columns: 44px minmax(0, 1fr); column-gap: 14px; padding: 9px 11px; }
+#player-votes-modal .prof-badge > svg { box-sizing: border-box; display: block; width: 38px; height: 38px; max-width: 38px; justify-self: center; }
+#player-votes-modal .prof-badge > span { padding-left: 2px; }
 #player-votes-modal .prof-badge strong { overflow: hidden; display: -webkit-box; line-height: 1.25; text-overflow: ellipsis; overflow-wrap: anywhere; white-space: normal; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 #player-votes-modal .prof-badge small { line-height: 1.3; overflow-wrap: anywhere; }
 #player-votes-modal .prof-badge.is-owned { color: var(--prof-accent); }

@@ -17,6 +17,11 @@ assert(/profiles:\s*state\.profiles/.test(script)
 assert(/function applyMobileProfileTheme/.test(script)
     && /dataset\.titleMotion/.test(script)
     && /m-prof-card__foil/.test(script), 'Mobile Signature theme binding is incomplete');
+assert(/id="m-profile-trigger"/.test(html)
+    && /m-profile-trigger'\)\.addEventListener\('click'[\s\S]{0,120}openProfile/.test(script), 'Own mobile avatar must open the player profile');
+assert(/body\.classList\.add\('m-sheet__body--profile'\)/.test(script)
+    && /applyMobileProfileTheme\(root, profile\.equippedTitle\)/.test(script)
+    && /\.m-prof\[data-title-motif="polonia"\]::before/.test(css), 'The equipped title must theme the full mobile dossier');
 assert(/Personnaliser ma Signature/.test(script)
     && /featuredAchievement/.test(script)
     && /equippedTitleId/.test(script), 'Mobile Signature customization is incomplete');
