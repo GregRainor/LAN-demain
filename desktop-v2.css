@@ -1765,6 +1765,9 @@ body.desktop-authenticated #app-container.desktop-os *::after {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 15px;
+    /* Chaque carte se dimensionne sur son contenu : étirées à la hauteur de
+       la rangée, les plus courtes traînaient un grand vide sous leur bouton. */
+    align-items: start;
 }
 
 #view-admin-dashboard .admin-control-item {
@@ -1778,6 +1781,103 @@ body.desktop-authenticated #app-container.desktop-os *::after {
 #view-admin-dashboard .admin-control-item.danger-zone {
     grid-column: 1 / -1;
     border-top-color: rgba(188, 70, 70, 0.65);
+}
+
+/* --- La console d'administration -------------------------------------------
+   Huit cartes de même facture, dans une seule grille. Avant, trois cartes
+   flottaient dans une grille et le reste s'empilait en pleine largeur en
+   dessous, avec des titres centrés en Playfair et des boutons dorés pleins qui
+   criaient tous à la même hauteur. Ici, l'intitulé est un label discret, le
+   bouton d'une carte est bordé — pas plein — et seul le rouge de la zone
+   dangereuse a le droit d'attirer l'œil. */
+
+#view-admin-dashboard .admin-control-item {
+    display: grid;
+    align-content: start;
+    gap: 11px;
+}
+
+#view-admin-dashboard .admin-control-item .section-title {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    color: var(--desktop-dim);
+    font: 500 10px/1 var(--font-body);
+    letter-spacing: 0.15em;
+    text-align: left;
+    text-transform: uppercase;
+}
+
+#view-admin-dashboard .admin-control-item .section-title--danger { color: #c06a6a; }
+
+#view-admin-dashboard .admin-control-item .panel-section__text,
+#view-admin-dashboard .admin-control-item .panel-section__hint {
+    margin: 0;
+    color: var(--secondary-text);
+    font: 400 12px/1.5 var(--font-body);
+}
+
+#view-admin-dashboard .admin-control-item .field-label {
+    margin: 4px 0 0;
+    color: var(--desktop-dim);
+    font: 400 11px/1.3 var(--font-body);
+}
+
+#view-admin-dashboard .admin-control-item .luxury-input {
+    box-sizing: border-box;
+    width: 100%;
+    margin: 0;
+}
+
+/* Le bouton d'une carte annonce une action, il ne la réclame pas : bordé,
+   plein seulement au survol. */
+#view-admin-dashboard .admin-control-item .btn-block {
+    width: 100%;
+    margin: 4px 0 0;
+    padding: 11px 15px;
+    border: 1px solid rgba(212, 175, 55, 0.42);
+    background: transparent;
+    color: var(--accent-color);
+    font: 500 11px/1 var(--font-body);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    text-shadow: none;
+    transition: background var(--desktop-motion-fast) ease, color var(--desktop-motion-fast) ease;
+}
+
+#view-admin-dashboard .admin-control-item .btn-block:hover {
+    background: rgba(212, 175, 55, 0.12);
+    color: var(--accent-color);
+}
+
+#view-admin-dashboard .admin-control-item .btn-block--alt {
+    border-color: rgba(78, 148, 99, 0.5);
+    color: #6fb886;
+}
+
+#view-admin-dashboard .admin-control-item .btn-block--alt:hover { background: rgba(78, 148, 99, 0.12); }
+
+#view-admin-dashboard .admin-control-item .danger-btn {
+    border-color: rgba(188, 70, 70, 0.55);
+    background: transparent;
+    color: #d47b7b;
+}
+
+#view-admin-dashboard .admin-control-item .danger-btn:hover { background: rgba(188, 70, 70, 0.14); }
+
+/* Le compte rendu et la zone dangereuse tiennent la largeur : l'un est une
+   liste, l'autre ne doit pas se confondre avec une carte de réglage. */
+#view-admin-dashboard #admin-closed-results-display,
+#view-admin-dashboard .admin-control-item.danger-zone { grid-column: 1 / -1; }
+
+#view-admin-dashboard #admin-closed-download-list { max-height: 260px; overflow-y: auto; }
+
+@media (max-width: 1180px) {
+    #view-admin-dashboard .admin-controls-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 820px) {
+    #view-admin-dashboard .admin-controls-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
 #view-lan-finished { max-width: none !important; }
@@ -2425,20 +2525,6 @@ body.desktop-authenticated #app-container.desktop-os *::after {
 
 .desktop-subnav__item > b:not(:empty) { display: inline-block; }
 
-/* Les Fins Gourmets : la table puis le bar, séparés par un intertitre plutôt
-   que par deux entrées de menu. */
-.gourmet-section + .gourmet-section { margin-top: 38px; }
-
-.gourmet-section__title {
-    margin: 0 0 17px;
-    text-align: left;
-    padding-bottom: 9px;
-    border-bottom: 1px solid var(--desktop-line);
-    color: var(--accent-color);
-    font: 400 22px/1.1 var(--font-display);
-    letter-spacing: 0.02em;
-}
-
 #view-lan-active .lan-subview {
     width: 100%;
     max-width: 100%;
@@ -2459,9 +2545,8 @@ body.desktop-authenticated #app-container.desktop-os *::after {
 #view-lan-active .lan-subview.active > .luxury-panel,
 #view-lan-active .lan-subview.active > .set-banner,
 #view-lan-active .lan-subview.active > .dashboard-grid,
-#view-lan-active .lan-subview.active > .gourmet-section,
-#view-lan-active .lan-subview.active > .shop-pane > .luxury-panel,
-#view-lan-active .lan-subview.active > .shop-pane > .dashboard-grid {
+#view-lan-active .lan-subview.active > .pane > .luxury-panel,
+#view-lan-active .lan-subview.active > .pane > .dashboard-grid {
     animation: desktopPanelIn 460ms var(--desktop-ease) backwards;
 }
 
@@ -2561,6 +2646,137 @@ body.desktop-authenticated #app-container.desktop-os *::after {
 
 #view-lan-active .luxury-panel { margin-top: 0; }
 
+/* ==========================================================================
+   LE TIROIR DU MAÎTRE DU JEU
+   Créditer des points ou frapper le set ne concernent qu'une personne sur six,
+   et par intermittence. Ces postes n'ont donc rien à faire en tête d'écran —
+   ni dans le panneau admin, où l'on ne va pas en pleine soirée. Une ligne
+   repliée, dans l'écran qu'elle pilote, qui s'ouvre quand on en a besoin.
+   ========================================================================== */
+
+.gm-tools {
+    margin: 0 0 21px;
+    border: 1px solid var(--desktop-line);
+    background: rgba(212, 175, 55, 0.02);
+}
+
+.gm-tools > summary {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 11px 17px;
+    color: var(--desktop-dim);
+    cursor: pointer;
+    font: 500 10px/1 var(--font-body);
+    letter-spacing: 0.14em;
+    list-style: none;
+    text-transform: uppercase;
+    transition: color var(--desktop-motion-fast) ease, background var(--desktop-motion-fast) ease;
+}
+
+.gm-tools > summary::-webkit-details-marker { display: none; }
+
+.gm-tools > summary:hover {
+    background: rgba(212, 175, 55, 0.05);
+    color: var(--accent-color);
+}
+
+.gm-tools > summary > span:first-child {
+    color: var(--accent-color);
+    font: 400 13px/1 var(--font-display);
+    letter-spacing: 0;
+}
+
+/* Le chevron dit dans quel sens ça va, et rien d'autre. */
+.gm-tools > summary::after {
+    content: "▾";
+    margin-left: auto;
+    color: var(--desktop-dim);
+    font-size: 11px;
+    transition: transform var(--desktop-motion-base) var(--desktop-ease);
+}
+
+.gm-tools[open] > summary::after { transform: rotate(180deg); }
+
+.gm-tools[open] > summary {
+    border-bottom: 1px solid var(--desktop-line);
+    color: var(--accent-color);
+}
+
+.gm-tools > summary > b {
+    display: none;
+    min-width: 19px;
+    height: 19px;
+    padding: 0 6px;
+    place-items: center;
+    border-radius: 10px;
+    background: var(--danger-color, #c04a4a);
+    color: #fff;
+    font: 600 10px/1 var(--font-body);
+    letter-spacing: 0;
+}
+
+.gm-tools > summary > b:not(:empty) { display: grid; }
+
+.gm-tools__body {
+    display: grid;
+    gap: 15px;
+    padding: 17px;
+}
+
+/* Les panneaux du tiroir n'ont plus de marge propre : c'est la grille du
+   tiroir qui espace. Leur `margin-bottom` en style inline a été retiré du
+   balisage plutôt que battu par un !important de plus. */
+.gm-tools__body > .luxury-panel { margin: 0; }
+
+.gm-tools__body > .gold-link-btn { justify-self: start; }
+
+/* ==========================================================================
+   LES SONDAGES
+   Le formulaire est un outil, pas le sujet : il passe en colonne de droite,
+   et les scrutins en cours tiennent la largeur utile.
+   ========================================================================== */
+
+/* La grille vit sur un conteneur intérieur : l'aiguillage hérité pose un
+   `display: block` en style inline sur le sous-écran lui-même, et le battre
+   demanderait un !important. */
+.polls-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) minmax(300px, 0.8fr);
+    grid-template-rows: auto 1fr;
+    gap: 15px;
+    align-items: start;
+}
+
+.polls-form { grid-column: 2; grid-row: 1; margin: 0; }
+.polls-layout > #polls-active { grid-column: 1; grid-row: 1; }
+.polls-layout > #polls-history-box { grid-column: 1; grid-row: 2; margin: 0; }
+
+@media (max-width: 1180px) {
+    .polls-layout { grid-template-columns: minmax(0, 1fr); }
+    .polls-layout > * { grid-column: 1; grid-row: auto; }
+}
+
+#lan-polls .poll-option-input { width: 100%; }
+
+/* Une option de formulaire porte son rang : « Option 3 » dans le vide ne dit
+   pas où on en est. */
+#poll-options .field-row {
+    align-items: center;
+    counter-increment: poll-option;
+}
+
+#poll-options { counter-reset: poll-option; }
+
+#poll-options .field-row::before {
+    content: counter(poll-option);
+    flex: 0 0 auto;
+    width: 20px;
+    color: var(--desktop-dim);
+    font: 400 15px/1 var(--font-display);
+    text-align: center;
+}
+
 /* La Boutique se lit en trois temps : ce que j'achète, ce que le groupe
    dépense, ce que j'ai décroché. Les trois volets sont des destinations —
    plus de panneau rendu puis éteint. La vue reste en flux normal : le
@@ -2584,7 +2800,7 @@ body.desktop-authenticated #app-container.desktop-os *::after {
 
 .desktop-subnav--shop { margin-bottom: 21px; }
 
-.shop-pane > .dashboard-grid { margin-bottom: 0; }
+.pane > .dashboard-grid { margin-bottom: 0; }
 
 /* Le titre de niveau vit dans une colonne étroite : « Propre sur soi » sur
    trois lignes n'est pas un classement, c'est un accident de largeur. C'est le

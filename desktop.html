@@ -508,49 +508,60 @@
                         <button class="btn-block schedule-save-btn">Annoncer la date</button>
                     </div>
 
+                    <div class="admin-control-item panel-section">
+                        <h3 class="section-title">Message à tous</h3>
+                        <p class="panel-section__text">Une notification, tout de suite, sur l'écran de
+                            chacun.</p>
+                        <input type="text" id="broadcast-message" class="luxury-input"
+                            placeholder="Ex : le tournoi commence dans 5 minutes">
+                        <button id="btn-send-broadcast" class="btn-block">Envoyer</button>
+                    </div>
+
+                    <div class="admin-control-item panel-section">
+                        <h3 class="section-title">Rôles</h3>
+                        <p class="panel-section__text">Le maître du jeu tranche les défis et tient la
+                            boutique ; le mixologue tient le bar.</p>
+                        <select id="role-user-select" class="luxury-input">
+                            <option value="">Sélectionner un joueur...</option>
+                        </select>
+                        <select id="role-type-select" class="luxury-input">
+                            <option value="player">Joueur (défaut)</option>
+                            <option value="mixologist">Mixologue</option>
+                            <option value="gamemaster">Maître du jeu</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                        <button id="btn-assign-role" class="btn-block">Attribuer le rôle</button>
+                    </div>
+
+                    <!-- Toutes les LAN n'ont pas été comptées ici : sans ce
+                         réglage, un vétéran de dix soirées repart au niveau 1
+                         et le classement d'expérience raconte n'importe quoi.
+                         On n'efface jamais ce qui a été gagné — on ajoute le
+                         crédit de départ qui manquait. -->
+                    <div class="admin-control-item panel-section">
+                        <h3 class="section-title">Niveau de départ</h3>
+                        <p class="panel-section__text">Pour les soirées d'avant l'application. L'expérience
+                            gagnée ici n'est jamais effacée : on ne fait qu'ajuster le crédit initial.</p>
+                        <select id="level-user-select" class="luxury-input">
+                            <option value="">Sélectionner un joueur...</option>
+                        </select>
+                        <label class="field-label" for="level-target">Niveau visé</label>
+                        <input type="number" id="level-target" class="luxury-input" min="1" max="60" value="1">
+                        <p id="level-current" class="panel-section__hint"></p>
+                        <button id="btn-set-level" class="btn-block">Ajuster le niveau</button>
+                    </div>
+
+                    <div id="admin-closed-results-display" class="admin-control-item panel-section results-container">
+                        <h3 class="section-title">Top jeux actuels</h3>
+                        <div id="admin-closed-download-list" class="stack stack--start"></div>
+                    </div>
+
                     <div class="admin-control-item danger-zone panel-section panel-section--danger">
                         <h3 class="section-title section-title--danger">Zone Dangereuse</h3>
                         <p class="panel-section__text">Attention: réinitialiser les votes supprime de
                             manière permanente toutes les données de vote actuelles de la base de données.</p>
                         <button id="reset-all-votes-btn-dashboard" class="danger-btn btn-block">Réinitialiser TOUS les
                             votes</button>
-                    </div>
-                </div>
-
-                <div id="admin-closed-results-display" class="admin-control-item results-container panel-section">
-                    <h3 class="section-title">Top Jeux Actuels</h3>
-                    <div id="admin-closed-download-list" class="stack stack--start">
-                    </div>
-                </div>
-
-                <!-- Admin Broadcast Notification -->
-                <div class="panel-section">
-                    <h3 class="section-title section-title--accent">📢 Message à tous</h3>
-                    <div class="field-row">
-                        <input type="text" id="broadcast-message" class="luxury-input"
-                            placeholder="Ex: Le tournoi commence dans 5 minutes !" style="flex: 1;">
-                        <button id="btn-send-broadcast" class="gold-btn btn-inline">Envoyer 🔔</button>
-                    </div>
-                </div>
-
-                <!-- Role Management -->
-                <div class="panel-section">
-                    <h3 class="section-title section-title--accent">👥 Gestion des Rôles</h3>
-                    <p class="panel-section__hint">Sélectionnez un
-                        joueur pour lui attribuer un rôle.</p>
-                    <div class="stack stack--sm">
-                        <select id="role-user-select" class="luxury-input" style="width: 100%;">
-                            <option value="">Sélectionner un joueur...</option>
-                        </select>
-                        <div style="display: flex; gap: 10px;">
-                            <select id="role-type-select" class="luxury-input" style="flex: 1;">
-                                <option value="player">Joueur (défaut)</option>
-                                <option value="mixologist">Mixologue</option>
-                                <option value="gamemaster">Maître du jeu</option>
-                                <option value="admin">Admin</option>
-                            </select>
-                            <button id="btn-assign-role" class="gold-btn" style="padding: 10px 20px;">Attribuer</button>
-                        </div>
                     </div>
                 </div>
 
@@ -734,10 +745,14 @@
                          une même idée : ce qu'on mange, ce qu'on boit. Le rail
                          n'ouvre qu'une porte, donc les deux vivent ici. -->
                     <div id="lan-food" class="lan-subview" style="display: none;">
-                        <h2 class="subview-title" style="margin-bottom: 30px;">Les Fins Gourmets</h2>
+                        <h2 class="subview-title" style="margin-bottom: 21px;">Les Fins Gourmets</h2>
 
-                        <section class="gourmet-section" aria-labelledby="gourmet-table-title">
-                            <h3 id="gourmet-table-title" class="gourmet-section__title">La table</h3>
+                        <nav class="desktop-subnav" aria-label="Écrans des Fins Gourmets">
+                            <button type="button" class="desktop-subnav__item active" data-pane="table">La table</button>
+                            <button type="button" class="desktop-subnav__item" data-pane="bar">Le bar</button>
+                        </nav>
+
+                        <section class="pane" data-pane="table" aria-label="La table">
 
                             <div class="luxury-panel" style="padding: 25px; margin-bottom: 30px;">
                                 <h3 class="section-title">Lancer une commande groupée</h3>
@@ -759,8 +774,7 @@
                             <div id="food-runs" class="stack"></div>
                         </section>
 
-                        <section class="gourmet-section" aria-labelledby="gourmet-bar-title">
-                            <h3 id="gourmet-bar-title" class="gourmet-section__title">Le bar</h3>
+                        <section class="pane" data-pane="bar" aria-label="Le bar" hidden>
                             <div class="luxury-panel" style="padding: 25px; margin-bottom: 30px;">
                                 <div
                                     style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(212,175,55,0.2); padding-bottom: 15px; margin-bottom: 20px;">
@@ -808,9 +822,10 @@
 
                     <!-- Subview: Sondages -->
                     <div id="lan-polls" class="lan-subview" style="display: none;">
-                        <h2 class="subview-title" style="margin-bottom: 30px;">Sondages</h2>
+                        <h2 class="subview-title" style="margin-bottom: 21px;">Sondages</h2>
 
-                        <div class="luxury-panel" style="padding: 25px; margin-bottom: 30px;">
+                        <div class="polls-layout">
+                        <div class="luxury-panel polls-form" style="padding: 25px;">
                             <h3 class="section-title">Lancer un sondage</h3>
                             <p class="panel-section__hint">Tout le monde peut en lancer un. Les votes sont publics -
                                 c'est plus drôle.</p>
@@ -851,10 +866,11 @@
 
                         <div id="polls-active" class="stack"></div>
 
-                        <details id="polls-history-box" class="link-steam" style="margin-top: 25px;">
+                        <details id="polls-history-box" class="link-steam">
                             <summary>Sondages terminés</summary>
                             <div id="polls-closed" class="stack" style="margin-top: 15px;"></div>
                         </details>
+                        </div>
                     </div>
 
                     <!-- Subview: Défis
@@ -921,26 +937,32 @@
                              panneaux étaient rendus puis éteints en CSS ; ils
                              ont désormais une route au lieu d'un display:none. -->
                         <nav class="desktop-subnav desktop-subnav--shop" aria-label="Écrans de la boutique">
-                            <button type="button" class="desktop-subnav__item active" data-shop-pane="carte">La carte</button>
-                            <button type="button" class="desktop-subnav__item" data-shop-pane="registre">Le registre<b id="shop-pane-requests-badge"></b></button>
+                            <button type="button" class="desktop-subnav__item active" data-pane="carte">La carte</button>
+                            <button type="button" class="desktop-subnav__item" data-pane="registre">Le registre<b id="shop-pane-requests-badge"></b></button>
                         </nav>
 
-                        <div class="shop-pane" data-shop-pane="carte">
-                            <!-- Le booster : tête de gondole, pas une ligne de liste. -->
-                            <div id="booster-panel" class="luxury-panel"
-                                style="padding: 25px; margin-bottom: 25px; display: none;">
-                                <h3 class="section-title">Le booster</h3>
-                                <div id="booster-shelf"></div>
-                            </div>
-
+                        <!-- Les postes du maître du jeu ne concernent qu'une personne
+                             sur six et ne servent que par intermittence : ils vivent dans
+                             un tiroir replié, dans l'écran qu'ils pilotent, et non dans le
+                             panneau admin où l'on ne va pas en pleine soirée. La pastille
+                             dit s'il y a quelque chose à trancher. -->
+                        <details id="shop-gm-tools" class="gm-tools" style="display: none;">
+                            <summary>
+                                <span aria-hidden="true">⌘</span>
+                                <span>Outils du maître du jeu</span>
+                                <b id="shop-gm-tools-badge"></b>
+                            </summary>
+                            <div class="gm-tools__body">
+                                <button type="button" id="btn-add-shop-item" class="gold-link-btn"
+                                    style="display:none;">+ Ajouter un article</button>
                             <!-- Poste de travail du maître du jeu : ce qu'il doit trancher -->
-                            <div id="shop-gm-panel" class="luxury-panel" style="padding: 25px; margin-bottom: 25px; display: none; border-color: rgba(212,175,55,0.35);">
+                            <div id="shop-gm-panel" class="luxury-panel" style="padding: 25px; display: none; border-color: rgba(212,175,55,0.35);">
                                 <h3 class="section-title section-title--accent">🎲 Demandes à valider</h3>
                                 <div id="shop-gm-queue" class="stack stack--sm"></div>
                             </div>
 
                             <!-- Créditer : la seule façon de faire entrer des points -->
-                            <div id="shop-grant-panel" class="luxury-panel" style="padding: 25px; margin-bottom: 25px; display: none;">
+                            <div id="shop-grant-panel" class="luxury-panel" style="padding: 25px; display: none;">
                                 <h3 class="section-title">Créditer des points</h3>
                                 <p class="panel-section__hint">Chaque crédit laisse une ligne signée dans le
                                     registre, visible de tous.</p>
@@ -965,18 +987,24 @@
                                     </details>
                                 </div>
                             </div>
+                            </div>
+                        </details>
+
+                        <div class="pane" data-pane="carte">
+                            <!-- Le booster : tête de gondole, pas une ligne de liste. -->
+                            <div id="booster-panel" class="luxury-panel"
+                                style="padding: 25px; margin-bottom: 25px; display: none;">
+                                <h3 class="section-title">Le booster</h3>
+                                <div id="booster-shelf"></div>
+                            </div>
 
                             <div class="luxury-panel" style="padding: 25px; margin-bottom: 25px;">
-                                <div class="panel-head">
-                                    <h3 class="section-title" style="margin: 0;">La carte</h3>
-                                    <button id="btn-add-shop-item" class="gold-link-btn"
-                                        style="font-size: 0.8em; display:none;">+ Ajouter un article</button>
-                                </div>
+                                <h3 class="section-title">La carte</h3>
                                 <div id="shop-catalog"></div>
                             </div>
                         </div><!-- /carte -->
 
-                        <div class="shop-pane" data-shop-pane="registre" hidden>
+                        <div class="pane" data-pane="registre" hidden>
                             <div class="dashboard-grid">
                                 <div class="luxury-panel" style="padding: 25px;">
                                     <h3 class="section-title">Registre</h3>
@@ -1033,9 +1061,16 @@
                             <p class="set-banner__hint" id="tcg-hint"></p>
                         </div>
 
+                        <details id="tcg-gm-tools" class="gm-tools" style="display: none;">
+                            <summary>
+                                <span aria-hidden="true">⌘</span>
+                                <span>Outils du maître du jeu</span>
+                                <b id="tcg-gm-tools-badge"></b>
+                            </summary>
+                            <div class="gm-tools__body">
                         <!-- Poste du maître du jeu : composer le set, offrir un booster -->
                         <div id="tcg-gm-panel" class="luxury-panel"
-                            style="padding: 25px; margin-bottom: 25px; display: none; border-color: rgba(212,175,55,0.35);">
+                            style="padding: 25px; display: none; border-color: rgba(212,175,55,0.35);">
                             <h3 class="section-title section-title--accent">🎴 Le set de la soirée</h3>
                             <p class="panel-section__hint" id="tcg-mint-state"></p>
                             <div class="shop-grant-row">
@@ -1055,6 +1090,8 @@
                                 <button id="btn-gift-pack" class="gold-btn shop-grant-btn">Offrir</button>
                             </div>
                         </div>
+                            </div>
+                        </details>
 
                         <div id="tcg-packs-panel" class="luxury-panel"
                             style="padding: 25px; margin-bottom: 25px; display: none;">

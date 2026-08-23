@@ -516,11 +516,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function setupDesktopShell() {
-        document.querySelectorAll('.desktop-subnav__item').forEach(item => {
-            if (item.dataset.shopPane) {
-                item.addEventListener('click', () => setShopPane(item.dataset.shopPane));
-                return;
-            }
+        setupPanes();
+        document.querySelectorAll('#desktop-subnav .desktop-subnav__item').forEach(item => {
             item.addEventListener('click', () => activateDesktopSubview(item.dataset.desktopTarget));
         });
 
@@ -949,9 +946,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!sidebar) return;
 
         sidebar.innerHTML = '';
-        ['role-user-select', 'role-user-select-lan'].forEach(id => {
+        ['role-user-select', 'role-user-select-lan', 'level-user-select'].forEach(id => {
             const sel = document.getElementById(id);
-            if (sel) sel.innerHTML = '<option value="">Sélectionner un joueur...</option>';
+            if (!sel) return;
+            const keep = sel.value;
+            sel.innerHTML = '<option value="">Sélectionner un joueur...</option>';
+            sel.dataset.keep = keep || '';
         });
 
         const roster = buildRoster();
@@ -1002,17 +1002,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
             sidebar.appendChild(slot);
 
-            // Populate both role selects (View 3 admin panel + Active LAN admin panel)
-            ['role-user-select', 'role-user-select-lan'].forEach(selectId => {
+            // Les trois sélecteurs de joueur : rôles (console et LAN active) et
+            // niveau de départ. Le choix en cours survit au redessin, sinon il
+            // saute dès que quelqu'un se connecte.
+            ['role-user-select', 'role-user-select-lan', 'level-user-select'].forEach(selectId => {
                 const sel = document.getElementById(selectId);
-                if (sel) {
-                    const opt = document.createElement('option');
-                    opt.value = player.uid;
-                    opt.textContent = player.name || player.uid;
-                    sel.appendChild(opt);
-                }
+                if (!sel) return;
+                const opt = document.createElement('option');
+                opt.value = player.uid;
+                opt.textContent = player.name || player.uid;
+                sel.appendChild(opt);
             });
         });
+
+        ['role-user-select', 'role-user-select-lan', 'level-user-select'].forEach(id => {
+            const sel = document.getElementById(id);
+            if (sel && sel.dataset.keep) sel.value = sel.dataset.keep;
+        });
+        describeLevelTarget();
 
         const online = roster.filter(player => player.online).length;
         const onlineCount = document.getElementById('desktop-online-count');
@@ -2508,7 +2515,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const score = document.createElement('span');
             score.className = 'poll-option__score';
-            score.textContent = count ? `${count} · ${pct}%` : '-';
+            score.textContent = count ? `${count} · ${pct}%` : '—';
+            if (!count) score.classList.add('poll-option__score--empty');
 
             row.append(fill, label, score);
 
@@ -6734,26 +6742,41 @@ document.addEventListener('DOMContentLoaded', () => {
         return 'Un joueur';
     }
 
-    /* Volet ouvert de la Boutique. Les trois volets sont des destinations, donc
-       leur contenu ne se construit qu'à l'ouverture : renderShopFeed(),
-       renderXpBoard() et renderLanTitlesPanel() tournaient à chaque mise à jour
-       de l'économie pour peupler un DOM que personne ne regardait. */
-    let shopPane = 'carte';
-
-    function shopPaneIsOpen(name) {
-        return shopPane === name && document.getElementById('lan-boutique')?.classList.contains('active');
+    /* Onglets internes à un écran. Le rail conduit à la destination, ces
+       onglets à la pièce. Un volet fermé porte `hidden` — c'est du balisage,
+       pas un display:none de plus — et surtout il ne se construit pas :
+       renderShopFeed(), renderXpBoard() et renderLanTitlesPanel() tournaient à
+       chaque mise à jour de l'économie pour peupler un DOM invisible. */
+    function activatePane(rootId, name) {
+        const root = document.getElementById(rootId);
+        if (!root) return;
+        root.dataset.pane = name;
+        root.querySelectorAll('[data-pane]').forEach(node => {
+            if (node.tagName === 'BUTTON') node.classList.toggle('active', node.dataset.pane === name);
+            else node.hidden = node.dataset.pane !== name;
+        });
+        scheduleDesktopMotionRefresh();
     }
 
-    function setShopPane(name) {
-        shopPane = name;
-        document.querySelectorAll('#lan-boutique .shop-pane').forEach(pane => {
-            pane.hidden = pane.dataset.shopPane !== name;
+    function paneIsOpen(rootId, name) {
+        const root = document.getElementById(rootId);
+        return !!root && root.classList.contains('active') && (root.dataset.pane || '') === name;
+    }
+
+    function shopPaneIsOpen(name) {
+        return paneIsOpen('lan-boutique', name);
+    }
+
+    function setupPanes() {
+        document.querySelectorAll('.lan-subview .desktop-subnav__item[data-pane]').forEach(tab => {
+            const root = tab.closest('.lan-subview');
+            if (!root) return;
+            if (!root.dataset.pane) root.dataset.pane = tab.dataset.pane;
+            tab.addEventListener('click', () => {
+                activatePane(root.id, tab.dataset.pane);
+                if (root.id === 'lan-boutique') renderBoutique();
+            });
         });
-        document.querySelectorAll('#lan-boutique .desktop-subnav__item').forEach(item => {
-            item.classList.toggle('active', item.dataset.shopPane === name);
-        });
-        renderBoutique();
-        scheduleDesktopMotionRefresh();
     }
 
     function renderBoutique() {
@@ -6780,7 +6803,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         document.getElementById('shop-grant-panel').style.display = isGm ? 'block' : 'none';
-        document.getElementById('btn-add-shop-item').style.display = isGm ? 'block' : 'none';
+        document.getElementById('btn-add-shop-item').style.display = isGm ? 'inline-block' : 'none';
+
+        /* Le tiroir n'existe que pour le maître du jeu, et il reste replié :
+           l'ouvrir tout seul repousserait la carte sous la ligne de flottaison,
+           ce qu'on cherchait précisément à éviter. La pastille suffit à dire
+           qu'il y a quelque chose dedans — le tableau de bord et la pastille
+           du rail le disent déjà de leur côté. */
+        const shopTools = document.getElementById('shop-gm-tools');
+        const shopToolsBadge = document.getElementById('shop-gm-tools-badge');
+        if (shopTools) shopTools.style.display = isGm ? 'block' : 'none';
+        if (shopToolsBadge) {
+            const waiting = isGm ? pendingPurchases(globalEconomy).length : 0;
+            shopToolsBadge.textContent = waiting ? String(waiting) : '';
+        }
 
         grantPendingAchievements();
         renderBoosterShelf(user);
@@ -7640,6 +7676,90 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(() => showToast(`${missing.length} défis ajoutés.`, 'success'))
             .catch(err => showToast('Erreur : ' + err.message, 'error'));
     }
+
+    /* --- Le niveau de départ ------------------------------------------------
+
+       Toutes les LAN n'ont pas été comptées ici. Sans réglage, un vétéran de
+       dix soirées repart au niveau 1 et le classement d'expérience raconte
+       n'importe quoi.
+
+       On n'efface jamais ce qui a été gagné : les récompenses de défis, de
+       hauts faits et de présence restent intactes. Ce réglage écrit une seule
+       ligne par joueur, à une clé déterministe — la réécrire remplace le
+       crédit précédent au lieu de s'y ajouter. Les règles Firebase refusent
+       une valeur négative : on ne peut donc que compléter un retard, jamais
+       retirer de l'expérience réellement gagnée. */
+    const LEVEL_ADJUST_TYPE = 'adjust';
+
+    function levelAdjustId(uid) {
+        return uid + '__adjust';
+    }
+
+    function earnedXpWithoutAdjust(uid) {
+        const adjust = ((globalXp || {}).awards || {})[levelAdjustId(uid)];
+        return xpTotal(globalXp, uid) - (Number(adjust && adjust.delta) || 0);
+    }
+
+    function describeLevelTarget() {
+        const select = document.getElementById('level-user-select');
+        const target = document.getElementById('level-target');
+        const line = document.getElementById('level-current');
+        if (!select || !target || !line) return;
+
+        const uid = select.value;
+        if (!uid) { line.textContent = 'Choisissez un joueur pour voir son niveau actuel.'; return; }
+
+        const earned = earnedXpWithoutAdjust(uid);
+        const current = xpLevel(xpTotal(globalXp, uid));
+        const wanted = Math.max(1, Math.min(60, Math.round(Number(target.value) || 1)));
+        const needed = xpForLevel(wanted);
+        const credit = Math.max(0, needed - earned);
+
+        const floor = xpLevel(earned).level;
+        line.textContent = wanted < floor
+            ? `Niveau ${current.level} aujourd'hui. ${playerLabel(uid)} a gagné le niveau ${floor} ici : `
+                + 'le crédit de départ tombera à zéro, mais rien ne sera retiré.'
+            : `Niveau ${current.level} aujourd'hui · ${xpTotal(globalXp, uid)} XP, dont ${earned} gagnés ici. `
+                + `Viser le niveau ${wanted} pose un crédit de départ de ${credit} XP.`;
+    }
+
+    document.getElementById('level-user-select')?.addEventListener('change', describeLevelTarget);
+    document.getElementById('level-target')?.addEventListener('input', describeLevelTarget);
+
+    document.getElementById('btn-set-level')?.addEventListener('click', () => {
+        const user = auth.currentUser;
+        const select = document.getElementById('level-user-select');
+        const target = document.getElementById('level-target');
+        if (!user || !select || !target) return;
+
+        const uid = select.value;
+        if (!uid) { showToast('Choisissez un joueur.', 'error'); return; }
+
+        const wanted = Math.max(1, Math.min(60, Math.round(Number(target.value) || 1)));
+        const earned = earnedXpWithoutAdjust(uid);
+        const credit = Math.max(0, xpForLevel(wanted) - earned);
+        const name = playerLabel(uid);
+
+        askConfirm(credit
+            ? `Poser un crédit de départ de ${credit} XP à ${name} ? Il passera au niveau ${wanted}.`
+            : `Retirer le crédit de départ de ${name} ? Il retombera au niveau qu'il a réellement gagné ici.`,
+        { title: '✦ Niveau de départ' }).then(ok => {
+            if (!ok) return;
+            db.ref('lan/xp/awards/' + levelAdjustId(uid)).set({
+                uid: uid,
+                delta: credit,
+                type: LEVEL_ADJUST_TYPE,
+                reason: 'Soirées d\'avant l\'application',
+                by: user.uid,
+                ts: firebase.database.ServerValue.TIMESTAMP
+            })
+                .then(() => {
+                    showToast(`${name} est au niveau ${xpLevel(earned + credit).level}.`, 'success');
+                    describeLevelTarget();
+                })
+                .catch(err => showToast('Refusé : ' + err.message, 'error'));
+        });
+    });
 
     /* --- La boîte à idées -------------------------------------------------- */
 
@@ -8623,6 +8743,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!panel) return;
         const isGm = !!window.currentUserIsGamemaster;
         panel.style.display = isGm ? 'block' : 'none';
+        // Composer le set est une opération de début de soirée : le tiroir
+        // reste replié le reste du temps.
+        const tools = document.getElementById('tcg-gm-tools');
+        if (tools) tools.style.display = isGm ? 'block' : 'none';
+        const badge = document.getElementById('tcg-gm-tools-badge');
+        if (badge) badge.textContent = (isGm && !view.set) ? '!' : '';
         if (!isGm) return;
 
         const pool = Object.keys(buildCardSet(calculateScores(globalVotes), setPool())).length;

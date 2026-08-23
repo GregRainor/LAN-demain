@@ -163,8 +163,8 @@ assert(/<div class="lan-nav-funnel" hidden>/.test(html)
 
 // Kocktails a rejoint Les Fins Gourmets : une porte, deux sections.
 assert(!subviewIds.includes('lan-kocktails')
-    && /id="gourmet-bar-title"/.test(html)
-    && /id="kocktail-master-list"/.test(html), 'Kocktails must live inside Les Fins Gourmets');
+    && /<section class="pane" data-pane="bar"[\s\S]{0,900}id="kocktail-master-list"/.test(html),
+    'Kocktails must live inside Les Fins Gourmets, behind its own tab');
 assert(/targetId === 'lan-food'[\s\S]{0,220}renderCocktails/.test(script), 'Opening Les Fins Gourmets must render the bar too');
 
 /* --- L'historique est un onglet permanent -------------------------------- */
@@ -185,11 +185,6 @@ assert(!/#lan-boutique[^{]*\.dashboard-grid\s*\{[^}]*display:\s*none/.test(deskt
     'Shop panels must have a route, not a display:none');
 for (const id of ['shop-feed', 'shop-leaderboard', 'shop-my-purchases', 'lan-titles', 'xp-board']) {
     assert(ids.includes(id), `Shop panel #${id} disappeared instead of getting a route`);
-}
-const shopPanes = [...html.matchAll(/data-shop-pane="([a-z-]+)"/g)].map(match => match[1]);
-for (const pane of ['carte', 'registre']) {
-    assert(shopPanes.filter(name => name === pane).length === 2,
-        `Shop pane "${pane}" needs both its tab and its panel`);
 }
 // Les hauts faits sont personnels : ils appartiennent à la Signature, pas à la
 // boutique. Le badge verrouillé doit dire quoi faire, pas seulement « 1 / 7 ».
@@ -262,6 +257,73 @@ assert(!/id="lan-events"/.test(html) && !/events-list/.test(html) && !/events-li
     'Programme is the single events screen: the flat card list must be gone');
 assert(/item\.classList\.toggle\('is-locked', locked\)[\s\S]{0,120}item\.disabled = locked/.test(script),
     'Subnav destinations must lock, never disappear');
+
+/* --- Les onglets internes -------------------------------------------------
+   Un seul mécanisme pour la Boutique et Les Fins Gourmets : un onglet par
+   pièce, un `hidden` sur le volet fermé. Chaque nom d'onglet doit avoir son
+   panneau, sinon on retombe sur un écran sans route. */
+const paneNames = [...html.matchAll(/data-pane="([a-z-]+)"/g)].map(match => match[1]);
+for (const pane of ['carte', 'registre', 'table', 'bar']) {
+    assert(paneNames.filter(name => name === pane).length === 2,
+        `Pane "${pane}" needs both its tab and its panel`);
+}
+assert(/function activatePane\(rootId, name\)/.test(script)
+    && /node\.hidden = node\.dataset\.pane !== name/.test(script),
+    'A closed pane must be hidden by markup, not by another display:none');
+assert(!/shop-pane|gourmet-section/.test(desktopCss) && !/data-shop-pane/.test(html),
+    'The two tab mechanisms must have been merged into one');
+
+/* --- Le tiroir du maître du jeu -------------------------------------------
+   Créditer des points ou frapper le set ne concernent qu'une personne sur six.
+   Ces postes vivent repliés dans l'écran qu'ils pilotent — pas en tête de
+   page, et pas dans le panneau admin où l'on ne va pas en pleine soirée. */
+for (const id of ['shop-gm-tools', 'tcg-gm-tools']) {
+    assert(ids.includes(id), `Missing contextual gamemaster drawer #${id}`);
+}
+assert(/<details id="shop-gm-tools"[\s\S]{0,2600}id="shop-grant-panel"/.test(html),
+    'Créditer des points belongs inside the shop drawer');
+assert(/<details id="tcg-gm-tools"[\s\S]{0,900}id="tcg-gm-panel"/.test(html),
+    'Le set de la soirée belongs inside the collection drawer');
+assert(html.indexOf('id="shop-gm-tools"') < html.indexOf('id="shop-catalog"'),
+    'The drawer is a single collapsed line: it may sit above the catalogue');
+assert(!/shopTools\.open = true/.test(script),
+    'The drawer must stay collapsed: opening it pushes the catalogue below the fold');
+
+/* --- Le niveau de départ --------------------------------------------------
+   Toutes les LAN n'ont pas été comptées ici. Le réglage ajoute le crédit qui
+   manquait ; il n'efface jamais ce qui a été gagné, et les règles Firebase
+   refusent de toute façon un delta négatif. */
+for (const id of ['level-user-select', 'level-target', 'level-current', 'btn-set-level']) {
+    assert(ids.includes(id), `Missing level adjustment control #${id}`);
+}
+assert(/function levelAdjustId\(uid\)[\s\S]{0,120}uid \+ '__adjust'/.test(script),
+    'The starting credit must live at one deterministic key per player');
+assert(/const credit = Math\.max\(0, xpForLevel\(wanted\) - earned\)/.test(script),
+    'A starting credit may never be negative: earned experience is not taken back');
+assert(rules.includes("newData.child('delta').val() >= 0"),
+    'Firebase must keep refusing negative experience');
+// Réécrire le crédit passe par le .write admin du nœud parent : la règle
+// enfant est en création seule, et seul un admin peut donc le corriger.
+assert(/"xp":\s*\{\s*"\.read"[^}]*"\.write":\s*"auth != null && \(root\.child\('lan\/roles'\)/.test(rules),
+    'Only an admin may rewrite a starting credit');
+
+/* --- Les sondages ---------------------------------------------------------
+   Une option est une ligne de scrutin : nom à gauche, score aligné à droite.
+   Le `float: right` décrochait dès que le libellé passait sur deux lignes. */
+assert(/\.poll-option \{[\s\S]{0,400}display: grid;/.test(baseCss)
+    && !/\.poll-option__score \{[\s\S]{0,200}float: right/.test(baseCss),
+    'Poll options must be laid out as a grid, not floated');
+assert(/\.polls-layout \{[\s\S]{0,200}display: grid;/.test(desktopCss)
+    && !/#lan-polls\.active\s*\{[^}]*display:\s*grid\s*!important/.test(desktopCss),
+    'The polls layout must sit on an inner container instead of fighting the inline display');
+
+/* --- La console d'administration ------------------------------------------
+   Huit cartes de même facture dans une seule grille. Trois flottaient dans la
+   grille et le reste s'empilait en pleine largeur dessous. */
+const adminCards = (html.match(/class="admin-control-item/g) || []).length;
+assert(adminCards >= 8, `The admin console should be one grid of cards (found ${adminCards})`);
+assert(/#view-admin-dashboard \.admin-control-item \.section-title \{[\s\S]{0,300}text-transform: uppercase;/.test(desktopCss),
+    'Admin card titles must be quiet labels, not centred display type');
 
 /* --- La liste de départ des défis -----------------------------------------
    Trente-sept défis livrés avec l'application, et deux façons de les poser :
