@@ -1300,54 +1300,102 @@
 
     <!-- View Player Votes Modal -->
     <div id="player-votes-modal" class="modal-overlay">
-        <div class="luxury-panel modal-content prof-dossier">
+        <div class="luxury-panel modal-content prof-dossier" data-title-rarity="none" data-title-motif="grid" data-title-motion="calm">
             <button type="button" id="close-player-votes-btn" class="prof-close" aria-label="Fermer le profil">×</button>
-            <!-- La fiche d'un joueur : qui il est, ce qu'il a fait, puis ses
-                 voeux. Le surnom vient du plus rare de ses hauts faits. -->
-            <div class="prof-head">
-                <div class="prof-identity">
-                    <p class="desktop-eyebrow prof-identity__label">DOSSIER JOUEUR</p>
-                    <div class="prof-head__portrait">
+            <div class="prof-signature-layout">
+                <aside class="prof-signature-card" aria-label="Carte signature du joueur">
+                    <div class="prof-signature-card__foil" aria-hidden="true"></div>
+                    <div class="prof-signature-card__motif" aria-hidden="true"></div>
+                    <p class="desktop-eyebrow prof-signature-card__label">SIGNATURE JOUEUR</p>
+                    <div class="prof-signature-card__portrait">
+                        <span class="prof-signature-card__halo" aria-hidden="true"></span>
                         <img id="player-prof-face" class="prof-head__face" src="" alt="">
                     </div>
-                    <div class="prof-head__ident">
+                    <div class="prof-signature-card__identity">
                         <h3 id="player-votes-name" class="prof-head__name">Joueur</h3>
                         <p id="player-prof-nick" class="prof-head__nick"></p>
                         <p id="player-prof-lvl" class="prof-head__lvl"></p>
                     </div>
-                </div>
-                <div id="player-prof-stats" class="prof-stats"></div>
-            </div>
-
-            <div class="prof-progress">
-                <div class="prof-progress__label">
-                    <span>PROGRESSION PERMANENTE</span>
-                    <strong id="player-prof-progress-copy"></strong>
-                </div>
-                <div class="xp-banner__segs" id="player-prof-segs"></div>
-            </div>
-
-            <div class="prof-dossier__body">
-                <section class="prof-achievements">
-                    <div class="prof-section-head">
-                        <div>
-                            <p class="desktop-eyebrow">COLLECTION PERSONNELLE</p>
-                            <h4>Hauts faits</h4>
-                        </div>
-                        <strong id="player-prof-achievement-count"></strong>
+                    <div class="prof-signature-card__serial">
+                        <span id="player-prof-card-family">LAN DEMAIN</span>
+                        <span id="player-prof-card-number">№ 000</span>
                     </div>
-                    <div id="player-prof-badges" class="prof-badges"></div>
-                </section>
-
-                <aside class="prof-votes-panel">
-                    <div class="prof-section-head prof-section-head--compact">
-                        <div>
-                            <p class="desktop-eyebrow">SON BULLETIN</p>
-                            <h4 id="player-prof-votes-title">Ses vœux</h4>
-                        </div>
-                    </div>
-                    <div id="player-votes-content" class="prof-votes"></div>
                 </aside>
+
+                <main class="prof-profile-main">
+                    <header class="prof-profile-main__head">
+                        <div>
+                            <p class="desktop-eyebrow">DOSSIER PERMANENT</p>
+                            <h4>Palmarès du joueur</h4>
+                        </div>
+                        <button type="button" id="player-prof-customize-btn" class="prof-customize-btn" hidden>Personnaliser</button>
+                    </header>
+
+                    <div id="player-prof-stats" class="prof-stats"></div>
+
+                    <div class="prof-progress">
+                        <div class="prof-progress__label">
+                            <span>PROGRESSION PERMANENTE</span>
+                            <strong id="player-prof-progress-copy"></strong>
+                        </div>
+                        <div class="xp-banner__segs" id="player-prof-segs"></div>
+                    </div>
+
+                    <section class="prof-showcase">
+                        <div class="prof-section-head prof-section-head--compact">
+                            <div>
+                                <p class="desktop-eyebrow">VITRINE</p>
+                                <h4>Ses trophées</h4>
+                            </div>
+                        </div>
+                        <div id="player-prof-featured" class="prof-featured"></div>
+                    </section>
+
+                    <section id="player-prof-customizer" class="prof-customizer" hidden>
+                        <div class="prof-customizer__head">
+                            <div>
+                                <p class="desktop-eyebrow">ATELIER DE SIGNATURE</p>
+                                <h4>Composer mon profil</h4>
+                            </div>
+                            <p>Le titre change la matière, les couleurs et les effets de la carte.</p>
+                        </div>
+                        <div class="prof-customizer__group">
+                            <span class="prof-customizer__label">Titre équipé</span>
+                            <div id="player-prof-title-options" class="prof-title-options"></div>
+                        </div>
+                        <div class="prof-customizer__group">
+                            <span class="prof-customizer__label">Trois trophées en vitrine</span>
+                            <div id="player-prof-feature-options" class="prof-feature-options"></div>
+                        </div>
+                        <div class="prof-customizer__actions">
+                            <button type="button" id="player-prof-customize-cancel" class="gold-link-btn">Annuler</button>
+                            <button type="button" id="player-prof-customize-save" class="gold-btn">Enregistrer ma signature</button>
+                        </div>
+                    </section>
+
+                    <div class="prof-dossier__body">
+                        <section class="prof-achievements">
+                            <div class="prof-section-head">
+                                <div>
+                                    <p class="desktop-eyebrow">COLLECTION PERSONNELLE</p>
+                                    <h4>Hauts faits</h4>
+                                </div>
+                                <strong id="player-prof-achievement-count"></strong>
+                            </div>
+                            <div id="player-prof-badges" class="prof-badges"></div>
+                        </section>
+
+                        <aside class="prof-votes-panel">
+                            <div class="prof-section-head prof-section-head--compact">
+                                <div>
+                                    <p class="desktop-eyebrow">SON BULLETIN</p>
+                                    <h4 id="player-prof-votes-title">Ses vœux</h4>
+                                </div>
+                            </div>
+                            <div id="player-votes-content" class="prof-votes"></div>
+                        </aside>
+                    </div>
+                </main>
             </div>
         </div>
     </div>

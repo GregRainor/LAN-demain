@@ -3,6 +3,6 @@
   "version": "1.0.0",
   "scripts": {
     "build": "node build-config.js",
-    "test": "node scripts/verify-desktop.js"
+    "test": "node scripts/verify-desktop.js && node scripts/verify-mobile.js"
   }
 }

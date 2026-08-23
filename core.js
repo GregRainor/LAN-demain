@@ -1537,9 +1537,14 @@ const ACHIEVEMENTS = [
     { id: 'spender-500', icon: 'coin', family: 'boutique', xp: 60,
       label: 'Dépensier', hint: 'Cinq cents złotych dépensés', goal: 500, nickname: 'Le Dépensier' },
     { id: 'spender-2000', icon: 'coin', family: 'boutique', xp: 150,
-      label: 'Grand train', hint: 'Deux mille złotych dépensés', goal: 2000, nickname: 'Le Grand Train' },
+      label: 'Le PIB de la LAN', hint: 'Dépenser deux mille złotych pendant une LAN', goal: 2000, nickname: 'Le PIB de la LAN' },
+    { id: 'spender-broke', icon: 'coin', family: 'boutique', xp: 100,
+      label: 'La CB en PLS', hint: 'Dépenser mille złotych et finir avec moins de vingt', goal: 1000,
+      nickname: 'La CB en PLS', closureOnly: true },
     { id: 'handicap-1', icon: 'target', family: 'boutique', xp: 40,
       label: 'Sale coup', hint: 'Jouer un handicap sur quelqu\'un', goal: 1, nickname: 'La Crapule' },
+    { id: 'handicap-5', icon: 'target', family: 'boutique', xp: 110,
+      label: 'Fléau du lobby', hint: 'Infliger cinq handicaps pendant une LAN', goal: 5, nickname: 'Le Fléau du lobby' },
 
     /* --- Les cartes --- */
     { id: 'pack-1', icon: 'pack', family: 'cartes', xp: 25,
@@ -1563,20 +1568,27 @@ const ACHIEVEMENTS = [
     { id: 'tick-max', icon: 'clock', family: 'soirée', xp: 60,
       label: 'Increvable', hint: 'Atteindre le plafond de présence', goal: ECONOMY.MAX_TICKS, nickname: 'L\'Increvable' },
     { id: 'lan-3', icon: 'flag', family: 'soirée', xp: 100,
-      label: 'Habitué', hint: 'Participer à trois LAN', goal: 3, nickname: 'L\'Habitué' },
-    { id: 'lan-10', icon: 'flag', family: 'soirée', xp: 250,
-      label: 'Vétéran', hint: 'Participer à dix LAN', goal: 10, nickname: 'Le Vétéran' },
+      label: 'Le Meuble', hint: 'Participer à trois LAN', goal: 3, nickname: 'Le Meuble' },
+    { id: 'lan-7', icon: 'flag', family: 'soirée', xp: 180,
+      label: 'Il habite ici', hint: 'Participer à sept LAN', goal: 7, nickname: 'Il habite ici' },
+    { id: 'lan-15', icon: 'flag', family: 'soirée', xp: 320,
+      label: 'Le bail est à son nom', hint: 'Participer à quinze LAN', goal: 15, nickname: 'Le bail est à son nom' },
+    { id: 'lan-comeback', icon: 'clock', family: 'soirée', xp: 140,
+      label: 'Le Revenant', hint: 'Revenir après avoir manqué trois LAN de suite', goal: 1, nickname: 'Le Revenant' },
 
-    /* --- Les invités d'honneur ---
-       Des noms empruntés à ceux qui ont marqué le jeu, accrochés à ce qui leur
-       ressemble : la longévité, le farm, la précision. Ce sont les hauts faits
-       les plus chers du catalogue, donc ceux qui donnent les surnoms. */
-    { id: 'pro-faker', icon: 'trophy', family: 'légende', xp: 400,
-      label: 'Faker', hint: 'Atteindre le niveau 10', goal: 10, nickname: 'L\'Immortel' },
-    { id: 'pro-uzi', icon: 'pack', family: 'légende', xp: 250,
-      label: 'Uzi', hint: 'Ouvrir vingt-cinq boosters', goal: 25, nickname: 'Le Farmeur' },
-    { id: 'pro-zywoo', icon: 'spark', family: 'légende', xp: 250,
-      label: 'ZywOo', hint: 'Posséder vingt cartes brillantes', goal: 20, nickname: 'Le Sniper' },
+    /* --- Les défis --- */
+    { id: 'challenge-all', icon: 'spark', family: 'défis', xp: 150,
+      label: 'Le Couteau suisse', hint: 'Valider un défi de chaque catégorie pendant une LAN', goal: 5, nickname: 'Le Couteau suisse' },
+    { id: 'challenge-faker', icon: 'trophy', family: 'défis', xp: 300,
+      label: 'Faker', hint: 'Valider quinze défis pendant une LAN', goal: 15, nickname: 'Faker' },
+
+    /* --- Les votes, figés uniquement à la clôture --- */
+    { id: 'vote-solo-winner', icon: 'target', family: 'votes', xp: 200,
+      label: 'Seul contre tous', hint: 'Faire gagner un jeu dont on était l’unique votant', goal: 1,
+      nickname: 'Seul contre tous', closureOnly: true },
+    { id: 'vote-kingmaker', icon: 'trophy', family: 'votes', xp: 250,
+      label: 'Le Faiseur de roi', hint: 'Voir son choix numéro un gagner trois LAN', goal: 3,
+      nickname: 'Le Faiseur de roi', closureOnly: true },
 
     /* --- Le passage ---
        Celui-là ne se calcule pas sur un compteur mais sur une époque : tant que
@@ -1585,8 +1597,54 @@ const ACHIEVEMENTS = [
        alors impossible à décrocher — c'est tout l'intérêt. */
     { id: 'beta', icon: 'flag', family: 'légende', xp: 200,
       label: 'Bêta-testeur', hint: 'Avoir été là pendant la bêta', goal: 1,
-      nickname: 'Le Pionnier' }
+      nickname: 'Le Cobaye originel' }
 ];
+
+/* Un titre débloqué n'est pas une couleur choisie au hasard : c'est une petite
+   direction artistique complète. Plusieurs titres peuvent partager une
+   famille, mais chacun garde sa matière et son accent. La rareté règle
+   l'intensité du mouvement, jamais la lisibilité. */
+const PROFILE_TITLE_THEMES = {
+    'buyer-5':          { rarity: 'common',    material: 'bronze',   motif: 'ledger', motion: 'commerce', accent: '#c98b4b', accent2: '#f1c27a' },
+    'buyer-20':         { rarity: 'rare',      material: 'brass',    motif: 'ledger', motion: 'commerce', accent: '#d7a92f', accent2: '#ffe07a' },
+    'spender-500':      { rarity: 'uncommon',  material: 'copper',   motif: 'coins', motion: 'commerce', accent: '#cf7445', accent2: '#ffd095' },
+    'spender-2000':     { rarity: 'signature', material: 'platinum', motif: 'coins', motion: 'commerce', accent: '#f3ca45', accent2: '#fff4b0' },
+    'spender-broke':    { rarity: 'epic',      material: 'crimson',  motif: 'fracture', motion: 'mischief', accent: '#ef6464', accent2: '#ffb36b' },
+    'handicap-1':       { rarity: 'uncommon',  material: 'garnet',   motif: 'target', motion: 'mischief', accent: '#d75858', accent2: '#ff9d72' },
+    'handicap-5':       { rarity: 'epic',      material: 'obsidian', motif: 'target', motion: 'mischief', accent: '#ff4b4b', accent2: '#b78cff' },
+    'pack-10':          { rarity: 'uncommon',  material: 'indigo',   motif: 'cards', motion: 'collection', accent: '#9075df', accent2: '#d8c7ff' },
+    'cards-50':         { rarity: 'rare',      material: 'sapphire', motif: 'cards', motion: 'collection', accent: '#4f9fd8', accent2: '#8de9ff' },
+    'foil-10':          { rarity: 'epic',      material: 'prism',    motif: 'shards', motion: 'collection', accent: '#b56cff', accent2: '#64e7da' },
+    'signature-1':      { rarity: 'signature', material: 'aurum',    motif: 'signature', motion: 'collection', accent: '#e3bd3b', accent2: '#fff2a3' },
+    'set-complete':     { rarity: 'signature', material: 'emerald',  motif: 'crown', motion: 'collection', accent: '#54c58a', accent2: '#c6ffd9' },
+    'trade-10':         { rarity: 'rare',      material: 'teal',     motif: 'exchange', motion: 'collection', accent: '#47b7aa', accent2: '#9ff5e8' },
+    'tick-max':         { rarity: 'rare',      material: 'midnight', motif: 'orbit', motion: 'legacy', accent: '#7799dc', accent2: '#d0ddff' },
+    'lan-3':            { rarity: 'common',    material: 'oak',      motif: 'rings', motion: 'legacy', accent: '#b88a55', accent2: '#e3bf86' },
+    'lan-7':            { rarity: 'rare',      material: 'velvet',   motif: 'rings', motion: 'legacy', accent: '#9e70d9', accent2: '#e4c5ff' },
+    'lan-15':           { rarity: 'signature', material: 'ivory',    motif: 'deed', motion: 'legacy', accent: '#e8d5a3', accent2: '#fff9df' },
+    'lan-comeback':     { rarity: 'epic',      material: 'ember',    motif: 'orbit', motion: 'legacy', accent: '#e98042', accent2: '#ffd05c' },
+    'challenge-all':    { rarity: 'epic',      material: 'spectrum', motif: 'shards', motion: 'challenge', accent: '#4ed0a0', accent2: '#e4c25e' },
+    'challenge-faker':  { rarity: 'signature', material: 'imperial', motif: 'crown', motion: 'challenge', accent: '#d94242', accent2: '#f3c64f' },
+    'vote-solo-winner': { rarity: 'epic',      material: 'cobalt',   motif: 'rays', motion: 'vote', accent: '#4f7ee8', accent2: '#f2d56b' },
+    'vote-kingmaker':   { rarity: 'signature', material: 'royal',    motif: 'crown', motion: 'vote', accent: '#8c67d7', accent2: '#f2cd55' },
+    'beta':             { rarity: 'rare',      material: 'prototype', motif: 'grid', motion: 'prototype', accent: '#63c5b5', accent2: '#e0c35a' },
+    'administrator':    { rarity: 'signature', material: 'polonia',  motif: 'polonia', motion: 'polonia', accent: '#dc143c', accent2: '#fffdf7' }
+};
+
+/* Les titres de rôle ne sont pas des hauts faits. Ils ne donnent ni XP ni
+   trophée : ils constatent une fonction réelle, vérifiée à nouveau au moment de
+   l'enregistrement par les règles Firebase. */
+const PROFILE_ROLE_TITLES = {
+    administrator: { id: 'administrator', label: 'Administrator', achievementLabel: 'Administracja', role: 'admin', xp: 0, priority: 10000 }
+};
+
+function profileTitleById(id) {
+    const ach = achievementById(id);
+    const roleTitle = PROFILE_ROLE_TITLES[id];
+    const theme = PROFILE_TITLE_THEMES[id];
+    if (!theme || (!roleTitle && (!ach || !ach.nickname))) return null;
+    return Object.assign({}, roleTitle || { id: id, label: ach.nickname, achievementLabel: ach.label }, theme);
+}
 
 function achievementById(id) {
     return ACHIEVEMENTS.find(a => a.id === id) || null;
@@ -1613,6 +1671,48 @@ function lanCountFor(history, votes, uid) {
         if (entry && entry.votes && entry.votes[uid]) count += 1;
     });
     if ((votes || {})[uid]) count += 1;
+    return count;
+}
+
+function lanComebackFor(history, votes, uid) {
+    if (!uid || !(votes || {})[uid]) return 0;
+    const rows = Object.values(history || {})
+        .filter(Boolean)
+        .sort((a, b) => (Number(b.timestamp) || 0) - (Number(a.timestamp) || 0));
+    if (rows.length < 3) return 0;
+    return rows.slice(0, 3).every(entry => !(entry.votes || {})[uid]) ? 1 : 0;
+}
+
+function challengeCountersFor(node, uid, since) {
+    const challenges = (node && node.challenges) || {};
+    const byCategory = {};
+    CHALLENGES.CATEGORIES.forEach(category => { byCategory[category.key] = 0; });
+    let count = 0;
+    allClaims(node).forEach(claim => {
+        if (claim.uid !== uid || claim.status !== 'granted' || (Number(claim.ts) || 0) <= (Number(since) || 0)) return;
+        count += 1;
+        const category = challengeCategory((challenges[claim.challengeId] || {}).category).key;
+        byCategory[category] = (byCategory[category] || 0) + 1;
+    });
+    return {
+        count: count,
+        categories: byCategory,
+        categoryCount: CHALLENGES.CATEGORIES.filter(category => byCategory[category.key] > 0).length
+    };
+}
+
+function firstChoiceWins(voteData, winnerName) {
+    const wanted = normalizeGameName(winnerName);
+    const first = (((voteData || {}).votes || {}).p1) || [];
+    return !!wanted && first.some(game => normalizeGameName(game) === wanted);
+}
+
+function kingmakerWins(history, uid) {
+    let count = 0;
+    Object.values(history || {}).forEach(entry => {
+        if (!entry || !entry.topGames || !entry.topGames[0] || !entry.votes) return;
+        if (firstChoiceWins(entry.votes[uid], entry.topGames[0].name)) count += 1;
+    });
     return count;
 }
 
@@ -1649,6 +1749,9 @@ function playerCounters(data, uid) {
     const myPacks = openedPacks(tcg).filter(pack => pack.uid === uid);
     const myTrades = acceptedTrades(tcg)
         .filter(trade => trade.fromUid === uid || trade.toUid === uid);
+    const lastClosure = Object.values(data.history || {}).reduce((latest, entry) =>
+        Math.max(latest, Number(entry && entry.timestamp) || 0), 0);
+    const challengeStats = challengeCountersFor(data.quests, uid, lastClosure);
 
     /* Un set complet, c'est 100 % sur AU MOINS un set — pas sur le dernier.
        Un vétéran qui a bouclé le set de janvier le garde. */
@@ -1675,6 +1778,10 @@ function playerCounters(data, uid) {
         setPercent: bestPercent,
         ticks: Number(((economy.ticks || {})[uid] || {}).count) || 0,
         lans: lans,
+        comeback: lanComebackFor(data.history, data.votes, uid),
+        challenges: challengeStats.count,
+        challengeCategories: challengeStats.categoryCount,
+        kingmakerWins: kingmakerWins(data.history, uid),
         /* Le niveau est un compteur comme un autre : un haut fait peut donc en
            exiger un. Pas de boucle — la récompense s'écrit une seule fois. */
         level: xpLevel(xpTotal(data.xp, uid)).level,
@@ -1694,7 +1801,9 @@ function achievementProgress(counters, ach) {
         'buyer-20': counters.purchases,
         'spender-500': counters.spent,
         'spender-2000': counters.spent,
+        'spender-broke': counters.spent,
         'handicap-1': counters.handicaps,
+        'handicap-5': counters.handicaps,
         'pack-1': counters.packs,
         'pack-10': counters.packs,
         'cards-50': counters.cards,
@@ -1705,10 +1814,13 @@ function achievementProgress(counters, ach) {
         'trade-10': counters.trades,
         'tick-max': counters.ticks,
         'lan-3': counters.lans,
-        'lan-10': counters.lans,
-        'pro-faker': counters.level,
-        'pro-uzi': counters.packs,
-        'pro-zywoo': counters.foils,
+        'lan-7': counters.lans,
+        'lan-15': counters.lans,
+        'lan-comeback': counters.comeback,
+        'challenge-all': counters.challengeCategories,
+        'challenge-faker': counters.challenges,
+        'vote-solo-winner': 0,
+        'vote-kingmaker': counters.kingmakerWins,
         'beta': counters.beta
     }[ach.id];
 
@@ -1718,7 +1830,9 @@ function achievementProgress(counters, ach) {
         current: Math.min(current, goal),
         goal: goal,
         ratio: Math.min(1, current / goal),
-        reached: current >= goal
+        reached: ach.id === 'spender-broke'
+            ? counters.spent >= goal && counters.balance < 20
+            : current >= goal
     };
 }
 
@@ -1754,10 +1868,30 @@ function pendingAchievements(data, uids) {
     const out = [];
     (uids || []).forEach(uid => {
         achievementState(data, uid).forEach(row => {
-            if (row.pending) out.push({ uid: uid, ach: row.ach });
+            if (row.pending && !row.ach.closureOnly) out.push({ uid: uid, ach: row.ach });
         });
     });
     return out;
+}
+
+/* Les titres de vote ne sont vrais qu'une fois le scrutin figé. Cette fonction
+   est appelée juste avant l'archivage de la LAN ; elle inclut la victoire qui
+   vient de se produire sans la compter deux fois dans l'historique. */
+function closureAchievements(data, uid) {
+    const winner = calculateScores(data.votes || {})[0];
+    const ids = [];
+    const counters = playerCounters(data, uid);
+    if (counters.spent >= 1000 && counters.balance < 20) ids.push('spender-broke');
+    if (!winner) return ids.map(achievementById).filter(Boolean);
+    const winnerKey = normalizeGameName(winner.name);
+    const voters = Object.entries(data.votes || {}).filter(([, voteData]) => {
+        const ballot = (voteData && voteData.votes) || {};
+        return Object.values(ballot).some(games => (games || []).some(game => normalizeGameName(game) === winnerKey));
+    });
+    if (voters.length === 1 && voters[0][0] === uid) ids.push('vote-solo-winner');
+    const wins = kingmakerWins(data.history, uid) + (firstChoiceWins((data.votes || {})[uid], winner.name) ? 1 : 0);
+    if (wins >= 3) ids.push('vote-kingmaker');
+    return ids.map(achievementById).filter(Boolean);
 }
 
 /* Les titres de la soirée, décernés à la clôture. Un titre sans concurrent
@@ -1777,27 +1911,29 @@ function lanTitles(data, uids) {
     }).filter(Boolean);
 }
 
-/* ==========================================================================
-   Le surnom
-   Un joueur finit par ressembler à ce qu'il fait. Le surnom est donc tiré de
-   ses hauts faits, jamais choisi : c'est le plus rare de ceux qu'il possède
-   qui parle pour lui. « Grégory « Le Dépensier » » se lit d'un coup et dit
-   quelque chose de vrai sur la soirée.
-
-   Tous les hauts faits n'en donnent pas : « Premier achat », tout le monde
-   l'aura, et un surnom que tout le monde porte n'est plus un surnom.
-   ========================================================================== */
-
-/* Le surnom d'un joueur : celui de son haut fait le plus cher. À égalité, on
-   garde l'ordre du catalogue, pour qu'un surnom ne change pas tout seul entre
-   deux affichages. */
-function playerNickname(data, uid) {
-    let best = null;
-    achievementState(data, uid).forEach(row => {
-        if (!row.owned || !row.ach.nickname) return;
-        if (!best || row.ach.xp > best.ach.xp) best = row;
+function unlockedProfileTitles(data, uid) {
+    const titles = achievementState(data, uid)
+        .filter(row => row.owned && profileTitleById(row.ach.id))
+        .map(row => Object.assign({ xp: row.ach.xp }, profileTitleById(row.ach.id)));
+    const role = ((data.roles || {})[uid]) || (uid && uid === data.adminUid ? 'admin' : '');
+    Object.values(PROFILE_ROLE_TITLES).forEach(roleTitle => {
+        if (role === roleTitle.role) titles.push(profileTitleById(roleTitle.id));
     });
-    return best ? best.ach.nickname : '';
+    return titles;
+}
+
+/* Le titre est choisi librement parmi ceux réellement inscrits au journal.
+   Sans choix explicite, le nom reste nu : aucun trophée ne parle à la place du
+   joueur. */
+function playerNickname(data, uid) {
+    if (!Object.prototype.hasOwnProperty.call(data || {}, 'profiles')) {
+        const legacy = unlockedProfileTitles(data, uid)
+            .sort((a, b) => (Number(b.priority) || Number(b.xp) || 0) - (Number(a.priority) || Number(a.xp) || 0))[0];
+        return legacy ? legacy.label : '';
+    }
+    const selected = (((data.profiles || {})[uid] || {}).equippedTitleId) || '';
+    const unlocked = unlockedProfileTitles(data, uid).find(title => title.id === selected);
+    return unlocked ? unlocked.label : '';
 }
 
 /* Le nom complet, surnom compris. Sans surnom, on rend le nom seul — jamais
@@ -1814,6 +1950,22 @@ function playerProfile(data, uid) {
     const counters = playerCounters(data, uid);
     const rows = achievementState(data, uid);
     const owned = rows.filter(row => row.owned);
+    const profileNode = ((data.profiles || {})[uid]) || {};
+    const unlockedTitles = unlockedProfileTitles(data, uid);
+    const explicitProfiles = Object.prototype.hasOwnProperty.call(data || {}, 'profiles');
+    const equippedTitle = explicitProfiles
+        ? (unlockedTitles.find(title => title.id === profileNode.equippedTitleId) || null)
+        : (unlockedTitles.slice().sort((a, b) => b.xp - a.xp)[0] || null);
+    const chosenFeatured = [1, 2, 3]
+        .map(index => profileNode['featuredAchievement' + index])
+        .filter(Boolean);
+    const featured = chosenFeatured
+        .map(id => owned.find(row => row.ach.id === id))
+        .filter(Boolean);
+    if (!featured.length) {
+        owned.slice().sort((a, b) => b.ach.xp - a.ach.xp).slice(0, 3)
+            .forEach(row => featured.push(row));
+    }
 
     /* Ce qu'il a presque : la ligne la plus avancée parmi celles qu'il n'a pas
        encore. C'est ce qui donne envie de rouvrir la fiche. */
@@ -1823,7 +1975,10 @@ function playerProfile(data, uid) {
 
     return {
         uid: uid,
-        nickname: playerNickname(data, uid),
+        nickname: equippedTitle ? equippedTitle.label : '',
+        equippedTitle: equippedTitle,
+        unlockedTitles: unlockedTitles,
+        featuredAchievements: featured,
         level: xpLevel(xpTotal(data.xp, uid)),
         balance: counters.balance,
         counters: counters,

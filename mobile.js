@@ -5079,7 +5079,11 @@ function achData() {
         xp: state.xp,
         history: state.history,
         votes: state.votes,
-        settings: state.settings
+        settings: state.settings,
+        quests: state.quests,
+        profiles: state.profiles,
+        roles: state.roles,
+        adminUid: ADMIN_UID
     };
 }
 
@@ -5252,11 +5256,48 @@ function grantPendingAchievements() {
 
 
 /* ==========================================================================
-   La fiche d'un joueur
-   Un nom, un surnom gagné, un niveau, et ce qu'il a fait. Le surnom vient du
-   plus rare de ses hauts faits (core.js) : personne ne le choisit, il se
-   mérite. C'est ce qui transforme « Bob » en « Bob « Le Signataire » ».
+   La fiche Signature d'un joueur
+   Le téléphone garde le même langage que le bureau, mais sous forme d'une
+   carte verticale pensée pour une feuille glissante et un pouce.
    ========================================================================== */
+
+function mobileProfileSerial(uid) {
+    let hash = 0;
+    String(uid || '').split('').forEach(char => {
+        hash = ((hash * 31) + char.charCodeAt(0)) >>> 0;
+    });
+    return String((hash % 900) + 100);
+}
+
+function applyMobileProfileTheme(card, title) {
+    const theme = title || {
+        rarity: 'none', material: 'graphite', motif: 'grid', motion: 'calm',
+        accent: '#d4af37', accent2: '#f1dd8a'
+    };
+    card.dataset.titleRarity = theme.rarity;
+    card.dataset.titleMotif = theme.motif;
+    card.dataset.titleMaterial = theme.material;
+    card.dataset.titleMotion = theme.motion || 'calm';
+    card.style.setProperty('--m-prof-accent', theme.accent);
+    card.style.setProperty('--m-prof-accent-2', theme.accent2);
+    card.style.setProperty('--m-prof-accent-rgb', hexRgb(theme.accent).join(', '));
+    const family = card.querySelector('.m-prof-card__family');
+    if (family) {
+        family.textContent = title
+            ? theme.material.toUpperCase() + ' · ' + theme.rarity.toUpperCase()
+            : 'LAN DEMAIN · SANS TITRE';
+    }
+}
+
+function hexRgb(hex) {
+    const value = String(hex || '').replace('#', '');
+    const full = value.length === 3
+        ? value.split('').map(char => char + char).join('')
+        : value;
+    const parsed = parseInt(full, 16);
+    if (!Number.isFinite(parsed)) return [212, 175, 55];
+    return [(parsed >> 16) & 255, (parsed >> 8) & 255, parsed & 255];
+}
 
 function openProfile(uid) {
     if (!uid) return;
@@ -5265,7 +5306,14 @@ function openProfile(uid) {
     const isMe = uid === (state.user && state.user.uid);
 
     openSheet(null, (body) => {
-        /* En-tête : le visage, le nom complet, le niveau. */
+        const root = el('div', 'm-prof');
+
+        /* La carte : portrait, titre équipé et famille visuelle. */
+        const card = el('section', 'm-prof-card');
+        card.appendChild(el('span', 'm-prof-card__foil'));
+        card.appendChild(el('span', 'm-prof-card__motif'));
+        card.appendChild(el('span', 'm-prof-card__label', 'SIGNATURE JOUEUR'));
+
         const head = el('div', 'm-prof__head');
         const face = el('img', 'm-prof__face');
         face.src = playerPhoto(uid);
@@ -5274,15 +5322,29 @@ function openProfile(uid) {
 
         const ident = el('div', 'm-prof__ident');
         ident.appendChild(el('h2', 'm-prof__name', playerName(uid)));
-        if (profile.nickname) {
-            ident.appendChild(el('p', 'm-prof__nick', '« ' + profile.nickname + ' »'));
-        }
+        const nickname = el('p', 'm-prof__nick', profile.nickname ? '« ' + profile.nickname + ' »' : '');
+        nickname.hidden = !profile.nickname;
+        ident.appendChild(nickname);
         ident.appendChild(el('p', 'm-prof__lvl',
             'Niveau ' + profile.level.level + ' · ' + levelTitle(profile.level.level) + ' · ' + profile.level.total + ' XP'));
         head.appendChild(ident);
-        body.appendChild(head);
+        card.appendChild(head);
+
+        const serial = el('div', 'm-prof-card__serial');
+        serial.appendChild(el('span', 'm-prof-card__family'));
+        serial.appendChild(el('span', null, '№ ' + mobileProfileSerial(uid)));
+        card.appendChild(serial);
+        applyMobileProfileTheme(card, profile.equippedTitle);
+        root.appendChild(card);
 
         /* La barre : la même que dans la boutique, en plus discret. */
+        const progress = el('section', 'm-prof__progress');
+        const progressHead = el('div', 'm-prof__progress-head');
+        progressHead.appendChild(el('span', null, 'PROGRESSION PERMANENTE'));
+        progressHead.appendChild(el('strong', null,
+            profile.level.total + ' XP · encore ' + profile.level.toNext
+                + ' avant le niveau ' + (profile.level.level + 1)));
+        progress.appendChild(progressHead);
         const segs = el('div', 'm-xp__segs');
         const lit = profile.level.into > 0
             ? Math.max(1, Math.round(profile.level.ratio * XP_SEGMENTS)) : 0;
@@ -5291,47 +5353,153 @@ function openProfile(uid) {
             if (i < lit) seg.classList.add(i === lit - 1 ? 'is-edge' : 'is-on');
             segs.appendChild(seg);
         }
-        body.appendChild(segs);
+        progress.appendChild(segs);
+        root.appendChild(progress);
 
-        /* Les chiffres de la soirée. On ne montre que ce qui bouge : une
-           colonne de zéros n'apprend rien. */
+        /* Les quatre repères fixes reprennent la composition du dossier bureau. */
         const stats = [
             ['Fortune', formatPoints(profile.balance)],
-            ['Achats', profile.counters.purchases],
-            ['Boosters', profile.counters.packs],
+            ['Hauts faits', profile.achievementCount],
             ['Cartes', profile.counters.cards],
-            ['Échanges', profile.counters.trades],
             ['LAN', profile.counters.lans]
-        ].filter(([, value]) => value !== 0 && value !== '0 ' + ECONOMY.CURRENCY);
+        ];
+        const grid = el('div', 'm-prof__stats');
+        stats.forEach(([label, value]) => {
+            const cell = el('div', 'm-prof__stat');
+            cell.appendChild(el('span', 'm-prof__statv', String(value)));
+            cell.appendChild(el('span', 'm-prof__statl', label));
+            grid.appendChild(cell);
+        });
+        root.appendChild(grid);
 
-        if (stats.length) {
-            const grid = el('div', 'm-prof__stats');
-            stats.forEach(([label, value]) => {
-                const cell = el('div', 'm-prof__stat');
-                cell.appendChild(el('span', 'm-prof__statv', String(value)));
-                cell.appendChild(el('span', 'm-prof__statl', label));
-                grid.appendChild(cell);
+        /* La vitrine est personnelle et suit le joueur de LAN en LAN. */
+        const showcase = el('section', 'm-prof__section');
+        showcase.appendChild(el('p', 'm-shop__cat', 'Vitrine'));
+        const featured = el('div', 'm-prof__featured');
+        if (!profile.featuredAchievements.length) {
+            featured.appendChild(emptyState('La vitrine attend son premier trophée.'));
+        } else {
+            profile.featuredAchievements.forEach(row => {
+                const trophy = el('article', 'm-prof__trophy');
+                trophy.appendChild(achIcon(row.ach.icon));
+                const copy = el('span', 'm-prof__trophy-copy');
+                copy.appendChild(el('strong', null, row.ach.label));
+                copy.appendChild(el('small', null, row.ach.hint));
+                trophy.appendChild(copy);
+                featured.appendChild(trophy);
             });
-            body.appendChild(grid);
+        }
+        showcase.appendChild(featured);
+        root.appendChild(showcase);
+
+        /* Sur son propre profil, le téléphone est un atelier complet : titre et
+           trois trophées, avec le même contrôle Firebase que le bureau. */
+        if (isMe) {
+            const customizeButton = el('button', 'm-prof__customize', 'Personnaliser ma Signature');
+            const customizer = el('section', 'm-prof-customizer');
+            customizer.hidden = true;
+            let draftTitleId = profile.equippedTitle ? profile.equippedTitle.id : '';
+            let draftFeatured = [1, 2, 3]
+                .map(index => (state.profiles[uid] || {})['featuredAchievement' + index])
+                .filter(Boolean);
+
+            const renderCustomizer = () => {
+                customizer.innerHTML = '';
+                customizer.appendChild(el('p', 'm-shop__cat', 'Titre équipé'));
+                const titleOptions = el('div', 'm-prof-title-options');
+                const choices = [{ id: '', label: 'Nom seul', material: 'graphite', rarity: 'sans titre' }]
+                    .concat(profile.unlockedTitles);
+                choices.forEach(title => {
+                    const button = el('button', 'm-prof-title-choice');
+                    if (draftTitleId === title.id) button.classList.add('is-selected');
+                    button.style.setProperty('--m-choice-accent', title.accent || '#777');
+                    button.appendChild(el('i', 'm-prof-title-choice__swatch'));
+                    const copy = el('span', 'm-prof-title-choice__copy');
+                    copy.appendChild(el('strong', null, title.id ? '« ' + title.label + ' »' : title.label));
+                    copy.appendChild(el('small', null, title.material + ' · ' + title.rarity));
+                    button.appendChild(copy);
+                    button.addEventListener('click', () => {
+                        draftTitleId = title.id;
+                        applyMobileProfileTheme(card, title.id ? title : null);
+                        nickname.textContent = title.id ? '« ' + title.label + ' »' : '';
+                        nickname.hidden = !title.id;
+                        renderCustomizer();
+                    });
+                    titleOptions.appendChild(button);
+                });
+                customizer.appendChild(titleOptions);
+
+                customizer.appendChild(el('p', 'm-shop__cat', 'Trois trophées en vitrine'));
+                const featureOptions = el('div', 'm-prof-feature-options');
+                profile.achievements.forEach(row => {
+                    const button = el('button', 'm-prof-feature-choice');
+                    if (draftFeatured.includes(row.ach.id)) button.classList.add('is-selected');
+                    button.appendChild(achIcon(row.ach.icon));
+                    const copy = el('span', 'm-prof-title-choice__copy');
+                    copy.appendChild(el('strong', null, row.ach.label));
+                    copy.appendChild(el('small', null, row.ach.hint));
+                    button.appendChild(copy);
+                    button.addEventListener('click', () => {
+                        const index = draftFeatured.indexOf(row.ach.id);
+                        if (index >= 0) draftFeatured.splice(index, 1);
+                        else if (draftFeatured.length < 3) draftFeatured.push(row.ach.id);
+                        else showToast('Ta vitrine contient déjà trois trophées.', 'info');
+                        renderCustomizer();
+                    });
+                    featureOptions.appendChild(button);
+                });
+                customizer.appendChild(featureOptions);
+
+                const actions = el('div', 'm-prof-customizer__actions');
+                const cancel = el('button', 'm-btn m-btn--quiet', 'Annuler');
+                cancel.addEventListener('click', () => openProfile(uid));
+                const save = el('button', 'm-btn m-btn--solid', 'Enregistrer');
+                save.addEventListener('click', async () => {
+                    const update = { equippedTitleId: draftTitleId || null };
+                    [1, 2, 3].forEach(index => {
+                        update['featuredAchievement' + index] = draftFeatured[index - 1] || null;
+                    });
+                    try {
+                        await db.ref('lan/users/' + uid).update(update);
+                        state.profiles[uid] = Object.assign({}, state.profiles[uid] || {}, update);
+                        showToast('Ta Signature est enregistrée.', 'success');
+                        openProfile(uid);
+                    } catch (error) {
+                        showToast('Impossible d’enregistrer : ' + error.message, 'error');
+                    }
+                });
+                actions.append(cancel, save);
+                customizer.appendChild(actions);
+            };
+
+            customizeButton.addEventListener('click', () => {
+                customizer.hidden = !customizer.hidden;
+                customizeButton.textContent = customizer.hidden ? 'Personnaliser ma Signature' : 'Fermer l’atelier';
+                if (!customizer.hidden) {
+                    renderCustomizer();
+                    setTimeout(() => customizer.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 0);
+                }
+            });
+            root.append(customizeButton, customizer);
         }
 
         /* Les titres de soirée déjà décernés : ce sont des récompenses
            inscrites, pas un calcul du moment. */
         if (profile.titles.length) {
-            body.appendChild(el('p', 'm-shop__cat', 'Titres décrochés'));
+            root.appendChild(el('p', 'm-shop__cat', 'Titres décrochés'));
             profile.titles.slice(0, 6).forEach(award => {
                 const row = el('div', 'm-title');
                 row.appendChild(el('span', 'm-title__label', award.reason || 'Titre'));
                 row.appendChild(el('span', 'm-title__who', '+' + award.delta + ' XP'));
-                body.appendChild(row);
+                root.appendChild(row);
             });
         }
 
-        body.appendChild(el('p', 'm-shop__cat',
+        root.appendChild(el('p', 'm-shop__cat',
             'Hauts faits · ' + profile.achievementCount + ' / ' + profile.achievementTotal));
 
         if (!profile.achievements.length) {
-            body.appendChild(emptyState(isMe
+            root.appendChild(emptyState(isMe
                 ? 'Rien encore. Achète, ouvre, échange.'
                 : 'Aucun haut fait pour le moment.'));
         } else {
@@ -5343,7 +5511,7 @@ function openProfile(uid) {
                 badge.appendChild(el('span', null, row.ach.label));
                 wrap.appendChild(badge);
             });
-            body.appendChild(wrap);
+            root.appendChild(wrap);
         }
 
         /* Ce qui est presque là : c'est ça qui donne envie de rouvrir la fiche. */
@@ -5351,8 +5519,9 @@ function openProfile(uid) {
             const next = el('p', 'm-card__meta',
                 'Bientôt : ' + profile.nextUp.ach.label
                 + ' (' + profile.nextUp.current + ' / ' + profile.nextUp.goal + ')');
-            body.appendChild(next);
+            root.appendChild(next);
         }
+        body.appendChild(root);
     });
 }
 

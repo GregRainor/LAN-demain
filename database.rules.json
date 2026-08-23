@@ -267,7 +267,21 @@
         "$uid": {
           ".write": "auth != null && auth.uid === $uid",
           "name":   { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 300)" },
-          "avatar": { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 1000)" }
+          "avatar": { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 1000)" },
+          "lastSeen": { ".validate": "!newData.exists() || newData.isNumber()" },
+          "equippedTitleId": {
+            ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 64 && (root.child('lan/xp/awards').child($uid + '__ach__' + newData.val()).exists() || (newData.val() === 'administrator' && (root.child('lan/roles').child($uid).val() === 'admin' || $uid === 'ITe5VPuwewMzO7JnJA5oPWMdfvt2'))))"
+          },
+          "featuredAchievement1": {
+            ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 64 && root.child('lan/xp/awards').child($uid + '__ach__' + newData.val()).exists())"
+          },
+          "featuredAchievement2": {
+            ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 64 && root.child('lan/xp/awards').child($uid + '__ach__' + newData.val()).exists())"
+          },
+          "featuredAchievement3": {
+            ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 64 && root.child('lan/xp/awards').child($uid + '__ach__' + newData.val()).exists())"
+          },
+          "$other": { ".validate": false }
         }
       },
 

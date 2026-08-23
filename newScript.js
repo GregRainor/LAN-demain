@@ -130,9 +130,13 @@ document.addEventListener('DOMContentLoaded', () => {
     /* Les soirées passées, pour compter les LAN de chacun. */
     let globalHistory = {};
     let globalUsers = {};
+    let globalRoles = {};
     // Fiches durables (nom + avatar). /status disparaît à la déconnexion : sans
     // ce miroir, un joueur qui a voté puis fermé l'onglet n'avait plus de photo.
     let globalProfiles = {};
+    let openProfileUid = null;
+    let openProfileName = '';
+    let profileDraft = null;
     // Notre entrée dans /status : une par session, pas une par joueur.
     let myConnectionRef = null;
     let myConnectionKey = null;
@@ -257,7 +261,11 @@ document.addEventListener('DOMContentLoaded', () => {
             xp: globalXp,
             history: globalHistory,
             votes: globalVotes,
-            settings: globalSettings
+            settings: globalSettings,
+            quests: globalQuests,
+            profiles: globalProfiles,
+            roles: globalRoles,
+            adminUid: ADMIN_UID
         };
     }
 
@@ -970,12 +978,106 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-    /* La fiche d'un joueur : qui il est, ce qu'il a fait, puis ses voeux.
-       Le surnom vient du plus rare de ses hauts faits (core.js) — personne ne
-       le choisit, il se mérite. C'est ce qui transforme « Bob » en
-       « Bob « Le Signataire » ». */
+    function profileSerial(uid) {
+        let hash = 0;
+        String(uid || '').split('').forEach(char => { hash = ((hash * 31) + char.charCodeAt(0)) >>> 0; });
+        return String((hash % 900) + 100);
+    }
+
+    function hexToRgb(hex) {
+        const value = String(hex || '').replace('#', '');
+        const full = value.length === 3 ? value.split('').map(char => char + char).join('') : value;
+        const parsed = parseInt(full, 16);
+        if (!Number.isFinite(parsed)) return '212, 175, 55';
+        return `${(parsed >> 16) & 255}, ${(parsed >> 8) & 255}, ${parsed & 255}`;
+    }
+
+    function applyProfileTheme(title) {
+        const dossier = document.querySelector('#player-votes-modal .prof-dossier');
+        if (!dossier) return;
+        const theme = title || {
+            rarity: 'none', material: 'graphite', motif: 'grid', motion: 'calm',
+            accent: '#d4af37', accent2: '#f1dd8a'
+        };
+        dossier.dataset.titleRarity = theme.rarity;
+        dossier.dataset.titleMotif = theme.motif;
+        dossier.dataset.titleMaterial = theme.material;
+        dossier.dataset.titleMotion = theme.motion || 'calm';
+        dossier.style.setProperty('--prof-accent', theme.accent);
+        dossier.style.setProperty('--prof-accent-2', theme.accent2);
+        dossier.style.setProperty('--prof-accent-rgb', hexToRgb(theme.accent));
+        const family = document.getElementById('player-prof-card-family');
+        if (family) family.textContent = title
+            ? `${theme.material.toUpperCase()} · ${theme.rarity.toUpperCase()}`
+            : 'LAN DEMAIN · SANS TITRE';
+        if (profileDraft) {
+            const nickname = document.getElementById('player-prof-nick');
+            if (nickname) {
+                nickname.textContent = title ? `« ${title.label} »` : '';
+                nickname.style.display = title ? 'block' : 'none';
+            }
+        }
+    }
+
+    function achievementBadgeMarkup(row, compact) {
+        const path = ACH_ICONS[row.ach.icon] || ACH_ICONS.trophy;
+        return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${path}"></path></svg>
+            <span><strong>${escapeHtml(row.ach.label)}</strong>
+            <small>${row.owned ? (compact ? row.ach.hint : 'Acquis') : `${row.current} / ${row.goal}`}</small></span>`;
+    }
+
+    function renderProfileCustomizer(profile) {
+        const titles = document.getElementById('player-prof-title-options');
+        const features = document.getElementById('player-prof-feature-options');
+        if (!titles || !features || !profileDraft) return;
+        titles.innerHTML = '';
+        const noTitle = document.createElement('button');
+        noTitle.type = 'button';
+        noTitle.className = 'prof-title-choice' + (!profileDraft.titleId ? ' is-selected' : '');
+        noTitle.innerHTML = '<strong>Nom seul</strong><small>Carte graphite, sans titre équipé</small>';
+        noTitle.addEventListener('click', () => {
+            profileDraft.titleId = '';
+            applyProfileTheme(null);
+            renderProfileCustomizer(profile);
+        });
+        titles.appendChild(noTitle);
+        profile.unlockedTitles.forEach(title => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'prof-title-choice' + (profileDraft.titleId === title.id ? ' is-selected' : '');
+            button.style.setProperty('--choice-accent', title.accent);
+            button.innerHTML = `<span class="prof-title-choice__swatch"></span><strong>« ${escapeHtml(title.label)} »</strong>
+                <small>${escapeHtml(title.material)} · ${escapeHtml(title.rarity)}</small>`;
+            button.addEventListener('click', () => {
+                profileDraft.titleId = title.id;
+                applyProfileTheme(title);
+                renderProfileCustomizer(profile);
+            });
+            titles.appendChild(button);
+        });
+        features.innerHTML = '';
+        profile.achievements.forEach(row => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            const selected = profileDraft.featuredIds.includes(row.ach.id);
+            button.className = 'prof-feature-choice' + (selected ? ' is-selected' : '');
+            button.innerHTML = achievementBadgeMarkup(row, false);
+            button.addEventListener('click', () => {
+                const index = profileDraft.featuredIds.indexOf(row.ach.id);
+                if (index >= 0) profileDraft.featuredIds.splice(index, 1);
+                else if (profileDraft.featuredIds.length < 3) profileDraft.featuredIds.push(row.ach.id);
+                else showToast('Ta vitrine contient déjà trois trophées.', 'info');
+                renderProfileCustomizer(profile);
+            });
+            features.appendChild(button);
+        });
+    }
+
+    /* La fiche est une carte de collection à part entière. Son titre est choisi
+       parmi les hauts faits permanents et devient sa direction artistique. */
     function renderPlayerProfileHead(uid, userName) {
         const profile = playerProfile(achData(), uid);
+        applyProfileTheme(profile.equippedTitle);
 
         const face = document.getElementById('player-prof-face');
         if (face) {
@@ -1019,18 +1121,17 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // On ne montre que ce qui bouge : une rangée de zéros n'apprend rien.
+        // Quatre repères stables : la carte garde la même composition même
+        // quand un compteur est encore à zéro.
         const stats = document.getElementById('player-prof-stats');
         if (stats) {
             stats.innerHTML = '';
             [
-                ['Fortune', formatPoints(profile.balance), profile.balance !== 0],
-                ['Achats', profile.counters.purchases, profile.counters.purchases > 0],
-                ['Boosters', profile.counters.packs, profile.counters.packs > 0],
-                ['Cartes', profile.counters.cards, profile.counters.cards > 0],
-                ['Échanges', profile.counters.trades, profile.counters.trades > 0],
-                ['LAN', profile.counters.lans, profile.counters.lans > 0]
-            ].filter(row => row[2]).forEach(([label, value]) => {
+                ['Fortune', formatPoints(profile.balance)],
+                ['Hauts faits', profile.achievementCount],
+                ['Cartes', profile.counters.cards],
+                ['LAN', profile.counters.lans]
+            ].forEach(([label, value]) => {
                 const cell = document.createElement('div');
                 cell.className = 'prof-stat';
                 cell.innerHTML = `<span class="prof-stat__v">${escapeHtml(String(value))}</span>
@@ -1039,20 +1140,41 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
+        const serial = document.getElementById('player-prof-card-number');
+        if (serial) serial.textContent = `№ ${profileSerial(uid)}`;
+
+        const featured = document.getElementById('player-prof-featured');
+        if (featured) {
+            featured.innerHTML = '';
+            if (!profile.featuredAchievements.length) {
+                featured.innerHTML = '<p class="prof-featured__empty">La vitrine attend son premier trophée.</p>';
+            } else {
+                profile.featuredAchievements.forEach((row, index) => {
+                    const trophy = document.createElement('article');
+                    trophy.className = 'prof-featured-trophy';
+                    trophy.style.setProperty('--trophy-delay', `${index * 90}ms`);
+                    trophy.innerHTML = achievementBadgeMarkup(row, true);
+                    featured.appendChild(trophy);
+                });
+            }
+        }
+
         const badges = document.getElementById('player-prof-badges');
         if (badges) {
             badges.innerHTML = '';
             achievementState(achData(), uid).forEach(row => {
-                const path = ACH_ICONS[row.ach.icon] || ACH_ICONS.trophy;
                 const badge = document.createElement('span');
                 badge.className = 'prof-badge ' + (row.owned ? 'is-owned' : 'is-locked');
                 badge.title = row.ach.hint;
-                badge.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${path}"></path></svg>
-                    <span><strong>${escapeHtml(row.ach.label)}</strong>
-                    <small>${row.owned ? 'Acquis' : `${row.current} / ${row.goal}`}</small></span>`;
+                badge.innerHTML = achievementBadgeMarkup(row, false);
                 badges.appendChild(badge);
             });
         }
+
+        const customize = document.getElementById('player-prof-customize-btn');
+        const mine = !!(auth.currentUser && auth.currentUser.uid === uid);
+        if (customize) customize.hidden = !mine;
+        if (mine && profileDraft) renderProfileCustomizer(profile);
     }
 
     function showPlayerVotesModal(uid, userName, votesData) {
@@ -1063,6 +1185,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!modal || !nameEl || !listEl) return;
 
         nameEl.textContent = userName || 'Joueur';
+        openProfileUid = uid;
+        openProfileName = userName || 'Joueur';
+        profileDraft = null;
+        const customizer = document.getElementById('player-prof-customizer');
+        if (customizer) customizer.hidden = true;
         renderPlayerProfileHead(uid, userName);
         listEl.innerHTML = '';
 
@@ -1124,6 +1251,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Listen for user roles
         watchValue(db.ref('lan/roles'), snapshot => {
             const roles = snapshot.val() || {};
+            globalRoles = roles;
             const myRole = roles[user.uid];
 
             if (myRole === 'admin') {
@@ -1149,6 +1277,9 @@ document.addEventListener('DOMContentLoaded', () => {
             renderBoutique();
             renderCollection();
             renderDesktopShell();
+            if (openProfileUid && document.getElementById('player-votes-modal')?.style.display === 'flex') {
+                renderPlayerProfileHead(openProfileUid, openProfileName || playerLabel(openProfileUid));
+            }
         });
 
         // Une clé par session ouverte : le même compte tourne souvent sur le PC
@@ -1188,6 +1319,9 @@ document.addEventListener('DOMContentLoaded', () => {
         watchValue(db.ref('lan/users'), snapshot => {
             globalProfiles = snapshot.val() || {};
             renderActiveUsers();
+            if (openProfileUid && document.getElementById('player-votes-modal')?.style.display === 'flex') {
+                renderPlayerProfileHead(openProfileUid, openProfileName || playerLabel(openProfileUid));
+            }
         });
 
         watchValue(eventsRef, (snapshot) => {
@@ -3057,7 +3191,9 @@ document.addEventListener('DOMContentLoaded', () => {
             xp: globalXp,
             history: globalHistory,
             votes: globalVotes,
-            settings: globalSettings
+            settings: globalSettings,
+            quests: globalQuests,
+            profiles: globalProfiles
         };
 
         const players = economyPlayers();
@@ -4838,6 +4974,22 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             container.appendChild(row);
         });
+
+        players.forEach(uid => {
+            closureAchievements(data, uid).forEach(ach => {
+                const awardId = achievementAwardId(uid, ach.id);
+                if (hasXpAward(globalXp, awardId)) return;
+                writes.push(db.ref('lan/xp/awards/' + awardId).set({
+                    uid: uid,
+                    delta: ach.xp,
+                    type: 'achievement',
+                    reason: ach.label,
+                    refId: ach.id,
+                    by: (auth.currentUser && auth.currentUser.uid) || null,
+                    ts: firebase.database.ServerValue.TIMESTAMP
+                }));
+            });
+        });
     }
 
     function showFinalResults() {
@@ -5058,6 +5210,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const playerModal = document.getElementById('player-votes-modal');
     const closePlayerModal = () => {
         if (playerModal) playerModal.style.display = 'none';
+        openProfileUid = null;
+        openProfileName = '';
+        profileDraft = null;
     };
     document.getElementById('close-player-votes-btn')?.addEventListener('click', closePlayerModal);
     playerModal?.addEventListener('click', (event) => {
@@ -5065,6 +5220,47 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape' && playerModal?.style.display === 'flex') closePlayerModal();
+    });
+
+    document.getElementById('player-prof-customize-btn')?.addEventListener('click', () => {
+        const user = auth.currentUser;
+        if (!user || user.uid !== openProfileUid) return;
+        const profile = playerProfile(achData(), user.uid);
+        profileDraft = {
+            titleId: profile.equippedTitle ? profile.equippedTitle.id : '',
+            featuredIds: [1, 2, 3]
+                .map(index => (globalProfiles[user.uid] || {})['featuredAchievement' + index])
+                .filter(Boolean)
+        };
+        const panel = document.getElementById('player-prof-customizer');
+        if (panel) panel.hidden = false;
+        renderProfileCustomizer(profile);
+        panel?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+
+    document.getElementById('player-prof-customize-cancel')?.addEventListener('click', () => {
+        profileDraft = null;
+        const panel = document.getElementById('player-prof-customizer');
+        if (panel) panel.hidden = true;
+        if (openProfileUid) renderPlayerProfileHead(openProfileUid, openProfileName);
+    });
+
+    document.getElementById('player-prof-customize-save')?.addEventListener('click', async () => {
+        const user = auth.currentUser;
+        if (!user || user.uid !== openProfileUid || !profileDraft) return;
+        const update = { equippedTitleId: profileDraft.titleId || null };
+        [1, 2, 3].forEach(index => {
+            update['featuredAchievement' + index] = profileDraft.featuredIds[index - 1] || null;
+        });
+        try {
+            await db.ref('lan/users/' + user.uid).update(update);
+            profileDraft = null;
+            const panel = document.getElementById('player-prof-customizer');
+            if (panel) panel.hidden = true;
+            showToast('Ta signature est enregistrée.', 'success');
+        } catch (error) {
+            showToast('Impossible d’enregistrer ce profil : ' + error.message, 'error');
+        }
     });
 
     // --- HISTORIQUE ---
@@ -6721,7 +6917,11 @@ document.addEventListener('DOMContentLoaded', () => {
             xp: globalXp,
             history: globalHistory,
             votes: globalVotes,
-            settings: globalSettings
+            settings: globalSettings,
+            quests: globalQuests,
+            profiles: globalProfiles,
+            roles: globalRoles,
+            adminUid: ADMIN_UID
         };
     }
 

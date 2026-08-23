@@ -7,6 +7,8 @@ const html = fs.readFileSync(path.join(root, 'desktop.html'), 'utf8');
 const baseCss = fs.readFileSync(path.join(root, 'style.css'), 'utf8');
 const desktopCss = fs.readFileSync(path.join(root, 'desktop-v2.css'), 'utf8');
 const script = fs.readFileSync(path.join(root, 'newScript.js'), 'utf8');
+const core = fs.readFileSync(path.join(root, 'core.js'), 'utf8');
+const rules = fs.readFileSync(path.join(root, 'database.rules.json'), 'utf8');
 
 function ruleBody(css, selector) {
     const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -68,8 +70,16 @@ assert(/adminBox\.style\.display = window\.currentUserIsAdmin \? 'grid' : 'none'
 assert(/class="luxury-panel modal-content prof-dossier"/.test(html)
     && ids.includes('player-prof-progress-copy')
     && ids.includes('player-prof-achievement-count')
-    && /class="prof-dossier__body"/.test(html), 'Player profile must use the compact desktop dossier structure');
-assert(/class="prof-identity"/.test(html) && /prof-identity__label/.test(html), 'Player avatar and identity must share one aligned header unit');
+    && /class="prof-signature-layout"/.test(html), 'Player profile must use the centered Signature Card structure');
+assert(/class="prof-signature-card"/.test(html)
+    && ids.includes('player-prof-customizer')
+    && ids.includes('player-prof-title-options')
+    && ids.includes('player-prof-feature-options'), 'Player profile customization structure is incomplete');
+assert(/equippedTitleId/.test(script) && /featuredAchievement/.test(script), 'Player title and trophy choices must persist on the durable profile');
+assert(/applyProfileTheme/.test(script) && /data-title-rarity/.test(html) && /data-title-motion/.test(html), 'Equipped titles must drive a controlled visual and motion theme');
+assert(/PROFILE_ROLE_TITLES/.test(core)
+    && /administrator/.test(core)
+    && /newData\.val\(\) === 'administrator'/.test(rules), 'Administrator must be a role-gated Signature title');
 assert(/class="results-table__score-col"/.test(html), 'Live ranking must reserve a stable score column');
 assert(/class="results-empty"/.test(script) && /La tendance apparaîtra ici en direct/.test(script), 'Live ranking must have an intentional empty state');
 assert(/prof-votes-empty/.test(script) && /prof-vote-group--\$\{tier\}/.test(script), 'Player votes must use dossier components instead of inline legacy styles');
@@ -79,9 +89,9 @@ assert(/margin\s*:\s*auto 25px 0\s*;/.test(adminNav), 'Desktop Admin navigation 
 const scoreColumn = ruleBody(desktopCss, '#view-voting-open .results-table__score-col');
 assert(/width\s*:\s*78px\s*;/.test(scoreColumn), 'Live ranking score column must remain aligned');
 const profileBody = ruleBody(desktopCss, '#player-votes-modal .prof-dossier__body');
-assert(/grid-template-columns\s*:\s*minmax\(0, 1fr\) 320px\s*;/.test(profileBody), 'Desktop profile must separate achievements from the compact ballot');
+assert(/grid-template-columns\s*:\s*minmax\(0, 1fr\) 300px\s*;/.test(profileBody), 'Desktop profile must separate achievements from the compact ballot');
 
-for (const animation of ['desktopAmbientDrift', 'desktopShellDown', 'desktopShellSide', 'desktopStageReveal', 'desktopNavSettle', 'desktopPresencePulse', 'desktopViewIn', 'desktopPanelIn', 'desktopScrollReveal', 'desktopScrollRevealSide', 'desktopAdminFocus', 'desktopProfileOpen', 'desktopLevelBreathe', 'profileTitleShimmer']) {
+for (const animation of ['desktopAmbientDrift', 'desktopShellDown', 'desktopShellSide', 'desktopStageReveal', 'desktopNavSettle', 'desktopPresencePulse', 'desktopViewIn', 'desktopPanelIn', 'desktopScrollReveal', 'desktopScrollRevealSide', 'desktopAdminFocus', 'desktopProfileOpen', 'desktopLevelBreathe', 'profileTitleShimmer', 'profileCardFoil', 'profileHaloTurn', 'profileTrophyRise', 'profileCommerceSweep', 'profileCollectionFoil', 'profileMischiefLock', 'profileLegacyOrbit', 'profileChallengeImpact', 'profileVoteSignal', 'profilePrototypeScan', 'profilePoloniaRibbon']) {
     assert(desktopCss.includes(`@keyframes ${animation}`), `Missing desktop motion keyframes: ${animation}`);
 }
 assert(/\.lan-subview\.active\s*\{[^}]*animation:\s*desktopViewIn/.test(desktopCss), 'Active desktop views must animate when navigation changes');
@@ -92,6 +102,11 @@ assert(/--desktop-scroll-progress/.test(desktopCss) && /updateDesktopScrollProgr
 assert(/@media\s*\(prefers-reduced-motion:\s*reduce\)[\s\S]*\.desktop-os \.animated-section\s*\{[\s\S]*opacity:\s*1\s*!important/.test(desktopCss), 'Reduced-motion mode must keep legacy animated sections visible');
 assert(/@media\s*\(prefers-reduced-motion:\s*reduce\)[\s\S]*#player-votes-modal > \.modal-content[\s\S]*animation:\s*none\s*!important/.test(desktopCss), 'Reduced-motion mode must disable profile animation');
 assert(/@media\s*\(prefers-reduced-motion:\s*reduce\)[\s\S]*#player-votes-modal \.prof-head__nick::after[\s\S]*animation:\s*none\s*!important/.test(desktopCss), 'Reduced-motion mode must disable earned-title shimmer');
+assert(/@media\s*\(prefers-reduced-motion:\s*reduce\)[\s\S]*#player-votes-modal \.prof-signature-card__foil[\s\S]*animation:\s*none\s*!important/.test(desktopCss), 'Reduced-motion mode must disable Signature Card foil motion');
+assert(/@media\s*\(prefers-reduced-motion:\s*reduce\)[\s\S]*#player-votes-modal \.prof-signature-card__motif[\s\S]*#player-votes-modal \.prof-head__nick[\s\S]*animation:\s*none\s*!important/.test(desktopCss), 'Reduced-motion mode must disable family-specific Signature motion');
+assert(/\.prof-head__nick[\s\S]{0,900}overflow-wrap:\s*anywhere/.test(desktopCss)
+    && /\.prof-title-choice strong[\s\S]{0,400}-webkit-line-clamp:\s*2/.test(desktopCss)
+    && /\.prof-featured-trophy strong[\s\S]{0,400}-webkit-line-clamp:\s*2/.test(desktopCss), 'Long profile titles and trophy labels must wrap without collision');
 
 for (const id of ['view-no-lan', 'view-voting-open', 'view-waiting-closed', 'view-lan-active', 'view-lan-finished']) {
     assert(ids.includes(id), `Missing desktop phase view #${id}`);
