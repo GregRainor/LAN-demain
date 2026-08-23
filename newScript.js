@@ -3374,7 +3374,12 @@ document.addEventListener('DOMContentLoaded', () => {
             db.ref('lan/installed').remove(),
             db.ref('lan/economy/ledger').remove(),
             db.ref('lan/economy/ticks').remove(),
-            db.ref('lan/economy/purchases').remove()
+            db.ref('lan/economy/purchases').remove(),
+            // Une réclamation appartient à la soirée où elle a été faite. Les
+            // laisser traîner, c'était une file « à valider » jamais vide et
+            // une pastille de rail qui ne s'éteignait plus. L'expérience
+            // gagnée, elle, reste : elle vit dans lan/xp/awards.
+            db.ref('lan/claims').remove()
         ]);
 
         // lanFinished doit retomber ici : sinon la nouvelle soirée s'ouvrirait

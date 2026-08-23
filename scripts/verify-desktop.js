@@ -258,6 +258,24 @@ assert(!/id="lan-events"/.test(html) && !/events-list/.test(html) && !/events-li
 assert(/item\.classList\.toggle\('is-locked', locked\)[\s\S]{0,120}item\.disabled = locked/.test(script),
     'Subnav destinations must lock, never disappear');
 
+/* --- La liste de départ des défis -----------------------------------------
+   Trente-sept défis livrés avec l'application, et deux façons de les poser :
+   le bouton de l'état vide, et le complément en bas de liste une fois le
+   catalogue garni. Regarnir deux fois ne doit jamais créer de doublon. */
+assert(/const CHALLENGE_STARTER = \[/.test(core)
+    && (core.match(/\{ title: '/g) || []).length >= 30,
+    'The starter challenge list must ship with the app');
+assert(/window\.currentUserIsGamemaster\s*\?\s*missingStarterChallenges\(globalQuests\)\.length : 0/.test(script)
+    && /Ajouter les \$\{missing\} défis de la liste de départ/.test(script),
+    'A gamemaster must be able to top the starter list up once the catalogue is no longer empty');
+assert(/function missingStarterChallenges/.test(core)
+    && /have\[normalizeGameName\(c\.title\)\]/.test(core),
+    'Seeding twice must not duplicate the starter list');
+// Une réclamation appartient à la soirée où elle a été faite : la file « à
+// valider » traînait sinon d'une LAN à l'autre, pastille de rail comprise.
+assert(/db\.ref\('lan\/claims'\)\.remove\(\)/.test(script),
+    'A new LAN must start from an empty claims queue');
+
 /* ==========================================================================
    LES RÈGLES FIREBASE DOIVENT ÊTRE LISIBLES PAR FIREBASE
    Une clé sans point n'est pas un commentaire : Firebase la lit comme un
