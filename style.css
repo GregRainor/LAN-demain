@@ -1421,63 +1421,6 @@ body.sidebar-visible {
 }
 
 
-/* --- PHASE 3: USER WAITING SCREEN (MARQUEE) --- */
-.marquee-bg {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    z-index: -1;
-    overflow: hidden;
-    opacity: 0.15;
-    pointer-events: none;
-    filter: blur(4px);
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 10px;
-    background-color: #000;
-}
-
-.marquee-track {
-    display: flex;
-    width: max-content;
-    height: 25vh;
-    /* Each row takes 1/4 of screen */
-    align-items: center;
-    gap: 10px;
-    padding: 0;
-    animation: scrollMarquee 200s linear infinite;
-}
-
-@media (max-width: 900px) {
-    .marquee-track {
-        height: 15vh;
-    }
-}
-
-.marquee-card {
-    height: 100%;
-    aspect-ratio: 16/9;
-    /* typical game banner ratio */
-    background-size: cover;
-    background-position: center;
-    border-radius: 4px;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.8);
-    opacity: 0.7;
-    filter: grayscale(40%) sepia(30%) hue-rotate(5deg);
-    transition: all 0.5s;
-}
-
-@keyframes scrollMarquee {
-    0% {
-        transform: translateX(0);
-    }
-
-    100% {
-        transform: translateX(-50%);
-    }
 }
 
 /* Pulsing accent line */
@@ -4280,39 +4223,6 @@ select.luxury-input option:disabled {
    ou une bordure porte donc son propre box-sizing, sinon elle déborde.
    ========================================================================== */
 
-.wallet-banner {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: var(--space-3);
-    padding: var(--space-5);
-    margin-bottom: var(--space-5);
-    background: linear-gradient(135deg, rgba(212, 175, 55, 0.08), transparent 60%);
-}
-
-.wallet-banner__label {
-    display: block;
-    font-size: 0.75em;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--secondary-text);
-}
-
-.wallet-banner__value {
-    font-family: 'Playfair Display', serif;
-    font-size: 2.4em;
-    color: var(--accent-color);
-    line-height: 1.1;
-}
-
-.wallet-banner__hint {
-    margin: 0;
-    font-size: 0.85em;
-    color: var(--secondary-text);
-    font-style: italic;
-}
-
 /* Champs du panneau de crédit : le box-sizing est indispensable ici, ces
    champs combinent width:100% et le padding hérité de .luxury-input. */
 .shop-field {
@@ -5495,47 +5405,13 @@ select.luxury-input option:disabled {
    associe width:100% à du padding ou une bordure porte donc le sien.
    ========================================================================== */
 
-/* ---------- La barre d'expérience ---------- */
-.xp-banner {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
-    padding: var(--space-4) var(--space-5);
-    margin-bottom: var(--space-4);
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.025), transparent);
-}
-
-.xp-banner__head { display: flex; align-items: baseline; gap: var(--space-3); }
-
-.xp-banner__lvl {
-    font-family: 'Playfair Display', serif;
-    font-size: 1.5em;
-    color: var(--accent-color);
-    line-height: 1;
-}
-
-.xp-banner__lvl small {
-    font-family: inherit;
-    font-size: 0.42em;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: var(--secondary-text);
-}
-
-.xp-banner__count {
-    margin-left: auto;
-    font-size: 0.85em;
-    color: var(--secondary-text);
-    font-variant-numeric: tabular-nums;
-}
-
-/* Vingt-quatre segments plutôt qu'une barre pleine : on voit le prochain cran
-   arriver, et un gain se remarque même petit. */
+/* ---------- La jauge d'expérience ----------
+   Le bandeau du bureau porte le niveau ; il ne reste ici que les segments,
+   réutilisés par la fiche Signature. */
 .xp-banner__segs { display: grid; grid-template-columns: repeat(24, 1fr); gap: 3px; }
 .xp-banner__seg { height: 10px; background: rgba(255, 255, 255, 0.07); border-radius: 1px; }
 .xp-banner__seg.is-on { background: var(--accent-color); box-shadow: 0 0 6px rgba(212, 175, 55, 0.4); }
 .xp-banner__seg.is-edge { background: rgba(212, 175, 55, 0.55); box-shadow: none; }
-.xp-banner__foot { margin: 0; font-size: 0.85em; color: var(--secondary-text); }
 
 /* ---------- Un article ---------- */
 .shop-item {

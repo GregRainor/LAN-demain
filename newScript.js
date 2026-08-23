@@ -436,6 +436,11 @@ document.addEventListener('DOMContentLoaded', () => {
         syncDesktopNavigation();
     }
 
+    /* La porte « Événements » du rail ouvre sur cinq pièces. Elles sont
+       listées ici plutôt que dispersées : c'est cette liste qui décide à la
+       fois du surlignage du rail et de l'affichage de la barre secondaire. */
+    const DESKTOP_EVENT_SPACE = ['lan-dashboard', 'lan-calendar', 'lan-events', 'lan-polls', 'lan-library'];
+
     function syncDesktopNavigation(targetId) {
         const phase = desktopPhase();
         const currentSubview = targetId || document.querySelector('#view-lan-active .lan-subview.active')?.id || '';
@@ -444,7 +449,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let active = false;
             if (item.dataset.desktopTarget) active = currentSubview === item.dataset.desktopTarget;
             if (item.dataset.desktopDestination === 'home') {
-                const isEventSpace = ['lan-dashboard', 'lan-calendar', 'lan-events'].includes(currentSubview);
+                const isEventSpace = DESKTOP_EVENT_SPACE.includes(currentSubview);
                 active = !adminActive && (phase === 'active'
                     ? isEventSpace
                     : (phase === 'voting' ? desktopVotingDestination === 'events' : true));
@@ -453,10 +458,38 @@ document.addEventListener('DOMContentLoaded', () => {
                 active = !adminActive && ((phase === 'voting' && desktopVotingDestination === 'games')
                     || (phase === 'active' && currentSubview === 'lan-games'));
             }
+            // L'historique est une fenêtre, pas une destination : il ne
+            // s'allume jamais, sinon le rail mentirait sur l'écran ouvert.
+            if (item.dataset.desktopDestination === 'history') active = false;
             if (item.disabled || item.classList.contains('is-locked')) active = false;
             item.classList.toggle('active', active);
         });
         document.getElementById('desktop-admin-nav')?.classList.toggle('active', adminActive);
+        syncDesktopSubnav(currentSubview, adminActive);
+    }
+
+    /* La barre secondaire n'apparaît que dans l'espace soirée : ailleurs elle
+       proposerait un retour vers un endroit où l'on n'est pas. */
+    function syncDesktopSubnav(currentSubview, adminActive) {
+        const subnav = document.getElementById('desktop-subnav');
+        if (!subnav) return;
+        const inside = !adminActive && DESKTOP_EVENT_SPACE.includes(currentSubview);
+        subnav.style.display = inside ? 'flex' : 'none';
+        // Pendant le vote, seul le Programme existe : les quatre autres se
+        // verrouillent au lieu de disparaître, comme le rail au-dessus.
+        const live = desktopPhase() === 'active';
+        subnav.querySelectorAll('.desktop-subnav__item').forEach(item => {
+            const locked = !live && item.dataset.desktopTarget !== 'lan-calendar';
+            item.classList.toggle('is-locked', locked);
+            item.disabled = locked;
+            item.setAttribute('aria-disabled', String(locked));
+            item.classList.toggle('active', !locked && item.dataset.desktopTarget === currentSubview);
+        });
+        const pollBadge = document.getElementById('desktop-subnav-poll-badge');
+        if (pollBadge) {
+            const open = Object.values(globalPolls || {}).filter(poll => poll && !isPollClosed(poll)).length;
+            pollBadge.textContent = open ? String(open) : '';
+        }
     }
 
     function activateDesktopSubview(targetId) {
@@ -474,11 +507,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function setupDesktopShell() {
+        document.querySelectorAll('.desktop-subnav__item').forEach(item => {
+            if (item.dataset.shopPane) {
+                item.addEventListener('click', () => setShopPane(item.dataset.shopPane));
+                return;
+            }
+            item.addEventListener('click', () => activateDesktopSubview(item.dataset.desktopTarget));
+        });
+
         document.querySelectorAll('.desktop-nav__item, .desktop-brand').forEach(item => {
             item.addEventListener('click', () => {
                 if (item.disabled || item.classList.contains('is-locked')) return;
                 const destination = item.dataset.desktopDestination;
                 const target = item.dataset.desktopTarget;
+                // L'historique s'ouvre par-dessus l'écran courant : il ne
+                // touche ni à la phase, ni au surlignage du rail.
+                if (destination === 'history') {
+                    openLanHistory();
+                    return;
+                }
                 if (target) {
                     activateDesktopSubview(target);
                     return;
@@ -512,20 +559,14 @@ document.addEventListener('DOMContentLoaded', () => {
             desktopAdminOverride = true;
             updateVotingUIState();
             syncDesktopNavigation('lan-admin');
-            if (desktopPhase() === 'finished') {
-                const recapAdmin = document.getElementById('recap-admin');
-                if (recapAdmin) {
-                    recapAdmin.classList.remove('is-admin-focus');
-                    requestAnimationFrame(() => {
-                        recapAdmin.classList.add('is-admin-focus');
-                        recapAdmin.scrollIntoView({ behavior: desktopMotionIsReduced() ? 'auto' : 'smooth', block: 'center' });
-                    });
-                }
-            }
         });
 
-        document.getElementById('desktop-open-history')?.addEventListener('click', () => {
-            document.getElementById('btn-lan-history')?.click();
+        document.getElementById('desktop-open-history')?.addEventListener('click', openLanHistory);
+
+        // Les raccourcis du tableau de bord partagent l'aiguillage du rail :
+        // un seul chemin vers un sous-écran, quel que soit le bouton cliqué.
+        document.querySelectorAll('#lan-dashboard [data-desktop-target]').forEach(item => {
+            item.addEventListener('click', () => activateDesktopSubview(item.dataset.desktopTarget));
         });
 
         const openOwnProfile = () => {
@@ -1331,6 +1372,8 @@ document.addEventListener('DOMContentLoaded', () => {
             window._latestEventsData = eventsData;
             renderEvents(eventsData, user);
             renderAgenda();
+            renderWaitingClosed();
+            renderBoard();
             checkEventReminders(eventsData, user);
         });
 
@@ -1341,6 +1384,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (auth.currentUser) {
                 renderWhenWhere();
                 renderAgenda();
+                renderWaitingClosed();
+                renderBoard();
             }
             if (window._latestEventsData && auth.currentUser) {
                 checkEventReminders(window._latestEventsData, auth.currentUser);
@@ -1352,11 +1397,13 @@ document.addEventListener('DOMContentLoaded', () => {
             window._latestCocktailsData = cocktailsData;
             renderCocktails(cocktailsData, user);
             renderCocktailSummary(cocktailsData);
+            renderBoard();
         });
 
         watchValue(db.ref('lan/economy'), (snapshot) => {
             globalEconomy = snapshot.val() || {};
             renderBoutique();
+            renderBoard();
             // Une demande de booster validée devient un paquet scellé : le
             // rejeu des cartes en dépend, donc on l'invalide aussi.
             tcgViewCache = null;
@@ -1373,6 +1420,7 @@ document.addEventListener('DOMContentLoaded', () => {
         watchValue(db.ref('lan/claims'), (snapshot) => {
             globalQuests.claims = snapshot.val() || {};
             renderDefis();
+            renderBoard();
             renderDesktopShell();
         });
         watchValue(db.ref('lan/suggestions'), (snapshot) => {
@@ -1420,6 +1468,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 renderGroupLibrary();
             }
+            renderWaitingClosed();
         });
 
         // Sondages
@@ -1435,6 +1484,7 @@ document.addEventListener('DOMContentLoaded', () => {
         watchValue(db.ref('lan/foodRuns'), (snapshot) => {
             globalFoodRuns = snapshot.val() || {};
             renderFoodRuns();
+            renderBoard();
             refreshRecapIfVisible();
         });
         buildPollOptionInputs(2);
@@ -1548,12 +1598,28 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // La soirée terminée prime : c'est un état volontaire de l'admin, qui
-        // ne doit pas être confondu avec l'attente d'avant-LAN.
+        // La cloche existe dans toutes les phases. Une seule ligne, posée avant
+        // le premier retour, plutôt qu'une par branche.
+        const btnNotifShell = document.getElementById('btn-notifications');
+        if (btnNotifShell) btnNotifShell.style.display = 'grid';
+
+        /* Le panneau admin est une destination, pas une phase : il doit passer
+           avant « terminée ». Testé après, le récapitulatif reprenait la main
+           à chaque clic et le panneau restait injoignable une fois la LAN
+           close. Pendant la soirée, l'admin a son propre sous-écran. */
+        if (desktopAdminOverride && window.currentUserIsAdmin && phase !== 'active') {
+            if (form) form.style.display = 'none';
+            if (viewAdminDashboard) viewAdminDashboard.style.display = 'block';
+            const openLanBtn = document.getElementById('btn-open-lan-dashboard');
+            if (openLanBtn) openLanBtn.style.display = (!globalSettings.isLanActive && phase === 'locked') ? 'block' : 'none';
+            renderDesktopShell();
+            return;
+        }
+
+        // La soirée terminée prime sur l'attente d'avant-LAN : c'est un état
+        // volontaire de l'admin, pas un entre-deux.
         if (phase === 'finished') {
             if (viewLanFinished) viewLanFinished.style.display = 'block';
-            const btnNotifRecap = document.getElementById('btn-notifications');
-            if (btnNotifRecap) btnNotifRecap.style.display = 'grid';
             renderLanRecap();
             return;
         }
@@ -1561,32 +1627,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (phase === 'active') {
             desktopAdminOverride = false;
             if (viewLanActive) viewLanActive.style.display = 'block';
-            // Clear all marquee tracks when LAN goes active
-            ['waiting-marquee-1', 'waiting-marquee-2', 'waiting-marquee-3', 'waiting-marquee-4'].forEach(id => {
-                const t = document.getElementById(id);
-                if (t) t.innerHTML = '';
-            });
-            // Show notification bell in LAN active phase
-            const btnNotif = document.getElementById('btn-notifications');
-            if (btnNotif) btnNotif.style.display = 'grid';
             // Show admin/mixologist buttons
             if (window.currentUserIsAdmin || window.currentUserIsMixologist) {
                 const addMasterBtn = document.getElementById('btn-add-master-kocktail');
                 if (addMasterBtn) addMasterBtn.style.display = 'inline-block';
             }
-            return;
-        }
-
-        // Show notification bell always (not just in LAN active)
-        const btnNotif = document.getElementById('btn-notifications');
-        if (btnNotif) btnNotif.style.display = 'grid';
-
-        if (desktopAdminOverride && window.currentUserIsAdmin) {
-            if (form) form.style.display = 'none';
-            if (viewAdminDashboard) viewAdminDashboard.style.display = 'block';
-            const openLanBtn = document.getElementById('btn-open-lan-dashboard');
-            if (openLanBtn) openLanBtn.style.display = phase === 'locked' ? 'block' : 'none';
-            renderDesktopShell();
             return;
         }
 
@@ -1610,17 +1655,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } else {
             if (form) form.style.display = 'none';
-
-            // Show btn-open-lan-dashboard only when votes are closed and LAN not active
-            const openLanBtn = document.getElementById('btn-open-lan-dashboard');
-
-            if (window.currentUserIsAdmin && desktopAdminOverride) {
-                if (viewAdminDashboard) viewAdminDashboard.style.display = 'block';
-                if (openLanBtn && !globalSettings.isLanActive) openLanBtn.style.display = 'block';
-            } else {
-                if (viewWaitingClosed) viewWaitingClosed.style.display = 'flex';
-                renderMarquee();
-            }
+            if (viewWaitingClosed) viewWaitingClosed.style.display = 'flex';
+            renderWaitingClosed();
         }
         renderDesktopShell();
     }
@@ -2079,6 +2115,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderTable(sortedGames);
         renderChart(sortedGames);
         renderClosedResults(sortedGames);
+        renderWaitingClosed();
         renderActiveLanGames(sortedGames);
         renderActiveLanAllGames(sortedGames);
         renderVoteSuggestions(sortedGames);
@@ -4907,7 +4944,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         };
 
-        renderList('closed-download-list');
+        // La liste joueur vit désormais dans « À installer », qui dit en plus
+        // qui doit encore télécharger. Ici, seule la vue admin.
         renderList('admin-closed-download-list');
     }
 
@@ -5016,61 +5054,369 @@ document.addEventListener('DOMContentLoaded', () => {
         if (finalModal) finalModal.style.display = 'flex';
     }
 
-    async function renderMarquee() {
-        // Use any of the marquee tracks defined in HTML
-        const track = document.getElementById('waiting-marquee-1');
-        if (!track || track.childElementCount > 0) return;
+    /* --- Le tableau de bord de la soirée ---------------------------------
 
-        const sortedGames = calculateScores(globalVotes);
-        let gamesForMarquee = sortedGames.slice(0, 5).map(g => g.name);
+       Quatre questions, une réponse chacune : on joue à quoi, il se passe quoi
+       ensuite, on mange quoi, qu'est-ce qui attend une décision. Tout le reste
+       a sa propre destination dans le rail — l'empiler ici en ferait un
+       sommaire de plus. */
 
-        const topSteamGames = [
-            "Counter-Strike 2", "Dota 2", "PUBG: BATTLEGROUNDS",
-            "Apex Legends", "Helldivers 2", "Palworld", "Grand Theft Auto V",
-            "Team Fortress 2", "Rust", "Baldur's Gate 3", "Cyberpunk 2077",
-            "ELDEN RING", "War Thunder", "Left 4 Dead 2", "Terraria",
-            "Stardew Valley", "Rainbow Six Siege", "ARK: Survival Evolved",
-            "The Witcher 3", "Path of Exile", "Rocket League", "Destiny 2",
-            "Garry's Mod", "Fallout 4", "Dead by Daylight", "Red Dead Redemption 2",
-            "Age of Empires II", "Phasmophobia", "Hollow Knight", "Lethal Company",
-            "Among Us", "Halo Infinite", "Borderlands 3"
-        ];
+    // La partie en cours se déduit du programme : le dernier événement du jour
+    // dont l'heure est passée. Personne n'a à déclarer « on joue à ça
+    // maintenant » ; le programme le dit déjà.
+    function currentAgendaEvent(now) {
+        const agenda = buildAgenda(window._latestEventsData || {}, globalSettings.lanDate || '');
+        const today = currentDayKey(now);
+        const minutes = nowNightMinutes(now);
+        let running = null;
+        agenda.forEach(day => {
+            if (day.dayKey !== today) return;
+            day.events.forEach(event => {
+                if (event.order === null || event.order > minutes) return;
+                if (!running || event.order >= running.order) running = event;
+            });
+        });
+        return running;
+    }
 
-        for (let game of topSteamGames) {
-            if (!gamesForMarquee.includes(game)) {
-                gamesForMarquee.push(game);
-            }
+    function renderBoardNow() {
+        const title = document.getElementById('board-now-title');
+        const meta = document.getElementById('board-now-meta');
+        if (!title || !meta) return;
+
+        const now = new Date();
+        const running = currentAgendaEvent(now);
+        const next = nextEventInAgenda(buildAgenda(window._latestEventsData || {}, globalSettings.lanDate || ''), now);
+
+        if (running) {
+            title.textContent = running.game || running.title;
+            const parts = [];
+            if (running.game && running.title !== running.game) parts.push(running.title);
+            if (running.time) parts.push('depuis ' + running.time);
+            if (running.creatorName) parts.push('lancé par ' + running.creatorName);
+            meta.textContent = parts.join(' · ');
+            return;
         }
 
-        gamesForMarquee = gamesForMarquee.sort(() => 0.5 - Math.random()).slice(0, 25);
+        const top = calculateScores(globalVotes)[0];
+        title.textContent = top ? top.name : 'Rien de lancé';
+        meta.textContent = next && next.time
+            ? 'Rien au programme pour l’instant. Prochain rendez-vous à ' + next.time + '.'
+            : 'Le programme ne dit rien de l’heure qu’il est. Le vainqueur du vote reste le pari sûr.';
+    }
 
-        const createCard = async (gameName) => {
-            const imgUrl = await getGameImage(gameName);
-            if (imgUrl === DEFAULT_GAME_ICON) return null;
-            const card = document.createElement('div');
-            card.className = 'marquee-card';
-            card.style.backgroundImage = `url(${imgUrl})`;
-            return card;
-        };
+    function renderBoardOrder() {
+        const mount = document.getElementById('board-order-body');
+        if (!mount) return;
+        mount.innerHTML = '';
 
-        const cards = [];
-        for (const name of gamesForMarquee) {
-            const c = await createCard(name);
-            if (c) cards.push(c);
+        const open = Object.entries(globalFoodRuns || {})
+            .map(([id, run]) => Object.assign({ id }, run))
+            .filter(run => run && !isRunClosed(run))
+            .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+        if (!open.length) {
+            const empty = document.createElement('p');
+            empty.className = 'board-card__hint';
+            empty.textContent = 'Aucune commande en cours. Ouvrez-en une quand la faim arrive.';
+            mount.appendChild(empty);
+            return;
         }
 
-        if (cards.length === 0) return;
+        open.slice(0, 2).forEach(run => {
+            const items = Object.values(run.items || {});
+            const total = items.reduce((sum, item) => sum + (Number(item.price) || 0), 0);
 
-        // Populate all 4 marquee tracks with shuffled versions
-        const tracks = ['waiting-marquee-1', 'waiting-marquee-2', 'waiting-marquee-3', 'waiting-marquee-4'];
-        tracks.forEach(trackId => {
-            const t = document.getElementById(trackId);
-            if (!t) return;
-            const shuffled = [...cards].sort(() => 0.5 - Math.random());
-            const allCards = [...shuffled, ...shuffled.map(c => c.cloneNode(true)), ...shuffled.map(c => c.cloneNode(true))];
-            allCards.forEach(c => t.appendChild(c));
+            const row = document.createElement('button');
+            row.type = 'button';
+            row.className = 'board-order__row';
+            row.addEventListener('click', () => activateDesktopSubview('lan-food'));
+
+            const head = document.createElement('strong');
+            head.textContent = run.place || 'Commande groupée';
+            const line = document.createElement('span');
+            line.textContent = items.length + ' article' + (items.length > 1 ? 's' : '')
+                + ' · ' + total.toFixed(2).replace('.', ',') + ' € · ' + pollTimeLeft(run);
+            row.append(head, line);
+            mount.appendChild(row);
         });
     }
+
+    /* « À valider » ne montre pas la même chose à tout le monde : le maître du
+       jeu voit ce qu'il doit trancher, un joueur voit ce qu'il attend. Deux
+       files distinctes, un seul panneau — sinon la moitié de la table regarde
+       un cadre vide toute la soirée. */
+    function renderBoardReview() {
+        const mount = document.getElementById('board-review-body');
+        const count = document.getElementById('board-review-count');
+        if (!mount) return;
+        const user = auth.currentUser;
+        if (!user) return;
+        mount.innerHTML = '';
+
+        const isGm = !!window.currentUserIsGamemaster;
+        const claims = Object.values((globalQuests.claims || {}))
+            .filter(claim => claim && claim.status === 'pending' && (isGm || claim.uid === user.uid));
+        const purchases = pendingPurchases(globalEconomy)
+            .filter(purchase => isGm || purchase.uid === user.uid);
+        const orders = isGm && (window.currentUserIsMixologist || window.currentUserIsAdmin)
+            ? Object.values((window._latestCocktailsData || {}).orders || {}).filter(Boolean)
+            : [];
+
+        const rows = [];
+        purchases.forEach(purchase => rows.push({
+            label: purchase.itemName || 'Article',
+            who: isGm ? (purchase.userName || playerLabel(purchase.uid)) : 'ma demande',
+            where: 'lan-boutique'
+        }));
+        claims.forEach(claim => rows.push({
+            label: claim.title || 'Défi relevé',
+            who: isGm ? (claim.userName || playerLabel(claim.uid)) : 'ma réclamation',
+            where: 'lan-defis'
+        }));
+        orders.forEach(order => rows.push({
+            label: order.cocktailName || 'Cocktail',
+            who: order.userName || 'Un joueur',
+            where: 'lan-food'
+        }));
+
+        if (count) count.textContent = rows.length ? String(rows.length) : '';
+
+        if (!rows.length) {
+            const empty = document.createElement('p');
+            empty.className = 'board-card__hint';
+            empty.textContent = isGm
+                ? 'Rien à trancher. La table tourne toute seule.'
+                : 'Aucune demande en attente de votre côté.';
+            mount.appendChild(empty);
+            return;
+        }
+
+        rows.slice(0, 5).forEach(row => {
+            const item = document.createElement('button');
+            item.type = 'button';
+            item.className = 'board-review__row';
+            item.addEventListener('click', () => activateDesktopSubview(row.where));
+            const label = document.createElement('strong');
+            label.textContent = row.label;
+            const who = document.createElement('span');
+            who.textContent = row.who;
+            item.append(label, who);
+            mount.appendChild(item);
+        });
+    }
+
+    function renderBoard() {
+        if (document.getElementById('view-lan-active')?.style.display === 'none') return;
+        renderBoardNow();
+        renderBoardOrder();
+        renderBoardReview();
+    }
+
+    /* --- Entre le vote et la soirée -------------------------------------
+
+       Le vote est clos, la LAN n'est pas lancée. C'est la phase la plus
+       longue et la seule où l'on ne peut rien faire dans l'application : elle
+       doit donc dire tout ce qu'il reste à faire dehors. Trois colonnes — ce
+       que le vote a décidé, ce qu'il reste à télécharger, ce qui est annoncé
+       — sous un compte à rebours qui descend jusqu'à l'heure dite. */
+
+    function waitingViewIsVisible() {
+        const view = document.getElementById('view-waiting-closed');
+        return !!view && view.style.display !== 'none';
+    }
+
+    function renderWaitingCountdown() {
+        const schedule = describeLanSchedule(globalSettings, new Date());
+        const band = document.getElementById('waiting-rendezvous');
+        if (!band) return;
+
+        const when = document.getElementById('waiting-when');
+        const place = document.getElementById('waiting-place');
+        const ics = document.getElementById('waiting-ics');
+        const cells = document.getElementById('waiting-countdown');
+
+        if (!schedule) {
+            band.classList.add('is-empty');
+            if (when) when.textContent = 'Date encore à fixer';
+            if (place) {
+                place.textContent = window.currentUserIsAdmin
+                    ? 'Renseignez-la dans « Quand et où », au panneau admin.'
+                    : 'L’organisateur ne l’a pas encore annoncée.';
+            }
+            if (cells) cells.hidden = true;
+            if (ics) ics.hidden = true;
+            return;
+        }
+
+        band.classList.remove('is-empty');
+        if (when) {
+            when.textContent = schedule.time
+                ? schedule.when + ', ' + schedule.time
+                : (schedule.when || 'Date encore à fixer');
+        }
+        if (place) place.textContent = schedule.place ? '\u{1F4CD} ' + schedule.place : '';
+        if (ics) ics.hidden = !schedule.startKey;
+
+        // Sans heure de début connue, il n'y a pas de minute à décompter :
+        // un compte à rebours inventé vaut moins que pas de compte à rebours.
+        const target = schedule.startsAt;
+        const left = target ? target.getTime() - Date.now() : null;
+        if (cells) cells.hidden = !(left !== null && left > 0);
+        if (left === null || left <= 0) return;
+
+        const minutesTotal = Math.floor(left / 60000);
+        const set = (id, value) => {
+            const node = document.getElementById(id);
+            if (node) node.textContent = String(value).padStart(2, '0');
+        };
+        set('waiting-days', Math.floor(minutesTotal / 1440));
+        set('waiting-hours', Math.floor(minutesTotal / 60) % 24);
+        set('waiting-minutes', minutesTotal % 60);
+    }
+
+    function renderWaitingWinner(sortedGames) {
+        const name = document.getElementById('waiting-winner-name');
+        const meta = document.getElementById('waiting-winner-meta');
+        const runners = document.getElementById('waiting-winner-runners');
+        if (!name || !meta || !runners) return;
+
+        const voters = Object.keys(globalVotes || {}).length;
+        const winner = sortedGames[0];
+
+        if (!winner) {
+            name.textContent = 'Aucun vote';
+            meta.textContent = 'Personne n’a déposé de bulletin.';
+            runners.innerHTML = '';
+            return;
+        }
+
+        name.textContent = winner.name;
+        meta.textContent = winner.score + ' point' + (winner.score > 1 ? 's' : '')
+            + ' · ' + voters + ' votant' + (voters > 1 ? 's' : '');
+
+        runners.innerHTML = '';
+        sortedGames.slice(1, 4).forEach((game, index) => {
+            const row = document.createElement('div');
+            row.className = 'waiting-runners__row';
+            const rank = document.createElement('span');
+            rank.textContent = '#' + (index + 2);
+            const label = document.createElement('strong');
+            label.textContent = game.name;
+            const score = document.createElement('span');
+            score.textContent = game.score + ' pts';
+            row.append(rank, label, score);
+            runners.appendChild(row);
+        });
+    }
+
+    /* « Prêt » se lit dans les bibliothèques déjà déposées : un jeu que tout le
+       monde possède ne se télécharge plus. Rien de nouveau n'est écrit en base,
+       donc aucune règle Firebase à publier pour que cet écran fonctionne. */
+    function renderWaitingInstall(sortedGames) {
+        const mount = document.getElementById('closed-download-list');
+        const count = document.getElementById('waiting-install-count');
+        const hint = document.getElementById('waiting-install-hint');
+        if (!mount) return;
+
+        const top = sortedGames.slice(0, globalSettings.topGamesCount || 10);
+        const pool = knownGames({ libraries: groupLibraries || {} });
+        const owned = new Map();
+        pool.games.forEach(game => owned.set(normalizeGameName(game.name), game.owners));
+
+        mount.innerHTML = '';
+        if (!top.length) {
+            mount.innerHTML = '<p class="waiting-card__hint">Le vote n’a rien retenu.</p>';
+            if (count) count.textContent = '';
+            if (hint) hint.textContent = '';
+            return;
+        }
+
+        let ready = 0;
+        top.forEach((game, index) => {
+            const owners = owned.get(normalizeGameName(game.name)) || 0;
+            const missing = Math.max(0, pool.libraries - owners);
+            const isReady = pool.libraries > 0 && missing === 0;
+            if (isReady) ready += 1;
+
+            const row = document.createElement('div');
+            row.className = 'waiting-install__row' + (isReady ? ' is-ready' : '');
+
+            const mark = document.createElement('span');
+            mark.className = 'waiting-install__mark';
+            mark.setAttribute('aria-hidden', 'true');
+            mark.textContent = isReady ? '✓' : '·';
+
+            const label = document.createElement('span');
+            label.className = 'waiting-install__name';
+            label.textContent = (index + 1) + '. ' + game.name;
+
+            const state = document.createElement('span');
+            state.className = 'waiting-install__state';
+            if (!pool.libraries) state.textContent = '';
+            else if (isReady) state.textContent = 'prêt';
+            else state.textContent = 'manque à ' + missing + ' joueur' + (missing > 1 ? 's' : '');
+
+            row.append(mark, label, state);
+            mount.appendChild(row);
+        });
+
+        if (count) count.textContent = pool.libraries ? ready + ' / ' + top.length + ' prêts' : '';
+        if (hint) {
+            hint.textContent = pool.libraries
+                ? 'Prêt : tous ceux qui ont déposé leur bibliothèque possèdent déjà le jeu.'
+                : 'Personne n’a encore déposé sa bibliothèque Steam : impossible de savoir qui doit télécharger quoi.';
+        }
+    }
+
+    function renderWaitingProgramme() {
+        const mount = document.getElementById('waiting-programme-list');
+        if (!mount) return;
+        mount.innerHTML = '';
+
+        const agenda = buildAgenda(window._latestEventsData || {}, globalSettings.lanDate || '');
+        const rows = [];
+        agenda.forEach(day => day.events.forEach(event => rows.push({ day: day.dayKey, event: event })));
+
+        if (!rows.length) {
+            const empty = document.createElement('p');
+            empty.className = 'waiting-card__hint';
+            empty.textContent = 'Rien n’est encore annoncé. Le programme s’écrit pendant la soirée.';
+            mount.appendChild(empty);
+            return;
+        }
+
+        rows.slice(0, 7).forEach(row => {
+            const line = document.createElement('div');
+            line.className = 'waiting-programme__row';
+            const time = document.createElement('span');
+            time.className = 'waiting-programme__time';
+            time.textContent = row.event.time || '—';
+            const label = document.createElement('strong');
+            label.textContent = row.event.title || 'Sans titre';
+            line.append(time, label);
+            mount.appendChild(line);
+        });
+    }
+
+    function renderWaitingClosed() {
+        if (!waitingViewIsVisible()) return;
+
+        const sortedGames = calculateScores(globalVotes);
+        const subtitle = document.getElementById('waiting-subtitle');
+        if (subtitle) {
+            subtitle.textContent = sortedGames.length
+                ? 'Le classement est arrêté. Il reste à télécharger, et à attendre.'
+                : 'Les bulletins sont clos. Personne n’a voté : la liste reste ouverte à l’organisateur.';
+        }
+
+        renderWaitingCountdown();
+        renderWaitingWinner(sortedGames);
+        renderWaitingInstall(sortedGames);
+        renderWaitingProgramme();
+    }
+
+    document.getElementById('waiting-ics')?.addEventListener('click', downloadLanIcs);
 
     // --- PHASE 4: ACTIVE LAN LOGIC ---
 
@@ -5132,8 +5478,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.lan-nav-list .nav-item').forEach(item => {
         item.addEventListener('click', (e) => {
             const targetId = e.currentTarget.dataset.target;
-            if (targetId === 'lan-kocktails' && window._latestCocktailsData) {
-                renderCocktails(window._latestCocktailsData, auth.currentUser);
+            // Le bar a rejoint la table : une seule porte, deux rendus.
+            if (targetId === 'lan-food') {
+                renderFoodRuns();
+                if (window._latestCocktailsData) renderCocktails(window._latestCocktailsData, auth.currentUser);
             }
             if (targetId === 'lan-events' && window._latestEventsData) {
                 renderEvents(window._latestEventsData, auth.currentUser);
@@ -5141,8 +5489,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (targetId === 'lan-defis') {
                 renderDefis();
             }
-            if (targetId === 'lan-boutique') {
-                renderBoutique();
+            if (targetId === 'lan-polls') {
+                renderPolls();
+            }
+            if (targetId === 'lan-library') {
+                renderGroupLibrary();
             }
             if (targetId === 'lan-calendar') {
                 renderWhenWhere();
@@ -5168,6 +5519,9 @@ document.addEventListener('DOMContentLoaded', () => {
                redessinent pas à chaque mise à jour Firebase pour personne), et
                au moment du clic il ne l'était pas encore. */
             if (targetId === 'lan-tcg') renderCollection();
+            // Même raison pour la Boutique : ses volets fermés ne construisent
+            // rien, et au moment du clic aucun n'était encore « actif ».
+            if (targetId === 'lan-boutique') renderBoutique();
         });
     });
 
@@ -5188,6 +5542,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     document.getElementById('btn-create-event')?.addEventListener('click', openCreateEventModal);
+    document.getElementById('board-action-event')?.addEventListener('click', openCreateEventModal);
     document.getElementById('btn-create-event-calendar')?.addEventListener('click', openCreateEventModal);
 
     document.getElementById('btn-goto-calendar')?.addEventListener('click', () => {
@@ -5266,7 +5621,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- HISTORIQUE ---
-    document.getElementById('btn-lan-history')?.addEventListener('click', () => {
+    function openLanHistory() {
         const modal = document.getElementById('history-modal');
         if (!modal) return;
         modal.style.display = 'flex';
@@ -5332,7 +5687,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 container.appendChild(card);
             });
         });
-    });
+    }
 
     document.getElementById('close-history-modal-btn')?.addEventListener('click', () => {
         const modal = document.getElementById('history-modal');
@@ -5698,7 +6053,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /* --- Quand et où ----------------------------------------------------- */
 
-    const WHEN_WHERE_MOUNTS = ['when-where-voting', 'when-where-waiting', 'when-where-calendar'];
+    const WHEN_WHERE_MOUNTS = ['when-where-voting', 'when-where-calendar'];
 
     function buildWhenWhereContent(schedule) {
         const fragment = document.createDocumentFragment();
@@ -6464,6 +6819,28 @@ document.addEventListener('DOMContentLoaded', () => {
         return 'Un joueur';
     }
 
+    /* Volet ouvert de la Boutique. Les trois volets sont des destinations, donc
+       leur contenu ne se construit qu'à l'ouverture : renderShopFeed(),
+       renderAchievements() et renderXpBoard() tournaient à chaque mise à jour
+       de l'économie pour peupler un DOM que personne ne regardait. */
+    let shopPane = 'carte';
+
+    function shopPaneIsOpen(name) {
+        return shopPane === name && document.getElementById('lan-boutique')?.classList.contains('active');
+    }
+
+    function setShopPane(name) {
+        shopPane = name;
+        document.querySelectorAll('#lan-boutique .shop-pane').forEach(pane => {
+            pane.hidden = pane.dataset.shopPane !== name;
+        });
+        document.querySelectorAll('#lan-boutique .desktop-subnav__item').forEach(item => {
+            item.classList.toggle('active', item.dataset.shopPane === name);
+        });
+        renderBoutique();
+        scheduleDesktopMotionRefresh();
+    }
+
     function renderBoutique() {
         const user = auth.currentUser;
         if (!user || !document.getElementById('lan-boutique')) return;
@@ -6472,9 +6849,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const balance = economyBalance(globalEconomy, user.uid);
         const reserved = balance - availablePoints(globalEconomy, user.uid);
 
-        const value = document.getElementById('wallet-value');
-        if (value) value.textContent = formatPoints(balance);
-
+        // Le solde s'affiche dans le bandeau. Ici, seule sa provenance.
         const hint = document.getElementById('wallet-hint');
         if (hint) {
             if (reserved > 0) {
@@ -6492,17 +6867,28 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('shop-grant-panel').style.display = isGm ? 'block' : 'none';
         document.getElementById('btn-add-shop-item').style.display = isGm ? 'block' : 'none';
 
-        renderXpBanner();
         grantPendingAchievements();
-        renderAchievements();
         renderBoosterShelf(user);
         renderShopQueue(isGm);
         renderShopCatalog(user);
+        fillGrantSelect();
+        updateShopBadge(isGm);
+
         renderShopFeed();
         renderShopLeaderboard();
         renderMyShopRequests(user);
-        fillGrantSelect();
-        updateShopBadge(isGm);
+        renderAchievements();
+        updateShopPaneBadge(user);
+    }
+
+    // « Mes demandes » vit derrière un onglet : c'est par là qu'on apprend
+    // qu'un achat est validé, donc l'onglet doit le dire de lui-même.
+    function updateShopPaneBadge(user) {
+        const badge = document.getElementById('shop-pane-requests-badge');
+        if (!badge) return;
+        const mine = Object.values((globalEconomy || {}).purchases || {})
+            .filter(item => item && item.uid === user.uid && item.status === 'pending').length;
+        badge.textContent = mine ? String(mine) : '';
     }
 
     // La pastille de navigation ne parle qu'au maître du jeu : pour les autres,
@@ -7505,32 +7891,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    function renderXpBanner() {
-        const user = auth.currentUser;
-        const segs = document.getElementById('xp-segs');
-        if (!user || !segs) return;
-
-        const info = xpLevel(xpTotal(globalXp, user.uid));
-        document.getElementById('xp-level').textContent = `${info.level} · ${levelTitle(info.level)}`;
-        document.getElementById('xp-count').textContent = `${info.into} / ${info.span} XP`;
-
-        segs.innerHTML = '';
-        // On arrondit vers le haut dès qu'il y a le moindre progrès : un joueur
-        // qui vient de gagner 25 XP doit voir un segment s'allumer, pas rien.
-        const lit = info.into > 0 ? Math.max(1, Math.round(info.ratio * XP_SEGMENTS)) : 0;
-        for (let i = 0; i < XP_SEGMENTS; i += 1) {
-            const seg = document.createElement('span');
-            seg.className = 'xp-banner__seg'
-                + (i < lit ? (i === lit - 1 ? ' is-edge' : ' is-on') : '');
-            segs.appendChild(seg);
-        }
-
-        document.getElementById('xp-foot').textContent = info.total === 0
-            ? 'L\'expérience se gagne en venant, et en décrochant des hauts faits. Elle ne repart jamais à zéro.'
-            : `Encore ${info.toNext} XP avant le niveau ${info.level + 1} · ${info.total} XP en tout`;
-    }
-
     function renderAchievements() {
+        if (!shopPaneIsOpen('hauts-faits')) return;
         const user = auth.currentUser;
         const mount = document.getElementById('ach-list');
         if (!user || !mount) return;
@@ -7844,6 +8206,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Le registre est public : c'est lui qui rend l'économie honnête. Chacun
     // voit qui a reçu quoi, et pourquoi.
     function renderShopFeed() {
+        if (!shopPaneIsOpen('registre')) return;
         const mount = document.getElementById('shop-feed');
         if (!mount) return;
         mount.innerHTML = '';
@@ -7869,6 +8232,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderShopLeaderboard() {
+        if (!shopPaneIsOpen('registre')) return;
         const mount = document.getElementById('shop-leaderboard');
         if (!mount) return;
         mount.innerHTML = '';
@@ -7893,6 +8257,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderMyShopRequests(user) {
+        if (!shopPaneIsOpen('registre')) return;
         const panel = document.getElementById('shop-my-purchases-panel');
         const mount = document.getElementById('shop-my-purchases');
         if (!panel || !mount) return;

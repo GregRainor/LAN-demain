@@ -16,15 +16,6 @@
 </head>
 
 <body>
-    <div class="marquee-bg">
-        <div class="marquee-track" id="waiting-marquee-1"></div>
-        <div class="marquee-track" id="waiting-marquee-2" style="animation-delay: -10s; animation-direction: reverse;">
-        </div>
-        <div class="marquee-track" id="waiting-marquee-3" style="animation-delay: -25s;"></div>
-        <div class="marquee-track" id="waiting-marquee-4" style="animation-delay: -5s; animation-direction: reverse;">
-        </div>
-    </div>
-
     <h1 id="main-title" data-text="LAN Demain">LAN Demain</h1>
 
     <div id="auth-container" class="luxury-panel desktop-login">
@@ -98,7 +89,6 @@
                  soirée n'a pas démarré. -->
             <button id="btn-tcg-preview" class="gold-link-btn" title="Collection (admin)"
                 style="display: none;">🎴 Collection</button>
-            <button id="btn-lan-history" class="gold-link-btn" title="Historique">Historique</button>
             <div id="user-info-menu" role="button" tabindex="0" aria-label="Ouvrir mon profil">
                 <span id="user-name"></span>
                 <img id="user-avatar" src="" alt="Avatar">
@@ -126,6 +116,12 @@
                 </button>
                 <button type="button" class="desktop-nav__item" data-desktop-target="lan-food" data-live-only>
                     <span class="desktop-nav__icon" aria-hidden="true">♨</span><span>Les Fins Gourmets</span><i></i>
+                </button>
+                <!-- Les soirées passées existent aussi entre deux LAN : cette
+                     entrée ne se verrouille jamais. C'est la seule du rail qui
+                     ouvre une fenêtre au lieu de changer d'écran. -->
+                <button type="button" class="desktop-nav__item desktop-nav__item--aside" data-desktop-destination="history">
+                    <span class="desktop-nav__icon" aria-hidden="true">◷</span><span>Historique</span>
                 </button>
             </nav>
 
@@ -399,26 +395,53 @@
         </div>
 
         <!-- VIEW 2: USER WAITING (CLOSED) -->
-        <div id="view-waiting-closed"
-            style="display: none; position: relative; min-height: 70vh; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 50px;">
-
-            <div class="waiting-content luxury-panel"
-                style="position: relative; z-index: 10; text-align: center; padding: 40px; max-width: 600px; animation: etherealFadeInUp 1s ease forwards; margin-bottom: 40px;">
-                <h2 style="font-size: 2.5em; margin-top: 0; margin-bottom: 20px;">Les votes sont fermés</h2>
-                <div class="pulsing-indicator"
-                    style="width: 50px; height: 2px; background: var(--accent-color); margin: 0 auto 30px auto; box-shadow: 0 0 10px var(--accent-color);">
-                </div>
-                <p style="font-size: 1.25em; margin: 0;">L'administrateur prépare la suite de la LAN...</p>
+        <div id="view-waiting-closed" class="container desktop-phase desktop-waiting" style="display: none;">
+            <div class="desktop-phase__intro">
+                <p class="desktop-eyebrow">LE VOTE EST CLOS</p>
+                <h2>Les jeux sont faits</h2>
+                <p id="waiting-subtitle">Le classement est arrêté. Il reste à télécharger, et à attendre.</p>
             </div>
 
-            <!-- Quand et où : la seule chose utile à savoir tant que les votes sont clos -->
-            <div id="when-where-waiting" class="when-where when-where--banner"
-                style="display: none; width: 100%; max-width: 800px; margin-bottom: 40px;"></div>
+            <!-- Quand et où : la seule chose utile à savoir tant que les votes
+                 sont clos. Le compte à rebours descend jusqu'à l'heure dite. -->
+            <section class="luxury-panel waiting-rendezvous" id="waiting-rendezvous">
+                <div class="waiting-rendezvous__copy">
+                    <span class="desktop-card-label">PROCHAIN RENDEZ-VOUS</span>
+                    <h3 id="waiting-when">Date encore à fixer</h3>
+                    <p id="waiting-place"></p>
+                </div>
+                <div class="waiting-countdown" id="waiting-countdown">
+                    <div class="waiting-countdown__cell"><strong id="waiting-days">–</strong><span>JOURS</span></div>
+                    <div class="waiting-countdown__cell"><strong id="waiting-hours">–</strong><span>HEURES</span></div>
+                    <div class="waiting-countdown__cell"><strong id="waiting-minutes">–</strong><span>MINUTES</span></div>
+                </div>
+                <button type="button" id="waiting-ics" class="gold-btn waiting-rendezvous__ics">Ajouter au calendrier</button>
+            </section>
 
-            <div id="closed-results-display" class="results-container luxury-panel"
-                style="width: 100%; max-width: 800px; animation: etherealFadeInUp 1.2s ease forwards;">
-                <h2>Top Jeux à Télécharger</h2>
-                <div id="closed-download-list" class="stack"></div>
+            <div class="waiting-columns">
+                <section class="luxury-panel waiting-card waiting-winner">
+                    <span class="desktop-card-label">VAINQUEUR DES VOTES</span>
+                    <strong id="waiting-winner-name" class="waiting-winner__name">Aucun vote</strong>
+                    <p id="waiting-winner-meta" class="waiting-winner__meta"></p>
+                    <div id="waiting-winner-runners" class="waiting-runners"></div>
+                </section>
+
+                <!-- « Prêt » se lit dans les bibliothèques déjà déposées : un jeu
+                     que tout le monde possède ne se télécharge plus. Aucune
+                     nouvelle écriture, donc aucune règle Firebase à publier. -->
+                <section class="luxury-panel waiting-card waiting-install">
+                    <div class="waiting-card__head">
+                        <span class="desktop-card-label">À INSTALLER</span>
+                        <span id="waiting-install-count" class="waiting-card__count"></span>
+                    </div>
+                    <div id="closed-download-list" class="waiting-install__list"></div>
+                    <p id="waiting-install-hint" class="waiting-card__hint"></p>
+                </section>
+
+                <section class="luxury-panel waiting-card waiting-programme">
+                    <span class="desktop-card-label">PROGRAMME ANNONCÉ</span>
+                    <div id="waiting-programme-list" class="waiting-programme__list"></div>
+                </section>
             </div>
         </div>
 
@@ -537,9 +560,13 @@
         <!-- VIEW 4: ACTIVE LAN PHASE -->
         <div id="view-lan-active" style="display: none; padding-top: 20px;">
             <div class="active-lan-layout two-column-layout">
-                <!-- Left Sidebar: Nav -->
-                <aside class="animated-section">
-                    <div class="luxury-panel sidebar-module">
+                <!-- Aiguillage hérité. Le rail de gauche a pris sa place à
+                     l'écran ; ce bloc reste le seul endroit qui sait montrer un
+                     sous-écran, donc activateDesktopSubview() clique dedans.
+                     `hidden` plutôt qu'un display:none en CSS : un élément
+                     caché reçoit quand même .click(). -->
+                <div class="lan-nav-funnel" hidden>
+                    <div class="sidebar-module">
                         <ul class="lan-nav-list">
                             <li class="nav-item active" data-target="lan-dashboard">
                                 Dashboard</li>
@@ -547,8 +574,6 @@
                                 Programme</li>
                             <li class="nav-item" data-target="lan-events">
                                 Événements</li>
-                            <li class="nav-item" data-target="lan-kocktails">
-                                Kocktails</li>
                             <li class="nav-item" data-target="lan-defis">
                                 Défis <span id="defis-nav-badge" class="nav-badge" style="display:none;">0</span></li>
                             <li class="nav-item" data-target="lan-boutique">
@@ -556,7 +581,7 @@
                             <li class="nav-item" data-target="lan-tcg">
                                 Collection <span id="tcg-nav-badge" class="nav-badge" style="display:none;">0</span></li>
                             <li class="nav-item" data-target="lan-food">
-                                Miam <span id="food-nav-badge" class="nav-badge" style="display:none;">0</span></li>
+                                Les Fins Gourmets <span id="food-nav-badge" class="nav-badge" style="display:none;">0</span></li>
                             <li class="nav-item" data-target="lan-polls">
                                 Sondages <span id="poll-nav-badge" class="nav-badge" style="display:none;">0</span></li>
                             <li class="nav-item" data-target="lan-library">
@@ -569,17 +594,88 @@
                                 ⚙️ Admin</li>
                         </ul>
                     </div>
-                </aside>
+                </div>
 
                 <!-- Center Feed -->
                 <main class="animated-section" style="animation-delay: 0.2s;">
-                    <!-- Subview: Dashboard -->
-                    <div id="lan-dashboard" class="lan-subview active">
-                        <h2 class="subview-title">Ressources & Tableau de Bord</h2>
 
-                        <div class="dashboard-grid">
-                            <div class="luxury-panel results-container dashboard-main" style="padding: 25px;">
-                                <h3 class="section-title">Jeux Officiels de la LAN</h3>
+                    <!-- Le rail tient six portes ; la soirée en abrite cinq
+                         pièces. Cette barre est leur seule route : sans elle,
+                         Sondages et Bibliothèques n'existaient plus que dans
+                         le HTML. Elle ne s'affiche que dans cet espace. -->
+                    <nav id="desktop-subnav" class="desktop-subnav" aria-label="Écrans de la soirée" style="display: none;">
+                        <button type="button" class="desktop-subnav__item" data-desktop-target="lan-dashboard">Tableau de bord</button>
+                        <button type="button" class="desktop-subnav__item" data-desktop-target="lan-calendar">Programme</button>
+                        <button type="button" class="desktop-subnav__item" data-desktop-target="lan-events">Événements</button>
+                        <button type="button" class="desktop-subnav__item" data-desktop-target="lan-polls">Sondages<b id="desktop-subnav-poll-badge"></b></button>
+                        <button type="button" class="desktop-subnav__item" data-desktop-target="lan-library">Bibliothèques Steam</button>
+                    </nav>
+
+                    <!-- Subview: Tableau de bord
+                         Pendant la soirée, cet écran répond à quatre questions
+                         et une seule fois chacune : on joue à quoi, il se passe
+                         quoi ensuite, on mange quoi, et qu'est-ce qui attend
+                         une décision. Le reste a sa propre destination. -->
+                    <div id="lan-dashboard" class="lan-subview active">
+                        <h2 class="subview-title" style="margin-bottom: 21px;">Ce soir</h2>
+
+                        <div class="board-grid">
+                            <section class="luxury-panel board-card board-now">
+                                <span class="desktop-card-label">LA PARTIE EN COURS</span>
+                                <strong id="board-now-title" class="board-now__title">Rien de lancé</strong>
+                                <p id="board-now-meta" class="board-now__meta"></p>
+                            </section>
+
+                            <section class="luxury-panel board-card board-next">
+                                <div class="board-card__head">
+                                    <span class="desktop-card-label">ENSUITE</span>
+                                    <button id="btn-goto-calendar" class="gold-link-btn">Programme</button>
+                                </div>
+                                <div id="upcoming-events-preview" class="stack stack--sm">
+                                    <p style="font-style:italic; color:var(--secondary-text);">Aucun événement prévu.</p>
+                                </div>
+                            </section>
+
+                            <section class="luxury-panel board-card board-order">
+                                <div class="board-card__head">
+                                    <span class="desktop-card-label">COMMANDE OUVERTE</span>
+                                    <button type="button" class="gold-link-btn" data-desktop-target="lan-food">Ouvrir</button>
+                                </div>
+                                <div id="board-order-body" class="stack stack--sm"></div>
+                            </section>
+
+                            <!-- Les actions rapides ne font rien elles-mêmes :
+                                 elles emmènent là où l'action se fait. Un bouton
+                                 qui ouvrirait un sondage ici dupliquerait le
+                                 formulaire de Sondages. -->
+                            <section class="luxury-panel board-card board-actions">
+                                <span class="desktop-card-label">ACTIONS RAPIDES</span>
+                                <div class="board-actions__grid">
+                                    <button type="button" class="board-action" data-desktop-target="lan-polls">
+                                        <span aria-hidden="true">▮</span>Lancer un sondage</button>
+                                    <button type="button" class="board-action" data-desktop-target="lan-food">
+                                        <span aria-hidden="true">♨</span>Ouvrir une commande</button>
+                                    <button type="button" class="board-action" data-desktop-target="lan-defis">
+                                        <span aria-hidden="true">★</span>Relever un défi</button>
+                                    <button type="button" class="board-action" data-desktop-target="lan-tcg">
+                                        <span aria-hidden="true">▤</span>Ouvrir un booster</button>
+                                    <button type="button" class="board-action" id="board-action-event">
+                                        <span aria-hidden="true">＋</span>Créer un événement</button>
+                                    <button type="button" class="board-action" data-desktop-target="lan-boutique">
+                                        <span aria-hidden="true">♧</span>Dépenser mes points</button>
+                                </div>
+                            </section>
+
+                            <section class="luxury-panel board-card board-review">
+                                <div class="board-card__head">
+                                    <span class="desktop-card-label">À VALIDER</span>
+                                    <span id="board-review-count" class="board-card__count"></span>
+                                </div>
+                                <div id="board-review-body" class="stack stack--sm"></div>
+                            </section>
+
+                            <div class="luxury-panel results-container board-card board-games" style="padding: 25px;">
+                                <h3 class="section-title">Les jeux de la soirée</h3>
                                 <div id="games-filter-bar" class="filter-bar">
                                     <span class="filter-bar__label">Filtrer</span>
                                     <span id="filter-top-tags" class="filter-bar__chips"></span>
@@ -599,27 +695,14 @@
                                 </div>
                             </div>
 
-                            <!-- Le tableau de bord ne montre que ce qui sert tout de suite :
-                                 ce qui arrive, ce qu'on décide, ce qu'on boit. -->
-                            <div class="dashboard-side">
-                                <div class="luxury-panel" style="padding: 25px;">
-                                    <div class="panel-head">
-                                        <h3 class="section-title" style="margin: 0;">Prochains Événements</h3>
-                                        <button id="btn-goto-calendar" class="gold-link-btn">Programme</button>
-                                    </div>
-                                    <div id="upcoming-events-preview" class="stack stack--sm scroll-area scroll-area--sm">
-                                        <p style="font-style:italic; color:var(--secondary-text);">Aucun événement prévu.
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <div id="dashboard-polls-panel" class="luxury-panel" style="padding: 25px; display: none;">
-                                    <h3 class="section-title">Sondages en cours</h3>
+                            <div class="board-aside">
+                                <div id="dashboard-polls-panel" class="luxury-panel board-card" style="display: none;">
+                                    <span class="desktop-card-label">SONDAGES EN COURS</span>
                                     <div id="dashboard-polls" class="stack stack--sm"></div>
                                 </div>
 
-                                <div class="luxury-panel" style="padding: 25px;">
-                                    <h3 class="section-title">🍹 Au bar</h3>
+                                <div class="luxury-panel board-card">
+                                    <span class="desktop-card-label">AU BAR</span>
                                     <div id="dashboard-cocktails" class="stack stack--sm"></div>
                                 </div>
                             </div>
@@ -654,28 +737,75 @@
                         </div>
                     </div>
 
-                    <!-- Subview: Bouffe -->
+                    <!-- Subview: Les Fins Gourmets
+                         La table et le bar tenaient deux entrées de menu pour
+                         une même idée : ce qu'on mange, ce qu'on boit. Le rail
+                         n'ouvre qu'une porte, donc les deux vivent ici. -->
                     <div id="lan-food" class="lan-subview" style="display: none;">
-                        <h2 class="subview-title" style="margin-bottom: 30px;">Miam</h2>
+                        <h2 class="subview-title" style="margin-bottom: 30px;">Les Fins Gourmets</h2>
 
-                        <div class="luxury-panel" style="padding: 25px; margin-bottom: 30px;">
-                            <h3 class="section-title">Lancer une commande groupée</h3>
-                            <p class="panel-section__hint">Chacun ajoute ce qu'il veut, avec le prix. On obtient une
-                                liste unique et le total par personne.</p>
-                            <div class="field-row">
-                                <input type="text" id="food-place" class="luxury-input"
-                                    placeholder="Où ? Ex : Pizzeria du coin" maxlength="80" style="flex: 1;">
-                                <select id="food-duration" class="luxury-input" style="width: auto;">
-                                    <option value="15">15 min</option>
-                                    <option value="30" selected>30 min</option>
-                                    <option value="60">1 h</option>
-                                    <option value="0">Pas de limite</option>
-                                </select>
-                                <button id="food-create" class="gold-btn btn-inline">Ouvrir</button>
+                        <section class="gourmet-section" aria-labelledby="gourmet-table-title">
+                            <h3 id="gourmet-table-title" class="gourmet-section__title">La table</h3>
+
+                            <div class="luxury-panel" style="padding: 25px; margin-bottom: 30px;">
+                                <h3 class="section-title">Lancer une commande groupée</h3>
+                                <p class="panel-section__hint">Chacun ajoute ce qu'il veut, avec le prix. On obtient une
+                                    liste unique et le total par personne.</p>
+                                <div class="field-row">
+                                    <input type="text" id="food-place" class="luxury-input"
+                                        placeholder="Où ? Ex : Pizzeria du coin" maxlength="80" style="flex: 1;">
+                                    <select id="food-duration" class="luxury-input" style="width: auto;">
+                                        <option value="15">15 min</option>
+                                        <option value="30" selected>30 min</option>
+                                        <option value="60">1 h</option>
+                                        <option value="0">Pas de limite</option>
+                                    </select>
+                                    <button id="food-create" class="gold-btn btn-inline">Ouvrir</button>
+                                </div>
                             </div>
-                        </div>
 
-                        <div id="food-runs" class="stack"></div>
+                            <div id="food-runs" class="stack"></div>
+                        </section>
+
+                        <section class="gourmet-section" aria-labelledby="gourmet-bar-title">
+                            <h3 id="gourmet-bar-title" class="gourmet-section__title">Le bar</h3>
+                            <div class="luxury-panel" style="padding: 25px; margin-bottom: 30px;">
+                                <div
+                                    style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(212,175,55,0.2); padding-bottom: 15px; margin-bottom: 20px;">
+                                    <h3 style="margin: 0; color: var(--accent-color);">La Carte Officielle</h3>
+                                    <!-- Admin/Mixologist only -->
+                                    <button id="btn-add-master-kocktail" class="gold-link-btn"
+                                        style="font-size: 0.8em; display:none;">+ Ajouter</button>
+                                </div>
+                                <div id="kocktail-master-list"
+                                    class="card-grid">
+                                    <!-- Standard cocktails -->
+                                </div>
+                            </div>
+
+                            <div class="luxury-panel" style="padding: 25px;">
+                                <div
+                                    style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; margin-bottom: 20px;">
+                                    <h3 style="margin: 0;">Les Créations "One-Shot"</h3>
+                                    <button id="btn-create-kocktail" class="gold-link-btn" style="font-size: 0.8em;">+
+                                        Proposer un Kocktail</button>
+                                </div>
+                                <div id="kocktail-one-shot-list"
+                                    class="card-grid">
+                                    <!-- User cocktails -->
+                                </div>
+                            </div>
+
+                            <!-- Mixologist Queue (Visible only to Mixologist/Admin) -->
+                            <div id="kocktail-queue-panel" class="luxury-panel"
+                                style="padding: 25px; margin-top: 30px; display: none; border-color: #bb86fc;">
+                                <h3
+                                    style="color: #bb86fc; margin-top: 0; border-bottom: 1px solid rgba(187,134,252,0.2); padding-bottom: 15px;">
+                                    Commandes en cours (Barman)</h3>
+                                <div id="kocktail-orders-list" class="stack stack--sm">
+                                </div>
+                            </div>
+                        </section>
                     </div>
 
                     <!-- Subview: Bibliothèques Steam -->
@@ -735,47 +865,6 @@
                         </details>
                     </div>
 
-                    <!-- Subview: Kocktails -->
-                    <div id="lan-kocktails" class="lan-subview" style="display: none;">
-                        <h2 class="subview-title" style="margin-bottom: 30px;">Menu Kocktails</h2>
-                        <div class="luxury-panel" style="padding: 25px; margin-bottom: 30px;">
-                            <div
-                                style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(212,175,55,0.2); padding-bottom: 15px; margin-bottom: 20px;">
-                                <h3 style="margin: 0; color: var(--accent-color);">La Carte Officielle</h3>
-                                <!-- Admin/Mixologist only -->
-                                <button id="btn-add-master-kocktail" class="gold-link-btn"
-                                    style="font-size: 0.8em; display:none;">+ Ajouter</button>
-                            </div>
-                            <div id="kocktail-master-list"
-                                class="card-grid">
-                                <!-- Standard cocktails -->
-                            </div>
-                        </div>
-
-                        <div class="luxury-panel" style="padding: 25px;">
-                            <div
-                                style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px; margin-bottom: 20px;">
-                                <h3 style="margin: 0;">Les Créations "One-Shot"</h3>
-                                <button id="btn-create-kocktail" class="gold-link-btn" style="font-size: 0.8em;">+
-                                    Proposer un Kocktail</button>
-                            </div>
-                            <div id="kocktail-one-shot-list"
-                                class="card-grid">
-                                <!-- User cocktails -->
-                            </div>
-                        </div>
-
-                        <!-- Mixologist Queue (Visible only to Mixologist/Admin) -->
-                        <div id="kocktail-queue-panel" class="luxury-panel"
-                            style="padding: 25px; margin-top: 30px; display: none; border-color: #bb86fc;">
-                            <h3
-                                style="color: #bb86fc; margin-top: 0; border-bottom: 1px solid rgba(187,134,252,0.2); padding-bottom: 15px;">
-                                Commandes en cours (Barman)</h3>
-                            <div id="kocktail-orders-list" class="stack stack--sm">
-                            </div>
-                        </div>
-                    </div>
-
                     <!-- Subview: Défis
                          Un haut fait se calcule, un défi se raconte : c'est un
                          humain qui valide. C'est aussi la seule source d'XP qui
@@ -826,123 +915,125 @@
 
                     <!-- Subview: Boutique (l'économie de la soirée) -->
                     <div id="lan-boutique" class="lan-subview" style="display: none;">
-                        <h2 class="subview-title" style="margin-bottom: 30px;">Boutique</h2>
+                        <!-- Le niveau et le solde sont dans le bandeau, en haut
+                             de l'écran, dans toutes les phases. Les répéter ici
+                             donnait deux chiffres pour une seule vérité. Reste
+                             la phrase qui explique comment les points rentrent. -->
+                        <div class="shop-head">
+                            <h2 class="subview-title" style="border: none; margin: 0;">Boutique</h2>
+                            <p id="wallet-hint" class="shop-head__hint"></p>
+                        </div>
 
-                        <!-- L'expérience passe avant le solde : elle mesure les
-                             soirées, pas le portefeuille, et c'est la seule
-                             chose ici qui survive à la clôture. -->
-                        <div class="xp-banner luxury-panel">
-                            <div class="xp-banner__head">
-                                <span class="xp-banner__lvl"><small>Niveau</small> <span
-                                        id="xp-level">1</span></span>
-                                <span class="xp-banner__count" id="xp-count">0 / 200 XP</span>
+                        <!-- Trois natures, trois onglets : ce que j'achète, ce
+                             que le groupe dépense, ce que j'ai décroché. Six
+                             panneaux étaient rendus puis éteints en CSS ; ils
+                             ont désormais une route au lieu d'un display:none. -->
+                        <nav class="desktop-subnav desktop-subnav--shop" aria-label="Écrans de la boutique">
+                            <button type="button" class="desktop-subnav__item active" data-shop-pane="carte">La carte</button>
+                            <button type="button" class="desktop-subnav__item" data-shop-pane="registre">Le registre<b id="shop-pane-requests-badge"></b></button>
+                            <button type="button" class="desktop-subnav__item" data-shop-pane="hauts-faits">Hauts faits</button>
+                        </nav>
+
+                        <div class="shop-pane" data-shop-pane="carte">
+                            <!-- Le booster : tête de gondole, pas une ligne de liste. -->
+                            <div id="booster-panel" class="luxury-panel"
+                                style="padding: 25px; margin-bottom: 25px; display: none;">
+                                <h3 class="section-title">Le booster</h3>
+                                <div id="booster-shelf"></div>
                             </div>
-                            <div class="xp-banner__segs" id="xp-segs"></div>
-                            <p class="xp-banner__foot" id="xp-foot"></p>
-                        </div>
 
-                        <!-- Le booster : tête de gondole, pas une ligne de liste. -->
-                        <div id="booster-panel" class="luxury-panel"
-                            style="padding: 25px; margin-bottom: 25px; display: none;">
-                            <h3 class="section-title">Le booster</h3>
-                            <div id="booster-shelf"></div>
-                        </div>
-
-                        <div class="wallet-banner luxury-panel">
-                            <div>
-                                <span class="wallet-banner__label">Mon solde</span>
-                                <strong id="wallet-value" class="wallet-banner__value">0 zł</strong>
+                            <!-- Poste de travail du maître du jeu : ce qu'il doit trancher -->
+                            <div id="shop-gm-panel" class="luxury-panel" style="padding: 25px; margin-bottom: 25px; display: none; border-color: rgba(212,175,55,0.35);">
+                                <h3 class="section-title section-title--accent">🎲 Demandes à valider</h3>
+                                <div id="shop-gm-queue" class="stack stack--sm"></div>
                             </div>
-                            <p id="wallet-hint" class="wallet-banner__hint"></p>
-                        </div>
 
-                        <!-- Poste de travail du maître du jeu : ce qu'il doit trancher -->
-                        <div id="shop-gm-panel" class="luxury-panel" style="padding: 25px; margin-bottom: 25px; display: none; border-color: rgba(212,175,55,0.35);">
-                            <h3 class="section-title section-title--accent">🎲 Demandes à valider</h3>
-                            <div id="shop-gm-queue" class="stack stack--sm"></div>
-                        </div>
-
-                        <!-- Créditer : la seule façon de faire entrer des points -->
-                        <div id="shop-grant-panel" class="luxury-panel" style="padding: 25px; margin-bottom: 25px; display: none;">
-                            <h3 class="section-title">Créditer des points</h3>
-                            <p class="panel-section__hint">Chaque crédit laisse une ligne signée dans le
-                                registre, visible de tous.</p>
-                            <div class="stack stack--sm">
-                                <select id="grant-user-select" class="luxury-input shop-field">
-                                    <option value="">Sélectionner un joueur...</option>
-                                </select>
-                                <div class="shop-grant-row">
-                                    <input type="number" id="grant-amount" class="luxury-input shop-field"
-                                        placeholder="Montant" min="1">
-                                    <input type="text" id="grant-reason" class="luxury-input shop-field"
-                                        placeholder="Pourquoi ? (ex : défi une main)">
-                                    <button id="btn-grant-points" class="gold-btn shop-grant-btn">Créditer</button>
-                                </div>
-                                <details class="shop-seed">
-                                    <summary>Créditer tout le monde d'un coup</summary>
-                                    <div class="shop-grant-row" style="margin-top: 12px;">
-                                        <input type="number" id="seed-amount" class="luxury-input shop-field"
-                                            placeholder="Montant par joueur" min="1">
-                                        <button id="btn-seed-all" class="gold-btn shop-grant-btn">Distribuer</button>
+                            <!-- Créditer : la seule façon de faire entrer des points -->
+                            <div id="shop-grant-panel" class="luxury-panel" style="padding: 25px; margin-bottom: 25px; display: none;">
+                                <h3 class="section-title">Créditer des points</h3>
+                                <p class="panel-section__hint">Chaque crédit laisse une ligne signée dans le
+                                    registre, visible de tous.</p>
+                                <div class="stack stack--sm">
+                                    <select id="grant-user-select" class="luxury-input shop-field">
+                                        <option value="">Sélectionner un joueur...</option>
+                                    </select>
+                                    <div class="shop-grant-row">
+                                        <input type="number" id="grant-amount" class="luxury-input shop-field"
+                                            placeholder="Montant" min="1">
+                                        <input type="text" id="grant-reason" class="luxury-input shop-field"
+                                            placeholder="Pourquoi ? (ex : défi une main)">
+                                        <button id="btn-grant-points" class="gold-btn shop-grant-btn">Créditer</button>
                                     </div>
-                                </details>
+                                    <details class="shop-seed">
+                                        <summary>Créditer tout le monde d'un coup</summary>
+                                        <div class="shop-grant-row" style="margin-top: 12px;">
+                                            <input type="number" id="seed-amount" class="luxury-input shop-field"
+                                                placeholder="Montant par joueur" min="1">
+                                            <button id="btn-seed-all" class="gold-btn shop-grant-btn">Distribuer</button>
+                                        </div>
+                                    </details>
+                                </div>
                             </div>
-                        </div>
 
-                        <div class="luxury-panel" style="padding: 25px; margin-bottom: 25px;">
-                            <div class="panel-head">
-                                <h3 class="section-title" style="margin: 0;">La carte</h3>
-                                <button id="btn-add-shop-item" class="gold-link-btn"
-                                    style="font-size: 0.8em; display:none;">+ Ajouter un article</button>
+                            <div class="luxury-panel" style="padding: 25px; margin-bottom: 25px;">
+                                <div class="panel-head">
+                                    <h3 class="section-title" style="margin: 0;">La carte</h3>
+                                    <button id="btn-add-shop-item" class="gold-link-btn"
+                                        style="font-size: 0.8em; display:none;">+ Ajouter un article</button>
+                                </div>
+                                <div id="shop-catalog"></div>
                             </div>
-                            <div id="shop-catalog"></div>
-                        </div>
+                        </div><!-- /carte -->
 
                         <!-- Les hauts faits : les jalons sont acquis pour
                              toujours, les titres se décernent à la clôture. -->
-                        <div class="dashboard-grid" style="margin-bottom: 25px;">
-                            <div class="luxury-panel" style="padding: 25px;">
-                                <div class="panel-head">
-                                    <h3 class="section-title" style="margin: 0;">Hauts faits</h3>
-                                    <span id="ach-progress" class="panel-section__hint"
-                                        style="margin: 0;"></span>
-                                </div>
-                                <div id="ach-list" class="stack stack--sm scroll-area"></div>
-                            </div>
-                            <div class="dashboard-side">
-                                <div id="titles-panel" class="luxury-panel"
-                                    style="padding: 25px; display: none;">
-                                    <h3 class="section-title">Titres de la soirée</h3>
-                                    <div id="lan-titles" class="stack stack--sm"></div>
-                                </div>
+                        <div class="shop-pane" data-shop-pane="hauts-faits" hidden>
+                            <div class="dashboard-grid">
                                 <div class="luxury-panel" style="padding: 25px;">
-                                    <h3 class="section-title">Expérience</h3>
-                                    <p class="panel-section__hint">Elle ne se dépense pas et ne s'efface
-                                        pas : elle compte les soirées.</p>
-                                    <div id="xp-board" class="rank-list"></div>
+                                    <div class="panel-head">
+                                        <h3 class="section-title" style="margin: 0;">Hauts faits</h3>
+                                        <span id="ach-progress" class="panel-section__hint"
+                                            style="margin: 0;"></span>
+                                    </div>
+                                    <div id="ach-list" class="stack stack--sm scroll-area"></div>
+                                </div>
+                                <div class="dashboard-side">
+                                    <div id="titles-panel" class="luxury-panel"
+                                        style="padding: 25px; display: none;">
+                                        <h3 class="section-title">Titres de la soirée</h3>
+                                        <div id="lan-titles" class="stack stack--sm"></div>
+                                    </div>
+                                    <div class="luxury-panel" style="padding: 25px;">
+                                        <h3 class="section-title">Expérience</h3>
+                                        <p class="panel-section__hint">Elle ne se dépense pas et ne s'efface
+                                            pas : elle compte les soirées.</p>
+                                        <div id="xp-board" class="rank-list"></div>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
+                        </div><!-- /hauts-faits -->
 
-                        <div class="dashboard-grid">
-                            <div class="luxury-panel" style="padding: 25px;">
-                                <h3 class="section-title">Registre</h3>
-                                <p class="panel-section__hint">Tout mouvement de points, à la vue de tous.
-                                    C'est ce qui rend l'économie honnête.</p>
-                                <div id="shop-feed" class="stack stack--sm scroll-area"></div>
-                            </div>
-                            <div class="dashboard-side">
+                        <div class="shop-pane" data-shop-pane="registre" hidden>
+                            <div class="dashboard-grid">
                                 <div class="luxury-panel" style="padding: 25px;">
-                                    <h3 class="section-title">Fortunes</h3>
-                                    <div id="shop-leaderboard" class="rank-list"></div>
+                                    <h3 class="section-title">Registre</h3>
+                                    <p class="panel-section__hint">Tout mouvement de points, à la vue de tous.
+                                        C'est ce qui rend l'économie honnête.</p>
+                                    <div id="shop-feed" class="stack stack--sm scroll-area"></div>
                                 </div>
-                                <div id="shop-my-purchases-panel" class="luxury-panel"
-                                    style="padding: 25px; display: none;">
-                                    <h3 class="section-title">Mes demandes</h3>
-                                    <div id="shop-my-purchases" class="stack stack--sm"></div>
+                                <div class="dashboard-side">
+                                    <div class="luxury-panel" style="padding: 25px;">
+                                        <h3 class="section-title">Fortunes</h3>
+                                        <div id="shop-leaderboard" class="rank-list"></div>
+                                    </div>
+                                    <div id="shop-my-purchases-panel" class="luxury-panel"
+                                        style="padding: 25px; display: none;">
+                                        <h3 class="section-title">Mes demandes</h3>
+                                        <div id="shop-my-purchases" class="stack stack--sm"></div>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
+                        </div><!-- /registre -->
                     </div>
 
                     <!-- Subview: Collection (le jeu de cartes de la soirée)

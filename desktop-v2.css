@@ -79,7 +79,6 @@ body:not(.desktop-authenticated)::after {
     background: linear-gradient(90deg, var(--desktop-line), transparent 48%);
 }
 
-body:not(.desktop-authenticated) > .marquee-bg { display: none !important; }
 
 body:not(.desktop-authenticated) > #main-title {
     position: fixed;
@@ -499,7 +498,6 @@ body.desktop-authenticated {
 }
 
 body.desktop-authenticated > #main-title,
-body.desktop-authenticated > .marquee-bg,
 body.desktop-authenticated > #auth-container {
     display: none !important;
 }
@@ -665,10 +663,7 @@ body.desktop-authenticated #app-container.desktop-os *::after {
     white-space: nowrap;
 }
 
-#top-right-actions #btn-tcg-preview,
-#top-right-actions #btn-lan-history {
-    display: none !important;
-}
+#top-right-actions #btn-tcg-preview { display: none !important; }
 
 #top-right-actions #btn-notifications {
     box-sizing: border-box;
@@ -825,6 +820,17 @@ body.desktop-authenticated #app-container.desktop-os *::after {
 }
 
 .desktop-nav__item.is-locked:hover { background: transparent; }
+
+/* L'historique ouvre une fenêtre : il n'a ni pastille ni cadenas, et un filet
+   le sépare des six destinations pour dire qu'il n'est pas du même ordre. */
+.desktop-nav__item--aside {
+    margin-top: 9px;
+    padding-top: 9px;
+    border-top: 1px solid var(--desktop-line);
+    color: var(--desktop-dim);
+}
+
+.desktop-nav__item--aside:hover { color: var(--primary-text); }
 
 .desktop-nav__item > b {
     min-width: 22px;
@@ -1858,12 +1864,6 @@ body.desktop-authenticated #app-container.desktop-os *::after {
     transition: border-color var(--desktop-motion-base) ease, box-shadow var(--desktop-motion-base) ease;
 }
 
-#view-lan-finished .recap-admin.is-admin-focus {
-    border-color: rgba(212, 175, 55, 0.62);
-    box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.1), 0 18px 45px rgba(0, 0, 0, 0.36);
-    animation: desktopAdminFocus 720ms var(--desktop-ease);
-}
-
 .recap-admin__copy h3 {
     margin: 0 0 10px;
     color: var(--primary-text);
@@ -1965,6 +1965,379 @@ body.desktop-authenticated #app-container.desktop-os *::after {
 .vote-history-empty { min-height: 150px; display: grid; place-content: center; gap: 8px; color: var(--secondary-text); text-align: center; }
 .vote-history-empty strong { color: var(--primary-text); font: 400 22px/1 var(--font-display); }
 
+/* ==========================================================================
+   ENTRE LE VOTE ET LA SOIRÉE
+   Le vote est clos, la LAN n'est pas lancée. Rien à faire ici : l'écran dit
+   donc ce qu'il reste à faire dehors — quand, quoi installer, quoi prévoir.
+   ========================================================================== */
+
+.desktop-waiting {
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+    padding-bottom: 40px;
+}
+
+.waiting-rendezvous {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 21px 34px;
+    padding: 25px 30px;
+    border-top: 2px solid rgba(212, 175, 55, 0.32);
+    background: linear-gradient(110deg, rgba(212, 175, 55, 0.06), transparent 45%), var(--desktop-panel);
+}
+
+.waiting-rendezvous__copy { min-width: 0; }
+
+.waiting-rendezvous h3 {
+    margin: 9px 0 0;
+    color: var(--primary-text);
+    font: 400 30px/1.15 var(--font-display);
+    letter-spacing: 0.01em;
+    text-align: left;
+}
+
+#waiting-place {
+    margin: 7px 0 0;
+    color: var(--secondary-text);
+    font: 400 13px/1.4 var(--font-body);
+}
+
+.waiting-countdown { display: flex; gap: 12px; }
+
+.waiting-countdown__cell {
+    min-width: 78px;
+    padding: 12px 9px;
+    display: grid;
+    gap: 5px;
+    justify-items: center;
+    border: 1px solid var(--desktop-line);
+    background: rgba(0, 0, 0, 0.28);
+}
+
+.waiting-countdown__cell strong {
+    color: var(--accent-color);
+    font: 400 34px/1 var(--font-display);
+    font-variant-numeric: tabular-nums;
+}
+
+.waiting-countdown__cell span {
+    color: var(--desktop-dim);
+    font: 500 9px/1 var(--font-body);
+    letter-spacing: 0.16em;
+}
+
+.waiting-rendezvous__ics { white-space: nowrap; }
+
+.waiting-rendezvous.is-empty { grid-template-columns: minmax(0, 1fr); }
+
+/* Trois colonnes de nature différente : ce qui est décidé, ce qui reste à
+   faire, ce qui est annoncé. Elles ne se replient pas les unes sur les
+   autres — chacune tient sa hauteur. */
+.waiting-columns {
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.25fr) minmax(0, 0.85fr);
+    gap: 15px;
+    align-items: start;
+}
+
+.waiting-card {
+    min-width: 0;
+    padding: 25px;
+    display: grid;
+    align-content: start;
+    gap: 13px;
+}
+
+.waiting-card__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.waiting-card__count {
+    color: var(--accent-color);
+    font: 400 15px/1 var(--font-display);
+    white-space: nowrap;
+}
+
+.waiting-card__hint {
+    margin: 0;
+    color: var(--desktop-dim);
+    font: 400 11px/1.5 var(--font-body);
+}
+
+.waiting-winner__name {
+    color: var(--accent-color);
+    font: 400 32px/1.1 var(--font-display);
+    overflow-wrap: anywhere;
+}
+
+.waiting-winner__meta {
+    margin: 0;
+    color: var(--secondary-text);
+    font: 400 12px/1.4 var(--font-body);
+}
+
+.waiting-runners { display: grid; gap: 2px; margin-top: 4px; }
+
+.waiting-runners__row {
+    display: grid;
+    grid-template-columns: 26px minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: 9px;
+    padding: 8px 0;
+    border-top: 1px solid var(--desktop-line);
+    color: var(--secondary-text);
+    font: 400 12px/1.3 var(--font-body);
+}
+
+.waiting-runners__row strong {
+    overflow: hidden;
+    color: var(--primary-text);
+    font-weight: 400;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.waiting-install__list { display: grid; }
+
+.waiting-install__row {
+    display: grid;
+    grid-template-columns: 18px minmax(0, 1fr) auto;
+    align-items: baseline;
+    gap: 11px;
+    padding: 10px 0;
+    border-top: 1px solid var(--desktop-line);
+}
+
+.waiting-install__row:first-child { border-top: 0; }
+
+.waiting-install__mark {
+    color: #3f3f3c;
+    font: 400 13px/1.2 var(--font-body);
+    text-align: center;
+}
+
+.waiting-install__row.is-ready .waiting-install__mark { color: #4e9463; }
+
+.waiting-install__name {
+    overflow: hidden;
+    color: var(--primary-text);
+    font: 400 13px/1.3 var(--font-body);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.waiting-install__state {
+    color: var(--desktop-dim);
+    font: 500 9px/1.3 var(--font-body);
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.waiting-install__row.is-ready .waiting-install__state { color: #4e9463; }
+
+.waiting-programme__list { display: grid; }
+
+.waiting-programme__row {
+    display: grid;
+    grid-template-columns: 54px minmax(0, 1fr);
+    align-items: baseline;
+    gap: 11px;
+    padding: 10px 0;
+    border-top: 1px solid var(--desktop-line);
+}
+
+.waiting-programme__row:first-child { border-top: 0; }
+
+.waiting-programme__time {
+    color: var(--accent-color);
+    font: 400 15px/1.2 var(--font-display);
+    font-variant-numeric: tabular-nums;
+}
+
+.waiting-programme__row strong {
+    overflow: hidden;
+    color: var(--primary-text);
+    font: 400 13px/1.3 var(--font-body);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+@media (max-width: 1180px) {
+    .waiting-columns { grid-template-columns: minmax(0, 1fr); }
+    .waiting-rendezvous { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ==========================================================================
+   LE TABLEAU DE BORD DE LA SOIRÉE
+   Une grille, pas une pile : la partie en cours tient la largeur, les trois
+   cartes d'action tiennent la deuxième ligne, la liste des jeux passe dessous.
+   ========================================================================== */
+
+.board-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 15px;
+    align-items: start;
+}
+
+.board-card {
+    min-width: 0;
+    padding: 21px 25px;
+    display: grid;
+    align-content: start;
+    gap: 11px;
+}
+
+.board-card__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.board-card__head .gold-link-btn { white-space: nowrap; }
+
+.board-card__count {
+    min-width: 21px;
+    height: 21px;
+    padding: 0 6px;
+    display: grid;
+    place-items: center;
+    border-radius: 11px;
+    background: rgba(212, 175, 55, 0.16);
+    color: var(--accent-color);
+    font: 600 10px/1 var(--font-body);
+}
+
+.board-card__count:empty { display: none; }
+
+.board-card__hint {
+    margin: 0;
+    color: var(--desktop-dim);
+    font: 400 12px/1.5 var(--font-body);
+}
+
+/* La partie en cours : la seule chose qu'on lit debout, un verre à la main. */
+.board-now {
+    grid-column: 1 / 3;
+    grid-row: 1;
+    border-top: 2px solid rgba(212, 175, 55, 0.32);
+    background: linear-gradient(110deg, rgba(212, 175, 55, 0.07), transparent 48%), var(--desktop-panel);
+}
+
+.board-now__title {
+    color: var(--accent-color);
+    font: 400 38px/1.08 var(--font-display);
+    overflow-wrap: anywhere;
+}
+
+.board-now__meta {
+    margin: 0;
+    color: var(--secondary-text);
+    font: 400 13px/1.5 var(--font-body);
+}
+
+.board-next { grid-column: 3; grid-row: 1 / 3; }
+.board-order { grid-column: 1; grid-row: 2; }
+.board-review { grid-column: 2; grid-row: 2; }
+.board-actions { grid-column: 1 / -1; grid-row: 3; }
+
+/* Six raccourcis en bande : une barre d'outils se lit d'un coup d'œil, une
+   colonne de six lignes se lit une par une. */
+.board-actions__grid {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 7px;
+}
+
+.board-action {
+    display: grid;
+    grid-template-columns: 17px minmax(0, 1fr);
+    align-items: center;
+    gap: 9px;
+    padding: 11px 12px;
+    border: 1px solid var(--desktop-line);
+    background: rgba(255, 255, 255, 0.018);
+    color: var(--secondary-text);
+    cursor: pointer;
+    font: 400 12px/1.2 var(--font-body);
+    text-align: left;
+    transition: color var(--desktop-motion-fast) ease, border-color var(--desktop-motion-fast) ease, background var(--desktop-motion-fast) ease;
+}
+
+.board-action > span {
+    color: var(--accent-color);
+    font: 400 14px/1 var(--font-display);
+    text-align: center;
+}
+
+.board-action:hover {
+    border-color: rgba(212, 175, 55, 0.42);
+    background: rgba(212, 175, 55, 0.07);
+    color: var(--primary-text);
+}
+
+.board-order__row,
+.board-review__row {
+    display: grid;
+    gap: 4px;
+    width: 100%;
+    padding: 11px 0;
+    border: 0;
+    border-top: 1px solid var(--desktop-line);
+    background: transparent;
+    cursor: pointer;
+    text-align: left;
+}
+
+.board-order__row:first-child,
+.board-review__row:first-child { border-top: 0; }
+
+.board-order__row strong,
+.board-review__row strong {
+    overflow: hidden;
+    color: var(--primary-text);
+    font: 400 14px/1.25 var(--font-body);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.board-order__row span,
+.board-review__row span {
+    color: var(--desktop-dim);
+    font: 400 11px/1.4 var(--font-body);
+}
+
+.board-order__row:hover strong,
+.board-review__row:hover strong { color: var(--accent-color); }
+
+.board-games { grid-column: 1 / 3; grid-row: 4; }
+
+.board-aside {
+    grid-column: 3;
+    grid-row: 4;
+    min-width: 0;
+    display: grid;
+    align-content: start;
+    gap: 15px;
+}
+
+@media (max-width: 1320px) {
+    .board-actions__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 1180px) {
+    .board-grid { grid-template-columns: minmax(0, 1fr); }
+    .board-grid > * { grid-column: 1; grid-row: auto; }
+    .board-actions__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 /* Active LAN: global sidebar replaces the old local navigation. */
 
 #view-lan-active .active-lan-layout {
@@ -1973,8 +2346,6 @@ body.desktop-authenticated #app-container.desktop-os *::after {
     min-height: 100%;
     display: block;
 }
-
-#view-lan-active .active-lan-layout > aside { display: none !important; }
 
 #view-lan-active .active-lan-layout > main {
     width: 100%;
@@ -1986,6 +2357,73 @@ body.desktop-authenticated #app-container.desktop-os *::after {
     opacity: 1;
     transform: none;
     animation: none !important;
+}
+
+/* Cinq pièces derrière une porte : la barre secondaire est leur route.
+   Elle vit dans le flux, au-dessus du sous-écran, et n'existe que là. */
+.desktop-subnav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    margin-bottom: 21px;
+    padding-bottom: 2px;
+    border-bottom: 1px solid var(--desktop-line);
+}
+
+.desktop-subnav__item {
+    position: relative;
+    padding: 10px 16px;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    color: var(--secondary-text);
+    cursor: pointer;
+    font: 500 10px/1 var(--font-body);
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    transition: color var(--desktop-motion-fast) ease, border-color var(--desktop-motion-fast) ease;
+}
+
+.desktop-subnav__item:hover { color: var(--primary-text); }
+
+.desktop-subnav__item.is-locked {
+    color: #383836;
+    cursor: default;
+    text-decoration: line-through;
+}
+
+.desktop-subnav__item.is-locked:hover { color: #383836; }
+
+.desktop-subnav__item.active {
+    border-bottom-color: var(--accent-color);
+    color: var(--accent-color);
+}
+
+.desktop-subnav__item > b {
+    display: none;
+    margin-left: 7px;
+    padding: 2px 6px;
+    border-radius: 9px;
+    background: rgba(212, 175, 55, 0.16);
+    color: var(--accent-color);
+    font: 600 9px/1 var(--font-body);
+    letter-spacing: 0;
+}
+
+.desktop-subnav__item > b:not(:empty) { display: inline-block; }
+
+/* Les Fins Gourmets : la table puis le bar, séparés par un intertitre plutôt
+   que par deux entrées de menu. */
+.gourmet-section + .gourmet-section { margin-top: 38px; }
+
+.gourmet-section__title {
+    margin: 0 0 17px;
+    text-align: left;
+    padding-bottom: 9px;
+    border-bottom: 1px solid var(--desktop-line);
+    color: var(--accent-color);
+    font: 400 22px/1.1 var(--font-display);
+    letter-spacing: 0.02em;
 }
 
 #view-lan-active .lan-subview {
@@ -2006,10 +2444,11 @@ body.desktop-authenticated #app-container.desktop-os *::after {
 }
 
 #view-lan-active .lan-subview.active > .luxury-panel,
-#view-lan-active .lan-subview.active > .xp-banner,
-#view-lan-active .lan-subview.active > .wallet-banner,
 #view-lan-active .lan-subview.active > .set-banner,
-#view-lan-active .lan-subview.active > .dashboard-grid {
+#view-lan-active .lan-subview.active > .dashboard-grid,
+#view-lan-active .lan-subview.active > .gourmet-section,
+#view-lan-active .lan-subview.active > .shop-pane > .luxury-panel,
+#view-lan-active .lan-subview.active > .shop-pane > .dashboard-grid {
     animation: desktopPanelIn 460ms var(--desktop-ease) backwards;
 }
 
@@ -2019,11 +2458,13 @@ body.desktop-authenticated #app-container.desktop-os *::after {
 #view-lan-active .lan-subview.active > :nth-child(5) { animation-delay: 140ms; }
 #view-lan-active .lan-subview.active > :nth-child(n+6) { animation-delay: 175ms; }
 
-#lan-dashboard.active .dashboard-grid > * {
+#lan-dashboard.active .board-grid > * {
     animation: desktopPanelIn 480ms var(--desktop-ease) backwards;
 }
 
-#lan-dashboard.active .dashboard-grid > :nth-child(2) { animation-delay: 90ms; }
+#lan-dashboard.active .board-grid > :nth-child(2) { animation-delay: 60ms; }
+#lan-dashboard.active .board-grid > :nth-child(3) { animation-delay: 120ms; }
+#lan-dashboard.active .board-grid > :nth-child(n+4) { animation-delay: 170ms; }
 
 #view-lan-active .dashboard-grid {
     width: 100%;
@@ -2129,42 +2570,56 @@ body.desktop-authenticated #app-container.desktop-os *::after {
 
 #view-lan-active .luxury-panel { margin-top: 0; }
 
-/* The economy reads like a game board: hero inventory first, bookkeeping lower. */
+/* La Boutique se lit en trois temps : ce que j'achète, ce que le groupe
+   dépense, ce que j'ai décroché. Les trois volets sont des destinations —
+   plus de panneau rendu puis éteint. La vue reste en flux normal : le
+   `display:block` posé par l'aiguillage suffit, aucun !important requis. */
 
-#lan-boutique.active {
-    display: grid !important;
-    grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.55fr);
-    gap: 15px;
-    align-content: start;
+.shop-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px 21px;
+    margin-bottom: 17px;
 }
 
-#lan-boutique.active > .subview-title,
-#lan-boutique.active > .xp-banner,
-#lan-boutique.active > #shop-gm-panel,
-#lan-boutique.active > #shop-grant-panel,
-#lan-boutique.active > .luxury-panel:has(#shop-catalog) {
-    grid-column: 1 / -1;
-}
-
-#lan-boutique.active > .xp-banner {
+.shop-head__hint {
     margin: 0;
-    padding: 17px 21px;
+    color: var(--desktop-dim);
+    font: 400 12px/1.4 var(--font-body);
+    text-align: right;
 }
 
-#lan-boutique.active > #booster-panel {
-    grid-column: 1;
-    margin: 0 !important;
+.desktop-subnav--shop { margin-bottom: 21px; }
+
+.shop-pane > .dashboard-grid { margin-bottom: 0; }
+
+/* Le titre de niveau vit dans une colonne étroite : « Propre sur soi » sur
+   trois lignes n'est pas un classement, c'est un accident de largeur. C'est le
+   nom qui cède, pas le titre — un nom tronqué reste reconnaissable. */
+#xp-board .rank-row { align-items: baseline; gap: 9px; }
+
+#xp-board .rank-row > span:nth-child(2) {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-#lan-boutique.active > .wallet-banner {
-    grid-column: 2;
-    margin: 0;
+#xp-board .shop-card__price {
+    flex: 0 0 auto;
+    font-size: 11px;
+    white-space: nowrap;
 }
 
-#lan-boutique.active > .wallet-banner + .luxury-panel { margin: 0 !important; }
-
-/* Achievements belong to the player profile; the shop stays focused on play. */
-#lan-boutique.active > .dashboard-grid { display: none !important; }
+#lan-boutique .panel-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 15px;
+}
 
 #shop-catalog {
     display: block;
@@ -3250,12 +3705,6 @@ body.desktop-authenticated #app-container.desktop-os *::after {
     to { opacity: var(--desktop-reveal-opacity, 1); translate: 0 0; }
 }
 
-@keyframes desktopAdminFocus {
-    0% { box-shadow: 0 0 0 0 rgba(212, 175, 55, 0), 0 0 0 rgba(0, 0, 0, 0); }
-    55% { box-shadow: 0 0 0 4px rgba(212, 175, 55, 0.13), 0 20px 48px rgba(0, 0, 0, 0.42); }
-    100% { box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.1), 0 18px 45px rgba(0, 0, 0, 0.36); }
-}
-
 @keyframes desktopProfileOpen {
     from { opacity: 0; transform: translateY(18px) scale(0.975); }
     to { opacity: 1; transform: translateY(0) scale(1); }
@@ -3342,10 +3791,9 @@ body.desktop-authenticated #app-container.desktop-os *::after {
     .desktop-os .desktop-roster__title i,
     .desktop-os .presence-dot,
     .desktop-os .desktop-level-bars i,
-    .desktop-os .recap-admin.is-admin-focus,
     .desktop-os .lan-subview.active,
     .desktop-os .lan-subview.active > *,
-    .desktop-os #lan-dashboard.active .dashboard-grid > *,
+    .desktop-os #lan-dashboard.active .board-grid > *,
     #player-votes-modal > .modal-content {
         animation: none !important;
     }
