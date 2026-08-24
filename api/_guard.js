@@ -20,6 +20,10 @@
 
 const ALLOWED_HOSTS = ['lan-demain.vercel.app'];
 
+// Les preview du projet, et elles seules. L'ancienne règle acceptait tout
+// `*.vercel.app` : n'importe quel site hébergé chez Vercel passait la garde.
+const PREVIEW_PREFIX = 'lan-demain-';
+
 const WINDOW_MS = 60_000;
 const buckets = new Map(); // ip -> { count, resetAt }
 
@@ -27,22 +31,24 @@ function hostAllowed(value) {
     try {
         const host = new URL(value).host;
         if (ALLOWED_HOSTS.includes(host)) return true;
-        // Déploiements de preview du projet
-        return host.endsWith('.vercel.app');
+        return host.startsWith(PREVIEW_PREFIX) && host.endsWith('.vercel.app');
     } catch (_e) {
         return false;
     }
 }
 
-function sameOrigin(req) {
+// options.strict : exiger une provenance explicite. La page pose
+// `Referrer-Policy: strict-origin-when-cross-origin`, qui envoie l'URL
+// complète en Referer sur une requête same-origin : les appels de
+// l'application en portent donc toujours un. Sans ce mode, un simple
+// `curl` sans en-tête passait — gratuit sur les endpoints publics, mais
+// c'est une clé payante qui partait sur les autres.
+function sameOrigin(req, strict) {
     const origin = req.headers.origin;
     if (origin) return hostAllowed(origin);
     const referer = req.headers.referer;
     if (referer) return hostAllowed(referer);
-    // Selon la Referrer-Policy, un GET same-origin peut n'envoyer ni l'un ni
-    // l'autre : on ne bloque pas sur cette seule absence (le rate-limit garde
-    // les endpoints à clé).
-    return true;
+    return !strict;
 }
 
 function clientIp(req) {
@@ -71,8 +77,9 @@ function rateLimited(req, limit) {
 
 // Renvoie true si la requête a été refusée (et la réponse déjà envoyée).
 // options.limit : requêtes/minute/IP autorisées (omis => pas de throttle).
+// options.strict : refuser une requête sans Origin ni Referer.
 export function guard(req, res, options = {}) {
-    if (!sameOrigin(req)) {
+    if (!sameOrigin(req, options.strict)) {
         res.status(403).json({ error: 'Origine non autorisée' });
         return true;
     }

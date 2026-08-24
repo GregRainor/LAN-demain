@@ -56,7 +56,7 @@ import { guard } from './_guard.js';
 
 export default async function handler(request, response) {
     // Consomme STEAM_API_KEY : origine + rate-limit
-    if (guard(request, response, { limit: 60 })) return;
+    if (guard(request, response, { limit: 60, strict: true })) return;
 
     const { profile } = request.query;
 

@@ -14,6 +14,28 @@ const escapeHtml = (str) => {
     return str.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 };
 
+/* Une priorité de bulletin, ramenée à une liste sûre.
+   Firebase ne rend un tableau que si les clés sont 0,1,2… : un bulletin écrit
+   à la main (clés arbitraires, ou même une simple chaîne) revient sous une
+   forme sur laquelle .forEach() n'existe pas, et l'exception emportait tout
+   le rendu — chez TOUS les joueurs, pas seulement chez l'auteur. On normalise
+   donc au lieu de faire confiance.
+
+   Le plafond reprend celui qu'imposent les règles Firebase — les clés d'une
+   priorité y sont limitées à deux chiffres, donc à cent entrées. Le tenir
+   identique des deux côtés évite qu'un bulletin légitime soit tronqué ici en
+   silence : c'est la règle qui refuse, visiblement, et pas l'affichage qui
+   oublie. Sans plafond, chaque entrée de p1 valant cinq points, un bulletin de
+   cinq cents titres pèserait cinq cents fois un bulletin honnête. */
+const MAX_VOTES_PER_PRIORITY = 100;
+
+const voteList = (value) => {
+    if (Array.isArray(value)) return value.slice(0, MAX_VOTES_PER_PRIORITY);
+    if (value && typeof value === 'object') return Object.values(value).slice(0, MAX_VOTES_PER_PRIORITY);
+    if (typeof value === 'string' && value) return [value];
+    return [];
+};
+
 // N'accepte qu'une URL http(s) avant de la poser sur un href/src. Les URL de
 // liens nous viennent d'API tierces (ITAD, Wikipédia) : si l'une d'elles était
 // compromise, un `javascript:` posé sur un href s'exécuterait au clic. Toute
@@ -28,13 +50,40 @@ const safeHttpUrl = (url, fallback = '#') => {
     }
 };
 
+/* Un avatar vient de la base, donc d'un autre joueur : c'est une URL qu'il
+   choisit et que le navigateur de TOUS les autres ira chercher. Laissée libre,
+   elle devient un mouchard — un compte compromis relèverait l'adresse IP de
+   tout le groupe à chaque affichage de la liste. On n'accepte donc que les
+   hôtes qui hébergent réellement des photos de profil, plus nos propres
+   vignettes en data: (inertes par nature). Tout le reste retombe sur
+   l'avatar généré localement. */
+const AVATAR_HOSTS = [
+    'lh3.googleusercontent.com', 'lh4.googleusercontent.com',
+    'lh5.googleusercontent.com', 'lh6.googleusercontent.com',
+    'avatars.steamstatic.com', 'avatars.akamai.steamstatic.com',
+    'avatars.cloudflare.steamstatic.com'
+];
+
+const safeAvatarUrl = (url, fallback) => {
+    if (typeof url !== 'string' || !url) return fallback;
+    if (url.slice(0, 11) === 'data:image/') return url;
+    try {
+        const parsed = new URL(url, window.location.origin);
+        if (parsed.origin === window.location.origin) return parsed.href;
+        if (parsed.protocol !== 'https:') return fallback;
+        return AVATAR_HOSTS.indexOf(parsed.host) !== -1 ? parsed.href : fallback;
+    } catch (_e) {
+        return fallback;
+    }
+};
+
 function levenshtein(s1, s2) { s1 = s1.toLowerCase(); s2 = s2.toLowerCase(); const costs = []; for (let i = 0; i <= s1.length; i++) { let lastValue = i; for (let j = 0; j <= s2.length; j++) { if (i === 0) costs[j] = j; else if (j > 0) { let newValue = costs[j - 1]; if (s1.charAt(i - 1) !== s2.charAt(j - 1)) newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1; costs[j - 1] = lastValue; lastValue = newValue; } } if (i > 0) costs[s2.length] = lastValue; } return costs[s2.length]; }
 
 function checkTypos(newGames, currentVotes) {
     const suggestions = [];
     const masterGameList = new Set();
     Object.values(currentVotes).forEach(voteData => {
-        if (voteData.votes) Object.values(voteData.votes).forEach(games => games.forEach(game => masterGameList.add(normalizeGameName(game))));
+        if (voteData && voteData.votes) Object.values(voteData.votes).forEach(games => voteList(games).forEach(game => masterGameList.add(normalizeGameName(game))));
     });
     const masterArray = Array.from(masterGameList);
     newGames.forEach(newGame => {
@@ -59,10 +108,15 @@ function calculateScores(votes) {
         const voteData = votes[userId];
         if (voteData && voteData.votes) {
             for (const priority in voteData.votes) {
-                voteData.votes[priority].forEach(game => {
+                // Une priorité inconnue ne vaut rien : sans ce garde-fou, un
+                // « p0 » écrit à la main ajoutait `undefined` et rendait NaN
+                // le score affiché chez tout le monde.
+                const points = pointsMapping[priority];
+                if (!points) continue;
+                voteList(voteData.votes[priority]).forEach(game => {
                     const normalizedGame = normalizeGameName(game);
                     if (normalizedGame) {
-                        gameScores[normalizedGame] = (gameScores[normalizedGame] || 0) + pointsMapping[priority];
+                        gameScores[normalizedGame] = (gameScores[normalizedGame] || 0) + points;
                         const candidate = String(game).trim().replace(/\s+/g, ' ');
                         const current = displayNames[normalizedGame];
                         if (!current || upperCount(candidate) > upperCount(current)) {
@@ -508,19 +562,36 @@ function tickPoints(economy, uid) {
     return count * ECONOMY.TICK_VALUE;
 }
 
+/* Les mouvements crédités par un maître du jeu (dons, défis relevés).
+   Les lignes de type « purchase » sont volontairement ignorées ici : elles
+   sont signées par le joueur lui-même, et rien dans les règles Firebase ne
+   peut exiger qu'il en écrive une en même temps que son achat. On compte donc
+   la dépense sur le nœud `purchases`, qui est le seul que le joueur DOIT
+   écrire pour recevoir son article. */
 function ledgerTotal(economy, uid) {
     const ledger = (economy && economy.ledger) || {};
     let total = 0;
     Object.values(ledger).forEach(entry => {
-        if (entry && entry.uid === uid) total += Number(entry.delta) || 0;
+        if (entry && entry.uid === uid && entry.type !== 'purchase') total += Number(entry.delta) || 0;
     });
     return total;
 }
 
-/* Le solde qui fait foi : registre + présence. */
+/* Ce qui a été effectivement dépensé : la somme des achats accordés. C'est le
+   débit qui fait foi, parce qu'il est adossé à l'article reçu. */
+function grantedSpend(economy, uid) {
+    const purchases = (economy && economy.purchases) || {};
+    let total = 0;
+    Object.values(purchases).forEach(p => {
+        if (p && p.uid === uid && p.status === 'granted') total += Math.abs(Number(p.price) || 0);
+    });
+    return total;
+}
+
+/* Le solde qui fait foi : crédits + présence − achats accordés. */
 function economyBalance(economy, uid) {
     if (!uid) return 0;
-    return ledgerTotal(economy, uid) + tickPoints(economy, uid);
+    return ledgerTotal(economy, uid) + tickPoints(economy, uid) - grantedSpend(economy, uid);
 }
 
 /* Ce qui est déjà engagé dans des achats non tranchés. Un achat ne débite
@@ -1012,11 +1083,31 @@ function tcgRandom(seed) {
     };
 }
 
-/* Le sceau d'un paquet : son identifiant, l'horodatage serveur de son achat,
-   et son propriétaire. Aucun des trois ne peut être rejoué à volonté — le
-   nœud du paquet est en écriture unique. */
+/* Le sceau d'un paquet.
+   L'ancienne formule partait de l'identifiant du paquet — or c'est l'acheteur
+   qui le choisit. Il pouvait donc calculer hors ligne quel identifiant sortait
+   une Signature, puis l'écrire. La formule courante ne garde que des valeurs
+   posées par le serveur : `sealedAt` et `openedAt` sont tous deux imposés à
+   `now` par les règles Firebase, et ne s'écrivent qu'une fois. L'acheteur ne
+   décide plus de rien — seulement de l'instant où il clique, à la milliseconde
+   près, sans savoir ce qu'il va tirer.
+
+   La bascule est datée : les paquets scellés avant gardent leur ancienne
+   graine, donc leur contenu. Sans ça, changer la formule redistribuerait
+   rétroactivement toutes les collections déjà ouvertes. */
+const PACK_SEED_V2_FROM = Date.UTC(2026, 7, 24); // 24 août 2026
+
 function packSeed(packId, pack) {
-    return tcgHash(packId + '|' + ((pack && pack.sealedAt) || 0) + '|' + ((pack && pack.uid) || ''));
+    const sealedAt = (pack && pack.sealedAt) || 0;
+    const uid = (pack && pack.uid) || '';
+    if (sealedAt >= PACK_SEED_V2_FROM) {
+        // openedAt d'abord : c'est lui qui rend le tirage imprévisible.
+        // packId reste dans le mélange pour qu'un lot de cinq boosters
+        // achetés d'un même clic — donc scellés à la même milliseconde —
+        // ne donne pas cinq fois le même paquet.
+        return tcgHash(((pack && pack.openedAt) || 0) + '|' + sealedAt + '|' + packId + '|' + uid);
+    }
+    return tcgHash(packId + '|' + sealedAt + '|' + uid);
 }
 
 /* Quatorze cartes tirées du set, emplacement par emplacement, selon la

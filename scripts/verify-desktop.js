@@ -399,6 +399,33 @@ const RULE_KEYWORDS = new Set(['.read', '.write', '.validate', '.indexOn', '.pri
     }
 }(ruleTree, ''));
 
+/* --- Les notifications ----------------------------------------------------
+   `senderId` était facultatif : une notif sans expéditeur passait, et
+   « L'admin a annulé la LAN » n'était attribuable à personne. */
+const notif = ruleTree.lan.notifications.$uid.$notif_id;
+assert(notif['.write'].includes("$notif_id.beginsWith(auth.uid + '__')"),
+    'A notification key must carry its real sender');
+assert(notif['.validate'].includes("newData.hasChild('senderId')"),
+    'A new notification must name its sender');
+assert(/user\.uid \+ '__' \+ db\.ref\(\)\.push\(\)\.key/.test(script),
+    'The desktop client must prefix notification keys with the sender uid');
+/* Pas de liste blanche : c'est un risque accepté (voir le dossier EBIOS RM,
+   fiche R1). Tout compte Google connecté est donc un joueur — d'où
+   l'importance des .validate ci-dessus, qui sont la seule limite restante. */
+
+/* --- Le scrutin -----------------------------------------------------------
+   Une priorité écrite à la main (chaîne, ou clés arbitraires) revenait sous une
+   forme sans .forEach : l'exception cassait le rendu chez TOUS les joueurs. */
+for (const p of ['p1', 'p2', 'p3', 'p_other']) {
+    const node = ruleTree.lan.votes.$user_id.votes[p];
+    assert(node['.validate'].includes('newData.hasChildren()'),
+        `lan/votes .../${p} must be a list, never a bare value`);
+    assert(node.$g['.validate'].includes('$g.matches(/^[0-9]{1,2}$/)'),
+        `lan/votes .../${p} must keep numeric keys, which also caps the ballot`);
+}
+assert(/const voteList = /.test(core) && /Array\.isArray\(value\)/.test(core),
+    'calculateScores must normalise a priority before iterating it');
+
 for (const id of ['view-no-lan', 'view-voting-open', 'view-waiting-closed', 'view-lan-active', 'view-lan-finished']) {
     assert(ids.includes(id), `Missing desktop phase view #${id}`);
 }

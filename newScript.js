@@ -983,7 +983,7 @@ document.addEventListener('DOMContentLoaded', () => {
             slot.dataset.name = `${player.name || 'Joueur'} — ${player.online ? 'connecté' : 'déconnecté'}`;
 
             const img = document.createElement('img');
-            img.src = player.avatar || initialsAvatar(player.name);
+            img.src = safeAvatarUrl(player.avatar, initialsAvatar(player.name));
             img.alt = player.name || 'Joueur';
             img.className = 'user-avatar-icon';
             // Une photo Google périmée renverrait une image cassée : on retombe
@@ -1161,8 +1161,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const face = document.getElementById('player-prof-face');
         if (face) {
-            face.src = (globalProfiles[uid] && globalProfiles[uid].avatar)
-                || initialsAvatar(userName);
+            face.src = safeAvatarUrl(globalProfiles[uid] && globalProfiles[uid].avatar,
+                initialsAvatar(userName));
             face.onerror = () => { face.src = initialsAvatar(userName); };
         }
 
@@ -6606,16 +6606,22 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    /* L'expéditeur est inscrit DANS la clé, pas seulement dans le corps :
+       les règles Firebase exigent que `lan/notifications/<cible>/<clé>`
+       commence par l'uid de celui qui écrit. Un champ `senderId` seul se
+       laissait omettre, et une notif sans expéditeur passait — « L'admin a
+       annulé la LAN », signée personne. Une clé, elle, ne s'omet pas. */
     function sendNotification(targetUid, message, type = 'info') {
-        const notifRef = db.ref(`lan/notifications/${targetUid}`).push();
-        return notifRef.set({
+        const user = auth.currentUser;
+        if (!user) return Promise.resolve();
+
+        const notifId = user.uid + '__' + db.ref().push().key;
+        return db.ref(`lan/notifications/${targetUid}/${notifId}`).set({
             message: message,
             timestamp: firebase.database.ServerValue.TIMESTAMP,
             read: false,
             type: type,
-            // Les règles Firebase exigent senderId === auth.uid : une notif est
-            // toujours attribuable à l'expéditeur réel (fin de l'usurpation anonyme).
-            senderId: (auth.currentUser && auth.currentUser.uid) || null
+            senderId: user.uid
         });
     }
 
@@ -8970,7 +8976,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         document.getElementById('signature-art-hint').textContent =
             `Ces ${signatureArtCards.length} cartes sont le sommet du set. Importe tes propres `
-            + 'illustrations, ou laisse le modèle dessiner celles qui manquent.';
+            + 'illustrations pour les distinguer des cartes ordinaires.';
         document.getElementById('signature-art-modal').style.display = 'flex';
 
         // On sait déjà lesquelles existent : on les lit avant de dessiner.
@@ -9077,14 +9083,6 @@ document.addEventListener('DOMContentLoaded', () => {
         renderCollection();
     });
 
-    document.getElementById('signature-art-generate')?.addEventListener('click', () => {
-        const button = document.getElementById('signature-art-generate');
-        button.disabled = true;
-        const cards = {};
-        signatureArtCards.forEach(card => { cards[card.gameKey] = { name: card.name, rarity: 'signature' }; });
-        generateSignatureArt(cards).then(paintSignatureArtList);
-    });
-
     /* Une photo pèse plusieurs mégaoctets : on la redimensionne avant de
        l'envoyer. La fenêtre d'illustration d'une carte fait 300 px de large au
        plus, donc 1024 px suffisent, et les règles refusent au-delà de 4 Mo. */
@@ -9130,57 +9128,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function importCardArt(card, file) {
         return importArt(card.gameKey, card.name, file);
-    }
-
-    /* Les Signature encore sans illustration sont dessinées par le modèle. On
-       saute celles qu'on a déjà — importées, ou dessinées lors d'une soirée
-       précédente : une illustration est attachée au jeu, pas au set. Un échec
-       (pas de clé, quota, refus du modèle) n'est pas grave — la carte garde sa
-       jaquette Steam et tout le reste continue de tourner. */
-    function generateSignatureArt(setCards) {
-        const wanted = signatureCards(setCards);
-        if (!wanted.length) return Promise.resolve();
-
-        let made = 0;
-        let failed = 0;
-
-        const next = (i) => {
-            if (i >= wanted.length) {
-                if (made) showToast(`${made} illustration${made > 1 ? 's' : ''} dessinée${made > 1 ? 's' : ''} !`, 'success');
-                else if (failed) showToast('Illustrations non générées — les Signature gardent leur jaquette.', 'error');
-                renderCollection();
-                return Promise.resolve();
-            }
-
-            const card = wanted[i];
-            showToast(`Illustration ${i + 1}/${wanted.length} : ${card.name}`, 'success');
-
-            return db.ref('lan/cardArt/' + card.gameKey).once('value')
-                .then(snapshot => {
-                    if (snapshot.exists()) return null;   // déjà dessinée, on passe
-                    return fetch('/api/generate-card-art', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ name: card.name })
-                    }).then(res => (res.ok ? res.json() : null));
-                })
-                .then(data => {
-                    if (!data || !data.dataUrl) { if (data !== null) failed++; return null; }
-                    return db.ref('lan/cardArt/' + card.gameKey).set({
-                        data: data.dataUrl,
-                        name: card.name,
-                        by: auth.currentUser ? auth.currentUser.uid : null,
-                        ts: firebase.database.ServerValue.TIMESTAMP
-                    }).then(() => {
-                        generatedArt[card.gameKey] = data.dataUrl;
-                        made++;
-                    });
-                })
-                .catch(() => { failed++; })
-                .then(() => next(i + 1));
-        };
-
-        return next(0);
     }
 
     document.getElementById('btn-mint-set')?.addEventListener('click', () => mintSet(false));
@@ -9337,9 +9284,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const view = tcgView();
         const setCards = tcgSetCards(globalTcg, pack.setId);
         const due = pityCount(globalTcg, pack.uid) >= TCG.PITY;
-        const drawn = drawPack(setCards, packSeed(pack.id, pack), { pity: due });
 
-        if (!drawn.length) {
+        if (!Object.keys(setCards).length) {
             openingPack = false;
             showToast('Ce booster appartient à un set introuvable.', 'error');
             return;
@@ -9349,17 +9295,28 @@ document.addEventListener('DOMContentLoaded', () => {
             .filter(card => card.owner === pack.uid)
             .map(card => card.gameKey));
 
-        db.ref('lan/tcg/packs/' + pack.id).update({
+        /* Le tirage vient APRÈS l'écriture, et relit le nœud : depuis que la
+           graine contient `openedAt`, elle n'existe qu'une fois l'horodatage
+           posé par le serveur. Tirer avant donnerait à celui qui ouvre des
+           cartes que personne d'autre ne recalculerait. */
+        const packRef = db.ref('lan/tcg/packs/' + pack.id);
+        packRef.update({
             status: 'opened',
             openedAt: firebase.database.ServerValue.TIMESTAMP
         })
-            .then(() => startReveal(pack, drawn.map(card => Object.assign({}, card, {
-                name: (setCards[card.gameKey] && setCards[card.gameKey].name) || card.gameKey,
-                owner: pack.uid,
-                mintedBy: pack.uid,
-                mintedAt: Date.now(),
-                lineage: [pack.uid]
-            })), ownedBefore))
+            .then(() => packRef.once('value'))
+            .then(snapshot => {
+                const opened = Object.assign({}, pack, snapshot.val() || {});
+                const drawn = drawPack(setCards, packSeed(pack.id, opened), { pity: due });
+                if (!drawn.length) throw new Error('Ce booster appartient à un set introuvable.');
+                return startReveal(pack, drawn.map(card => Object.assign({}, card, {
+                    name: (setCards[card.gameKey] && setCards[card.gameKey].name) || card.gameKey,
+                    owner: pack.uid,
+                    mintedBy: pack.uid,
+                    mintedAt: Date.now(),
+                    lineage: [pack.uid]
+                })), ownedBefore);
+            })
             .catch(err => showToast('Erreur : ' + err.message, 'error'))
             .finally(() => { openingPack = false; });
     }

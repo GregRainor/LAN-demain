@@ -15,7 +15,7 @@ import { guard } from './_guard.js';
 
 export default async function handler(request, response) {
     // Consomme ITAD_API_KEY : origine + rate-limit
-    if (guard(request, response, { limit: 100 })) return;
+    if (guard(request, response, { limit: 100, strict: true })) return;
 
     const { appid, title } = request.query;
 

@@ -6,13 +6,20 @@
     "status": {
       ".read": "auth != null",
       "$uid": {
-        ".write": "auth != null && auth.uid === $uid"
+        ".write": "auth != null && auth.uid === $uid",
+        "$conn": {
+          ".validate": "!newData.isString() || newData.val().length <= 1000",
+          "name":   { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 300)" },
+          "avatar": { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 1000)" },
+          "photo":  { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 1000)" },
+          "device": { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 40)" },
+          "state":  { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 20)" },
+          "$other": { ".validate": false }
+        }
       }
     },
 
     "lan": {
-
-
 
       "challenges": {
         ".read": "auth != null",
@@ -171,10 +178,10 @@
           ".validate": "newData.hasChildren()",
           "name": { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 100)" },
           "votes": {
-            "p1":      { "$g": { ".validate": "newData.isString() && newData.val().length <= 200" } },
-            "p2":      { "$g": { ".validate": "newData.isString() && newData.val().length <= 200" } },
-            "p3":      { "$g": { ".validate": "newData.isString() && newData.val().length <= 200" } },
-            "p_other": { "$g": { ".validate": "newData.isString() && newData.val().length <= 200" } },
+            "p1":      { ".validate": "!newData.exists() || newData.hasChildren()", "$g": { ".validate": "$g.matches(/^[0-9]{1,2}$/) && newData.isString() && newData.val().length <= 200" } },
+            "p2":      { ".validate": "!newData.exists() || newData.hasChildren()", "$g": { ".validate": "$g.matches(/^[0-9]{1,2}$/) && newData.isString() && newData.val().length <= 200" } },
+            "p3":      { ".validate": "!newData.exists() || newData.hasChildren()", "$g": { ".validate": "$g.matches(/^[0-9]{1,2}$/) && newData.isString() && newData.val().length <= 200" } },
+            "p_other": { ".validate": "!newData.exists() || newData.hasChildren()", "$g": { ".validate": "$g.matches(/^[0-9]{1,2}$/) && newData.isString() && newData.val().length <= 200" } },
             "$other":  { ".validate": false }
           },
           "$other": { ".validate": false }
@@ -213,7 +220,8 @@
               ".write": "auth != null && auth.uid === $uid",
               ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 50)"
             }
-          }
+          },
+          "$other": { ".validate": "!newData.hasChildren() && (!newData.isString() || newData.val().length <= 2000)" }
         }
       },
 
@@ -223,7 +231,8 @@
           ".write": "auth != null && (root.child('lan/roles').child(auth.uid).val() === 'admin' || root.child('lan/roles').child(auth.uid).val() === 'mixologist' || auth.uid === 'ITe5VPuwewMzO7JnJA5oPWMdfvt2')",
           "$kocktail_id": {
             "name":        { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 300)" },
-            "ingredients": { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 5000)" }
+            "ingredients": { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 5000)" },
+            "$other":      { ".validate": "!newData.hasChildren() && (!newData.isString() || newData.val().length <= 2000)" }
           }
         },
         "oneshot": {
@@ -232,7 +241,8 @@
             ".write": "auth != null && ((!data.exists() && newData.child('creatorId').val() === auth.uid) || (data.exists() && data.child('creatorId').val() === auth.uid) || root.child('lan/roles').child(auth.uid).val() === 'admin' || auth.uid === 'ITe5VPuwewMzO7JnJA5oPWMdfvt2')",
             "name":        { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 300)" },
             "recipe":      { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 5000)" },
-            "creatorName": { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 300)" }
+            "creatorName": { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 300)" },
+            "$other":      { ".validate": "!newData.hasChildren() && (!newData.isString() || newData.val().length <= 2000)" }
           }
         },
         "orders": {
@@ -240,7 +250,8 @@
           "$order_id": {
             ".write": "auth != null && ((!data.exists() && newData.child('userId').val() === auth.uid) || (data.exists() && data.child('userId').val() === auth.uid) || root.child('lan/roles').child(auth.uid).val() === 'admin' || root.child('lan/roles').child(auth.uid).val() === 'mixologist' || auth.uid === 'ITe5VPuwewMzO7JnJA5oPWMdfvt2')",
             "cocktailName": { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 300)" },
-            "userName":     { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 300)" }
+            "userName":     { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 300)" },
+            "$other":       { ".validate": "!newData.hasChildren() && (!newData.isString() || newData.val().length <= 2000)" }
           }
         }
       },
@@ -250,10 +261,10 @@
           ".read": "auth != null && auth.uid === $uid",
           ".write": "auth != null && auth.uid === $uid",
           "$notif_id": {
-            ".write": "auth != null",
-            ".validate": "newData.hasChild('message')",
+            ".write": "auth != null && $notif_id.beginsWith(auth.uid + '__')",
+            ".validate": "newData.hasChild('message') && (data.exists() || newData.hasChild('senderId'))",
             "message":   { ".validate": "newData.isString() && newData.val().length <= 2000" },
-            "senderId":  { ".validate": "!newData.exists() || newData.val() === auth.uid" },
+            "senderId":  { ".validate": "data.exists() || $notif_id.beginsWith(newData.val() + '__')" },
             "type":      { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 20)" },
             "read":      { ".validate": "!newData.exists() || newData.isBoolean()" },
             "timestamp": { ".validate": "!newData.exists() || newData.isNumber()" },
@@ -294,9 +305,11 @@
           "addedByName":  { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 300)" },
           "games": {
             "$g": {
-              "name": { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 300)" }
+              "name":   { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 300)" },
+              "$other": { ".validate": "!newData.hasChildren() && (!newData.isString() || newData.val().length <= 2000)" }
             }
-          }
+          },
+          "$other": { ".validate": "!newData.hasChildren() && (!newData.isString() || newData.val().length <= 2000)" }
         }
       },
 
@@ -326,7 +339,11 @@
               ".write": "auth != null && auth.uid === $uid",
               ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 50)"
             }
-          }
+          },
+          "audience": {
+            "$uid": { ".validate": "newData.isBoolean()" }
+          },
+          "$other": { ".validate": "!newData.hasChildren() && (!newData.isString() || newData.val().length <= 2000)" }
         }
       },
 
@@ -341,9 +358,11 @@
             "$item_id": {
               ".write": "auth != null && ((!data.exists() && newData.child('userId').val() === auth.uid) || (data.exists() && data.child('userId').val() === auth.uid) || root.child('lan/foodRuns').child($run_id).child('createdBy').val() === auth.uid || root.child('lan/roles').child(auth.uid).val() === 'admin' || auth.uid === 'ITe5VPuwewMzO7JnJA5oPWMdfvt2')",
               "label":    { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 300)" },
-              "userName": { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 300)" }
+              "userName": { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 300)" },
+              "$other":   { ".validate": "!newData.hasChildren() && (!newData.isString() || newData.val().length <= 2000)" }
             }
-          }
+          },
+          "$other": { ".validate": "!newData.hasChildren() && (!newData.isString() || newData.val().length <= 2000)" }
         }
       }
     }
