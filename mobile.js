@@ -101,11 +101,14 @@ function fallbackAvatar(name) {
     return `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' fill='hsl(${hue}%2C30%25%2C32%25)'/%3E%3Ctext x='20' y='27' font-family='Georgia' font-size='19' text-anchor='middle' fill='%23f4f0ec'%3E${initials(name)}%3C/text%3E%3C/svg%3E`;
 }
 
+/* Le nom d'un joueur, par ordre d'autorité. `lan/users` passe devant tout le
+   reste depuis qu'il est éditable : c'est le nom que le joueur a choisi, et il
+   doit l'emporter sur celui que Google lui donne. */
 function playerName(uid) {
+    if (state.profiles[uid] && state.profiles[uid].name) return state.profiles[uid].name;
     if (state.votes[uid] && state.votes[uid].name) return state.votes[uid].name;
     const identity = statusIdentity(state.status[uid]);
     if (identity && identity.name) return identity.name;
-    if (state.profiles[uid] && state.profiles[uid].name) return state.profiles[uid].name;
     if (uid === (state.user && state.user.uid)) return state.user.displayName || 'Moi';
     return 'Un joueur';
 }
@@ -379,6 +382,15 @@ function goto(screen, options) {
 
 $('m-back').addEventListener('click', () => history.back());
 
+/* Le titre de la LAN ramène à l'accueil, comme le logo de n'importe quel site.
+   Même geste que la marque cliquable du bureau. Une feuille ouverte par-dessus
+   se ferme d'abord, sinon on reviendrait à l'accueil derrière un panneau resté
+   en place. */
+$('m-brand').addEventListener('click', () => {
+    closeSheet();
+    goto('soiree');
+});
+
 window.addEventListener('popstate', (e) => {
     const screen = (e.state && e.state.screen) || 'soiree';
     goto(screen, { fromHistory: true, silent: true });
@@ -387,6 +399,68 @@ window.addEventListener('popstate', (e) => {
 /* ==========================================================================
    Feuille glissante
    ========================================================================== */
+
+/* La poignée en haut de la feuille annonçait un geste qui n'existait pas :
+   on pouvait la saisir, rien ne suivait le doigt. On la rend vraie.
+
+   Le geste part de la poignée ou de l'en-tête, jamais du corps : celui-ci
+   défile, et une fiche Signature longue doit pouvoir se parcourir sans que
+   chaque glissement vers le bas referme la feuille. Sous le tiers de la
+   hauteur — ou en dessous d'un geste franc — la feuille revient en place. */
+function attachSheetDrag() {
+    const sheet = $('m-sheet');
+    const panel = sheet.querySelector('.m-sheet__panel');
+    const handles = [sheet.querySelector('.m-sheet__grab'), $('m-sheet-head')];
+
+    let startY = 0;
+    let startedAt = 0;
+    let offset = 0;
+    let dragging = false;
+
+    const move = (y) => {
+        // Vers le bas seulement : tirer vers le haut ne doit pas décoller la feuille.
+        offset = Math.max(0, y - startY);
+        panel.style.transform = 'translateY(' + offset + 'px)';
+    };
+
+    const end = () => {
+        if (!dragging) return;
+        dragging = false;
+        panel.style.transition = '';
+        panel.style.animation = '';
+
+        const far = offset > panel.offsetHeight / 3;
+        const flick = offset > 60 && (Date.now() - startedAt) < 300;
+        if (far || flick) {
+            closeSheet();
+        }
+        // Dans tous les cas on rend la main au CSS : closeSheet masque la
+        // feuille, et une réouverture doit repartir de sa position normale.
+        panel.style.transform = '';
+        offset = 0;
+    };
+
+    handles.forEach(handle => {
+        if (!handle) return;
+        handle.addEventListener('touchstart', (e) => {
+            dragging = true;
+            startY = e.touches[0].clientY;
+            startedAt = Date.now();
+            offset = 0;
+            // L'animation d'ouverture se rejouerait sous le doigt.
+            panel.style.animation = 'none';
+            panel.style.transition = 'none';
+        }, { passive: true });
+
+        handle.addEventListener('touchmove', (e) => {
+            if (!dragging) return;
+            move(e.touches[0].clientY);
+        }, { passive: true });
+
+        handle.addEventListener('touchend', end);
+        handle.addEventListener('touchcancel', end);
+    });
+}
 
 function openSheet(heading, buildBody) {
     const sheet = $('m-sheet');
@@ -536,11 +610,21 @@ function boot(user) {
         writeMyPresence(user);
         /* Fiche durable : /status s'efface en partant, mais le bureau affiche
            les votants absents et a besoin de leur photo. */
-        db.ref('lan/users/' + user.uid).update({
-            name: user.displayName || user.email || '',
+        /* Le nom n'est PLUS écrasé à chaque connexion : il est éditable dans
+           le profil, et le réécrire depuis Google effacerait le choix du
+           joueur. On ne le pose qu'à la première venue. */
+        const profileRef = db.ref('lan/users/' + user.uid);
+        profileRef.update({
             avatar: user.photoURL || '',
             lastSeen: Date.now()
         }).catch(() => { /* profil non critique */ });
+        profileRef.child('name').once('value')
+            .then(snap => {
+                if (!snap.exists() || !snap.val()) {
+                    profileRef.child('name').set(user.displayName || user.email || '');
+                }
+            })
+            .catch(() => { /* profil non critique */ });
     });
 
     watch('lan/settings', value => {
@@ -684,12 +768,21 @@ function renderPresence() {
     });
     const away = Object.keys(everyone)
         .filter(uid => !online.includes(uid) && isRostered(uid, sources));
+    const accentData = achData();
     [...online.map(uid => [uid, true]), ...away.map(uid => [uid, false])]
         .slice(0, 6)
         .forEach(([uid, isOnline]) => {
             const img = el('img', isOnline ? 'm-presence__face is-online' : 'm-presence__face is-offline');
             img.src = playerPhoto(uid);
             img.alt = `${playerName(uid)} — ${isOnline ? 'connecté' : 'déconnecté'}`;
+            /* La couleur du titre équipé, en liseré : elle ne se voyait que sur
+               sa propre carte Signature. Voir playerAccent (core.js). */
+            const accent = playerAccent(accentData, uid);
+            if (accent && accent.accent) {
+                img.style.setProperty('--face-accent', accent.accent);
+                img.classList.add('has-accent');
+                img.alt += ` · ${accent.label}`;
+            }
             img.title = img.alt;
             /* Un visage ouvre la fiche : c'est le chemin le plus court vers
                « qui est ce joueur, et qu'a-t-il fait ». */
@@ -1172,7 +1265,9 @@ function readMyVote() {
     const draft = { p1: [], p2: [], p3: [], p_other: [] };
     if (mine && mine.votes) {
         PRIORITIES.forEach(p => {
-            draft[p.key] = Array.isArray(mine.votes[p.key]) ? [...mine.votes[p.key]] : [];
+            // voteList plutôt qu'un test de tableau : une priorité revenue en
+            // objet (clés non contiguës) était jetée en silence.
+            draft[p.key] = voteList(mine.votes[p.key]);
         });
     }
     return draft;
@@ -1211,8 +1306,21 @@ function addToDraft(gameName, priority) {
     return true;
 }
 
+/* Les jeux déjà proposés par le groupe, offerts en complétion à la frappe. */
+function refreshGameDatalist() {
+    const datalist = $('m-voted-games');
+    if (!datalist) return;
+    datalist.replaceChildren();
+    (state.scores || []).forEach(game => {
+        const option = document.createElement('option');
+        option.value = game.name;
+        datalist.appendChild(option);
+    });
+}
+
 function renderVote() {
     if (voteDraft === null) voteDraft = readMyVote();
+    refreshGameDatalist();
     const mount = $('m-vote-groups');
     const open = !!state.settings.isVotingOpen;
 
@@ -1264,6 +1372,10 @@ function renderVote() {
             const input = el('input', 'm-input');
             input.placeholder = p.key === 'p1' ? 'Le jeu que tu veux absolument' : 'Ajouter un jeu';
             input.setAttribute('aria-label', `Ajouter un jeu en ${p.label}`);
+            /* Complétion sur ce que le groupe a déjà proposé : deux
+               orthographes du même jeu le comptaient comme deux jeux. */
+            input.setAttribute('list', 'm-voted-games');
+            input.autocomplete = 'off';
             input.dataset.prioInput = p.key;
             if (typing[p.key]) input.value = typing[p.key];
 
@@ -5399,6 +5511,26 @@ function openProfile(uid) {
 
         const ident = el('div', 'm-prof__ident');
         ident.appendChild(el('h2', 'm-prof__name', playerName(uid)));
+
+        /* Changer son nom affiché, sur sa propre fiche seulement. Beaucoup de
+           comptes Google ici ont dix ans et un pseudo qu'on ne reconnaît plus.
+           Le nom vit dans `lan/users/<uid>/name`, que les règles n'ouvrent
+           qu'à son propriétaire, et il fait autorité (voir playerName). */
+        if (state.user && uid === state.user.uid) {
+            const rename = el('button', 'm-prof__rename', '✎ Changer mon nom');
+            rename.addEventListener('click', () => {
+                const proposed = window.prompt(
+                    'Ton nom, tel que le groupe le verra partout :', playerName(uid));
+                if (proposed === null) return;
+                const clean = proposed.trim().replace(/\s+/g, ' ').slice(0, 40);
+                if (!clean) { showToast('Il faut bien un nom.', 'error'); return; }
+                db.ref('lan/users/' + uid + '/name').set(clean)
+                    .then(() => { showToast('Nom mis à jour.', 'success'); openProfile(uid); })
+                    .catch(e => showToast('Erreur : ' + e.message, 'error'));
+            });
+            ident.appendChild(rename);
+        }
+
         const nickname = el('p', 'm-prof__nick', profile.nickname ? '« ' + profile.nickname + ' »' : '');
         nickname.hidden = !profile.nickname;
         ident.appendChild(nickname);
@@ -6174,6 +6306,9 @@ document.addEventListener('click', (e) => {
     }
     if (e.target.closest('[data-sheet-close]')) closeSheet();
 });
+
+// La feuille est un élément unique du document : on branche le geste une fois.
+attachSheetDrag();
 
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') { closeSheet(); return; }

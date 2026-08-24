@@ -46,10 +46,10 @@
                         <path d="M15 6l-6 6 6 6" />
                     </svg>
                 </button>
-                <span class="m-appbar__brand">
+                <button type="button" class="m-appbar__brand" id="m-brand" aria-label="Revenir à l'accueil">
                     <span class="m-appbar__name" id="m-lan-name">LAN Demain</span>
                     <span class="m-appbar__meta" id="m-lan-meta">La prochaine nuit</span>
-                </span>
+                </button>
                 <span class="m-live" id="m-phase" style="display:none"><span class="m-live__dot"></span><span
                         id="m-phase-label">En cours</span></span>
                 <button class="m-iconbtn" id="m-btn-notifs" aria-label="Notifications">
@@ -138,6 +138,9 @@
 
             <!-- ---------- VOTE ---------- -->
             <section class="m-screen" data-screen="vote">
+                <!-- Les jeux déjà proposés par le groupe, pour que chaque champ
+                     les complète à la frappe. Rempli par refreshGameDatalist(). -->
+                <datalist id="m-voted-games"></datalist>
                 <div class="m-section">
                     <div class="m-section__head">
                         <h2 class="m-section__title">Mon vote</h2>

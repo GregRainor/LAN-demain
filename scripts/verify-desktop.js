@@ -49,7 +49,11 @@ assert(/id="user-info-menu"[^>]*role="button"[^>]*tabindex="0"/.test(html), 'Own
 assert(/admin-command-card--broadcast/.test(html) && /admin-command-card--danger/.test(html), 'Active admin console structure is incomplete');
 assert(/id="vote-history-podium"/.test(html) && /id="vote-history-game-count"/.test(html), 'Vote history must keep its desktop summary and podium');
 assert(/class="desktop-vote-intro"/.test(html) && /class="vote-panel-heading/.test(html), 'Voting phase must use the desktop editorial structure');
-assert(/desktop-vote-intro__rule/.test(html) && /À quoi joue-t-on/.test(html), 'Voting intro must use the compact ballot framing');
+/* Le rappel « POIDS DU BULLETIN · 5 · 3 · 2 · 1 » a été retiré le 24 août : il
+   répétait le barème déjà porté par chaque priorité du bulletin, juste à côté.
+   L'accroche, elle, reste. */
+assert(/À quoi joue-t-on/.test(html), 'Voting intro must keep its editorial hook');
+assert(!/desktop-vote-intro__rule/.test(html), 'The ballot-weight reminder was removed as redundant');
 assert((html.match(/class="add-game-btn"/g) || []).length === 3 && /add-game-btn"><span[^>]*>\+<\/span> Ajouter un jeu/.test(html), 'Voting add controls must be explicit and remain below their lists');
 assert(/let desktopVotingDestination = 'games'/.test(script) && /phase === 'voting' && destination === 'home'/.test(script), 'Events must route to Programme while voting is open');
 // Pendant le vote, on quitte le Programme par le rail : « Jeux » ramène au

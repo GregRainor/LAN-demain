@@ -2027,6 +2027,20 @@ function playerNickname(data, uid) {
     return unlocked ? unlocked.label : '';
 }
 
+/* La couleur d'un joueur : celle du titre qu'il a choisi d'équiper.
+   Un titre n'est pas qu'un mot, c'est une direction artistique — les joueurs
+   la voyaient sur leur propre carte Signature et nulle part ailleurs. La
+   rendre ici permet de la porter partout où l'on nomme quelqu'un, à commencer
+   par la table des présents. Sans titre équipé, on ne rend rien : au dessin
+   d'utiliser sa couleur par défaut plutôt qu'un or arbitraire. */
+function playerAccent(data, uid) {
+    if (!uid) return null;
+    const selected = (((data && data.profiles || {})[uid] || {}).equippedTitleId) || '';
+    if (!selected) return null;
+    const title = unlockedProfileTitles(data, uid).find(t => t.id === selected);
+    return title ? { accent: title.accent, accent2: title.accent2, label: title.label } : null;
+}
+
 /* Le nom complet, surnom compris. Sans surnom, on rend le nom seul — jamais
    des guillemets vides. */
 function playerFullName(name, nickname) {

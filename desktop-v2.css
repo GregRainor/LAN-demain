@@ -11,7 +11,12 @@
     --desktop-panel-deep: #090909;
     --desktop-line: rgba(212, 175, 55, 0.16);
     --desktop-line-white: rgba(255, 255, 255, 0.075);
-    --desktop-dim: #706f6b;
+    /* Le gris secondaire du bureau. #706f6b ne donnait que 4.10:1 sur le fond
+       #030303 — sous le seuil AA (4.5:1), et il porte surtout du 10px en
+       capitales espacées : la date de la LAN, les sur-titres, les méta. On
+       monte à 6.1:1, ce qui reste nettement secondaire face au texte plein
+       mais se lit enfin. */
+    --desktop-dim: #8e8c86;
     --desktop-orange: #ff833c;
     --desktop-blue: #4f9bb4;
     --desktop-purple: #bd54d2;
@@ -986,6 +991,19 @@ body.desktop-authenticated #app-container.desktop-os *::after {
 
 #active-users-sidebar .user-avatar-container.is-online .user-avatar-icon { filter: none; }
 
+/* La couleur du titre équipé, portée en liseré autour de l'avatar. Un anneau
+   plutôt qu'un fond : dix joueurs, dix couleurs, et la bande doit rester
+   lisible. Hors ligne, elle s'éteint avec le reste. */
+#active-users-sidebar .user-avatar-container.has-accent .user-avatar-icon {
+    border: 2px solid var(--roster-accent);
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6), 0 0 9px -1px var(--roster-accent);
+}
+
+#active-users-sidebar .user-avatar-container.has-accent.is-offline .user-avatar-icon {
+    border-color: color-mix(in srgb, var(--roster-accent) 40%, transparent);
+    box-shadow: none;
+}
+
 #active-users-sidebar .user-avatar-container.is-online .presence-dot {
     animation: desktopPresencePulse 2.4s ease-in-out infinite;
 }
@@ -1301,13 +1319,12 @@ body.desktop-authenticated #app-container.desktop-os *::after {
 
 #view-voting-open { max-width: none !important; }
 
+/* Une seule colonne depuis que le rappel du barème est parti : il doublait
+   ce que chaque priorité du bulletin affiche déjà, juste en dessous. */
 .desktop-vote-intro {
-    min-height: 104px;
     margin-bottom: 18px;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
-    gap: 40px;
     padding: 7px 2px 19px;
     border-bottom: 1px solid var(--desktop-line-white);
 }
@@ -1322,34 +1339,6 @@ body.desktop-authenticated #app-container.desktop-os *::after {
     margin: 0;
     color: var(--secondary-text);
     font-size: 12px;
-}
-
-.desktop-vote-intro__rule {
-    min-width: 260px;
-    padding: 14px 0 14px 24px;
-    display: grid;
-    grid-template-columns: auto auto;
-    align-items: baseline;
-    gap: 5px 18px;
-    border-left: 1px solid rgba(212, 175, 55, 0.32);
-}
-
-.desktop-vote-intro__rule span {
-    color: var(--desktop-dim);
-    font-size: 9px;
-    letter-spacing: 0.15em;
-}
-
-.desktop-vote-intro__rule strong {
-    color: var(--accent-color);
-    font: 400 22px/1 var(--font-display);
-    letter-spacing: 0.08em;
-}
-
-.desktop-vote-intro__rule small {
-    grid-column: 1 / -1;
-    color: var(--secondary-text);
-    font-size: 10px;
 }
 
 #view-voting-open > .two-column-layout { display: block; }
@@ -3655,6 +3644,32 @@ body.desktop-authenticated #app-container.desktop-os *::after {
 }
 #player-votes-modal .prof-head__lvl { max-width: 100%; color: #8c8a84; font-size: 12px; line-height: 1.4; letter-spacing: .055em; text-align: center; text-wrap: balance; overflow-wrap: anywhere; }
 
+/* Le crayon qui renomme. Discret sur sa propre fiche, absent des autres : il
+   se pose sous le nom plutôt qu'à côté, où il aurait déséquilibré un titre
+   centré qui peut courir sur deux lignes. */
+#player-votes-modal .prof-head__rename {
+    justify-self: center;
+    margin-top: -4px;
+    padding: 4px 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid rgba(243, 239, 231, 0.22);
+    border-radius: 99px;
+    background: transparent;
+    color: #cfcbc2;
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+    transition: border-color var(--desktop-motion-fast) ease, color var(--desktop-motion-fast) ease;
+}
+
+#player-votes-modal .prof-head__rename:hover,
+#player-votes-modal .prof-head__rename:focus-visible {
+    border-color: var(--accent-color);
+    color: #f3efe7;
+}
+
 #player-votes-modal .prof-head__nick {
     position: relative;
     isolation: isolate;
@@ -3962,8 +3977,6 @@ body.desktop-authenticated #app-container.desktop-os *::after {
 }
 
 @media (max-width: 1180px) {
-    .desktop-vote-intro { grid-template-columns: 1fr; min-height: 0; }
-    .desktop-vote-intro__rule { min-width: 0; padding-left: 0; border-left: 0; }
     #view-voting-open #admin-panel-open { grid-template-columns: 1fr minmax(220px, auto); }
     #view-voting-open .admin-sidebar-copy { grid-column: 1 / -1; }
     #view-voting-open .vote-layout { grid-template-columns: 1fr; }

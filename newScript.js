@@ -912,8 +912,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const identity = statusIdentity(node);
             if (identity) put(uid, identity.name, identity.avatar || identity.photo, true);
         });
-        Object.entries(globalProfiles || {}).forEach(([uid, p]) => put(uid, p && p.name, p && p.avatar, false));
+        /* `put` laisse gagner le DERNIER nom non vide : la fiche durable passe
+           donc en dernier, parce que c'est elle que le joueur édite. Avant, le
+           nom figé dans son bulletin reprenait le dessus et le renommage ne
+           se voyait nulle part. */
         Object.entries(globalVotes || {}).forEach(([uid, v]) => put(uid, v && v.name, null, false));
+        Object.entries(globalProfiles || {}).forEach(([uid, p]) => put(uid, p && p.name, p && p.avatar, false));
 
         // Connecté, votant, ou vu dans les sept derniers jours (isRostered).
         // Le dernier cas manquait : un joueur passé dans la journée sans voter
@@ -977,10 +981,23 @@ document.addEventListener('DOMContentLoaded', () => {
             body.classList.remove('sidebar-visible');
         }
 
+        const accentData = desktopData();
+
         roster.forEach(player => {
             const slot = document.createElement('div');
             slot.className = 'user-avatar-container ' + (player.online ? 'is-online' : 'is-offline');
             slot.dataset.name = `${player.name || 'Joueur'} — ${player.online ? 'connecté' : 'déconnecté'}`;
+
+            /* La couleur du titre équipé : jusqu'ici on ne la voyait que sur sa
+               propre carte Signature. Elle sert de liseré autour de l'avatar,
+               pas de fond — le trombinoscope doit rester lisible même quand
+               dix joueurs ont dix couleurs. */
+            const accent = playerAccent(accentData, player.uid);
+            if (accent && accent.accent) {
+                slot.style.setProperty('--roster-accent', accent.accent);
+                slot.classList.add('has-accent');
+                slot.dataset.name += ` · ${accent.label}`;
+            }
 
             const img = document.createElement('img');
             img.src = safeAvatarUrl(player.avatar, initialsAvatar(player.name));
@@ -1148,6 +1165,30 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    /* Renommer : une invite simple plutôt qu'une modale de plus. Le nom part
+       dans `lan/users`, qui fait désormais autorité sur celui de Google
+       (voir playerLabel). On borne à 40 caractères — les règles en acceptent
+       300, mais une bande de trombinoscope n'en affiche pas trente. */
+    function promptRename(uid, currentName) {
+        const proposed = window.prompt(
+            'Ton nom, tel que le groupe le verra partout :', currentName || '');
+        if (proposed === null) return;
+
+        const clean = proposed.trim().replace(/\s+/g, ' ').slice(0, 40);
+        if (!clean) {
+            showToast('Il faut bien un nom.', 'error');
+            return;
+        }
+
+        db.ref('lan/users/' + uid + '/name').set(clean)
+            .then(() => {
+                showToast('Nom mis à jour.', 'success');
+                renderPlayerProfileHead(uid, clean);
+                renderActiveUsers();
+            })
+            .catch(err => showToast('Erreur : ' + err.message, 'error'));
+    }
+
     /* La fiche est une carte de collection à part entière. Son titre est choisi
        parmi les hauts faits permanents et devient sa direction artistique. */
     function renderPlayerProfileHead(uid, userName) {
@@ -1170,6 +1211,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (nick) {
             nick.textContent = profile.nickname ? `« ${profile.nickname} »` : '';
             nick.style.display = profile.nickname ? 'block' : 'none';
+        }
+
+        /* Changer son nom affiché. Réservé à sa propre fiche : on renomme le
+           joueur, pas ses voisins. Le nom vit dans `lan/users/<uid>/name`, que
+           les règles n'ouvrent qu'à son propriétaire. */
+        const rename = document.getElementById('player-prof-rename');
+        if (rename) {
+            const isMine = !!(auth.currentUser && uid === auth.currentUser.uid);
+            rename.style.display = isMine ? 'inline-flex' : 'none';
+            rename.onclick = isMine ? () => promptRename(uid, userName) : null;
         }
 
         const lvl = document.getElementById('player-prof-lvl');
@@ -1374,11 +1425,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 writeMyPresence();
                 // Copie qui survit à la déconnexion : /status est effacé en
                 // partant, la fiche reste pour afficher la photo d'un absent.
-                db.ref('lan/users/' + user.uid).update({
-                    name: user.displayName || '',
+                /* Le nom n'est PLUS écrasé à chaque connexion : il est
+                   désormais éditable dans le profil, et le réécrire depuis
+                   Google effacerait le choix du joueur à sa reconnexion
+                   suivante. On ne le pose donc qu'à la première venue. La
+                   photo et la dernière visite, elles, restent à jour. */
+                const profileRef = db.ref('lan/users/' + user.uid);
+                profileRef.update({
                     avatar: user.photoURL || '',
                     lastSeen: Date.now()
                 }).catch(() => { /* profil non critique : le vote passe avant */ });
+                profileRef.child('name').once('value')
+                    .then(snap => {
+                        if (!snap.exists() || !snap.val()) {
+                            profileRef.child('name').set(user.displayName || user.email || '');
+                        }
+                    })
+                    .catch(() => { /* profil non critique */ });
             }
         });
 
@@ -1835,7 +1898,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const playerVotes = { p1: [], p2: [], p3: [], p_other: [] };
             const allNewGames = new Set();
 
-            document.querySelectorAll('.priority-group').forEach(group => {
+            document.querySelectorAll('#vote-form .priority-group').forEach(group => {
                 const priority = group.dataset.priority;
                 group.querySelectorAll('.game-input-list input').forEach(input => {
                     // On stocke le nom avec sa casse d'origine ; la normalisation ne sert qu'aux comparaisons
@@ -1847,6 +1910,25 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
             });
+
+            /* Un bulletin vide soumis par-dessus un bulletin rempli, c'est
+               presque toujours un accident : on vote depuis le téléphone, on
+               rouvre le PC, et un formulaire qui ne s'est pas rempli efface
+               tout. On demande donc confirmation — vider son bulletin reste
+               possible, mais plus par mégarde. */
+            const stored = globalVotes[userIdToSave];
+            const storedCount = stored && stored.votes
+                ? Object.keys(stored.votes).reduce((n, key) => n + voteList(stored.votes[key]).length, 0)
+                : 0;
+            const submittedCount = Object.values(playerVotes).reduce((n, list) => n + list.length, 0);
+
+            if (submittedCount === 0 && storedCount > 0) {
+                const wipe = await askConfirm(
+                    `Votre bulletin enregistré contient ${storedCount} jeu${storedCount > 1 ? 'x' : ''}, `
+                    + 'et celui affiché ici est vide. Soumettre effacerait tout.',
+                    { title: '🗳️ Vider le bulletin ?', danger: true, confirmLabel: 'Effacer mon vote' });
+                if (!wipe) return;
+            }
 
             // Un même jeu ne peut pas occuper deux priorités : il cumulerait
             // les points et fausserait le classement.
@@ -1964,6 +2046,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
+    /* Les jeux déjà proposés par le groupe, offerts en complétion. Écrire deux
+       fois le même jeu avec deux orthographes le comptait comme deux jeux —
+       la passe de correction rattrapait après coup, autant l'éviter avant. */
+    function refreshGameDatalist() {
+        const datalist = document.getElementById('voted-games');
+        if (!datalist) return;
+        datalist.replaceChildren();
+        calculateScores(globalVotes).forEach(game => {
+            const option = document.createElement('option');
+            option.value = game.name;
+            datalist.appendChild(option);
+        });
+    }
+
     function createInput(value, isFirst, list) {
         const wrapper = document.createElement('div');
         wrapper.className = 'game-input-wrapper';
@@ -1972,6 +2068,8 @@ document.addEventListener('DOMContentLoaded', () => {
         input.type = 'text';
         input.value = value;
         input.placeholder = 'Jeu...';
+        input.setAttribute('list', 'voted-games');
+        input.autocomplete = 'off';
         if (list.closest('.priority-group')?.dataset.priority === 'p1') {
             input.placeholder = 'Le jeu que vous voulez absolument...';
         }
@@ -1997,22 +2095,36 @@ document.addEventListener('DOMContentLoaded', () => {
         list.appendChild(wrapper);
     }
 
+    /* Remplir le bulletin depuis la base.
+       Cette fonction ne doit JAMAIS lever : si elle s'interrompt, le
+       formulaire reste sans le moindre champ — pas même celui de la priorité 1,
+       qui n'a pas de bouton « ajouter » puisqu'elle n'accepte qu'un jeu. Le
+       joueur ne peut alors plus rien saisir, et sa soumission suivante écrase
+       le bulletin qu'il avait posé depuis son téléphone.
+
+       Deux formes de données produisaient exactement ça :
+         - `{ name: … }` sans `votes` — Firebase ne stocke pas un objet vide,
+           donc soumettre un bulletin vide effaçait la clé et condamnait le
+           formulaire pour de bon ;
+         - une priorité qui n'est pas un tableau, sur laquelle `.forEach`
+           n'existe pas.
+       D'où `voteList()` (core.js), qui ramène n'importe quelle forme à une
+       liste sûre. */
     function loadVoteIntoForm(userId, allVotes, currentUser) {
         const voteData = allVotes[userId];
-        const playerVotes = voteData ? voteData.votes : {};
+        const playerVotes = (voteData && voteData.votes) || {};
         const submitBtn = document.getElementById('submit-vote-btn');
 
+        const hasVoted = Object.keys(playerVotes).some(key => voteList(playerVotes[key]).length > 0);
         if (submitBtn) {
-            if (userId === currentUser.uid && voteData && Object.values(playerVotes).some(p => p.length > 0)) {
-                submitBtn.textContent = 'Mettre à jour mon Vote';
-            } else {
-                submitBtn.textContent = 'Soumettre mon Vote';
-            }
+            submitBtn.textContent = (userId === currentUser.uid && hasVoted)
+                ? 'Mettre à jour mon Vote'
+                : 'Soumettre mon Vote';
         }
 
-        document.querySelectorAll('.priority-group').forEach(group => {
+        document.querySelectorAll('#vote-form .priority-group').forEach(group => {
             const priority = group.dataset.priority;
-            const games = playerVotes[priority] || [];
+            const games = voteList(playerVotes[priority]);
             const list = group.querySelector('.game-input-list');
             if (list) {
                 list.innerHTML = '';
@@ -2024,6 +2136,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
+        refreshGameDatalist();
         renderVoteSuggestions();
     }
 
@@ -6753,11 +6866,16 @@ document.addEventListener('DOMContentLoaded', () => {
         return Object.keys(seen);
     }
 
+    /* Le nom d'un joueur, par ordre d'autorité. `lan/users` passe devant
+       tout le reste depuis qu'il est éditable : c'est le nom que le joueur a
+       choisi, et il doit l'emporter sur celui que Google lui donne — beaucoup
+       de comptes ici sont vieux de dix ans. Les autres sources restent le
+       repli pour qui n'a jamais rien changé. */
     function playerLabel(uid) {
+        if (globalProfiles[uid] && globalProfiles[uid].name) return globalProfiles[uid].name;
         if (globalVotes[uid] && globalVotes[uid].name) return globalVotes[uid].name;
         const identity = statusIdentity(globalUsers[uid]);
         if (identity && identity.name) return identity.name;
-        if (globalProfiles[uid] && globalProfiles[uid].name) return globalProfiles[uid].name;
         return 'Un joueur';
     }
 

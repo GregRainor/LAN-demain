@@ -200,11 +200,6 @@
                     <h2>À quoi joue-t-on&nbsp;?</h2>
                     <p>Classe tes envies. Le groupe fait le reste.</p>
                 </div>
-                <div class="desktop-vote-intro__rule">
-                    <span>POIDS DU BULLETIN</span>
-                    <strong>5 · 3 · 2 · 1</strong>
-                    <small>Une hiérarchie simple, un vrai classement.</small>
-                </div>
             </header>
 
             <div class="two-column-layout">
@@ -269,6 +264,10 @@
                                     <h2>Mes priorités</h2>
                                     <span>5 · 3 · 2 · 1 points</span>
                                 </div>
+                                <!-- Les jeux déjà proposés par le groupe, pour
+                                     que chaque champ les complète à la frappe.
+                                     Rempli par refreshGameDatalist(). -->
+                                <datalist id="voted-games"></datalist>
                                 <form id="vote-form">
                                     <div class="priority-group" data-priority="p1">
                                         <h3>Priorité 1 <span>(5 pts)</span></h3>
@@ -1425,6 +1424,11 @@
                         </div>
                         <div class="prof-signature-card__identity">
                             <h3 id="player-votes-name" class="prof-head__name">Joueur</h3>
+                            <!-- N'apparaît que sur sa propre fiche : beaucoup de
+                                 comptes Google ici datent d'il y a dix ans. -->
+                            <button type="button" id="player-prof-rename" class="prof-head__rename"
+                                title="Changer mon nom affiché" aria-label="Changer mon nom affiché"
+                                style="display:none">✎</button>
                             <p id="player-prof-nick" class="prof-head__nick"></p>
                             <p id="player-prof-lvl" class="prof-head__lvl"></p>
                         </div>
