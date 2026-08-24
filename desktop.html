@@ -295,6 +295,17 @@
                                     <div class="form-actions">
                                         <button type="submit" id="submit-vote-btn">Soumettre mon Vote</button>
                                     </div>
+                                    <!-- Ce que la base contient VRAIMENT pour ce
+                                         joueur, indépendamment de ce qu'affiche
+                                         le formulaire. Un vote posé depuis le
+                                         téléphone se voit donc ici, même si on
+                                         a commencé à taper autre chose. -->
+                                    <p id="stored-ballot-note" class="panel-section__hint"
+                                        style="margin-top:10px;"></p>
+                                    <!-- N'apparaît que si une LAN archivée garde
+                                         un bulletin de ce joueur. -->
+                                    <button type="button" id="reuse-ballot-btn" class="gold-link-btn"
+                                        style="display:none; margin-top:10px;"></button>
                                 </form>
                             </div>
 
@@ -1214,6 +1225,24 @@
                                     placeholder="Ex : chez Greg, 12 rue des Pixels" data-schedule="lanPlace">
                                 <button class="gold-btn schedule-save-btn" style="padding: 12px 20px;">Enregistrer</button>
                             </div>
+                        </div>
+
+                        <!-- Attribution manuelle des hauts faits. La plupart se
+                             gagnent tout seuls, mais certains ne se déduisent
+                             d'aucun compteur (« bêta-testeur »), et une soirée
+                             réserve toujours un cas qu'aucune règle ne prévoit. -->
+                        <div class="luxury-panel admin-command-card" style="padding: 25px; margin-bottom: 25px;">
+                            <h3 style="margin-top: 0; color: var(--accent-color); border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px;">🏅 Hauts faits</h3>
+                            <div class="admin-select-group" style="gap: 12px;">
+                                <label for="ach-user-select">Joueur</label>
+                                <select id="ach-user-select" class="luxury-input" style="width: 100%;">
+                                    <option value="">Sélectionner un joueur...</option>
+                                </select>
+                            </div>
+                            <p class="panel-section__hint" id="ach-admin-hint" style="margin-top: 12px;">
+                                Choisis un joueur pour voir ce qu'il a décroché.
+                            </p>
+                            <div id="ach-admin-list" class="stack stack--start" style="margin-top: 12px;"></div>
                         </div>
 
                         <!-- Role Management -->

@@ -1413,7 +1413,40 @@ function renderVote() {
     }
 
     const total = draftTotal();
-    $('m-vote-count').textContent = `${total} jeu${total > 1 ? 'x' : ''}`;
+
+    /* « Reprendre mon bulletin de la dernière LAN » : beaucoup de jeux
+       reviennent d'une soirée à l'autre, et les retaper au pouce décourage de
+       voter. On remplit le brouillon sans l'enregistrer — le joueur relit,
+       ajuste, puis soumet. */
+    const reuse = $('m-vote-reuse');
+    const previous = open ? lastBallotFor(state.history, state.user && state.user.uid) : null;
+    if (reuse) {
+        reuse.style.display = previous ? 'block' : 'none';
+        if (previous) {
+            reuse.textContent = '↺ Reprendre mes ' + previous.count + ' jeux de « ' + previous.name + ' »';
+            reuse.onclick = () => {
+                if (total > 0 && !window.confirm('Ton vote en cours sera remplacé par celui de « ' + previous.name + ' ».')) return;
+                voteDraft = {
+                    p1: previous.votes.p1.slice(0, 1),
+                    p2: previous.votes.p2.slice(),
+                    p3: previous.votes.p3.slice(),
+                    p_other: previous.votes.p_other.slice()
+                };
+                renderVote();
+                showToast('Bulletin repris — relis-le puis enregistre.', 'success');
+            };
+        }
+    }
+
+    /* Ce que la base contient vraiment, à côté du brouillon en cours : c'est ce
+       qui rend visible un écart entre deux appareils. */
+    const stored = ((state.votes[state.user && state.user.uid] || {}).votes) || {};
+    const storedTotal = ['p1', 'p2', 'p3', 'p_other']
+        .reduce((n, key) => n + voteList(stored[key]).length, 0);
+
+    $('m-vote-count').textContent = storedTotal === total
+        ? `${total} jeu${total > 1 ? 'x' : ''}`
+        : `${total} en cours · ${storedTotal} enregistré${storedTotal > 1 ? 's' : ''}`;
     $('m-vote-submit').disabled = !open;
     $('m-vote-submit').textContent = open ? 'Enregistrer mon vote' : 'Le vote est clos';
     $('m-vote-hint').textContent = open

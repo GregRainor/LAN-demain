@@ -991,17 +991,34 @@ body.desktop-authenticated #app-container.desktop-os *::after {
 
 #active-users-sidebar .user-avatar-container.is-online .user-avatar-icon { filter: none; }
 
-/* La couleur du titre équipé, portée en liseré autour de l'avatar. Un anneau
-   plutôt qu'un fond : dix joueurs, dix couleurs, et la bande doit rester
-   lisible. Hors ligne, elle s'éteint avec le reste. */
-#active-users-sidebar .user-avatar-container.has-accent .user-avatar-icon {
-    border: 2px solid var(--roster-accent);
-    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6), 0 0 9px -1px var(--roster-accent);
+/* La couleur du titre équipé, portée en bannière sur toute la ligne plutôt
+   qu'en anneau autour de l'avatar : cerclée, elle se confondait avec la
+   pastille de présence juste à côté. Le dégradé s'éteint vers la droite pour
+   que le nom reste sur le fond sombre, donc lisible quelle que soit la
+   couleur du joueur. */
+#active-users-sidebar .user-avatar-container.has-accent {
+    border-left-color: var(--roster-accent);
+    background: linear-gradient(90deg,
+        color-mix(in srgb, var(--roster-accent) 26%, transparent) 0%,
+        color-mix(in srgb, var(--roster-accent) 8%, transparent) 45%,
+        transparent 90%);
 }
 
-#active-users-sidebar .user-avatar-container.has-accent.is-offline .user-avatar-icon {
-    border-color: color-mix(in srgb, var(--roster-accent) 40%, transparent);
-    box-shadow: none;
+/* Le survol garde la main : sinon la bannière avalait l'état interactif. */
+#active-users-sidebar .user-avatar-container.has-accent:hover {
+    border-left-color: var(--roster-accent);
+    background: linear-gradient(90deg,
+        color-mix(in srgb, var(--roster-accent) 40%, transparent) 0%,
+        color-mix(in srgb, var(--roster-accent) 14%, transparent) 45%,
+        rgba(212, 175, 55, 0.05) 90%);
+}
+
+/* Absent, la couleur s'efface avec le reste de la ligne. */
+#active-users-sidebar .user-avatar-container.has-accent.is-offline {
+    border-left-color: color-mix(in srgb, var(--roster-accent) 45%, transparent);
+    background: linear-gradient(90deg,
+        color-mix(in srgb, var(--roster-accent) 11%, transparent) 0%,
+        transparent 70%);
 }
 
 #active-users-sidebar .user-avatar-container.is-online .presence-dot {

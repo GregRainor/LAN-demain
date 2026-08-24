@@ -99,6 +99,33 @@ function checkTypos(newGames, currentVotes) {
     return suggestions;
 }
 
+/* Le dernier bulletin qu'un joueur a déposé lors d'une LAN archivée.
+   Chaque entrée d'historique garde le instantané complet des votes : on peut
+   donc reproposer à quelqu'un ce qu'il avait choisi la dernière fois, plutôt
+   que de lui faire retaper huit titres. On rend le plus récent qui contienne
+   vraiment quelque chose — une LAN où il n'a pas voté ne l'intéresse pas. */
+function lastBallotFor(history, uid) {
+    if (!uid) return null;
+    const entries = Object.values(history || {})
+        .filter(Boolean)
+        .sort((a, b) => (Number(b.timestamp) || 0) - (Number(a.timestamp) || 0));
+
+    for (const entry of entries) {
+        const mine = ((entry.votes || {})[uid] || {}).votes;
+        if (!mine) continue;
+        const ballot = {};
+        let total = 0;
+        ['p1', 'p2', 'p3', 'p_other'].forEach(key => {
+            ballot[key] = voteList(mine[key]);
+            total += ballot[key].length;
+        });
+        if (total > 0) {
+            return { name: entry.name || 'LAN précédente', date: entry.date || '', votes: ballot, count: total };
+        }
+    }
+    return null;
+}
+
 function calculateScores(votes) {
     const gameScores = {};
     const displayNames = {}; // garde la "vraie" casse du nom (ex: "PUBG" et pas "Pubg")

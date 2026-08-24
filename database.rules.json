@@ -90,7 +90,7 @@
 
         "purchases": {
           "$purchase_id": {
-            ".write": "auth != null && ((!data.exists() && newData.child('uid').val() === auth.uid && newData.child('status').val() === 'granted') || root.child('lan/roles').child(auth.uid).val() === 'admin' || root.child('lan/roles').child(auth.uid).val() === 'gamemaster' || auth.uid === 'ITe5VPuwewMzO7JnJA5oPWMdfvt2')",
+            ".write": "auth != null && ((!data.exists() && newData.child('uid').val() === auth.uid && newData.child('status').val() === 'granted') || (data.exists() && !newData.exists() && data.child('uid').val() === auth.uid && data.child('status').val() === 'pending') || root.child('lan/roles').child(auth.uid).val() === 'admin' || root.child('lan/roles').child(auth.uid).val() === 'gamemaster' || auth.uid === 'ITe5VPuwewMzO7JnJA5oPWMdfvt2')",
             ".validate": "newData.hasChildren(['itemId', 'uid', 'price', 'status', 'ts']) && (data.exists() || newData.child('price').val() === root.child('lan/economy/catalog').child(newData.child('itemId').val()).child('price').val())"
           }
         }
