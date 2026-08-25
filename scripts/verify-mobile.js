@@ -24,6 +24,11 @@ function functionSource(name) {
 const ids = [...html.matchAll(/id="([^"]+)"/g)].map(match => match[1]);
 const duplicates = ids.filter((id, index) => ids.indexOf(id) !== index);
 assert.deepStrictEqual([...new Set(duplicates)], [], 'm.html contains duplicate IDs');
+const externalScripts = [...html.matchAll(/<script\b[^>]*\bsrc="[^"]+"[^>]*>/g)].map(match => match[0]);
+assert(externalScripts.length >= 7 && externalScripts.every(tag => /\bdefer\b/.test(tag)),
+    'Every mobile script must preserve ordered, non-blocking loading');
+assert(!/\bsrc=""/.test(html) && !/\.src\s*=\s*['"]['"]/.test(script),
+    'Mobile must not create empty image requests');
 
 assert(/profiles:\s*state\.profiles/.test(script)
     && /roles:\s*state\.roles/.test(script)

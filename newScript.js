@@ -684,7 +684,8 @@ document.addEventListener('DOMContentLoaded', () => {
             authContainer.style.display = 'none';
             appContainer.style.display = 'block';
             userNameSpan.textContent = user.displayName || user.email;
-            userAvatarImg.src = user.photoURL || '';
+            userAvatarImg.src = safeAvatarUrl(user.photoURL,
+                initialsAvatar(user.displayName || user.email || 'Joueur'));
             resetVoteEditor(user.uid);
             initializeApp(user);
         } else {
@@ -2631,7 +2632,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (winnerImage) {
             winnerImage.classList.remove('loaded');
-            winnerImage.src = '';
+            winnerImage.removeAttribute('src');
             if (winnerName !== '--') {
                 getGameImage(winnerName).then(imageUrl => {
                     winnerImage.src = imageUrl;

@@ -7,9 +7,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LAN Demain</title>
 
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js" integrity="sha384-v3Z/Xdw1sCeo6M/geW7sn1Lt9obIm7MhAk8laVV+rvYFmzuWDELOiygx7dVte2dX" crossorigin="anonymous"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js" integrity="sha384-p62xBRve8PdqGDGASZtZMuHgPsyPcT5VsFwgmz2p4zaFdEtt5ZzNqxK+CLzQS7xP" crossorigin="anonymous"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js" integrity="sha384-fuqdSwJXSvcAuKu5FbSJcHqHK474liv5ji8tuDnHz1rpfrnuXZPdM0oRaSK6c95L" crossorigin="anonymous"></script>
+    <script defer src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js" integrity="sha384-v3Z/Xdw1sCeo6M/geW7sn1Lt9obIm7MhAk8laVV+rvYFmzuWDELOiygx7dVte2dX" crossorigin="anonymous"></script>
+    <script defer src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js" integrity="sha384-p62xBRve8PdqGDGASZtZMuHgPsyPcT5VsFwgmz2p4zaFdEtt5ZzNqxK+CLzQS7xP" crossorigin="anonymous"></script>
+    <script defer src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js" integrity="sha384-fuqdSwJXSvcAuKu5FbSJcHqHK474liv5ji8tuDnHz1rpfrnuXZPdM0oRaSK6c95L" crossorigin="anonymous"></script>
 
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="desktop-v2.css?v=20260823-pocket-office">
@@ -86,7 +86,7 @@
             </button>
             <div id="user-info-menu" role="button" tabindex="0" aria-label="Ouvrir mon profil">
                 <span id="user-name"></span>
-                <img id="user-avatar" src="" alt="Avatar">
+                <img id="user-avatar" alt="">
             </div>
             <!-- Une icône fixe, de la même facture que la cloche. Le libellé
                  qui se dépliait au survol poussait tout le bandeau vers la
@@ -248,7 +248,7 @@
                             <span class="stat-strip__label">Jeux proposés</span>
                             <span id="kpi-games-value" class="stat-strip__value">0</span>
                         </div>
-                        <img id="winner-image" src="" alt="" class="stat-strip__thumb">
+                        <img id="winner-image" alt="" class="stat-strip__thumb">
                     </section>
 
                     <!-- Le vote passe en premier : c'est l'action qu'on vient faire -->
@@ -1480,7 +1480,7 @@
                     <div class="prof-signature-card__core">
                         <div class="prof-signature-card__portrait">
                             <span class="prof-signature-card__halo" aria-hidden="true"></span>
-                            <img id="player-prof-face" class="prof-head__face" src="" alt="">
+                            <img id="player-prof-face" class="prof-head__face" alt="">
                         </div>
                         <div class="prof-signature-card__identity">
                             <h3 id="player-votes-name" class="prof-head__name">Joueur</h3>
@@ -1912,10 +1912,10 @@
     </div>
     <div id="toast-container"></div>
 
-    <script src="config.js"></script>
-    <script src="core.js?v=20260825-achievement-themes"></script>
-    <script src="sound.js"></script>
-    <script src="newScript.js?v=20260825-achievement-themes"></script>
+    <script defer src="config.js"></script>
+    <script defer src="core.js?v=20260825-achievement-themes"></script>
+    <script defer src="sound.js"></script>
+    <script defer src="newScript.js?v=20260825-achievement-themes"></script>
 </body>
 
 </html>

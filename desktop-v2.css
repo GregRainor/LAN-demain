@@ -4324,3 +4324,9 @@ body.desktop-authenticated #app-container.desktop-os *::after {
 @media (prefers-reduced-motion:reduce) {
     .achievement-unlock__motif { display:none; }
 }
+/* Filet de sécurité clavier : les composants très dessinés gardent leurs
+   focus spécifiques, tous les autres contrôles restent repérables. */
+:is(a,button,input,select,textarea,summary,[tabindex]):focus-visible {
+    outline: 2px solid var(--accent-color);
+    outline-offset: 3px;
+}

@@ -20,6 +20,15 @@ function ruleBody(css, selector) {
 const ids = [...html.matchAll(/id="([^"]+)"/g)].map(match => match[1]);
 const duplicates = ids.filter((id, index) => ids.indexOf(id) !== index);
 assert.deepStrictEqual([...new Set(duplicates)], [], 'desktop.html contains duplicate IDs');
+const externalScripts = [...html.matchAll(/<script\b[^>]*\bsrc="[^"]+"[^>]*>/g)].map(match => match[0]);
+assert(externalScripts.length >= 7 && externalScripts.every(tag => /\bdefer\b/.test(tag)),
+    'Every desktop script must preserve ordered, non-blocking loading');
+assert(!/\bsrc=""/.test(html) && !/\.src\s*=\s*['"]['"]/.test(script),
+    'Desktop must not create empty image requests');
+assert(/userAvatarImg\.src = safeAvatarUrl\(user\.photoURL/.test(script)
+    && /winnerImage\.removeAttribute\('src'\)/.test(script), 'Desktop avatar and winner fallbacks are incomplete');
+assert(/:is\(a,button,input,select,textarea,summary,\[tabindex\]\):focus-visible/.test(desktopCss),
+    'Desktop controls need a global visible keyboard-focus fallback');
 
 const navTargets = [...html.matchAll(/data-desktop-target="([^"]+)"/g)].map(match => match[1]);
 for (const target of navTargets) {
