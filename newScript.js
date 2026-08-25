@@ -6061,7 +6061,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderWaitingProgramme();
     }
 
-    document.getElementById('waiting-ics')?.addEventListener('click', downloadLanIcs);
+    document.getElementById('waiting-ics')?.addEventListener('click', openLanCalendarChooser);
 
     // --- PHASE 4: ACTIVE LAN LOGIC ---
 
@@ -6731,7 +6731,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const ics = document.createElement('button');
             ics.className = 'gold-link-btn';
             ics.textContent = '📆 Ajouter à mon agenda';
-            ics.addEventListener('click', downloadLanIcs);
+            ics.addEventListener('click', openLanCalendarChooser);
             side.appendChild(ics);
         }
         fragment.appendChild(side);
@@ -6769,8 +6769,45 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Fichier .ics : chacun pose la LAN dans son propre agenda et n'a plus à
-    // se souvenir de la date.
+    let calendarChoiceTrigger = null;
+
+    function closeLanCalendarChooser() {
+        const modal = document.getElementById('calendar-choice-modal');
+        if (!modal || modal.style.display === 'none') return;
+        modal.style.display = 'none';
+        modal.setAttribute('aria-hidden', 'true');
+        if (calendarChoiceTrigger && typeof calendarChoiceTrigger.focus === 'function') {
+            calendarChoiceTrigger.focus();
+        }
+        calendarChoiceTrigger = null;
+    }
+
+    function openLanCalendarChooser(event) {
+        const links = buildLanCalendarLinks(globalSettings);
+        const schedule = describeLanSchedule(globalSettings, new Date());
+        if (!links || !schedule) {
+            showToast("Aucune date n'est encore annoncée.", 'error');
+            return;
+        }
+
+        calendarChoiceTrigger = event && event.currentTarget ? event.currentTarget : document.activeElement;
+        document.getElementById('calendar-choice-google').href = links.google;
+        document.getElementById('calendar-choice-outlook').href = links.outlook;
+        document.getElementById('calendar-choice-yahoo').href = links.yahoo;
+
+        const details = [schedule.when || schedule.startKey];
+        if (schedule.time) details.push(`dès ${schedule.time}`);
+        if (schedule.place) details.push(schedule.place);
+        document.getElementById('calendar-choice-summary').textContent = details.join(' · ');
+
+        const modal = document.getElementById('calendar-choice-modal');
+        modal.style.display = 'flex';
+        modal.setAttribute('aria-hidden', 'false');
+        requestAnimationFrame(() => document.getElementById('calendar-choice-google').focus());
+    }
+
+    // Le .ics reste le format de secours universel (Apple Calendar,
+    // Thunderbird, agendas système et import hors ligne).
     function downloadLanIcs() {
         const ics = buildLanIcs(globalSettings);
         if (!ics) {
@@ -6789,6 +6826,21 @@ document.addEventListener('DOMContentLoaded', () => {
         // Certains navigateurs n'ont pas fini de lire le blob au retour du clic.
         setTimeout(() => URL.revokeObjectURL(url), 2000);
     }
+
+    document.getElementById('calendar-choice-close')?.addEventListener('click', closeLanCalendarChooser);
+    document.getElementById('calendar-choice-ics')?.addEventListener('click', () => {
+        downloadLanIcs();
+        closeLanCalendarChooser();
+    });
+    ['calendar-choice-google', 'calendar-choice-outlook', 'calendar-choice-yahoo'].forEach(id => {
+        document.getElementById(id)?.addEventListener('click', closeLanCalendarChooser);
+    });
+    document.getElementById('calendar-choice-modal')?.addEventListener('click', event => {
+        if (event.target.id === 'calendar-choice-modal') closeLanCalendarChooser();
+    });
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape') closeLanCalendarChooser();
+    });
 
     /* --- Réglages « quand & où » (admin) --------------------------------- */
 

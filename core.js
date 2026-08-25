@@ -617,38 +617,125 @@ function icsDateTime(date) {
     return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}T${pad(date.getHours())}${pad(date.getMinutes())}00`;
 }
 
-function buildLanIcs(settings) {
+/* Tous les exports d'agenda partent du même objet. Ainsi Google, Outlook,
+   Yahoo et le fichier .ics ne peuvent pas diverger sur la durée ou sur la
+   règle « date de fin exclusive » des journées entières. */
+function buildLanCalendarEvent(settings) {
     const config = settings || {};
     const schedule = describeLanSchedule(config, new Date());
     if (!schedule || !schedule.startKey) return null;
 
-    const name = (config.lanName || 'LAN Demain').trim();
+    const title = String(config.lanName || 'LAN Demain').trim() || 'LAN Demain';
+    const description = 'Retrouve les informations et le programme sur LAN Demain.';
+    const allDay = !(schedule.time && schedule.startsAt);
+    const event = {
+        title,
+        description,
+        location: schedule.place,
+        allDay,
+        startKey: schedule.startKey,
+        endKey: schedule.endKey || schedule.startKey,
+        start: null,
+        end: null
+    };
+
+    if (allDay) {
+        event.exclusiveEndKey = shiftDayKey(event.endKey, 1);
+    } else {
+        event.start = new Date(schedule.startsAt.getTime());
+        // Aucune heure de fin n'est demandée à l'admin : six heures réserve
+        // honnêtement la soirée sans prétendre connaître la fin de la LAN.
+        event.end = new Date(event.start.getTime() + (6 * 60 * 60 * 1000));
+    }
+
+    return event;
+}
+
+function compactCalendarDay(dayKey) {
+    return String(dayKey || '').replace(/-/g, '');
+}
+
+function utcCalendarDateTime(date) {
+    return date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+}
+
+function calendarUrl(base, params) {
+    const url = new URL(base);
+    Object.entries(params).forEach(([key, value]) => {
+        if (value !== '' && value !== null && value !== undefined) url.searchParams.set(key, String(value));
+    });
+    return url.toString();
+}
+
+/* Liens de composition : rien n'est écrit sans l'accord du joueur. Chaque
+   fournisseur ouvre un événement prérempli que l'utilisateur peut encore
+   relire, modifier puis enregistrer dans son propre agenda. */
+function buildLanCalendarLinks(settings) {
+    const event = buildLanCalendarEvent(settings);
+    if (!event) return null;
+
+    const start = event.allDay ? compactCalendarDay(event.startKey) : utcCalendarDateTime(event.start);
+    const end = event.allDay ? compactCalendarDay(event.exclusiveEndKey) : utcCalendarDateTime(event.end);
+    const outlookStart = event.allDay ? event.startKey : event.start.toISOString();
+    const outlookEnd = event.allDay ? event.exclusiveEndKey : event.end.toISOString();
+
+    return {
+        google: calendarUrl('https://calendar.google.com/calendar/render', {
+            action: 'TEMPLATE',
+            text: event.title,
+            dates: `${start}/${end}`,
+            details: event.description,
+            location: event.location
+        }),
+        outlook: calendarUrl('https://outlook.live.com/calendar/0/deeplink/compose', {
+            path: '/calendar/action/compose',
+            rru: 'addevent',
+            subject: event.title,
+            startdt: outlookStart,
+            enddt: outlookEnd,
+            allday: event.allDay ? 'true' : 'false',
+            body: event.description,
+            location: event.location
+        }),
+        yahoo: calendarUrl('https://calendar.yahoo.com/', {
+            v: '60',
+            view: 'd',
+            type: '20',
+            title: event.title,
+            st: start,
+            et: end,
+            dur: event.allDay ? 'allday' : '',
+            desc: event.description,
+            in_loc: event.location
+        })
+    };
+}
+
+function buildLanIcs(settings) {
+    const event = buildLanCalendarEvent(settings);
+    if (!event) return null;
+
     const lines = [
         'BEGIN:VCALENDAR',
         'VERSION:2.0',
         'PRODID:-//LAN Demain//Programme//FR',
         'CALSCALE:GREGORIAN',
         'BEGIN:VEVENT',
-        `UID:lan-${schedule.startKey}-${Math.random().toString(36).slice(2, 10)}@lan-demain`,
+        `UID:lan-${event.startKey}-${Math.random().toString(36).slice(2, 10)}@lan-demain`,
         `DTSTAMP:${icsDateTime(new Date())}`,
-        `SUMMARY:${icsEscape(name)}`
+        `SUMMARY:${icsEscape(event.title)}`,
+        `DESCRIPTION:${icsEscape(event.description)}`
     ];
 
-    if (schedule.time && schedule.startsAt) {
-        // Sans heure de fin annoncée on réserve la soirée : six heures, plutôt
-        // qu'un créneau d'une heure qui ne dirait rien de juste.
-        const endDate = new Date(schedule.startsAt.getTime());
-        endDate.setHours(endDate.getHours() + 6);
-        lines.push(`DTSTART:${icsDateTime(schedule.startsAt)}`);
-        lines.push(`DTEND:${icsDateTime(endDate)}`);
+    if (!event.allDay) {
+        lines.push(`DTSTART:${icsDateTime(event.start)}`);
+        lines.push(`DTEND:${icsDateTime(event.end)}`);
     } else {
-        // En journée entière, DTEND est exclusif : il pointe le lendemain.
-        const lastKey = schedule.endKey || schedule.startKey;
-        lines.push(`DTSTART;VALUE=DATE:${schedule.startKey.replace(/-/g, '')}`);
-        lines.push(`DTEND;VALUE=DATE:${shiftDayKey(lastKey, 1).replace(/-/g, '')}`);
+        lines.push(`DTSTART;VALUE=DATE:${compactCalendarDay(event.startKey)}`);
+        lines.push(`DTEND;VALUE=DATE:${compactCalendarDay(event.exclusiveEndKey)}`);
     }
 
-    if (schedule.place) lines.push(`LOCATION:${icsEscape(schedule.place)}`);
+    if (event.location) lines.push(`LOCATION:${icsEscape(event.location)}`);
     lines.push('END:VEVENT', 'END:VCALENDAR');
 
     // Le format impose des fins de ligne CRLF.

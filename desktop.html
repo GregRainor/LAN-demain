@@ -12,7 +12,7 @@
     <script defer src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js" integrity="sha384-fuqdSwJXSvcAuKu5FbSJcHqHK474liv5ji8tuDnHz1rpfrnuXZPdM0oRaSK6c95L" crossorigin="anonymous"></script>
 
     <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="desktop-v2.css?v=20260823-pocket-office">
+    <link rel="stylesheet" href="desktop-v2.css?v=20260825-calendar-choice">
 </head>
 
 <body>
@@ -429,7 +429,7 @@
                     <div class="waiting-countdown__cell"><strong id="waiting-hours">–</strong><span>HEURES</span></div>
                     <div class="waiting-countdown__cell"><strong id="waiting-minutes">–</strong><span>MINUTES</span></div>
                 </div>
-                <button type="button" id="waiting-ics" class="gold-btn waiting-rendezvous__ics">Ajouter au calendrier</button>
+                <button type="button" id="waiting-ics" class="gold-btn waiting-rendezvous__ics">Ajouter à mon agenda</button>
             </section>
 
             <div class="waiting-columns">
@@ -1880,6 +1880,40 @@
         </div>
     </div>
 
+    <!-- Choix d'agenda : les services web ouvrent un brouillon prérempli,
+         le fichier .ics reste le recours universel et hors ligne. -->
+    <div id="calendar-choice-modal" class="modal-overlay calendar-choice" style="display:none;"
+        role="dialog" aria-modal="true" aria-labelledby="calendar-choice-title" aria-hidden="true">
+        <div class="luxury-panel modal-content calendar-choice__panel">
+            <button type="button" id="calendar-choice-close" class="calendar-choice__close" aria-label="Fermer">×</button>
+            <span class="desktop-card-label">AJOUTER À MON AGENDA</span>
+            <h3 id="calendar-choice-title">Choisir un calendrier</h3>
+            <p id="calendar-choice-summary" class="calendar-choice__summary"></p>
+            <div class="calendar-choice__options">
+                <a id="calendar-choice-google" class="calendar-choice__option" target="_blank" rel="noopener">
+                    <span class="calendar-choice__brand calendar-choice__brand--google" aria-hidden="true">G</span>
+                    <span><strong>Google Calendar</strong><small>Ouvrir l’événement prérempli</small></span>
+                    <span aria-hidden="true">↗</span>
+                </a>
+                <a id="calendar-choice-outlook" class="calendar-choice__option" target="_blank" rel="noopener">
+                    <span class="calendar-choice__brand calendar-choice__brand--outlook" aria-hidden="true">O</span>
+                    <span><strong>Outlook</strong><small>Outlook.com ou Microsoft 365</small></span>
+                    <span aria-hidden="true">↗</span>
+                </a>
+                <a id="calendar-choice-yahoo" class="calendar-choice__option" target="_blank" rel="noopener">
+                    <span class="calendar-choice__brand calendar-choice__brand--yahoo" aria-hidden="true">Y!</span>
+                    <span><strong>Yahoo Agenda</strong><small>Ouvrir l’événement prérempli</small></span>
+                    <span aria-hidden="true">↗</span>
+                </a>
+                <button type="button" id="calendar-choice-ics" class="calendar-choice__option">
+                    <span class="calendar-choice__brand calendar-choice__brand--ics" aria-hidden="true">.ics</span>
+                    <span><strong>Télécharger le fichier</strong><small>Apple Calendar, Thunderbird et autres</small></span>
+                    <span aria-hidden="true">↓</span>
+                </button>
+            </div>
+            <p class="calendar-choice__privacy">Rien n’est ajouté sans votre confirmation dans le calendrier choisi.</p>
+        </div>
+    </div>
     <!-- Cérémonie de haut fait : le fond reste reconnaissable, mais le trophée
          prend la scène pendant quelques secondes. -->
     <div id="achievement-unlock-overlay" class="achievement-unlock" role="dialog" aria-modal="true"
@@ -1913,9 +1947,9 @@
     <div id="toast-container"></div>
 
     <script defer src="config.js"></script>
-    <script defer src="core.js?v=20260825-achievement-themes"></script>
+    <script defer src="core.js?v=20260825-calendar-choice"></script>
     <script defer src="sound.js"></script>
-    <script defer src="newScript.js?v=20260825-achievement-themes"></script>
+    <script defer src="newScript.js?v=20260825-calendar-choice"></script>
 </body>
 
 </html>

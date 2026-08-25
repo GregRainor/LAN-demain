@@ -2542,3 +2542,56 @@ button.m-podium { width: 100%; text-align: left; }
 @media (prefers-reduced-motion:reduce) {
     .m-ach-unlock__motif { display:none; }
 }
+/* ---------- Choix d'agenda ---------- */
+.m-calendar-picker { display:flex; flex-direction:column; gap:16px; padding:2px 0 4px; }
+.m-calendar-picker__summary {
+    margin:0;
+    padding:13px 14px;
+    border-left:2px solid var(--gold);
+    background:linear-gradient(90deg, var(--gold-a08), transparent);
+    color:var(--text-2);
+    font-size:.83rem;
+    line-height:1.5;
+}
+.m-calendar-picker__options { display:grid; gap:8px; }
+.m-calendar-option {
+    width:100%;
+    min-height:64px;
+    box-sizing:border-box;
+    display:grid;
+    grid-template-columns:42px minmax(0, 1fr) auto;
+    align-items:center;
+    gap:12px;
+    padding:10px 13px;
+    border:1px solid var(--line-2);
+    border-radius:var(--r-sharp);
+    background:rgba(255,255,255,.018);
+    color:var(--text);
+    font:inherit;
+    text-align:left;
+    text-decoration:none;
+    -webkit-tap-highlight-color:transparent;
+}
+.m-calendar-option:active { border-color:var(--gold-a50); background:var(--gold-a08); transform:scale(.99); }
+.m-calendar-option__brand {
+    width:38px;
+    height:38px;
+    display:grid;
+    place-items:center;
+    box-sizing:border-box;
+    border:1px solid currentColor;
+    font-size:.8rem;
+    font-weight:700;
+}
+.m-calendar-option__brand--google { color:#7db1ff; }
+.m-calendar-option__brand--outlook { color:#48a9ff; }
+.m-calendar-option__brand--yahoo { color:#b998ff; }
+.m-calendar-option__brand--ics { color:var(--gold); font-size:.64rem; }
+.m-calendar-option__copy { min-width:0; display:grid; gap:3px; }
+.m-calendar-option__copy strong { overflow:hidden; font-size:.88rem; font-weight:600; text-overflow:ellipsis; white-space:nowrap; }
+.m-calendar-option__copy small { overflow:hidden; color:var(--text-3); font-size:.7rem; text-overflow:ellipsis; white-space:nowrap; }
+.m-calendar-option__arrow { color:var(--gold); font-size:1rem; }
+.m-calendar-picker__privacy { margin:0; color:var(--text-3); font-size:.67rem; line-height:1.45; }
+@media (prefers-reduced-motion:reduce) {
+    .m-calendar-option:active { transform:none; }
+}

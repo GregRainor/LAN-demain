@@ -107,6 +107,6 @@ for (const field of ['equippedTitleId', 'featuredAchievement1', 'featuredAchieve
 }
 assert.strictEqual(rules.rules.lan.xp.awards['$award_id'].revoked['.validate'], '!newData.exists() || newData.isBoolean()');
 assert(userRules.seenAchievements['$achievement_id']['.write'].includes('auth.uid === $uid'));
-assert(/20260825-achievement-themes/.test(desktopHtml) && /20260825-achievement-themes/.test(mobileHtml));
+assert(/20260825-calendar-choice/.test(desktopHtml) && /20260825-calendar-choice/.test(mobileHtml));
 
 console.log('Achievement administration checks passed (grant, durable reset, permanent editor, queued desktop/mobile ceremony).');

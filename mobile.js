@@ -1014,15 +1014,66 @@ function renderWhenWhere() {
 
     if (schedule.startKey) {
         const add = el('button', 'm-btn m-btn--quiet m-btn--full', '📆 Ajouter à mon agenda');
-        add.addEventListener('click', downloadLanIcs);
+        add.addEventListener('click', openMobileCalendarChooser);
         card.appendChild(add);
     }
 
     mount.appendChild(card);
 }
 
-// Fichier .ics : chacun pose la LAN dans son propre agenda et n'a plus à se
-// souvenir de la date.
+function mobileCalendarOption(label, caption, brand, tone, href) {
+    const option = el(href ? 'a' : 'button', 'm-calendar-option');
+    if (href) {
+        option.href = href;
+        option.target = '_blank';
+        option.rel = 'noopener';
+        option.addEventListener('click', closeSheet);
+    } else {
+        option.type = 'button';
+    }
+
+    option.appendChild(el('span', `m-calendar-option__brand m-calendar-option__brand--${tone}`, brand));
+    const copy = el('span', 'm-calendar-option__copy');
+    copy.appendChild(el('strong', '', label));
+    copy.appendChild(el('small', '', caption));
+    option.appendChild(copy);
+    option.appendChild(el('span', 'm-calendar-option__arrow', href ? '↗' : '↓'));
+    return option;
+}
+
+function openMobileCalendarChooser() {
+    const links = buildLanCalendarLinks(state.settings);
+    const schedule = describeLanSchedule(state.settings, new Date());
+    if (!links || !schedule) {
+        showToast("Aucune date n'est encore annoncée.", 'error');
+        return;
+    }
+
+    openSheet('Ajouter à mon agenda', body => {
+        const picker = el('div', 'm-calendar-picker');
+        const details = [schedule.when || schedule.startKey];
+        if (schedule.time) details.push(`dès ${schedule.time}`);
+        if (schedule.place) details.push(schedule.place);
+        picker.appendChild(el('p', 'm-calendar-picker__summary', details.join(' · ')));
+
+        const options = el('div', 'm-calendar-picker__options');
+        options.appendChild(mobileCalendarOption('Google Calendar', 'Événement prérempli', 'G', 'google', links.google));
+        options.appendChild(mobileCalendarOption('Outlook', 'Outlook.com ou Microsoft 365', 'O', 'outlook', links.outlook));
+        options.appendChild(mobileCalendarOption('Yahoo Agenda', 'Événement prérempli', 'Y!', 'yahoo', links.yahoo));
+
+        const ics = mobileCalendarOption('Télécharger le fichier .ics', 'Apple Calendar, Thunderbird et autres', '.ics', 'ics');
+        ics.addEventListener('click', () => {
+            downloadLanIcs();
+            closeSheet();
+        });
+        options.appendChild(ics);
+        picker.appendChild(options);
+        picker.appendChild(el('p', 'm-calendar-picker__privacy', 'Rien n’est ajouté sans votre confirmation dans le calendrier choisi.'));
+        body.appendChild(picker);
+    });
+}
+
+// Le .ics reste le format de secours universel pour les agendas système.
 function downloadLanIcs() {
     const ics = buildLanIcs(state.settings);
     if (!ics) { showToast("Aucune date n'est encore annoncée.", 'error'); return; }
