@@ -688,7 +688,11 @@ function boot(user) {
     watch('lan/tcg', value => { state.tcg = value || {}; sealBoughtPacks(); });
     watch('lan/steamLibraries', value => { state.libraries = value || {}; });
     watch('lan/history', value => { state.history = value || {}; });
-    watch('lan/xp', value => { state.xp = value || {}; grantPendingAchievements(); });
+    watch('lan/xp', value => {
+        state.xp = value || {};
+        grantPendingAchievements();
+        if (state.isAdmin) renderMobileAchievementAdmin();
+    });
     watch('lan/challenges', value => { state.quests.challenges = value || {}; });
     watch('lan/claims', value => { state.quests.claims = value || {}; });
     watch('lan/suggestions', value => { state.quests.suggestions = value || {}; });
@@ -2698,8 +2702,104 @@ function confirmSheet(question, confirmLabel, onConfirm, danger) {
 }
 
 function knownPlayers() {
-    const uids = new Set([...Object.keys(state.votes), ...Object.keys(state.status)]);
-    return [...uids].map(uid => ({ uid, name: playerName(uid) }));
+    const uids = new Set([
+        ...Object.keys(state.votes || {}),
+        ...Object.keys(state.status || {}),
+        ...Object.keys(state.profiles || {}),
+        ...Object.keys(state.roles || {})
+    ]);
+    xpAwards(state.xp).forEach(award => { if (award.uid) uids.add(award.uid); });
+    return [...uids]
+        .filter(Boolean)
+        .map(uid => ({ uid, name: playerName(uid) }))
+        .sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+}
+
+function renderMobileAchievementAdmin() {
+    const select = $('m-ach-admin-user');
+    const mount = $('m-ach-admin-list');
+    const hint = $('m-ach-admin-hint');
+    if (!select || !mount || !hint || !state.isAdmin) return;
+
+    const keep = select.value;
+    select.replaceChildren();
+    const placeholder = el('option', null, 'Choisir un joueur');
+    placeholder.value = '';
+    select.appendChild(placeholder);
+    knownPlayers().forEach(player => {
+        const option = el('option', null,
+            player.name === 'Un joueur' ? `Joueur · ${player.uid.slice(0, 8)}` : player.name);
+        option.value = player.uid;
+        select.appendChild(option);
+    });
+    if (keep && [...select.options].some(option => option.value === keep)) select.value = keep;
+
+    mount.replaceChildren();
+    const uid = select.value;
+    if (!uid) {
+        hint.textContent = 'Choisis un joueur pour attribuer ou réinitialiser ses hauts faits.';
+        return;
+    }
+
+    const rows = achievementState(achData(), uid);
+    const owned = rows.filter(row => row.owned).length;
+    const reset = rows.filter(row => row.revoked).length;
+    hint.textContent = `${playerName(uid)} · ${owned}/${rows.length} obtenus`
+        + (reset ? ` · ${reset} réinitialisé${reset > 1 ? 's' : ''}` : '');
+
+    rows.forEach(row => {
+        const line = el('div', 'm-ach-admin-row'
+            + (row.owned ? ' is-owned' : (row.revoked ? ' is-reset' : '')));
+        const copy = el('div', 'm-ach-admin-row__copy');
+        copy.appendChild(el('strong', null, row.ach.label));
+        copy.appendChild(el('small', null, row.owned
+            ? `Obtenu · +${row.ach.xp} XP`
+            : (row.revoked ? 'Réinitialisé par un admin'
+                : (row.reached ? 'Objectif atteint' : `${row.current}/${row.goal} · ${row.ach.hint}`))));
+        line.appendChild(copy);
+        const button = el('button', `m-btn m-btn--sm ${row.owned ? 'm-btn--danger' : 'm-btn--quiet'}`,
+            row.owned ? 'Réinitialiser' : (row.revoked ? 'Réattribuer' : 'Attribuer'));
+        button.addEventListener('click', () => toggleMobileAchievement(uid, row, button));
+        line.appendChild(button);
+        mount.appendChild(line);
+    });
+}
+
+function toggleMobileAchievement(uid, row, button) {
+    const user = auth.currentUser;
+    if (!user || !state.isAdmin) return;
+    const admin = { uid: user.uid, name: user.displayName || 'Admin' };
+    const save = (reset) => {
+        button.disabled = true;
+        const write = reset
+            ? db.ref().update(achievementResetUpdates(
+                uid, row.ach, state.profiles[uid] || {}, admin,
+                firebase.database.ServerValue.TIMESTAMP
+            ))
+            : db.ref('lan/xp/awards/' + achievementAwardId(uid, row.ach.id)).set(
+                achievementGrantRecord(uid, row.ach, admin, firebase.database.ServerValue.TIMESTAMP)
+            );
+        write.then(() => {
+            if (!reset) {
+                sendNotification(uid, `🏅 Haut fait débloqué : ${row.ach.label} (+${row.ach.xp} XP)`, 'success')
+                    .catch(() => {});
+            }
+            showToast(reset
+                ? `« ${row.ach.label} » réinitialisé pour ${playerName(uid)}.`
+                : `« ${row.ach.label} » attribué à ${playerName(uid)}.`, 'success');
+        }).catch(error => showToast('Erreur : ' + error.message, 'error'))
+          .finally(() => { button.disabled = false; });
+    };
+
+    if (row.owned) {
+        confirmSheet(
+            `Réinitialiser « ${row.ach.label} » pour ${playerName(uid)} ? `
+            + `Les ${row.ach.xp} XP seront retirés et le haut fait ne reviendra pas automatiquement.`,
+            'Réinitialiser', () => save(true), true
+        );
+    } else {
+        save(false);
+    }
 }
 
 /* L'expéditeur est inscrit DANS la clé, pas seulement dans le corps : les
@@ -2741,6 +2841,8 @@ function renderAdmin() {
     });
     if (previous) select.value = previous;
 
+    renderMobileAchievementAdmin();
+
     $('m-toggle-voting').textContent = state.settings.isVotingOpen ? 'Clore le vote' : 'Ouvrir le vote';
     $('m-finish-lan').style.display = state.settings.lanFinished ? 'none' : 'inline-flex';
     $('m-reopen-lan').style.display = state.settings.lanFinished ? 'inline-flex' : 'none';
@@ -2752,6 +2854,8 @@ function renderAdmin() {
         input.value = state.settings[input.dataset.schedule] || '';
     });
 }
+
+$('m-ach-admin-user').addEventListener('change', renderMobileAchievementAdmin);
 
 $('m-schedule-save').addEventListener('click', () => {
     const update = {};
@@ -2901,7 +3005,7 @@ async function awardLanExperienceMobile(lanId, archivedVotes, previousEconomy) {
     players.forEach(uid => {
         closureAchievements(data, uid).forEach(ach => {
             const awardId = achievementAwardId(uid, ach.id);
-            if (hasXpAward(state.xp, awardId)) return;
+            if (hasXpAward(state.xp, awardId) || isXpAwardRevoked(state.xp, awardId)) return;
             writes.push(db.ref('lan/xp/awards/' + awardId).set({
                 uid: uid,
                 delta: ach.xp,

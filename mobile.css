@@ -2375,3 +2375,22 @@ button.m-podium { width: 100%; text-align: left; }
 }
 .m-qty__max:active { border-color: var(--gold-a30); color: var(--gold); }
 .m-qty__total { font-size: .84rem; color: var(--text-3); text-align: center; font-variant-numeric: tabular-nums; }
+
+/* Gestion individuelle des hauts faits dans l'administration mobile. */
+.m-ach-admin-list { display: grid; gap: 8px; }
+.m-ach-admin-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    padding: 11px;
+    border: 1px solid var(--line-2);
+    border-radius: var(--r-sharp);
+    background: rgba(255,255,255,.018);
+}
+.m-ach-admin-row.is-owned { border-left: 2px solid var(--gold); }
+.m-ach-admin-row.is-reset { opacity: .72; border-left: 2px solid var(--danger); }
+.m-ach-admin-row__copy { min-width: 0; display: grid; gap: 3px; }
+.m-ach-admin-row__copy strong { color: var(--text); font-size: .86rem; line-height: 1.25; }
+.m-ach-admin-row__copy small { color: var(--text-3); font-size: .72rem; line-height: 1.3; }
+.m-ach-admin-row .m-btn { white-space: nowrap; }

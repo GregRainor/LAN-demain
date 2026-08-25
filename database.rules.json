@@ -54,7 +54,8 @@
         "awards": {
           "$award_id": {
             ".write": "auth != null && !data.exists() && (root.child('lan/roles').child(auth.uid).val() === 'admin' || root.child('lan/roles').child(auth.uid).val() === 'gamemaster' || auth.uid === 'ITe5VPuwewMzO7JnJA5oPWMdfvt2')",
-            ".validate": "newData.hasChildren(['uid', 'delta', 'type', 'ts']) && newData.child('delta').isNumber() && newData.child('delta').val() >= 0 && newData.child('ts').val() <= now"
+            ".validate": "newData.hasChildren(['uid', 'delta', 'type', 'ts']) && newData.child('delta').isNumber() && newData.child('delta').val() >= 0 && newData.child('ts').val() <= now",
+            "revoked": { ".validate": "!newData.exists() || newData.isBoolean()" }
           }
         }
       },
@@ -285,16 +286,20 @@
           "avatar": { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 1000)" },
           "lastSeen": { ".validate": "!newData.exists() || newData.isNumber()" },
           "equippedTitleId": {
-            ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 64 && (root.child('lan/xp/awards').child($uid + '__ach__' + newData.val()).exists() || (newData.val() === 'administrator' && (root.child('lan/roles').child($uid).val() === 'admin' || $uid === 'ITe5VPuwewMzO7JnJA5oPWMdfvt2'))))"
+            ".write": "auth != null && (auth.uid === $uid || root.child('lan/roles').child(auth.uid).val() === 'admin' || auth.uid === 'ITe5VPuwewMzO7JnJA5oPWMdfvt2')",
+            ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 64 && ((root.child('lan/xp/awards').child($uid + '__ach__' + newData.val()).exists() && root.child('lan/xp/awards').child($uid + '__ach__' + newData.val()).child('revoked').val() !== true) || (newData.val() === 'administrator' && (root.child('lan/roles').child($uid).val() === 'admin' || $uid === 'ITe5VPuwewMzO7JnJA5oPWMdfvt2'))))"
           },
           "featuredAchievement1": {
-            ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 64 && root.child('lan/xp/awards').child($uid + '__ach__' + newData.val()).exists())"
+            ".write": "auth != null && (auth.uid === $uid || root.child('lan/roles').child(auth.uid).val() === 'admin' || auth.uid === 'ITe5VPuwewMzO7JnJA5oPWMdfvt2')",
+            ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 64 && root.child('lan/xp/awards').child($uid + '__ach__' + newData.val()).exists() && root.child('lan/xp/awards').child($uid + '__ach__' + newData.val()).child('revoked').val() !== true)"
           },
           "featuredAchievement2": {
-            ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 64 && root.child('lan/xp/awards').child($uid + '__ach__' + newData.val()).exists())"
+            ".write": "auth != null && (auth.uid === $uid || root.child('lan/roles').child(auth.uid).val() === 'admin' || auth.uid === 'ITe5VPuwewMzO7JnJA5oPWMdfvt2')",
+            ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 64 && root.child('lan/xp/awards').child($uid + '__ach__' + newData.val()).exists() && root.child('lan/xp/awards').child($uid + '__ach__' + newData.val()).child('revoked').val() !== true)"
           },
           "featuredAchievement3": {
-            ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 64 && root.child('lan/xp/awards').child($uid + '__ach__' + newData.val()).exists())"
+            ".write": "auth != null && (auth.uid === $uid || root.child('lan/roles').child(auth.uid).val() === 'admin' || auth.uid === 'ITe5VPuwewMzO7JnJA5oPWMdfvt2')",
+            ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 64 && root.child('lan/xp/awards').child($uid + '__ach__' + newData.val()).exists() && root.child('lan/xp/awards').child($uid + '__ach__' + newData.val()).child('revoked').val() !== true)"
           },
           "$other": { ".validate": false }
         }

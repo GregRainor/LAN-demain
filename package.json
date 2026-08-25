@@ -3,6 +3,6 @@
   "version": "1.0.0",
   "scripts": {
     "build": "node build-config.js",
-    "test": "node scripts/verify-desktop.js && node scripts/verify-mobile.js && node scripts/verify-voting.js"
+    "test": "node scripts/verify-desktop.js && node scripts/verify-mobile.js && node scripts/verify-voting.js && node scripts/verify-achievements.js"
   }
 }

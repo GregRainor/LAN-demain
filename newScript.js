@@ -990,7 +990,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!sidebar) return;
 
         sidebar.innerHTML = '';
-        ['role-user-select', 'role-user-select-lan', 'level-user-select', 'ach-user-select'].forEach(id => {
+        ['role-user-select', 'role-user-select-lan', 'level-user-select'].forEach(id => {
             const sel = document.getElementById(id);
             if (!sel) return;
             const keep = sel.value;
@@ -1062,7 +1062,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Les trois sélecteurs de joueur : rôles (console et LAN active) et
             // niveau de départ. Le choix en cours survit au redessin, sinon il
             // saute dès que quelqu'un se connecte.
-            ['role-user-select', 'role-user-select-lan', 'level-user-select', 'ach-user-select'].forEach(selectId => {
+            ['role-user-select', 'role-user-select-lan', 'level-user-select'].forEach(selectId => {
                 const sel = document.getElementById(selectId);
                 if (!sel) return;
                 const opt = document.createElement('option');
@@ -1072,10 +1072,11 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
-        ['role-user-select', 'role-user-select-lan', 'level-user-select', 'ach-user-select'].forEach(id => {
+        ['role-user-select', 'role-user-select-lan', 'level-user-select'].forEach(id => {
             const sel = document.getElementById(id);
             if (sel && sel.dataset.keep) sel.value = sel.dataset.keep;
         });
+        renderAchievementPlayerOptions();
         describeLevelTarget();
 
         const online = roster.filter(player => player.online).length;
@@ -1400,16 +1401,44 @@ document.addEventListener('DOMContentLoaded', () => {
         modal.style.display = 'flex';
     }
 
-    /* --- Attribuer un haut fait à la main (admin) -------------------------
-       La plupart se gagnent seuls, depuis les compteurs. Deux cas y échappent :
-       ceux qui ne se déduisent d'aucun compteur (« bêta-testeur ») et
-       l'exception d'une soirée. Ce qui fait foi est le journal
-       `lan/xp/awards`, pas le compteur : attribuer, c'est y inscrire une
-       ligne ; retirer, c'est l'effacer.
+    /* --- Gestion individuelle des hauts faits (admin) ---------------------
+       Une réinitialisation laisse une marque durable à zéro XP. Sans elle, le
+       balayage automatique recréerait aussitôt un jalon dont le compteur est
+       déjà atteint. L'admin peut ensuite le réattribuer explicitement. */
+    function achievementAdminPlayers() {
+        const uids = new Set([
+            ...Object.keys(globalProfiles || {}),
+            ...Object.keys(globalVotes || {}),
+            ...Object.keys(globalUsers || {}),
+            ...Object.keys(globalRoles || {})
+        ]);
+        xpAwards(globalXp).forEach(award => { if (award.uid) uids.add(award.uid); });
+        return [...uids]
+            .filter(Boolean)
+            .map(uid => ({ uid: uid, name: playerLabel(uid) }))
+            .sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+    }
 
-       Les règles ouvrent la création à un admin comme à un maître du jeu, mais
-       l'effacement au seul admin — c'est le `.write` du nœud parent qui le
-       permet. D'où un panneau réservé à l'admin. */
+    function renderAchievementPlayerOptions() {
+        const select = document.getElementById('ach-user-select');
+        if (!select) return;
+        const keep = select.value;
+        select.replaceChildren();
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = 'Sélectionner un joueur...';
+        select.appendChild(placeholder);
+        achievementAdminPlayers().forEach(player => {
+            const option = document.createElement('option');
+            option.value = player.uid;
+            option.textContent = player.name === 'Un joueur'
+                ? `Joueur · ${player.uid.slice(0, 8)}`
+                : player.name;
+            select.appendChild(option);
+        });
+        if (keep && [...select.options].some(option => option.value === keep)) select.value = keep;
+    }
+
     function renderAchievementAdmin() {
         const select = document.getElementById('ach-user-select');
         const mount = document.getElementById('ach-admin-list');
@@ -1418,78 +1447,77 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const uid = select.value;
         mount.replaceChildren();
-
         if (!uid) {
-            hint.textContent = 'Choisis un joueur pour voir ce qu\'il a décroché.';
+            hint.textContent = 'Choisis un joueur pour gérer ses hauts faits.';
             return;
         }
 
         const rows = achievementState(achData(), uid);
         const owned = rows.filter(row => row.owned).length;
-        hint.textContent = `${playerLabel(uid)} — ${owned} haut${owned > 1 ? 's' : ''} fait${owned > 1 ? 's' : ''} sur ${rows.length}.`;
+        const reset = rows.filter(row => row.revoked).length;
+        hint.textContent = `${playerLabel(uid)} — ${owned}/${rows.length} obtenus`
+            + (reset ? ` · ${reset} réinitialisé${reset > 1 ? 's' : ''}` : '') + '.';
 
         rows.forEach(row => {
             const line = document.createElement('div');
-            line.className = 'player-row';
+            line.className = 'achievement-admin-row'
+                + (row.owned ? ' is-owned' : (row.revoked ? ' is-reset' : ''));
 
-            const name = document.createElement('span');
-            name.className = 'player-row__name';
+            const copy = document.createElement('div');
+            copy.className = 'achievement-admin-row__copy';
+            const name = document.createElement('strong');
             name.textContent = row.ach.label + (row.ach.nickname ? ` · « ${row.ach.nickname} »` : '');
-            line.appendChild(name);
-
-            const state = document.createElement('span');
-            state.className = 'shop-card__meta';
-            // « Atteint » sans être inscrit : le compteur y est, la ligne non.
-            state.textContent = row.owned
-                ? `+${row.ach.xp} XP`
-                : (row.reached ? 'atteint' : `${row.current}/${row.goal}`);
-            line.appendChild(state);
+            const stateCopy = document.createElement('small');
+            stateCopy.textContent = row.owned
+                ? `Obtenu · +${row.ach.xp} XP`
+                : (row.revoked ? 'Réinitialisé par un admin'
+                    : (row.reached ? 'Objectif atteint' : `${row.current}/${row.goal} · ${row.ach.hint}`));
+            copy.append(name, stateCopy);
+            line.appendChild(copy);
 
             const toggle = document.createElement('button');
-            toggle.className = row.owned ? 'gold-link-btn' : 'gold-btn';
-            toggle.style.padding = '6px 14px';
-            toggle.textContent = row.owned ? 'Retirer' : 'Attribuer';
-            toggle.addEventListener('click', () => toggleAchievement(uid, row));
+            toggle.type = 'button';
+            toggle.className = row.owned ? 'danger-link-btn' : 'gold-btn';
+            toggle.textContent = row.owned ? 'Réinitialiser' : (row.revoked ? 'Réattribuer' : 'Attribuer');
+            toggle.addEventListener('click', () => toggleAchievement(uid, row, toggle));
             line.appendChild(toggle);
-
             mount.appendChild(line);
         });
     }
 
-    function toggleAchievement(uid, row) {
+    async function toggleAchievement(uid, row, button) {
         const user = auth.currentUser;
-        if (!user) return;
-        const ref = db.ref('lan/xp/awards/' + achievementAwardId(uid, row.ach.id));
+        if (!user || !window.currentUserIsAdmin) return;
+        button.disabled = true;
+        const admin = { uid: user.uid, name: user.displayName || 'Admin' };
 
-        const done = (removed) => {
-            renderAchievementAdmin();
-            showToast(removed
-                ? `« ${row.ach.label} » retiré à ${playerLabel(uid)}.`
-                : `« ${row.ach.label} » attribué à ${playerLabel(uid)}.`, 'success');
-        };
+        try {
+            if (row.owned) {
+                const ok = await askConfirm(
+                    `Réinitialiser « ${row.ach.label} » pour ${playerLabel(uid)} ? `
+                    + `Les ${row.ach.xp} XP seront retirés et le haut fait ne reviendra pas automatiquement.`,
+                    { title: '🏅 Réinitialiser le haut fait', danger: true, confirmLabel: 'Réinitialiser' }
+                );
+                if (!ok) return;
+                await db.ref().update(achievementResetUpdates(
+                    uid, row.ach, globalProfiles[uid] || {}, admin,
+                    firebase.database.ServerValue.TIMESTAMP
+                ));
+                showToast(`« ${row.ach.label} » réinitialisé pour ${playerLabel(uid)}.`, 'success');
+                return;
+            }
 
-        if (row.owned) {
-            ref.remove()
-                .then(() => done(true))
-                .catch(err => showToast('Erreur : ' + err.message, 'error'));
-            return;
+            await db.ref('lan/xp/awards/' + achievementAwardId(uid, row.ach.id)).set(
+                achievementGrantRecord(uid, row.ach, admin, firebase.database.ServerValue.TIMESTAMP)
+            );
+            sendNotification(uid, `🏅 Haut fait débloqué : ${row.ach.label} (+${row.ach.xp} XP)`, 'success')
+                .catch(() => {});
+            showToast(`« ${row.ach.label} » attribué à ${playerLabel(uid)}.`, 'success');
+        } catch (err) {
+            showToast('Erreur : ' + err.message, 'error');
+        } finally {
+            button.disabled = false;
         }
-
-        ref.set({
-            uid: uid,
-            delta: row.ach.xp,
-            type: 'achievement',
-            reason: row.ach.label,
-            refId: row.ach.id,
-            by: user.uid,
-            byName: user.displayName || 'Admin',
-            ts: firebase.database.ServerValue.TIMESTAMP
-        })
-            .then(() => {
-                sendNotification(uid, `🏅 Haut fait débloqué : ${row.ach.label} (+${row.ach.xp} XP)`, 'success');
-                done(false);
-            })
-            .catch(err => showToast('Erreur : ' + err.message, 'error'));
     }
 
     document.getElementById('ach-user-select')?.addEventListener('change', renderAchievementAdmin);
@@ -1656,6 +1684,7 @@ document.addEventListener('DOMContentLoaded', () => {
             grantPendingAchievements();
             renderDesktopShell();
             // Le panneau d'attribution reflète le journal : il doit suivre.
+            renderAchievementPlayerOptions();
             renderAchievementAdmin();
         });
 
@@ -3676,7 +3705,7 @@ document.addEventListener('DOMContentLoaded', () => {
         players.forEach(uid => {
             closureAchievements(data, uid).forEach(ach => {
                 const awardId = achievementAwardId(uid, ach.id);
-                if (hasXpAward(globalXp, awardId)) return;
+                if (hasXpAward(globalXp, awardId) || isXpAwardRevoked(globalXp, awardId)) return;
                 writes.push(db.ref('lan/xp/awards/' + awardId).set({
                     uid: uid,
                     delta: ach.xp,

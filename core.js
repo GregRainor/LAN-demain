@@ -1756,7 +1756,55 @@ function attendanceAwardId(uid, lanId) {
 }
 
 function hasXpAward(xpNode, awardId) {
-    return !!((xpNode && xpNode.awards) || {})[awardId];
+    const award = ((xpNode && xpNode.awards) || {})[awardId];
+    return !!(award && award.revoked !== true);
+}
+
+function isXpAwardRevoked(xpNode, awardId) {
+    const award = ((xpNode && xpNode.awards) || {})[awardId];
+    return !!(award && award.revoked === true);
+}
+
+function achievementGrantRecord(uid, ach, admin, timestamp) {
+    return {
+        uid: uid,
+        delta: ach.xp,
+        type: 'achievement',
+        reason: ach.label,
+        refId: ach.id,
+        by: admin && admin.uid || null,
+        byName: admin && admin.name || 'Admin',
+        ts: timestamp
+    };
+}
+
+function achievementResetRecord(uid, ach, admin, timestamp) {
+    return {
+        uid: uid,
+        delta: 0,
+        type: 'achievement-reset',
+        reason: 'Réinitialisé : ' + ach.label,
+        refId: ach.id,
+        revoked: true,
+        by: admin && admin.uid || null,
+        byName: admin && admin.name || 'Admin',
+        ts: timestamp
+    };
+}
+
+/* Réinitialiser un haut fait enlève aussi ses références de vitrine. La mise
+   à jour multi-chemins évite qu'un profil conserve un titre devenu verrouillé. */
+function achievementResetUpdates(uid, ach, profile, admin, timestamp) {
+    const updates = {};
+    updates['lan/xp/awards/' + achievementAwardId(uid, ach.id)] =
+        achievementResetRecord(uid, ach, admin, timestamp);
+    if (profile && profile.equippedTitleId === ach.id) {
+        updates['lan/users/' + uid + '/equippedTitleId'] = null;
+    }
+    ['featuredAchievement1', 'featuredAchievement2', 'featuredAchievement3'].forEach(field => {
+        if (profile && profile[field] === ach.id) updates['lan/users/' + uid + '/' + field] = null;
+    });
+    return updates;
 }
 
 /* ==========================================================================
@@ -2090,7 +2138,9 @@ function achievementState(data, uid) {
     const counters = playerCounters(data, uid);
     return ACHIEVEMENTS.map(ach => {
         const progress = achievementProgress(counters, ach);
-        const awarded = hasXpAward(data.xp, achievementAwardId(uid, ach.id));
+        const awardId = achievementAwardId(uid, ach.id);
+        const awarded = hasXpAward(data.xp, awardId);
+        const revoked = isXpAwardRevoked(data.xp, awardId);
         return {
             ach: ach,
             current: progress.current,
@@ -2100,7 +2150,8 @@ function achievementState(data, uid) {
             /* Obtenu = inscrit au journal. Un jalon acquis le reste même quand
                les compteurs de la soirée repartent à zéro. */
             owned: awarded,
-            pending: progress.reached && !awarded
+            revoked: revoked,
+            pending: progress.reached && !awarded && !revoked
         };
     });
 }
