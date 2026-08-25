@@ -2843,13 +2843,46 @@ function queuePendingMobileAchievementReveals() {
     showNextMobileAchievementReveal();
 }
 
-function previewMobileAchievementReveal() {
-    const ach = achievementById('beta') || ACHIEVEMENTS[0];
-    showMobileAchievementReveal({
+function populateMobileAchievementRevealTester() {
+    const select = $('m-ach-preview-select');
+    if (!select) return;
+    const previous = select.value || 'beta';
+    select.innerHTML = '';
+    const groups = new Map();
+    ACHIEVEMENTS.forEach(ach => {
+        if (!groups.has(ach.family)) {
+            const group = document.createElement('optgroup');
+            group.label = ach.family.toLocaleUpperCase('fr-FR');
+            groups.set(ach.family, group);
+            select.appendChild(group);
+        }
+        const option = document.createElement('option');
+        option.value = ach.id;
+        option.textContent = `${ach.label} · +${ach.xp} XP`;
+        groups.get(ach.family).appendChild(option);
+    });
+    select.value = achievementById(previous) ? previous : 'beta';
+}
+
+function queueMobileAchievementPreview(ach) {
+    if (!ach) return;
+    achievementRevealQueue.push({
         award: { uid: state.user && state.user.uid, refId: ach.id, delta: ach.xp, ts: Date.now() },
         preview: true,
-        key: 'preview-' + Date.now()
+        key: `preview-${ach.id}-${Date.now()}-${achievementRevealQueue.length}`
     });
+    showNextMobileAchievementReveal();
+}
+
+function previewMobileAchievementReveal() {
+    const select = $('m-ach-preview-select');
+    queueMobileAchievementPreview(achievementById(select && select.value) || achievementById('beta') || ACHIEVEMENTS[0]);
+}
+
+function previewAllMobileAchievementReveals() {
+    ACHIEVEMENTS.forEach(queueMobileAchievementPreview);
+    const select = $('m-ach-preview-select');
+    if (select) select.value = ACHIEVEMENTS[0].id;
 }
 
 function showNextMobileAchievementReveal() {
@@ -2874,7 +2907,14 @@ function showMobileAchievementReveal(entry) {
     const before = xpLevel(previousTotal);
     const after = xpLevel(finalTotal);
     const fromRatio = before.level === after.level ? before.ratio : 0;
+    const theme = achievementRevealTheme(ach);
 
+    overlay.dataset.achFamily = theme.family;
+    overlay.dataset.achRarity = theme.rarity;
+    overlay.style.setProperty('--ach-accent', theme.accent);
+    overlay.style.setProperty('--ach-accent-2', theme.accent2);
+    $('m-ach-unlock-eyebrow').textContent = theme.familyLabel;
+    $('m-ach-unlock-mark').textContent = theme.mark;
     $('m-ach-unlock-icon').setAttribute('d', ACH_ICONS[ach.icon] || ACH_ICONS.trophy);
     $('m-ach-unlock-title').textContent = ach.label.toLocaleUpperCase('fr-FR');
     $('m-ach-unlock-hint').textContent = ach.hint;
@@ -2889,8 +2929,17 @@ function showMobileAchievementReveal(entry) {
     requestAnimationFrame(() => {
         overlay.classList.add('is-visible');
         $('m-ach-unlock-close').focus({ preventScroll: true });
-        if (typeof Sfx !== 'undefined') Sfx.reveal('signature');
-        if (navigator.vibrate) navigator.vibrate([25, 35, 55]);
+        if (typeof Sfx !== 'undefined') Sfx.reveal(theme.rarity);
+        if (navigator.vibrate) {
+            const vibration = {
+                common: [18],
+                uncommon: [20, 26, 20],
+                rare: [22, 30, 38],
+                epic: [28, 25, 45, 25, 60],
+                signature: [35, 20, 45, 20, 70]
+            };
+            navigator.vibrate(vibration[theme.rarity] || vibration.rare);
+        }
     });
 }
 
@@ -2913,7 +2962,9 @@ function closeMobileAchievementReveal() {
     }, 280);
 }
 
+populateMobileAchievementRevealTester();
 $('m-ach-preview').addEventListener('click', previewMobileAchievementReveal);
+$('m-ach-preview-all').addEventListener('click', previewAllMobileAchievementReveals);
 $('m-ach-unlock-close').addEventListener('click', closeMobileAchievementReveal);
 /* L'expéditeur est inscrit DANS la clé, pas seulement dans le corps : les
    règles Firebase exigent que `lan/notifications/<cible>/<clé>` commence par

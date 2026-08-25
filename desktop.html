@@ -571,7 +571,15 @@
                                 <h3 class="section-title">Hauts faits des joueurs</h3>
                                 <p class="panel-section__text">Attribuez, réinitialisez ou réattribuez un haut fait, quelle que soit la phase de la LAN.</p>
                             </div>
-                            <button type="button" id="btn-preview-achievement-dashboard" class="gold-link-btn">▶ Tester l'animation</button>
+                        </div>
+                        <div class="achievement-preview-studio">
+                            <label class="field-label" for="achievement-preview-select-dashboard">Studio de révélation</label>
+                            <select id="achievement-preview-select-dashboard" class="luxury-input"></select>
+                            <div class="achievement-preview-studio__actions">
+                                <button type="button" id="btn-preview-achievement-dashboard" class="gold-link-btn">▶ Tester ce haut fait</button>
+                                <button type="button" id="btn-preview-all-achievements-dashboard" class="gold-link-btn">Tout tester</button>
+                            </div>
+                            <small>Aperçu uniquement — aucun XP ni haut fait n'est attribué.</small>
                         </div>
                         <label class="field-label" for="ach-user-select-dashboard">Joueur</label>
                         <select id="ach-user-select-dashboard" class="luxury-input">
@@ -1246,7 +1254,15 @@
                         <div class="luxury-panel admin-command-card achievement-admin-panel" style="padding: 25px; margin-bottom: 25px;">
                             <div class="achievement-admin-panel__head">
                                 <h3 style="margin: 0; color: var(--accent-color);">🏅 Hauts faits des joueurs</h3>
-                                <button type="button" id="btn-preview-achievement-lan" class="gold-link-btn">▶ Tester l'animation</button>
+                            </div>
+                            <div class="achievement-preview-studio">
+                                <label class="field-label" for="achievement-preview-select-lan">Studio de révélation</label>
+                                <select id="achievement-preview-select-lan" class="luxury-input"></select>
+                                <div class="achievement-preview-studio__actions">
+                                    <button type="button" id="btn-preview-achievement-lan" class="gold-link-btn">▶ Tester ce haut fait</button>
+                                    <button type="button" id="btn-preview-all-achievements-lan" class="gold-link-btn">Tout tester</button>
+                                </div>
+                                <small>Aperçu uniquement — aucune donnée joueur n'est modifiée.</small>
                             </div>
                             <div class="admin-select-group" style="gap: 12px;">
                                 <label for="ach-user-select">Joueur</label>
@@ -1869,17 +1885,18 @@
     <div id="achievement-unlock-overlay" class="achievement-unlock" role="dialog" aria-modal="true"
         aria-labelledby="achievement-unlock-title" aria-hidden="true">
         <div class="achievement-unlock__scrim"></div>
+        <div class="achievement-unlock__motif" aria-hidden="true"></div>
         <div class="achievement-unlock__scan"></div>
         <div class="achievement-unlock__dust" aria-hidden="true">
             <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
         </div>
         <button type="button" id="achievement-unlock-close" class="achievement-unlock__stage" aria-label="Continuer">
-            <span class="achievement-unlock__eyebrow">HAUT FAIT DÉBLOQUÉ</span>
+            <span id="achievement-unlock-eyebrow" class="achievement-unlock__eyebrow">HAUT FAIT DÉBLOQUÉ</span>
             <span class="achievement-unlock__stamp" aria-hidden="true">ACQUIS</span>
             <span class="achievement-unlock__medal" aria-hidden="true">
                 <span class="achievement-unlock__medal-ring"></span>
                 <svg viewBox="0 0 24 24"><path id="achievement-unlock-icon"></path></svg>
-                <span class="achievement-unlock__laurel">◆</span>
+                <span id="achievement-unlock-mark" class="achievement-unlock__laurel">◆</span>
             </span>
             <strong id="achievement-unlock-title" class="achievement-unlock__title">BÊTA-TESTEUR</strong>
             <span class="achievement-unlock__rule"><i></i></span>
@@ -1896,9 +1913,9 @@
     <div id="toast-container"></div>
 
     <script src="config.js"></script>
-    <script src="core.js?v=20260825-achievement-ceremony"></script>
+    <script src="core.js?v=20260825-achievement-themes"></script>
     <script src="sound.js"></script>
-    <script src="newScript.js?v=20260825-achievement-ceremony"></script>
+    <script src="newScript.js?v=20260825-achievement-themes"></script>
 </body>
 
 </html>

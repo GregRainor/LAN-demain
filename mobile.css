@@ -2455,4 +2455,90 @@ button.m-podium { width: 100%; text-align: left; }
     .m-ach-unlock__scan,.m-ach-unlock__dust { display:none; }
     .m-ach-unlock__eyebrow,.m-ach-unlock__stamp,.m-ach-unlock__medal,.m-ach-unlock__title,.m-ach-unlock__hint,.m-ach-unlock__reward,.m-ach-unlock__xp,.m-ach-unlock__continue { opacity:1;transform:none; }
     .m-ach-unlock__bar i { width:var(--xp-to); }
+}/* ---------- Studio et identités de révélation mobile ---------- */
+.m-ach-preview-studio { margin-top:14px; padding-top:14px; display:grid; gap:9px; border-top:1px solid var(--line-2); }
+.m-ach-preview-studio .m-label { margin:0; }
+.m-ach-preview-studio .m-input { margin:0; }
+.m-ach-preview-studio__actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.m-ach-preview-studio__actions .m-btn { min-width:0; }
+.m-ach-preview-studio .m-card__meta { margin:0; }
+
+.m-ach-unlock {
+    --ach-accent:#d4af37;
+    --ach-accent-2:#ffe078;
+    --ach-glow:color-mix(in srgb,var(--ach-accent) 42%,transparent);
+    background:radial-gradient(circle at 50% 34%,color-mix(in srgb,var(--ach-accent) 24%,transparent),rgba(3,3,3,.96) 58%,#000);
+}
+.m-ach-unlock::before { background-image:linear-gradient(color-mix(in srgb,var(--ach-accent) 7%,transparent) 1px,transparent 1px),linear-gradient(90deg,color-mix(in srgb,var(--ach-accent) 5%,transparent) 1px,transparent 1px); }
+.m-ach-unlock__motif { position:absolute; inset:-9%; z-index:0; opacity:0; pointer-events:none; mask-image:radial-gradient(circle at 50% 36%,#000 0 22%,rgba(0,0,0,.8) 43%,transparent 72%); }
+.m-ach-unlock__motif::before,.m-ach-unlock__motif::after { content:''; position:absolute; inset:0; }
+.m-ach-unlock.is-visible .m-ach-unlock__motif { animation:m-ach-motif-in 1.25s .15s ease-out both; }
+.m-ach-unlock__scan { background:linear-gradient(90deg,transparent,var(--ach-accent-2),transparent); box-shadow:0 0 9px var(--ach-accent),0 0 30px var(--ach-glow); }
+.m-ach-unlock__eyebrow,.m-ach-unlock__title,.m-ach-unlock__reward,.m-ach-unlock__continue { color:var(--ach-accent-2); }
+.m-ach-unlock__stamp { color:color-mix(in srgb,var(--ach-accent) 16%,transparent); border-color:color-mix(in srgb,var(--ach-accent) 14%,transparent); }
+.m-ach-unlock__medal {
+    color:var(--ach-accent-2);
+    border-color:color-mix(in srgb,var(--ach-accent) 78%,#745b1e);
+    background:radial-gradient(circle at 43% 31%,color-mix(in srgb,var(--ach-accent) 18%,#26231e),#151514 44%,#070707 72%);
+    box-shadow:inset 0 0 0 3px #171512,inset 0 0 0 5px color-mix(in srgb,var(--ach-accent-2) 55%,transparent),0 12px 30px #000,0 0 58px var(--ach-glow);
+}
+.m-ach-unlock__medal::before,.m-ach-unlock__ring { border-color:color-mix(in srgb,var(--ach-accent) 23%,transparent); }
+.m-ach-unlock__medal svg { filter:drop-shadow(0 2px 3px #000) drop-shadow(0 0 10px var(--ach-glow)); }
+.m-ach-unlock__laurel { color:var(--ach-accent); font-weight:700; letter-spacing:.1em; }
+.m-ach-unlock__hint::before { color:var(--ach-accent-2); text-shadow:0 0 8px var(--ach-glow); }
+.m-ach-unlock__bar i { background:linear-gradient(90deg,color-mix(in srgb,var(--ach-accent) 70%,#402b09),var(--ach-accent) 68%,var(--ach-accent-2)); box-shadow:0 0 13px var(--ach-glow); }
+.m-ach-unlock__dust i { background:var(--ach-accent-2); box-shadow:0 0 8px var(--ach-accent); }
+
+/* Boutique : pièces et rotation sur l'axe Y. */
+.m-ach-unlock[data-ach-family="commerce"] .m-ach-unlock__motif { background:radial-gradient(circle at 18% 35%,transparent 0 25px,color-mix(in srgb,var(--ach-accent) 22%,transparent) 26px 28px,transparent 29px),radial-gradient(circle at 82% 49%,transparent 0 39px,color-mix(in srgb,var(--ach-accent) 16%,transparent) 40px 42px,transparent 43px),repeating-linear-gradient(105deg,transparent 0 31px,color-mix(in srgb,var(--ach-accent) 8%,transparent) 32px 33px); }
+.m-ach-unlock.is-visible[data-ach-family="commerce"] .m-ach-unlock__medal { animation:m-ach-medal-coin .82s .32s cubic-bezier(.16,.9,.18,1.1) both; }
+.m-ach-unlock[data-ach-family="commerce"] .m-ach-unlock__dust i { width:7px; height:3px; border-radius:50%; }
+
+/* Collection : prisme et éclats. */
+.m-ach-unlock[data-ach-family="collection"] .m-ach-unlock__motif { background:conic-gradient(from 30deg at 50% 36%,transparent,color-mix(in srgb,var(--ach-accent) 13%,transparent),transparent 16%,color-mix(in srgb,var(--ach-accent-2) 11%,transparent),transparent 32%); }
+.m-ach-unlock[data-ach-family="collection"] .m-ach-unlock__motif::after { inset:12% 18%; transform:rotate(11deg); background:repeating-linear-gradient(118deg,transparent 0 28px,color-mix(in srgb,var(--ach-accent-2) 14%,transparent) 29px 30px,transparent 31px 56px); }
+.m-ach-unlock.is-visible[data-ach-family="collection"] .m-ach-unlock__medal { animation:m-ach-medal-prism .82s .32s cubic-bezier(.16,.9,.18,1.1) both; }
+.m-ach-unlock[data-ach-family="collection"] .m-ach-unlock__dust i { width:5px; height:8px; border-radius:0; clip-path:polygon(50% 0,100% 100%,0 72%); }
+
+/* Assiduité : orbites et entrée posée. */
+.m-ach-unlock[data-ach-family="legacy"] .m-ach-unlock__motif { background:repeating-radial-gradient(ellipse at 50% 36%,transparent 0 49px,color-mix(in srgb,var(--ach-accent) 14%,transparent) 50px 51px,transparent 52px 82px); }
+.m-ach-unlock[data-ach-family="legacy"] .m-ach-unlock__motif::after { inset:27%; border:1px solid color-mix(in srgb,var(--ach-accent-2) 16%,transparent); border-radius:50%; transform:rotate(-18deg) scaleX(1.7); }
+.m-ach-unlock.is-visible[data-ach-family="legacy"] .m-ach-unlock__medal { animation:m-ach-medal-legacy .92s .3s cubic-bezier(.12,.82,.18,1) both; }
+.m-ach-unlock.is-visible[data-ach-family="legacy"] .m-ach-unlock__ring { animation-duration:24s; }
+
+/* Défis : impact et fragments. */
+.m-ach-unlock[data-ach-family="challenge"] .m-ach-unlock__motif { background:repeating-conic-gradient(from 22deg at 50% 36%,transparent 0 9deg,color-mix(in srgb,var(--ach-accent) 14%,transparent) 10deg,transparent 11deg 23deg); }
+.m-ach-unlock[data-ach-family="challenge"] .m-ach-unlock__motif::after { background:linear-gradient(43deg,transparent 49.8%,color-mix(in srgb,var(--ach-accent-2) 22%,transparent) 50%,transparent 50.2%),linear-gradient(-43deg,transparent 49.8%,color-mix(in srgb,var(--ach-accent) 20%,transparent) 50%,transparent 50.2%); }
+.m-ach-unlock.is-visible[data-ach-family="challenge"] .m-ach-unlock__medal { animation:m-ach-medal-slam .64s .38s cubic-bezier(.12,.88,.22,1.22) both; }
+.m-ach-unlock[data-ach-family="challenge"] .m-ach-unlock__dust i { width:5px; height:5px; border-radius:0; transform:rotate(45deg); }
+
+/* Votes : rayon royal et ascension. */
+.m-ach-unlock[data-ach-family="vote"] .m-ach-unlock__motif { background:repeating-conic-gradient(from -3deg at 50% 36%,color-mix(in srgb,var(--ach-accent) 12%,transparent) 0 2deg,transparent 2deg 12deg); }
+.m-ach-unlock[data-ach-family="vote"] .m-ach-unlock__motif::after { inset:24%; border:1px double color-mix(in srgb,var(--ach-accent-2) 23%,transparent); transform:rotate(45deg); }
+.m-ach-unlock.is-visible[data-ach-family="vote"] .m-ach-unlock__medal { animation:m-ach-medal-royal .84s .31s cubic-bezier(.12,.9,.18,1.12) both; }
+.m-ach-unlock[data-ach-family="vote"] .m-ach-unlock__dust i { width:7px; height:7px; border-radius:0; clip-path:polygon(50% 0,61% 35%,100% 50%,61% 65%,50% 100%,39% 65%,0 50%,39% 35%); }
+
+/* Bêta : grille technique et glitch. */
+.m-ach-unlock[data-ach-family="prototype"] .m-ach-unlock__motif { background-image:linear-gradient(color-mix(in srgb,var(--ach-accent) 14%,transparent) 1px,transparent 1px),linear-gradient(90deg,color-mix(in srgb,var(--ach-accent) 12%,transparent) 1px,transparent 1px); background-size:24px 24px; }
+.m-ach-unlock[data-ach-family="prototype"] .m-ach-unlock__motif::after { inset:16%; border:1px solid color-mix(in srgb,var(--ach-accent-2) 24%,transparent); box-shadow:0 0 40px var(--ach-glow),inset 0 0 40px color-mix(in srgb,var(--ach-accent) 9%,transparent); }
+.m-ach-unlock.is-visible[data-ach-family="prototype"] .m-ach-unlock__medal { animation:m-ach-medal-glitch .78s .34s steps(8,end) both; }
+.m-ach-unlock.is-visible[data-ach-family="prototype"] .m-ach-unlock__scan { animation:m-ach-scan-prototype 1.15s .08s steps(7,end) both; }
+.m-ach-unlock[data-ach-family="prototype"] .m-ach-unlock__dust i { width:8px; height:2px; border-radius:0; }
+
+.m-ach-unlock[data-ach-rarity="epic"] .m-ach-unlock__medal,
+.m-ach-unlock[data-ach-rarity="signature"] .m-ach-unlock__medal { box-shadow:inset 0 0 0 3px #171512,inset 0 0 0 5px color-mix(in srgb,var(--ach-accent-2) 65%,transparent),0 14px 34px #000,0 0 78px var(--ach-glow); }
+.m-ach-unlock.is-visible[data-ach-rarity="signature"] .m-ach-unlock__title { animation:m-ach-rise .5s .9s ease-out both,m-ach-title-breathe 2.6s 1.5s ease-in-out infinite; }
+
+@keyframes m-ach-motif-in { from{opacity:0;transform:scale(.8) rotate(-3deg)} to{opacity:.82;transform:none} }
+@keyframes m-ach-medal-coin { 0%{opacity:0;transform:scale(.7) rotateY(85deg) rotateZ(-12deg)} 70%{opacity:1;transform:scale(1.05) rotateY(-8deg)} 100%{opacity:1;transform:none} }
+@keyframes m-ach-medal-prism { 0%{opacity:0;transform:scale(.58) rotate(35deg)} 72%{opacity:1;transform:scale(1.06) rotate(-2deg)} 100%{opacity:1;transform:none} }
+@keyframes m-ach-medal-legacy { 0%{opacity:0;transform:translateY(34px) scale(.82) rotate(-13deg)} 75%{opacity:1;transform:translateY(-3px) scale(1.02)} 100%{opacity:1;transform:none} }
+@keyframes m-ach-medal-slam { 0%{opacity:0;transform:scale(1.6) rotate(-4deg);filter:blur(4px)} 68%{opacity:1;transform:scale(.96);filter:none} 100%{opacity:1;transform:none} }
+@keyframes m-ach-medal-royal { 0%{opacity:0;transform:translateY(62px) scale(.75)} 74%{opacity:1;transform:translateY(-4px) scale(1.04)} 100%{opacity:1;transform:none} }
+@keyframes m-ach-medal-glitch { 0%{opacity:0;transform:translate(-15px,5px) scale(.72)} 28%{opacity:.45;transform:translate(10px,-4px) scale(.86)} 55%{opacity:.75;transform:translate(-4px,2px) scale(1.07)} 100%{opacity:1;transform:none} }
+@keyframes m-ach-scan-prototype { 0%{opacity:0;transform:translateY(-130px) scaleX(.2)} 60%{opacity:1} 100%{opacity:.22;transform:translateY(145px) scaleX(1)} }
+@keyframes m-ach-title-breathe { 50%{text-shadow:0 0 25px var(--ach-glow),0 0 5px var(--ach-accent-2)} }
+
+@media (prefers-reduced-motion:reduce) {
+    .m-ach-unlock__motif { display:none; }
 }

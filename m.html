@@ -391,7 +391,15 @@
                     </select>
                     <p class="m-card__meta" id="m-ach-admin-hint">Choisis un joueur pour attribuer ou réinitialiser ses hauts faits.</p>
                     <div id="m-ach-admin-list" class="m-ach-admin-list"></div>
-                    <button type="button" class="m-btn m-btn--quiet m-btn--full" id="m-ach-preview">▶ Tester l'animation</button>
+                    <div class="m-ach-preview-studio">
+                        <label class="m-label" for="m-ach-preview-select">Studio de révélation</label>
+                        <select class="m-input" id="m-ach-preview-select"></select>
+                        <div class="m-ach-preview-studio__actions">
+                            <button type="button" class="m-btn m-btn--quiet" id="m-ach-preview">▶ Tester</button>
+                            <button type="button" class="m-btn m-btn--quiet" id="m-ach-preview-all">Tout tester</button>
+                        </div>
+                        <p class="m-card__meta">Aperçu uniquement — aucun XP ni haut fait n'est attribué.</p>
+                    </div>
                 </div>
                 <div class="m-section">
                     <div class="m-section__head">
@@ -840,15 +848,16 @@
          condensé pour tenir dans la hauteur utile d'un téléphone. -->
     <div id="m-ach-unlock" class="m-ach-unlock" role="dialog" aria-modal="true"
         aria-labelledby="m-ach-unlock-title" aria-hidden="true">
+        <div class="m-ach-unlock__motif" aria-hidden="true"></div>
         <div class="m-ach-unlock__scan"></div>
         <div class="m-ach-unlock__dust" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
         <button type="button" id="m-ach-unlock-close" class="m-ach-unlock__stage" aria-label="Continuer">
-            <span class="m-ach-unlock__eyebrow">HAUT FAIT DÉBLOQUÉ</span>
+            <span id="m-ach-unlock-eyebrow" class="m-ach-unlock__eyebrow">HAUT FAIT DÉBLOQUÉ</span>
             <span class="m-ach-unlock__stamp" aria-hidden="true">ACQUIS</span>
             <span class="m-ach-unlock__medal" aria-hidden="true">
                 <span class="m-ach-unlock__ring"></span>
                 <svg viewBox="0 0 24 24"><path id="m-ach-unlock-icon"></path></svg>
-                <span class="m-ach-unlock__laurel">◆</span>
+                <span id="m-ach-unlock-mark" class="m-ach-unlock__laurel">◆</span>
             </span>
             <strong id="m-ach-unlock-title" class="m-ach-unlock__title">BÊTA-TESTEUR</strong>
             <span id="m-ach-unlock-hint" class="m-ach-unlock__hint">Avoir été là pendant la bêta</span>
@@ -864,9 +873,9 @@
     <div id="m-toasts"></div>
 
     <script src="config.js"></script>
-    <script src="core.js?v=20260825-achievement-ceremony"></script>
+    <script src="core.js?v=20260825-achievement-themes"></script>
     <script src="sound.js"></script>
-    <script src="mobile.js?v=20260825-achievement-ceremony"></script>
+    <script src="mobile.js?v=20260825-achievement-themes"></script>
 </body>
 
 </html>

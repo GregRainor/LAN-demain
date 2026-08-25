@@ -1943,6 +1943,39 @@ const PROFILE_TITLE_THEMES = {
     'administrator':    { rarity: 'signature', material: 'polonia',  motif: 'polonia', motion: 'polonia', accent: '#dc143c', accent2: '#fffdf7' }
 };
 
+/* La cérémonie reprend la personnalité du haut fait, pas seulement son
+   pictogramme. Les deux interfaces consomment ce même portrait pour que le son,
+   les couleurs et le mouvement ne divergent jamais entre le PC et le mobile.
+   Le thème de titre affine une récompense précise ; la famille donne une
+   identité aux petits jalons qui n'ont pas encore leur propre titre. */
+const ACHIEVEMENT_REVEAL_FAMILIES = {
+    boutique: { key: 'commerce', label: 'ARCHIVES DE LA BOUTIQUE', mark: 'ZŁ', accent: '#d7a92f', accent2: '#ffe07a' },
+    cartes: { key: 'collection', label: 'CABINET DES COLLECTIONS', mark: '✦', accent: '#9075df', accent2: '#8de9ff' },
+    'soirée': { key: 'legacy', label: 'REGISTRE DES VÉTÉRANS', mark: 'III', accent: '#7799dc', accent2: '#d0ddff' },
+    'défis': { key: 'challenge', label: 'DOSSIER DES DÉFIS', mark: '⚔', accent: '#d94242', accent2: '#f3c64f' },
+    votes: { key: 'vote', label: 'CHRONIQUES DU SCRUTIN', mark: '♛', accent: '#8c67d7', accent2: '#f2cd55' },
+    'légende': { key: 'prototype', label: 'ARCHIVE CONFIDENTIELLE', mark: 'β', accent: '#63c5b5', accent2: '#e0c35a' }
+};
+
+function achievementRevealTheme(value) {
+    const ach = typeof value === 'string' ? achievementById(value) : value;
+    const family = ACHIEVEMENT_REVEAL_FAMILIES[ach && ach.family]
+        || { key: 'classic', label: 'HAUT FAIT DÉBLOQUÉ', mark: '◆', accent: '#d4af37', accent2: '#ffe078' };
+    const titleTheme = ach && PROFILE_TITLE_THEMES[ach.id];
+    const xp = Math.max(0, Number(ach && ach.xp) || 0);
+    const rarity = (titleTheme && titleTheme.rarity)
+        || (xp >= 250 ? 'signature' : xp >= 150 ? 'epic' : xp >= 100 ? 'rare' : xp >= 50 ? 'uncommon' : 'common');
+
+    return {
+        family: family.key,
+        familyLabel: family.label,
+        mark: family.mark,
+        rarity: rarity,
+        accent: (titleTheme && titleTheme.accent) || family.accent,
+        accent2: (titleTheme && titleTheme.accent2) || family.accent2
+    };
+}
+
 /* Les titres de rôle ne sont pas des hauts faits. Ils ne donnent ni XP ni
    trophée : ils constatent une fonction réelle, vérifiée à nouveau au moment de
    l'enregistrement par les règles Firebase. */

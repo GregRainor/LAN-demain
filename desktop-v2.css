@@ -4187,4 +4187,140 @@ body.desktop-authenticated #app-container.desktop-os *::after {
     .achievement-unlock__eyebrow,.achievement-unlock__stamp,.achievement-unlock__medal,.achievement-unlock__title,.achievement-unlock__rule,.achievement-unlock__hint,.achievement-unlock__reward,.achievement-unlock__xp,.achievement-unlock__continue { opacity: 1; transform: none; }
     .achievement-unlock__bar i { width: var(--xp-to); }
     .achievement-unlock__scan,.achievement-unlock__dust { display: none; }
+}/* ==========================================================================
+   Studio et identités de révélation
+   Six familles, cinq intensités. Le pictogramme décrit le haut fait ; la scène
+   raconte d'où il vient.
+   ========================================================================== */
+.achievement-preview-studio {
+    margin: 0 0 18px;
+    padding: 14px;
+    display: grid;
+    grid-template-columns: minmax(220px, 1fr) auto;
+    align-items: end;
+    gap: 9px 12px;
+    border: 1px solid rgba(212,175,55,.16);
+    background: linear-gradient(135deg,rgba(212,175,55,.055),rgba(255,255,255,.012));
+}
+.achievement-preview-studio .field-label { grid-column: 1 / -1; margin: 0; }
+.achievement-preview-studio .luxury-input { margin: 0; }
+.achievement-preview-studio__actions { display: flex; gap: 8px; }
+.achievement-preview-studio__actions .gold-link-btn { min-height: 42px; white-space: nowrap; }
+.achievement-preview-studio small { grid-column: 1 / -1; color: var(--text-muted); font-size: 11px; }
+
+.achievement-unlock {
+    --ach-accent:#d4af37;
+    --ach-accent-2:#ffe078;
+    --ach-glow:color-mix(in srgb,var(--ach-accent) 42%,transparent);
+}
+.achievement-unlock__scrim {
+    background:
+        radial-gradient(circle at 50% 42%,color-mix(in srgb,var(--ach-accent) 23%,transparent),rgba(3,3,3,.93) 58%,rgba(0,0,0,.98)),
+        #020202;
+}
+.achievement-unlock__motif {
+    position:absolute; inset:-12%; z-index:-2; opacity:0;
+    pointer-events:none;
+    mask-image:radial-gradient(circle at 50% 44%,#000 0 25%,rgba(0,0,0,.78) 45%,transparent 72%);
+}
+.achievement-unlock__motif::before,.achievement-unlock__motif::after { content:''; position:absolute; inset:0; }
+.achievement-unlock.is-visible .achievement-unlock__motif { animation:achievement-motif-in 1.5s .2s ease-out both; }
+.achievement-unlock__scan {
+    background:linear-gradient(90deg,transparent 8%,color-mix(in srgb,var(--ach-accent) 18%,transparent) 28%,var(--ach-accent-2) 50%,color-mix(in srgb,var(--ach-accent) 18%,transparent) 72%,transparent 92%);
+    box-shadow:0 0 8px var(--ach-accent),0 0 34px var(--ach-glow);
+}
+.achievement-unlock__eyebrow,.achievement-unlock__title,.achievement-unlock__reward,.achievement-unlock__continue { color:var(--ach-accent-2); }
+.achievement-unlock__stamp { color:color-mix(in srgb,var(--ach-accent) 16%,transparent); border-color:color-mix(in srgb,var(--ach-accent) 14%,transparent); }
+.achievement-unlock__medal {
+    color:var(--ach-accent-2);
+    border-color:color-mix(in srgb,var(--ach-accent) 78%,#745b1e);
+    background:radial-gradient(circle at 43% 31%,color-mix(in srgb,var(--ach-accent) 18%,#26231e) 0 8%,#151514 42%,#070707 72%);
+    box-shadow:inset 0 0 0 4px #171512,inset 0 0 0 6px color-mix(in srgb,var(--ach-accent-2) 55%,transparent),0 14px 34px rgba(0,0,0,.78),0 0 72px var(--ach-glow);
+}
+.achievement-unlock__medal::before { border-color:color-mix(in srgb,var(--ach-accent) 20%,transparent); }
+.achievement-unlock__medal-ring,.achievement-unlock__medal-ring::before,.achievement-unlock__medal-ring::after { border-color:color-mix(in srgb,var(--ach-accent) 24%,transparent); }
+.achievement-unlock__medal svg { filter:drop-shadow(0 3px 3px #000) drop-shadow(0 0 11px var(--ach-glow)); }
+.achievement-unlock__laurel { color:var(--ach-accent); font-weight:700; letter-spacing:.16em; text-indent:.16em; }
+.achievement-unlock__rule { background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--ach-accent) 48%,transparent),transparent); }
+.achievement-unlock__rule i { background:var(--ach-accent-2); box-shadow:0 0 0 5px #070707,0 0 13px var(--ach-glow); }
+.achievement-unlock__bar i { background:linear-gradient(90deg,color-mix(in srgb,var(--ach-accent) 72%,#402b09),var(--ach-accent) 66%,var(--ach-accent-2)); box-shadow:0 0 15px var(--ach-glow); }
+.achievement-unlock__dust i { background:var(--ach-accent-2); box-shadow:0 0 9px var(--ach-accent); }
+
+/* Boutique — monnaie lourde, rainures et rotation de pièce. */
+.achievement-unlock[data-ach-family="commerce"] .achievement-unlock__motif {
+    background:
+        radial-gradient(circle at 22% 43%,transparent 0 34px,color-mix(in srgb,var(--ach-accent) 22%,transparent) 35px 37px,transparent 38px),
+        radial-gradient(circle at 78% 58%,transparent 0 52px,color-mix(in srgb,var(--ach-accent) 14%,transparent) 53px 55px,transparent 56px),
+        repeating-linear-gradient(105deg,transparent 0 42px,color-mix(in srgb,var(--ach-accent) 7%,transparent) 43px 44px);
+}
+.achievement-unlock.is-visible[data-ach-family="commerce"] .achievement-unlock__medal { animation:achievement-medal-coin .9s .38s cubic-bezier(.16,.9,.18,1.1) both; }
+.achievement-unlock[data-ach-family="commerce"] .achievement-unlock__dust i { width:7px; height:3px; border-radius:50%; }
+
+/* Collection — prisme, facettes et éclats en suspension. */
+.achievement-unlock[data-ach-family="collection"] .achievement-unlock__motif {
+    background:conic-gradient(from 30deg at 50% 43%,transparent,color-mix(in srgb,var(--ach-accent) 11%,transparent),transparent 15%,color-mix(in srgb,var(--ach-accent-2) 9%,transparent),transparent 31%);
+}
+.achievement-unlock[data-ach-family="collection"] .achievement-unlock__motif::after {
+    inset:18% 24%; transform:rotate(12deg);
+    background:repeating-linear-gradient(118deg,transparent 0 37px,color-mix(in srgb,var(--ach-accent-2) 13%,transparent) 38px 39px,transparent 40px 72px);
+}
+.achievement-unlock.is-visible[data-ach-family="collection"] .achievement-unlock__medal { animation:achievement-medal-prism .9s .38s cubic-bezier(.16,.9,.18,1.1) both; }
+.achievement-unlock[data-ach-family="collection"] .achievement-unlock__dust i { width:5px; height:8px; border-radius:0; clip-path:polygon(50% 0,100% 100%,0 72%); }
+
+/* Assiduité — orbites lentes, registre ancien et arrivée solennelle. */
+.achievement-unlock[data-ach-family="legacy"] .achievement-unlock__motif {
+    background:repeating-radial-gradient(ellipse at 50% 43%,transparent 0 67px,color-mix(in srgb,var(--ach-accent) 12%,transparent) 68px 69px,transparent 70px 112px);
+}
+.achievement-unlock[data-ach-family="legacy"] .achievement-unlock__motif::after { inset:27%; border:1px solid color-mix(in srgb,var(--ach-accent-2) 15%,transparent); border-radius:50%; transform:rotate(-18deg) scaleX(1.8); }
+.achievement-unlock.is-visible[data-ach-family="legacy"] .achievement-unlock__medal { animation:achievement-medal-legacy 1s .34s cubic-bezier(.12,.82,.18,1) both; }
+.achievement-unlock.is-visible[data-ach-family="legacy"] .achievement-unlock__medal-ring { animation-duration:26s; }
+
+/* Défis — impact, diagonales et fragments carrés. */
+.achievement-unlock[data-ach-family="challenge"] .achievement-unlock__motif {
+    background:repeating-conic-gradient(from 22deg at 50% 43%,transparent 0 9deg,color-mix(in srgb,var(--ach-accent) 12%,transparent) 10deg,transparent 11deg 23deg);
+}
+.achievement-unlock[data-ach-family="challenge"] .achievement-unlock__motif::after { inset:8%; background:linear-gradient(43deg,transparent 49.85%,color-mix(in srgb,var(--ach-accent-2) 20%,transparent) 50%,transparent 50.15%),linear-gradient(-43deg,transparent 49.85%,color-mix(in srgb,var(--ach-accent) 18%,transparent) 50%,transparent 50.15%); }
+.achievement-unlock.is-visible[data-ach-family="challenge"] .achievement-unlock__medal { animation:achievement-medal-slam .68s .43s cubic-bezier(.12,.88,.22,1.22) both; }
+.achievement-unlock[data-ach-family="challenge"] .achievement-unlock__dust i { width:5px; height:5px; border-radius:0; transform:rotate(45deg); }
+
+/* Votes — rayons royaux et trophée qui monte vers la couronne. */
+.achievement-unlock[data-ach-family="vote"] .achievement-unlock__motif {
+    background:repeating-conic-gradient(from -3deg at 50% 43%,color-mix(in srgb,var(--ach-accent) 10%,transparent) 0 2deg,transparent 2deg 12deg);
+}
+.achievement-unlock[data-ach-family="vote"] .achievement-unlock__motif::after { inset:24%; border:1px double color-mix(in srgb,var(--ach-accent-2) 22%,transparent); transform:rotate(45deg); }
+.achievement-unlock.is-visible[data-ach-family="vote"] .achievement-unlock__medal { animation:achievement-medal-royal .92s .36s cubic-bezier(.12,.9,.18,1.12) both; }
+.achievement-unlock[data-ach-family="vote"] .achievement-unlock__dust i { clip-path:polygon(50% 0,61% 35%,100% 50%,61% 65%,50% 100%,39% 65%,0 50%,39% 35%); width:7px; height:7px; border-radius:0; }
+
+/* Bêta/légende — grille de prototype, balayage et micro-glitch assumé. */
+.achievement-unlock[data-ach-family="prototype"] .achievement-unlock__motif {
+    background-image:linear-gradient(color-mix(in srgb,var(--ach-accent) 12%,transparent) 1px,transparent 1px),linear-gradient(90deg,color-mix(in srgb,var(--ach-accent) 10%,transparent) 1px,transparent 1px);
+    background-size:28px 28px;
+}
+.achievement-unlock[data-ach-family="prototype"] .achievement-unlock__motif::after { inset:20%; border:1px solid color-mix(in srgb,var(--ach-accent-2) 22%,transparent); box-shadow:0 0 55px var(--ach-glow),inset 0 0 55px color-mix(in srgb,var(--ach-accent) 8%,transparent); }
+.achievement-unlock.is-visible[data-ach-family="prototype"] .achievement-unlock__medal { animation:achievement-medal-glitch .86s .4s steps(8,end) both; }
+.achievement-unlock.is-visible[data-ach-family="prototype"] .achievement-unlock__scan { animation:achievement-scan-prototype 1.35s .1s steps(7,end) both; }
+.achievement-unlock[data-ach-family="prototype"] .achievement-unlock__dust i { width:9px; height:2px; border-radius:0; }
+
+.achievement-unlock[data-ach-rarity="common"] .achievement-unlock__motif { opacity:.48; }
+.achievement-unlock[data-ach-rarity="epic"] .achievement-unlock__medal,
+.achievement-unlock[data-ach-rarity="signature"] .achievement-unlock__medal { box-shadow:inset 0 0 0 4px #171512,inset 0 0 0 6px color-mix(in srgb,var(--ach-accent-2) 65%,transparent),0 16px 38px rgba(0,0,0,.82),0 0 96px var(--ach-glow); }
+.achievement-unlock.is-visible[data-ach-rarity="signature"] .achievement-unlock__title { animation:achievement-rise .55s 1.02s ease-out both,achievement-title-breathe 2.8s 1.7s ease-in-out infinite; }
+
+@keyframes achievement-motif-in { from{opacity:0;transform:scale(.8) rotate(-3deg)} to{opacity:.8;transform:none} }
+@keyframes achievement-medal-coin { 0%{opacity:0;transform:scale(.7) rotateY(85deg) rotateZ(-12deg)} 70%{opacity:1;transform:scale(1.05) rotateY(-8deg) rotateZ(1deg)} 100%{opacity:1;transform:none} }
+@keyframes achievement-medal-prism { 0%{opacity:0;transform:scale(.58) rotate(35deg)} 72%{opacity:1;transform:scale(1.06) rotate(-2deg)} 100%{opacity:1;transform:none} }
+@keyframes achievement-medal-legacy { 0%{opacity:0;transform:translateY(36px) scale(.82) rotate(-13deg)} 75%{opacity:1;transform:translateY(-3px) scale(1.02)} 100%{opacity:1;transform:none} }
+@keyframes achievement-medal-slam { 0%{opacity:0;transform:scale(1.65) rotate(-4deg);filter:blur(5px)} 68%{opacity:1;transform:scale(.96);filter:none} 100%{opacity:1;transform:none} }
+@keyframes achievement-medal-royal { 0%{opacity:0;transform:translateY(70px) scale(.75)} 74%{opacity:1;transform:translateY(-5px) scale(1.04)} 100%{opacity:1;transform:none} }
+@keyframes achievement-medal-glitch { 0%{opacity:0;transform:translate(-18px,5px) scale(.72)} 28%{opacity:.45;transform:translate(12px,-4px) scale(.86)} 55%{opacity:.75;transform:translate(-5px,2px) scale(1.07)} 100%{opacity:1;transform:none} }
+@keyframes achievement-scan-prototype { 0%{opacity:0;transform:translateY(-180px) scaleX(.2)} 60%{opacity:1} 100%{opacity:.22;transform:translateY(180px) scaleX(1)} }
+@keyframes achievement-title-breathe { 50%{text-shadow:0 0 30px var(--ach-glow),0 0 6px var(--ach-accent-2)} }
+
+@media (max-width:720px) {
+    .achievement-preview-studio { grid-template-columns:1fr; }
+    .achievement-preview-studio .field-label,.achievement-preview-studio small { grid-column:auto; }
+    .achievement-preview-studio__actions { flex-wrap:wrap; }
+}
+@media (prefers-reduced-motion:reduce) {
+    .achievement-unlock__motif { display:none; }
 }

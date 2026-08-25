@@ -1566,13 +1566,59 @@ document.addEventListener('DOMContentLoaded', () => {
         showNextAchievementReveal();
     }
 
-    function previewAchievementReveal() {
-        const ach = achievementById('beta') || ACHIEVEMENTS[0];
-        showAchievementReveal({
+    const ACHIEVEMENT_PREVIEW_TESTERS = [
+        {
+            selectId: 'achievement-preview-select-dashboard',
+            oneId: 'btn-preview-achievement-dashboard',
+            allId: 'btn-preview-all-achievements-dashboard'
+        },
+        {
+            selectId: 'achievement-preview-select-lan',
+            oneId: 'btn-preview-achievement-lan',
+            allId: 'btn-preview-all-achievements-lan'
+        }
+    ];
+
+    function populateAchievementRevealTester(selectId) {
+        const select = document.getElementById(selectId);
+        if (!select) return;
+        const previous = select.value || 'beta';
+        select.innerHTML = '';
+        const groups = new Map();
+        ACHIEVEMENTS.forEach(ach => {
+            if (!groups.has(ach.family)) {
+                const group = document.createElement('optgroup');
+                group.label = ach.family.toLocaleUpperCase('fr-FR');
+                groups.set(ach.family, group);
+                select.appendChild(group);
+            }
+            const option = document.createElement('option');
+            option.value = ach.id;
+            option.textContent = `${ach.label} · +${ach.xp} XP`;
+            groups.get(ach.family).appendChild(option);
+        });
+        select.value = achievementById(previous) ? previous : 'beta';
+    }
+
+    function queueAchievementPreview(ach) {
+        if (!ach) return;
+        achievementRevealQueue.push({
             award: { uid: auth.currentUser && auth.currentUser.uid, refId: ach.id, delta: ach.xp, ts: Date.now() },
             preview: true,
-            key: 'preview-' + Date.now()
+            key: `preview-${ach.id}-${Date.now()}-${achievementRevealQueue.length}`
         });
+        showNextAchievementReveal();
+    }
+
+    function previewAchievementReveal(selectId) {
+        const select = document.getElementById(selectId);
+        queueAchievementPreview(achievementById(select && select.value) || achievementById('beta') || ACHIEVEMENTS[0]);
+    }
+
+    function previewAllAchievementReveals(selectId) {
+        ACHIEVEMENTS.forEach(queueAchievementPreview);
+        const select = document.getElementById(selectId);
+        if (select) select.value = ACHIEVEMENTS[0].id;
     }
 
     function showNextAchievementReveal() {
@@ -1597,7 +1643,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const before = xpLevel(previousTotal);
         const after = xpLevel(finalTotal);
         const fromRatio = before.level === after.level ? before.ratio : 0;
+        const theme = achievementRevealTheme(ach);
 
+        overlay.dataset.achFamily = theme.family;
+        overlay.dataset.achRarity = theme.rarity;
+        overlay.style.setProperty('--ach-accent', theme.accent);
+        overlay.style.setProperty('--ach-accent-2', theme.accent2);
+        document.getElementById('achievement-unlock-eyebrow').textContent = theme.familyLabel;
+        document.getElementById('achievement-unlock-mark').textContent = theme.mark;
         document.getElementById('achievement-unlock-icon').setAttribute('d', ACH_ICONS[ach.icon] || ACH_ICONS.trophy);
         document.getElementById('achievement-unlock-title').textContent = ach.label.toLocaleUpperCase('fr-FR');
         document.getElementById('achievement-unlock-hint').textContent = ach.hint;
@@ -1612,7 +1665,7 @@ document.addEventListener('DOMContentLoaded', () => {
         requestAnimationFrame(() => {
             overlay.classList.add('is-visible');
             document.getElementById('achievement-unlock-close')?.focus({ preventScroll: true });
-            if (typeof Sfx !== 'undefined') Sfx.reveal('signature');
+            if (typeof Sfx !== 'undefined') Sfx.reveal(theme.rarity);
         });
     }
 
@@ -1636,8 +1689,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     document.getElementById('achievement-unlock-close')?.addEventListener('click', closeAchievementReveal);
-    document.getElementById('btn-preview-achievement-dashboard')?.addEventListener('click', previewAchievementReveal);
-    document.getElementById('btn-preview-achievement-lan')?.addEventListener('click', previewAchievementReveal);
+    ACHIEVEMENT_PREVIEW_TESTERS.forEach(tester => {
+        populateAchievementRevealTester(tester.selectId);
+        document.getElementById(tester.oneId)?.addEventListener('click', () => previewAchievementReveal(tester.selectId));
+        document.getElementById(tester.allId)?.addEventListener('click', () => previewAllAchievementReveals(tester.selectId));
+    });
     document.addEventListener('keydown', event => {
         if (!achievementRevealCurrent || (event.key !== 'Escape' && event.key !== 'Enter' && event.key !== ' ')) return;
         event.preventDefault();

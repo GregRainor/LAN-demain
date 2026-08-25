@@ -5,7 +5,7 @@ const vm = require('vm');
 
 const root = path.resolve(__dirname, '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
-const source = read('core.js') + '\nthis.__ach={achievementAwardId,achievementById,achievementState,pendingAchievements,xpTotal,hasXpAward,isXpAwardRevoked,achievementGrantRecord,achievementResetRecord,achievementResetUpdates,unseenAchievementAwards};';
+const source = read('core.js') + '\nthis.__ach={achievementAwardId,achievementById,achievementRevealTheme,achievementState,pendingAchievements,xpTotal,hasXpAward,isXpAwardRevoked,achievementGrantRecord,achievementResetRecord,achievementResetUpdates,unseenAchievementAwards};';
 const context = vm.createContext({ console, URL, Date, Math, Promise, Set, Map });
 vm.runInContext(source, context, { filename: 'core.js' });
 const ach = context.__ach;
@@ -14,6 +14,11 @@ const plain = value => JSON.parse(JSON.stringify(value));
 const uid = 'player-beta';
 const admin = { uid: 'admin-1', name: 'Greg' };
 const beta = ach.achievementById('beta');
+const themedIds = ['first-buy', 'pack-1', 'lan-3', 'challenge-all', 'vote-kingmaker', 'beta'];
+const revealThemes = themedIds.map(id => ach.achievementRevealTheme(ach.achievementById(id)));
+assert.deepStrictEqual(plain([...new Set(revealThemes.map(theme => theme.family))].sort()),
+    ['challenge', 'collection', 'commerce', 'legacy', 'prototype', 'vote']);
+assert(revealThemes.every(theme => theme.accent && theme.accent2 && theme.rarity && theme.mark));
 const awardId = ach.achievementAwardId(uid, beta.id);
 const data = {
     economy: {}, tcg: {}, cards: [], history: {}, quests: {}, profiles: {}, roles: {},
@@ -75,14 +80,25 @@ const desktop = read('newScript.js');
 const mobile = read('mobile.js');
 const desktopHtml = read('desktop.html');
 const mobileHtml = read('m.html');
+const desktopCss = read('desktop-v2.css');
+const mobileCss = read('mobile.css');
 const rules = JSON.parse(read('database.rules.json'));
 assert(desktopHtml.includes('id="ach-admin-list"') && desktop.includes('achievementResetUpdates('));
 assert(desktopHtml.includes('id="ach-admin-list-dashboard"'), 'Editor must exist outside the active LAN view');
 assert(desktopHtml.includes('id="btn-preview-achievement-dashboard"'));
+assert(desktopHtml.includes('id="achievement-preview-select-dashboard"') && desktopHtml.includes('id="btn-preview-all-achievements-dashboard"'));
+assert(desktopHtml.includes('id="achievement-preview-select-lan"') && desktopHtml.includes('id="btn-preview-all-achievements-lan"'));
+assert(desktop.includes('previewAllAchievementReveals') && desktop.includes('achievementRevealTheme(ach)'));
 assert(desktopHtml.includes('id="achievement-unlock-overlay"') && desktop.includes('unseenAchievementAwards('));
 assert(mobileHtml.includes('id="m-ach-admin-list"') && mobile.includes('achievementResetUpdates('));
 assert(mobileHtml.includes('id="m-ach-preview"') && mobileHtml.includes('id="m-ach-unlock"'));
+assert(mobileHtml.includes('id="m-ach-preview-select"') && mobileHtml.includes('id="m-ach-preview-all"'));
+assert(mobile.includes('previewAllMobileAchievementReveals') && mobile.includes('achievementRevealTheme(ach)'));
 assert(mobile.includes('queuePendingMobileAchievementReveals') && mobile.includes('navigator.vibrate'));
+for (const family of ['commerce', 'collection', 'legacy', 'challenge', 'vote', 'prototype']) {
+    assert(desktopCss.includes(`data-ach-family="${family}"`), `Desktop reveal theme missing: ${family}`);
+    assert(mobileCss.includes(`data-ach-family="${family}"`), `Mobile reveal theme missing: ${family}`);
+}
 assert(desktop.includes('isXpAwardRevoked(globalXp, awardId)'));
 assert(mobile.includes('isXpAwardRevoked(state.xp, awardId)'));
 const userRules = rules.rules.lan.users['$uid'];
@@ -91,6 +107,6 @@ for (const field of ['equippedTitleId', 'featuredAchievement1', 'featuredAchieve
 }
 assert.strictEqual(rules.rules.lan.xp.awards['$award_id'].revoked['.validate'], '!newData.exists() || newData.isBoolean()');
 assert(userRules.seenAchievements['$achievement_id']['.write'].includes('auth.uid === $uid'));
-assert(/20260825-achievement-ceremony/.test(desktopHtml) && /20260825-achievement-ceremony/.test(mobileHtml));
+assert(/20260825-achievement-themes/.test(desktopHtml) && /20260825-achievement-themes/.test(mobileHtml));
 
 console.log('Achievement administration checks passed (grant, durable reset, permanent editor, queued desktop/mobile ceremony).');
