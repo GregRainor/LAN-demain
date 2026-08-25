@@ -151,6 +151,16 @@ document.addEventListener('DOMContentLoaded', () => {
     let tickTimer = null;
     const imageCache = new Map();
 
+    /* Seuls les hauts faits gagnés après le lancement de cette cérémonie sont
+       joués automatiquement. Les trophées historiques restent acquis sans
+       infliger une file de vingt animations au premier chargement. */
+    const ACHIEVEMENT_REVEAL_SINCE = Date.parse('2026-08-25T11:45:00Z');
+    let achievementProfilesReady = false;
+    let achievementXpReady = false;
+    let achievementRevealQueue = [];
+    let achievementRevealCurrent = null;
+    const achievementRevealQueued = new Set();
+
     /* ======================================================================
        DESKTOP OS
 
@@ -1419,30 +1429,38 @@ document.addEventListener('DOMContentLoaded', () => {
             .sort((a, b) => a.name.localeCompare(b.name, 'fr'));
     }
 
+    const ACHIEVEMENT_ADMIN_PANELS = [
+        { select: 'ach-user-select', mount: 'ach-admin-list', hint: 'ach-admin-hint' },
+        { select: 'ach-user-select-dashboard', mount: 'ach-admin-list-dashboard', hint: 'ach-admin-hint-dashboard' }
+    ];
+
     function renderAchievementPlayerOptions() {
-        const select = document.getElementById('ach-user-select');
-        if (!select) return;
-        const keep = select.value;
-        select.replaceChildren();
-        const placeholder = document.createElement('option');
-        placeholder.value = '';
-        placeholder.textContent = 'Sélectionner un joueur...';
-        select.appendChild(placeholder);
-        achievementAdminPlayers().forEach(player => {
-            const option = document.createElement('option');
-            option.value = player.uid;
-            option.textContent = player.name === 'Un joueur'
-                ? `Joueur · ${player.uid.slice(0, 8)}`
-                : player.name;
-            select.appendChild(option);
+        const players = achievementAdminPlayers();
+        ACHIEVEMENT_ADMIN_PANELS.forEach(panel => {
+            const select = document.getElementById(panel.select);
+            if (!select) return;
+            const keep = select.value;
+            select.replaceChildren();
+            const placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = 'Sélectionner un joueur...';
+            select.appendChild(placeholder);
+            players.forEach(player => {
+                const option = document.createElement('option');
+                option.value = player.uid;
+                option.textContent = player.name === 'Un joueur'
+                    ? `Joueur · ${player.uid.slice(0, 8)}`
+                    : player.name;
+                select.appendChild(option);
+            });
+            if (keep && [...select.options].some(option => option.value === keep)) select.value = keep;
         });
-        if (keep && [...select.options].some(option => option.value === keep)) select.value = keep;
     }
 
-    function renderAchievementAdmin() {
-        const select = document.getElementById('ach-user-select');
-        const mount = document.getElementById('ach-admin-list');
-        const hint = document.getElementById('ach-admin-hint');
+    function renderAchievementAdminPanel(panel) {
+        const select = document.getElementById(panel.select);
+        const mount = document.getElementById(panel.mount);
+        const hint = document.getElementById(panel.hint);
         if (!select || !mount || !hint) return;
 
         const uid = select.value;
@@ -1462,7 +1480,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const line = document.createElement('div');
             line.className = 'achievement-admin-row'
                 + (row.owned ? ' is-owned' : (row.revoked ? ' is-reset' : ''));
-
             const copy = document.createElement('div');
             copy.className = 'achievement-admin-row__copy';
             const name = document.createElement('strong');
@@ -1483,6 +1500,10 @@ document.addEventListener('DOMContentLoaded', () => {
             line.appendChild(toggle);
             mount.appendChild(line);
         });
+    }
+
+    function renderAchievementAdmin() {
+        ACHIEVEMENT_ADMIN_PANELS.forEach(renderAchievementAdminPanel);
     }
 
     async function toggleAchievement(uid, row, button) {
@@ -1520,9 +1541,115 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    document.getElementById('ach-user-select')?.addEventListener('change', renderAchievementAdmin);
+    ACHIEVEMENT_ADMIN_PANELS.forEach(panel => {
+        document.getElementById(panel.select)?.addEventListener('change', renderAchievementAdmin);
+    });
+
+    function achievementRevealNumber(value) {
+        return new Intl.NumberFormat('fr-FR').format(Math.max(0, Math.round(Number(value) || 0)));
+    }
+
+    function queuePendingAchievementReveals() {
+        const user = auth.currentUser;
+        if (!user || !achievementProfilesReady || !achievementXpReady) return;
+        const seen = ((globalProfiles[user.uid] || {}).seenAchievements) || {};
+        const fresh = unseenAchievementAwards(globalXp, user.uid, seen, ACHIEVEMENT_REVEAL_SINCE)
+            .filter(award => !achievementRevealQueued.has(`${award.refId}@${award.ts}`));
+        let displayTotal = xpTotal(globalXp, user.uid)
+            - fresh.reduce((sum, award) => sum + (Number(award.delta) || 0), 0);
+        fresh.forEach(award => {
+            const key = `${award.refId}@${award.ts}`;
+            displayTotal += Number(award.delta) || 0;
+            achievementRevealQueued.add(key);
+            achievementRevealQueue.push({ award: award, preview: false, key: key, displayTotal: displayTotal });
+        });
+        showNextAchievementReveal();
+    }
+
+    function previewAchievementReveal() {
+        const ach = achievementById('beta') || ACHIEVEMENTS[0];
+        showAchievementReveal({
+            award: { uid: auth.currentUser && auth.currentUser.uid, refId: ach.id, delta: ach.xp, ts: Date.now() },
+            preview: true,
+            key: 'preview-' + Date.now()
+        });
+    }
+
+    function showNextAchievementReveal() {
+        if (achievementRevealCurrent || !achievementRevealQueue.length) return;
+        showAchievementReveal(achievementRevealQueue.shift());
+    }
+
+    function showAchievementReveal(entry) {
+        const overlay = document.getElementById('achievement-unlock-overlay');
+        const user = auth.currentUser;
+        const ach = achievementById(entry && entry.award && entry.award.refId);
+        if (!overlay || !ach || !user) return;
+        if (achievementRevealCurrent) {
+            achievementRevealQueue.push(entry);
+            return;
+        }
+        achievementRevealCurrent = entry;
+
+        const currentTotal = xpTotal(globalXp, user.uid);
+        const finalTotal = entry.preview ? currentTotal + ach.xp : Math.max(0, Number(entry.displayTotal) || currentTotal);
+        const previousTotal = Math.max(0, finalTotal - (Number(entry.award.delta) || ach.xp));
+        const before = xpLevel(previousTotal);
+        const after = xpLevel(finalTotal);
+        const fromRatio = before.level === after.level ? before.ratio : 0;
+
+        document.getElementById('achievement-unlock-icon').setAttribute('d', ACH_ICONS[ach.icon] || ACH_ICONS.trophy);
+        document.getElementById('achievement-unlock-title').textContent = ach.label.toLocaleUpperCase('fr-FR');
+        document.getElementById('achievement-unlock-hint').textContent = ach.hint;
+        document.getElementById('achievement-unlock-reward').textContent = `+${ach.xp} XP`;
+        document.getElementById('achievement-unlock-level').textContent = `NIVEAU ${after.level} · ${levelTitle(after.level)}`;
+        document.getElementById('achievement-unlock-count').textContent = `${achievementRevealNumber(after.into)} / ${achievementRevealNumber(after.span)} XP`;
+        overlay.style.setProperty('--xp-from', `${Math.round(fromRatio * 100)}%`);
+        overlay.style.setProperty('--xp-to', `${Math.round(after.ratio * 100)}%`);
+        overlay.classList.remove('is-leaving', 'is-visible');
+        overlay.setAttribute('aria-hidden', 'false');
+        void overlay.offsetWidth;
+        requestAnimationFrame(() => {
+            overlay.classList.add('is-visible');
+            document.getElementById('achievement-unlock-close')?.focus({ preventScroll: true });
+            if (typeof Sfx !== 'undefined') Sfx.reveal('signature');
+        });
+    }
+
+    function closeAchievementReveal() {
+        const overlay = document.getElementById('achievement-unlock-overlay');
+        const entry = achievementRevealCurrent;
+        const user = auth.currentUser;
+        if (!overlay || !entry) return;
+        overlay.classList.add('is-leaving');
+        if (!entry.preview && user) {
+            db.ref(`lan/users/${user.uid}/seenAchievements/${entry.award.refId}`)
+                .set(Number(entry.award.ts) || firebase.database.ServerValue.TIMESTAMP)
+                .catch(error => console.warn('Haut fait vu non enregistré :', error));
+        }
+        setTimeout(() => {
+            overlay.classList.remove('is-visible', 'is-leaving');
+            overlay.setAttribute('aria-hidden', 'true');
+            achievementRevealCurrent = null;
+            showNextAchievementReveal();
+        }, 300);
+    }
+
+    document.getElementById('achievement-unlock-close')?.addEventListener('click', closeAchievementReveal);
+    document.getElementById('btn-preview-achievement-dashboard')?.addEventListener('click', previewAchievementReveal);
+    document.getElementById('btn-preview-achievement-lan')?.addEventListener('click', previewAchievementReveal);
+    document.addEventListener('keydown', event => {
+        if (!achievementRevealCurrent || (event.key !== 'Escape' && event.key !== 'Enter' && event.key !== ' ')) return;
+        event.preventDefault();
+        closeAchievementReveal();
+    });
 
     function initializeApp(user) {
+        achievementProfilesReady = false;
+        achievementXpReady = false;
+        achievementRevealQueue = [];
+        achievementRevealCurrent = null;
+        achievementRevealQueued.clear();
         // Initial check based on config, but roles from DB will overwrite
         let isAdmin = user.uid === ADMIN_UID;
         window.currentUserIsAdmin = isAdmin;
@@ -1610,7 +1737,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         watchValue(db.ref('lan/users'), snapshot => {
             globalProfiles = snapshot.val() || {};
+            achievementProfilesReady = true;
             renderActiveUsers();
+            queuePendingAchievementReveals();
             if (openProfileUid && document.getElementById('player-votes-modal')?.style.display === 'flex') {
                 renderPlayerProfileHead(openProfileUid, openProfileName || playerLabel(openProfileUid));
             }
@@ -1680,12 +1809,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         watchValue(db.ref('lan/xp'), (snapshot) => {
             globalXp = snapshot.val() || {};
+            achievementXpReady = true;
             renderBoutique();
             grantPendingAchievements();
             renderDesktopShell();
             // Le panneau d'attribution reflète le journal : il doit suivre.
             renderAchievementPlayerOptions();
             renderAchievementAdmin();
+            queuePendingAchievementReveals();
         });
 
         /* L'historique sert à compter les LAN de chacun : « Habitué », c'est

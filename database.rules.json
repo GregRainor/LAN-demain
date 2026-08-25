@@ -301,6 +301,12 @@
             ".write": "auth != null && (auth.uid === $uid || root.child('lan/roles').child(auth.uid).val() === 'admin' || auth.uid === 'ITe5VPuwewMzO7JnJA5oPWMdfvt2')",
             ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 64 && root.child('lan/xp/awards').child($uid + '__ach__' + newData.val()).exists() && root.child('lan/xp/awards').child($uid + '__ach__' + newData.val()).child('revoked').val() !== true)"
           },
+          "seenAchievements": {
+            "$achievement_id": {
+              ".write": "auth != null && auth.uid === $uid",
+              ".validate": "!newData.exists() || (newData.isNumber() && newData.val() <= now)"
+            }
+          },
           "$other": { ".validate": false }
         }
       },

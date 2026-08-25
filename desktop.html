@@ -565,6 +565,21 @@
                         <button id="btn-set-level" class="btn-block">Ajuster le niveau</button>
                     </div>
 
+                    <div class="admin-control-item panel-section achievement-admin-panel">
+                        <div class="achievement-admin-panel__head">
+                            <div>
+                                <h3 class="section-title">Hauts faits des joueurs</h3>
+                                <p class="panel-section__text">Attribuez, réinitialisez ou réattribuez un haut fait, quelle que soit la phase de la LAN.</p>
+                            </div>
+                            <button type="button" id="btn-preview-achievement-dashboard" class="gold-link-btn">▶ Tester l'animation</button>
+                        </div>
+                        <label class="field-label" for="ach-user-select-dashboard">Joueur</label>
+                        <select id="ach-user-select-dashboard" class="luxury-input">
+                            <option value="">Sélectionner un joueur...</option>
+                        </select>
+                        <p class="panel-section__hint" id="ach-admin-hint-dashboard">Choisis un joueur pour gérer ses hauts faits.</p>
+                        <div id="ach-admin-list-dashboard" class="stack stack--start achievement-admin-list"></div>
+                    </div>
                     <div id="admin-closed-results-display" class="admin-control-item panel-section results-container">
                         <h3 class="section-title">Top jeux actuels</h3>
                         <div id="admin-closed-download-list" class="stack stack--start"></div>
@@ -1228,8 +1243,11 @@
                         </div>
 
                         <!-- Gestion individuelle : attribution manuelle et réinitialisation durable. -->
-                        <div class="luxury-panel admin-command-card" style="padding: 25px; margin-bottom: 25px;">
-                            <h3 style="margin-top: 0; color: var(--accent-color); border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 15px;">🏅 Hauts faits des joueurs</h3>
+                        <div class="luxury-panel admin-command-card achievement-admin-panel" style="padding: 25px; margin-bottom: 25px;">
+                            <div class="achievement-admin-panel__head">
+                                <h3 style="margin: 0; color: var(--accent-color);">🏅 Hauts faits des joueurs</h3>
+                                <button type="button" id="btn-preview-achievement-lan" class="gold-link-btn">▶ Tester l'animation</button>
+                            </div>
                             <div class="admin-select-group" style="gap: 12px;">
                                 <label for="ach-user-select">Joueur</label>
                                 <select id="ach-user-select" class="luxury-input" style="width: 100%;">
@@ -1846,12 +1864,41 @@
         </div>
     </div>
 
+    <!-- Cérémonie de haut fait : le fond reste reconnaissable, mais le trophée
+         prend la scène pendant quelques secondes. -->
+    <div id="achievement-unlock-overlay" class="achievement-unlock" role="dialog" aria-modal="true"
+        aria-labelledby="achievement-unlock-title" aria-hidden="true">
+        <div class="achievement-unlock__scrim"></div>
+        <div class="achievement-unlock__scan"></div>
+        <div class="achievement-unlock__dust" aria-hidden="true">
+            <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+        </div>
+        <button type="button" id="achievement-unlock-close" class="achievement-unlock__stage" aria-label="Continuer">
+            <span class="achievement-unlock__eyebrow">HAUT FAIT DÉBLOQUÉ</span>
+            <span class="achievement-unlock__stamp" aria-hidden="true">ACQUIS</span>
+            <span class="achievement-unlock__medal" aria-hidden="true">
+                <span class="achievement-unlock__medal-ring"></span>
+                <svg viewBox="0 0 24 24"><path id="achievement-unlock-icon"></path></svg>
+                <span class="achievement-unlock__laurel">◆</span>
+            </span>
+            <strong id="achievement-unlock-title" class="achievement-unlock__title">BÊTA-TESTEUR</strong>
+            <span class="achievement-unlock__rule"><i></i></span>
+            <span id="achievement-unlock-hint" class="achievement-unlock__hint">Avoir été là pendant la bêta</span>
+            <span id="achievement-unlock-reward" class="achievement-unlock__reward">+200 XP</span>
+            <span class="achievement-unlock__xp">
+                <span id="achievement-unlock-level" class="achievement-unlock__level">NIVEAU 10</span>
+                <span class="achievement-unlock__bar"><i id="achievement-unlock-bar"></i></span>
+                <span id="achievement-unlock-count" class="achievement-unlock__count">2 450 / 3 000 XP</span>
+            </span>
+            <span class="achievement-unlock__continue">Cliquer pour continuer</span>
+        </button>
+    </div>
     <div id="toast-container"></div>
 
     <script src="config.js"></script>
-    <script src="core.js?v=20260825-vote-rounds"></script>
+    <script src="core.js?v=20260825-achievement-ceremony"></script>
     <script src="sound.js"></script>
-    <script src="newScript.js?v=20260825-vote-rounds"></script>
+    <script src="newScript.js?v=20260825-achievement-ceremony"></script>
 </body>
 
 </html>

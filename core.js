@@ -1807,6 +1807,22 @@ function achievementResetUpdates(uid, ach, profile, admin, timestamp) {
     return updates;
 }
 
+/* Révélations encore à jouer pour un joueur. Le timestamp vu est stocké par
+   haut fait : une réattribution après réinitialisation rejoue donc la cérémonie,
+   tandis qu'un changement d'appareil ne la duplique pas indéfiniment. */
+function unseenAchievementAwards(xpNode, uid, seenByAchievement, since) {
+    const seen = seenByAchievement || {};
+    const floor = Math.max(0, Number(since) || 0);
+    return xpAwards(xpNode)
+        .filter(award => award.uid === uid
+            && award.type === 'achievement'
+            && award.revoked !== true
+            && achievementById(award.refId)
+            && (Number(award.ts) || 0) >= floor
+            && (Number(award.ts) || 0) > (Number(seen[award.refId]) || 0))
+        .sort((a, b) => (Number(a.ts) || 0) - (Number(b.ts) || 0));
+}
+
 /* ==========================================================================
    Le catalogue des hauts faits
    Deux familles, et la différence compte.

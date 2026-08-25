@@ -72,6 +72,12 @@ let firebaseConnected = false;
    navigue où il veut sans qu'on le ramène de force à chaque mise à jour. */
 let recapShown = false;
 const refs = [];
+const ACHIEVEMENT_REVEAL_SINCE = Date.parse('2026-08-25T11:45:00Z');
+let achievementProfilesReady = false;
+let achievementXpReady = false;
+let achievementRevealQueue = [];
+let achievementRevealCurrent = null;
+const achievementRevealQueued = new Set();
 
 const PRIORITIES = [
     { key: 'p1', tag: 'P1', label: 'Mon jeu de la soirée', pts: '5 pts' },
@@ -614,6 +620,11 @@ function reassertPresence() {
 }
 
 function boot(user) {
+    achievementProfilesReady = false;
+    achievementXpReady = false;
+    achievementRevealQueue = [];
+    achievementRevealCurrent = null;
+    achievementRevealQueued.clear();
     /* Une clé par session : le même joueur ouvre souvent le téléphone en plus
        du PC, et fermer l'un effaçait la présence de l'autre. */
     myConnectionRef = db.ref('/status/' + user.uid).push();
@@ -679,7 +690,11 @@ function boot(user) {
             : (state.isMixologist ? 'Mixologue' : (state.isGamemaster ? 'Maître du jeu' : ''));
     });
     watch('/status', value => { state.status = value || {}; reassertPresence(); });
-    watch('lan/users', value => { state.profiles = value || {}; });
+    watch('lan/users', value => {
+        state.profiles = value || {};
+        achievementProfilesReady = true;
+        queuePendingMobileAchievementReveals();
+    });
     watch('lan/polls', value => { state.polls = value || {}; });
     watch('lan/foodRuns', value => { state.foodRuns = value || {}; });
     watch('lan/events', value => { state.events = value || {}; });
@@ -690,8 +705,10 @@ function boot(user) {
     watch('lan/history', value => { state.history = value || {}; });
     watch('lan/xp', value => {
         state.xp = value || {};
+        achievementXpReady = true;
         grantPendingAchievements();
         if (state.isAdmin) renderMobileAchievementAdmin();
+        queuePendingMobileAchievementReveals();
     });
     watch('lan/challenges', value => { state.quests.challenges = value || {}; });
     watch('lan/claims', value => { state.quests.claims = value || {}; });
@@ -2802,6 +2819,102 @@ function toggleMobileAchievement(uid, row, button) {
     }
 }
 
+/* Une cérémonie par récompense, dans l'ordre du journal. L'accusé de lecture
+   vit dans le profil : passer du téléphone au PC ne rejoue pas le même trophée,
+   mais une réattribution plus récente le rejouera. */
+function mobileAchievementRevealNumber(value) {
+    return new Intl.NumberFormat('fr-FR').format(Math.max(0, Math.round(Number(value) || 0)));
+}
+
+function queuePendingMobileAchievementReveals() {
+    const user = auth.currentUser;
+    if (!user || !achievementProfilesReady || !achievementXpReady) return;
+    const seen = ((state.profiles[user.uid] || {}).seenAchievements) || {};
+    const fresh = unseenAchievementAwards(state.xp, user.uid, seen, ACHIEVEMENT_REVEAL_SINCE)
+        .filter(award => !achievementRevealQueued.has(`${award.refId}@${award.ts}`));
+    let displayTotal = xpTotal(state.xp, user.uid)
+        - fresh.reduce((sum, award) => sum + (Number(award.delta) || 0), 0);
+    fresh.forEach(award => {
+        const key = `${award.refId}@${award.ts}`;
+        displayTotal += Number(award.delta) || 0;
+        achievementRevealQueued.add(key);
+        achievementRevealQueue.push({ award, preview: false, key, displayTotal });
+    });
+    showNextMobileAchievementReveal();
+}
+
+function previewMobileAchievementReveal() {
+    const ach = achievementById('beta') || ACHIEVEMENTS[0];
+    showMobileAchievementReveal({
+        award: { uid: state.user && state.user.uid, refId: ach.id, delta: ach.xp, ts: Date.now() },
+        preview: true,
+        key: 'preview-' + Date.now()
+    });
+}
+
+function showNextMobileAchievementReveal() {
+    if (achievementRevealCurrent || !achievementRevealQueue.length) return;
+    showMobileAchievementReveal(achievementRevealQueue.shift());
+}
+
+function showMobileAchievementReveal(entry) {
+    const overlay = $('m-ach-unlock');
+    const user = auth.currentUser;
+    const ach = achievementById(entry && entry.award && entry.award.refId);
+    if (!overlay || !user || !ach) return;
+    if (achievementRevealCurrent) {
+        achievementRevealQueue.push(entry);
+        return;
+    }
+    achievementRevealCurrent = entry;
+
+    const currentTotal = xpTotal(state.xp, user.uid);
+    const finalTotal = entry.preview ? currentTotal + ach.xp : Math.max(0, Number(entry.displayTotal) || currentTotal);
+    const previousTotal = Math.max(0, finalTotal - (Number(entry.award.delta) || ach.xp));
+    const before = xpLevel(previousTotal);
+    const after = xpLevel(finalTotal);
+    const fromRatio = before.level === after.level ? before.ratio : 0;
+
+    $('m-ach-unlock-icon').setAttribute('d', ACH_ICONS[ach.icon] || ACH_ICONS.trophy);
+    $('m-ach-unlock-title').textContent = ach.label.toLocaleUpperCase('fr-FR');
+    $('m-ach-unlock-hint').textContent = ach.hint;
+    $('m-ach-unlock-reward').textContent = `+${ach.xp} XP`;
+    $('m-ach-unlock-level').textContent = `NIVEAU ${after.level} · ${levelTitle(after.level)}`;
+    $('m-ach-unlock-count').textContent = `${mobileAchievementRevealNumber(after.into)} / ${mobileAchievementRevealNumber(after.span)} XP`;
+    overlay.style.setProperty('--xp-from', `${Math.round(fromRatio * 100)}%`);
+    overlay.style.setProperty('--xp-to', `${Math.round(after.ratio * 100)}%`);
+    overlay.classList.remove('is-visible', 'is-leaving');
+    overlay.setAttribute('aria-hidden', 'false');
+    void overlay.offsetWidth;
+    requestAnimationFrame(() => {
+        overlay.classList.add('is-visible');
+        $('m-ach-unlock-close').focus({ preventScroll: true });
+        if (typeof Sfx !== 'undefined') Sfx.reveal('signature');
+        if (navigator.vibrate) navigator.vibrate([25, 35, 55]);
+    });
+}
+
+function closeMobileAchievementReveal() {
+    const overlay = $('m-ach-unlock');
+    const entry = achievementRevealCurrent;
+    const user = auth.currentUser;
+    if (!overlay || !entry) return;
+    overlay.classList.add('is-leaving');
+    if (!entry.preview && user) {
+        db.ref(`lan/users/${user.uid}/seenAchievements/${entry.award.refId}`)
+            .set(Number(entry.award.ts) || firebase.database.ServerValue.TIMESTAMP)
+            .catch(error => console.warn('Haut fait vu non enregistré :', error));
+    }
+    setTimeout(() => {
+        overlay.classList.remove('is-visible', 'is-leaving');
+        overlay.setAttribute('aria-hidden', 'true');
+        achievementRevealCurrent = null;
+        showNextMobileAchievementReveal();
+    }, 280);
+}
+
+$('m-ach-preview').addEventListener('click', previewMobileAchievementReveal);
+$('m-ach-unlock-close').addEventListener('click', closeMobileAchievementReveal);
 /* L'expéditeur est inscrit DANS la clé, pas seulement dans le corps : les
    règles Firebase exigent que `lan/notifications/<cible>/<clé>` commence par
    l'uid de celui qui écrit. Un champ `senderId` seul se laissait omettre, et

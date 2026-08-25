@@ -5,7 +5,7 @@ const vm = require('vm');
 
 const root = path.resolve(__dirname, '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
-const source = read('core.js') + '\nthis.__ach={achievementAwardId,achievementById,achievementState,pendingAchievements,xpTotal,hasXpAward,isXpAwardRevoked,achievementGrantRecord,achievementResetRecord,achievementResetUpdates};';
+const source = read('core.js') + '\nthis.__ach={achievementAwardId,achievementById,achievementState,pendingAchievements,xpTotal,hasXpAward,isXpAwardRevoked,achievementGrantRecord,achievementResetRecord,achievementResetUpdates,unseenAchievementAwards};';
 const context = vm.createContext({ console, URL, Date, Math, Promise, Set, Map });
 vm.runInContext(source, context, { filename: 'core.js' });
 const ach = context.__ach;
@@ -60,13 +60,29 @@ data.xp.awards[awardId] = reassigned;
 assert.strictEqual(ach.achievementState(data, uid).find(row => row.ach.id === 'beta').owned, true);
 assert.strictEqual(ach.xpTotal(data.xp, uid), 200);
 
+let unseen = ach.unseenAchievementAwards(data.xp, uid, {}, 350);
+assert.deepStrictEqual(plain(unseen.map(row => row.refId)), ['beta']);
+assert.strictEqual(ach.unseenAchievementAwards(data.xp, uid, { beta: 400 }, 350).length, 0,
+    'An acknowledged grant must not replay on another device');
+data.xp.awards[awardId] = ach.achievementGrantRecord(uid, beta, admin, 500);
+unseen = ach.unseenAchievementAwards(data.xp, uid, { beta: 400 }, 350);
+assert.strictEqual(unseen.length, 1, 'A newer regrant must replay the ceremony');
+data.xp.awards[awardId] = ach.achievementResetRecord(uid, beta, admin, 600);
+assert.strictEqual(ach.unseenAchievementAwards(data.xp, uid, { beta: 400 }, 350).length, 0,
+    'Reset tombstones are not unlock ceremonies');
+
 const desktop = read('newScript.js');
 const mobile = read('mobile.js');
 const desktopHtml = read('desktop.html');
 const mobileHtml = read('m.html');
 const rules = JSON.parse(read('database.rules.json'));
 assert(desktopHtml.includes('id="ach-admin-list"') && desktop.includes('achievementResetUpdates('));
+assert(desktopHtml.includes('id="ach-admin-list-dashboard"'), 'Editor must exist outside the active LAN view');
+assert(desktopHtml.includes('id="btn-preview-achievement-dashboard"'));
+assert(desktopHtml.includes('id="achievement-unlock-overlay"') && desktop.includes('unseenAchievementAwards('));
 assert(mobileHtml.includes('id="m-ach-admin-list"') && mobile.includes('achievementResetUpdates('));
+assert(mobileHtml.includes('id="m-ach-preview"') && mobileHtml.includes('id="m-ach-unlock"'));
+assert(mobile.includes('queuePendingMobileAchievementReveals') && mobile.includes('navigator.vibrate'));
 assert(desktop.includes('isXpAwardRevoked(globalXp, awardId)'));
 assert(mobile.includes('isXpAwardRevoked(state.xp, awardId)'));
 const userRules = rules.rules.lan.users['$uid'];
@@ -74,5 +90,7 @@ for (const field of ['equippedTitleId', 'featuredAchievement1', 'featuredAchieve
     assert(userRules[field]['.write'].includes("val() === 'admin'"), `${field} must allow admin cleanup`);
 }
 assert.strictEqual(rules.rules.lan.xp.awards['$award_id'].revoked['.validate'], '!newData.exists() || newData.isBoolean()');
+assert(userRules.seenAchievements['$achievement_id']['.write'].includes('auth.uid === $uid'));
+assert(/20260825-achievement-ceremony/.test(desktopHtml) && /20260825-achievement-ceremony/.test(mobileHtml));
 
-console.log('Achievement administration checks passed (grant, durable reset, profile cleanup, desktop/mobile parity).');
+console.log('Achievement administration checks passed (grant, durable reset, permanent editor, queued desktop/mobile ceremony).');
