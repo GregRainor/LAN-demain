@@ -28,6 +28,7 @@ const escapeHtml = (str) => {
    oublie. Sans plafond, chaque entrée de p1 valant cinq points, un bulletin de
    cinq cents titres pèserait cinq cents fois un bulletin honnête. */
 const MAX_VOTES_PER_PRIORITY = 100;
+const BALLOT_PRIORITIES = ['p1', 'p2', 'p3', 'p_other'];
 
 const voteList = (value) => {
     if (Array.isArray(value)) return value.slice(0, MAX_VOTES_PER_PRIORITY);
@@ -35,6 +36,139 @@ const voteList = (value) => {
     if (typeof value === 'string' && value) return [value];
     return [];
 };
+/* Canonical ballot shape shared by desktop, mobile and tests. */
+function emptyBallot() {
+    return { p1: [], p2: [], p3: [], p_other: [] };
+}
+
+function normalizeBallot(value) {
+    const source = value || {};
+    const ballot = emptyBallot();
+    const seen = new Set();
+    BALLOT_PRIORITIES.forEach(priority => {
+        const limit = priority === 'p1' ? 1 : MAX_VOTES_PER_PRIORITY;
+        voteList(source[priority]).forEach(game => {
+            if (ballot[priority].length >= limit) return;
+            const clean = String(game || '').trim().replace(/\s+/g, ' ');
+            const key = normalizeGameName(clean);
+            if (!key || seen.has(key)) return;
+            seen.add(key);
+            ballot[priority].push(clean);
+        });
+    });
+    return ballot;
+}
+
+function ballotCount(value) {
+    const ballot = normalizeBallot(value);
+    return BALLOT_PRIORITIES.reduce((sum, priority) => sum + ballot[priority].length, 0);
+}
+
+function ballotFingerprint(value) {
+    const ballot = normalizeBallot(value);
+    return JSON.stringify(BALLOT_PRIORITIES.map(priority => ballot[priority].map(normalizeGameName)));
+}
+
+function activeVoteRoundId(settings) {
+    const explicit = settings && settings.voteRoundId;
+    return (typeof explicit === 'string' && explicit) ? explicit : 'legacy-current';
+}
+
+function createVoteRoundId(now) {
+    const stamp = Number(now) || Date.now();
+    const random = Math.random().toString(36).slice(2, 10);
+    return `round-${stamp.toString(36)}-${random}`;
+}
+
+function voteHistoryKey(roundId) {
+    return String(roundId || 'legacy-current').replace(/[.#$\[\]\/]/g, '-').slice(0, 120) || 'legacy-current';
+}
+
+function ballotRecordForRound(record, settings) {
+    if (!record || typeof record !== 'object') return null;
+    const expected = activeVoteRoundId(settings);
+    if (!record.roundId) return settings && settings.voteRoundId ? null : record;
+    return record.roundId === expected ? record : null;
+}
+
+function ballotRevision(record) {
+    return Math.max(0, Math.floor(Number(record && record.revision) || 0));
+}
+
+function voterIds(votes, settings) {
+    return Object.entries(votes || {})
+        .filter(([, record]) => {
+            const current = ballotRecordForRound(record, settings);
+            return current && ballotCount(current.votes) > 0;
+        })
+        .map(([uid]) => uid);
+}
+
+/* Compare-and-set for a whole ballot. A stale device aborts instead of silently
+   replacing a newer PC/mobile submission. */
+function saveBallotWithRevision(ref, options) {
+    const opts = options || {};
+    const roundId = String(opts.roundId || 'legacy-current');
+    const draft = normalizeBallot(opts.votes);
+    const count = ballotCount(draft);
+    const expectedRevision = Math.max(0, Math.floor(Number(opts.baseRevision) || 0));
+    let conflict = null;
+    return new Promise((resolve, reject) => {
+        ref.transaction(current => {
+            conflict = null;
+            const currentRecord = current && typeof current === 'object' ? current : null;
+            const currentRound = currentRecord && currentRecord.roundId ? String(currentRecord.roundId) : roundId;
+            const currentRevision = ballotRevision(currentRecord);
+            if (currentRound !== roundId || (!opts.force && currentRevision !== expectedRevision)) {
+                conflict = currentRecord;
+                return;
+            }
+            if (count === 0) return null;
+            return {
+                name: String(opts.name || 'Joueur').trim().slice(0, 100) || 'Joueur',
+                votes: draft,
+                roundId: roundId,
+                revision: currentRevision + 1,
+                updatedAt: opts.serverTimestamp == null ? Date.now() : opts.serverTimestamp,
+                updatedByDevice: opts.device === 'mobile' ? 'mobile' : 'desktop'
+            };
+        }, (error, committed, snapshot) => {
+            if (error) return reject(error);
+            if (!committed) return resolve({ ok: false, conflict: conflict });
+            resolve({ ok: true, record: snapshot ? snapshot.val() : null });
+        }, false);
+    });
+}
+
+function newLanResetUpdates(newRoundId, newName) {
+    const updates = {
+        votes: null,
+        events: null,
+        'cocktails/oneshot': null,
+        'cocktails/orders': null,
+        polls: null,
+        foodRuns: null,
+        steamLibraries: null,
+        installed: null,
+        'economy/ledger': null,
+        'economy/ticks': null,
+        'economy/purchases': null,
+        claims: null,
+        'settings/isVotingOpen': true,
+        'settings/isLanActive': false,
+        'settings/lanFinished': false,
+        'settings/lanClosedAt': null,
+        'settings/voteRoundId': newRoundId
+    };
+    if (newName) updates['settings/lanName'] = newName;
+    return updates;
+}
+
+async function archiveAndResetLan(db, roundId, historyEntry, resetUpdates) {
+    const historyRef = db.ref('lan/history/' + voteHistoryKey(roundId));
+    await historyRef.transaction(current => current || historyEntry);
+    await db.ref('lan').update(resetUpdates);
+}
 
 // N'accepte qu'une URL http(s) avant de la poser sur un href/src. Les URL de
 // liens nous viennent d'API tierces (ITAD, Wikipédia) : si l'une d'elles était
@@ -115,7 +249,7 @@ function lastBallotFor(history, uid) {
         if (!mine) continue;
         const ballot = {};
         let total = 0;
-        ['p1', 'p2', 'p3', 'p_other'].forEach(key => {
+        BALLOT_PRIORITIES.forEach(key => {
             ballot[key] = voteList(mine[key]);
             total += ballot[key].length;
         });
@@ -134,13 +268,10 @@ function calculateScores(votes) {
     for (const userId in votes) {
         const voteData = votes[userId];
         if (voteData && voteData.votes) {
-            for (const priority in voteData.votes) {
-                // Une priorité inconnue ne vaut rien : sans ce garde-fou, un
-                // « p0 » écrit à la main ajoutait `undefined` et rendait NaN
-                // le score affiché chez tout le monde.
+            const ballot = normalizeBallot(voteData.votes);
+            BALLOT_PRIORITIES.forEach(priority => {
                 const points = pointsMapping[priority];
-                if (!points) continue;
-                voteList(voteData.votes[priority]).forEach(game => {
+                voteList(ballot[priority]).forEach(game => {
                     const normalizedGame = normalizeGameName(game);
                     if (normalizedGame) {
                         gameScores[normalizedGame] = (gameScores[normalizedGame] || 0) + points;
@@ -151,9 +282,8 @@ function calculateScores(votes) {
                         }
                     }
                 });
-            }
-        }
-    }
+            });
+        }    }
 
     return Object.keys(gameScores).map(name => {
         // Si aucune casse d'origine n'est connue (anciens votes en minuscules), on capitalise chaque mot
@@ -1821,7 +1951,7 @@ function challengeCountersFor(node, uid, since) {
 
 function firstChoiceWins(voteData, winnerName) {
     const wanted = normalizeGameName(winnerName);
-    const first = (((voteData || {}).votes || {}).p1) || [];
+    const first = voteList((((voteData || {}).votes || {}).p1));
     return !!wanted && first.some(game => normalizeGameName(game) === wanted);
 }
 
@@ -2004,7 +2134,7 @@ function closureAchievements(data, uid) {
     const winnerKey = normalizeGameName(winner.name);
     const voters = Object.entries(data.votes || {}).filter(([, voteData]) => {
         const ballot = (voteData && voteData.votes) || {};
-        return Object.values(ballot).some(games => (games || []).some(game => normalizeGameName(game) === winnerKey));
+        return BALLOT_PRIORITIES.some(priority => voteList(ballot[priority]).some(game => normalizeGameName(game) === winnerKey));
     });
     if (voters.length === 1 && voters[0][0] === uid) ids.push('vote-solo-winner');
     const wins = kingmakerWins(data.history, uid) + (firstChoiceWins((data.votes || {})[uid], winner.name) ? 1 : 0);

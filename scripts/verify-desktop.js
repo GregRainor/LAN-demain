@@ -250,7 +250,7 @@ assert(/"installed":\s*\{[\s\S]{0,700}"\$uid":\s*\{\s*"\.write":\s*"auth != null
     'lan/installed must be writable only by its own player');
 assert(/"\$game_key":\s*\{\s*"\.validate":\s*"!newData\.exists\(\) \|\| newData\.isBoolean\(\)"/.test(rules),
     'lan/installed entries must be booleans');
-assert(/db\.ref\('lan\/installed'\)\.remove\(\)/.test(script),
+assert(/installed:\s*null/.test(core) && /newLanResetUpdates/.test(script),
     'A new LAN must start from an empty install checklist');
 assert(!/renderMarquee/.test(script) && !/marquee/.test(html) && !/marquee/.test(baseCss),
     'The scrolling backdrop was hidden in every phase: it must be gone, not hidden');
@@ -380,7 +380,7 @@ assert(/function missingStarterChallenges/.test(core)
     'Seeding twice must not duplicate the starter list');
 // Une réclamation appartient à la soirée où elle a été faite : la file « à
 // valider » traînait sinon d'une LAN à l'autre, pastille de rail comprise.
-assert(/db\.ref\('lan\/claims'\)\.remove\(\)/.test(script),
+assert(/claims:\s*null/.test(core) && /newLanResetUpdates/.test(script),
     'A new LAN must start from an empty claims queue');
 
 /* ==========================================================================
@@ -423,9 +423,15 @@ assert(/user\.uid \+ '__' \+ db\.ref\(\)\.push\(\)\.key/.test(script),
 for (const p of ['p1', 'p2', 'p3', 'p_other']) {
     const node = ruleTree.lan.votes.$user_id.votes[p];
     assert(node['.validate'].includes('newData.hasChildren()'),
-        `lan/votes .../${p} must be a list, never a bare value`);
-    assert(node.$g['.validate'].includes('$g.matches(/^[0-9]{1,2}$/)'),
-        `lan/votes .../${p} must keep numeric keys, which also caps the ballot`);
+        'lan/votes .../' + p + ' must be a list, never a bare value');
+    const keyRule = node.$g['.validate'];
+    if (p === 'p1') {
+        assert(keyRule.includes('$g.matches(/^0$/)'),
+            'lan/votes p1 must allow exactly one first choice');
+    } else {
+        assert(keyRule.includes('$g.matches(/^[0-9]{1,2}$/)'),
+            'lan/votes .../' + p + ' must keep numeric keys, which also caps the ballot');
+    }
 }
 assert(/const voteList = /.test(core) && /Array\.isArray\(value\)/.test(core),
     'calculateScores must normalise a priority before iterating it');

@@ -174,20 +174,24 @@
         ".read": "auth != null",
         ".write": "auth != null && (root.child('lan/roles').child(auth.uid).val() === 'admin' || auth.uid === 'ITe5VPuwewMzO7JnJA5oPWMdfvt2')",
         "$user_id": {
-          ".write": "auth != null && auth.uid === $user_id",
-          ".validate": "newData.hasChildren()",
-          "name": { ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 100)" },
+          ".write": "auth != null && auth.uid === $user_id && root.child('lan/settings/isVotingOpen').val() === true && root.child('lan/settings/isLanActive').val() !== true && root.child('lan/settings/lanFinished').val() !== true",
+          ".validate": "newData.hasChildren(['name', 'votes']) && (!root.child('lan/settings/voteRoundId').exists() || (newData.hasChildren(['roundId', 'revision', 'updatedAt', 'updatedByDevice']) && newData.child('roundId').val() === root.child('lan/settings/voteRoundId').val()))",
+          "name": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 100" },
           "votes": {
-            "p1":      { ".validate": "!newData.exists() || newData.hasChildren()", "$g": { ".validate": "$g.matches(/^[0-9]{1,2}$/) && newData.isString() && newData.val().length <= 200" } },
-            "p2":      { ".validate": "!newData.exists() || newData.hasChildren()", "$g": { ".validate": "$g.matches(/^[0-9]{1,2}$/) && newData.isString() && newData.val().length <= 200" } },
-            "p3":      { ".validate": "!newData.exists() || newData.hasChildren()", "$g": { ".validate": "$g.matches(/^[0-9]{1,2}$/) && newData.isString() && newData.val().length <= 200" } },
-            "p_other": { ".validate": "!newData.exists() || newData.hasChildren()", "$g": { ".validate": "$g.matches(/^[0-9]{1,2}$/) && newData.isString() && newData.val().length <= 200" } },
+            ".validate": "newData.hasChildren()",
+            "p1":      { ".validate": "!newData.exists() || newData.hasChildren()", "$g": { ".validate": "$g.matches(/^0$/) && newData.isString() && newData.val().length > 0 && newData.val().length <= 200" } },
+            "p2":      { ".validate": "!newData.exists() || newData.hasChildren()", "$g": { ".validate": "$g.matches(/^[0-9]{1,2}$/) && newData.isString() && newData.val().length > 0 && newData.val().length <= 200" } },
+            "p3":      { ".validate": "!newData.exists() || newData.hasChildren()", "$g": { ".validate": "$g.matches(/^[0-9]{1,2}$/) && newData.isString() && newData.val().length > 0 && newData.val().length <= 200" } },
+            "p_other": { ".validate": "!newData.exists() || newData.hasChildren()", "$g": { ".validate": "$g.matches(/^[0-9]{1,2}$/) && newData.isString() && newData.val().length > 0 && newData.val().length <= 200" } },
             "$other":  { ".validate": false }
           },
+          "roundId": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 120" },
+          "revision": { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 1000000000" },
+          "updatedAt": { ".validate": "newData.isNumber()" },
+          "updatedByDevice": { ".validate": "newData.val() === 'desktop' || newData.val() === 'mobile'" },
           "$other": { ".validate": false }
         }
       },
-
       "settings": {
         ".read": "auth != null",
         ".write": "auth != null && (root.child('lan/roles').child(auth.uid).val() === 'admin' || auth.uid === 'ITe5VPuwewMzO7JnJA5oPWMdfvt2')"

@@ -50,6 +50,19 @@ const state = {
 /* Brouillon de vote : le vote en cours de saisie vit ici et non dans la base,
    sinon la moindre mise à jour temps réel effacerait ce que le joueur tape. */
 let voteDraft = null;
+let voteDraftDirty = false;
+let voteDraftUid = null;
+let voteBaseRevision = 0;
+let voteBaseRound = 'legacy-current';
+let savingVote = false;
+
+function resetMobileVoteDraft(user) {
+    voteDraft = null;
+    voteDraftDirty = false;
+    voteDraftUid = user ? user.uid : null;
+    voteBaseRevision = 0;
+    voteBaseRound = activeVoteRoundId(state.settings);
+}
 let currentScreen = 'soiree';
 /* Notre entrée dans /status : une par session ouverte, pas une par joueur. */
 let myConnectionRef = null;
@@ -495,6 +508,7 @@ function closeSheet() {
 
 auth.onAuthStateChanged(user => {
     if (user) {
+        if (voteDraftUid !== user.uid) resetMobileVoteDraft(user);
         state.user = user;
         $('m-auth').style.display = 'none';
         $('m-app').style.display = 'flex';
@@ -505,6 +519,7 @@ auth.onAuthStateChanged(user => {
         boot(user);
     } else {
         state.user = null;
+        resetMobileVoteDraft(null);
         refs.forEach(ref => ref.off());
         refs.length = 0;
         $('m-auth').style.display = 'flex';
@@ -628,14 +643,28 @@ function boot(user) {
     });
 
     watch('lan/settings', value => {
+        const previousRound = activeVoteRoundId(state.settings);
         state.settings = Object.assign({ isVotingOpen: false, isLanActive: false, lanFinished: false, lanName: 'LAN Demain', topGamesCount: 10 }, value || {});
+        const nextRound = activeVoteRoundId(state.settings);
+        if (previousRound !== nextRound) {
+            resetMobileVoteDraft(state.user);
+            if (state.ready) showToast('Nouvelle LAN : l’ancien brouillon a été rangé.', 'success');
+        }
     });
     watch('lan/votes', value => {
         state.votes = value || {};
         state.scores = calculateScores(state.votes);
-        /* Premier chargement seulement : on ne réécrit pas par-dessus une
-           saisie en cours si un autre joueur vote au même moment. */
-        if (voteDraft === null) voteDraft = readMyVote();
+        const user = state.user;
+        const roundId = activeVoteRoundId(state.settings);
+        const mine = user ? ballotRecordForRound(state.votes[user.uid], state.settings) : null;
+        if (!user) return;
+        if (voteDraft === null || !voteDraftDirty || voteDraftUid !== user.uid || voteBaseRound !== roundId) {
+            voteDraft = readMyVote();
+            voteDraftUid = user.uid;
+            voteBaseRound = roundId;
+            voteBaseRevision = ballotRevision(mine);
+            voteDraftDirty = false;
+        }
     });
     watch('lan/roles', value => {
         state.roles = value || {};
@@ -865,7 +894,7 @@ function renderEditorialHome() {
     const p = phase();
     const hero = $('m-editorial');
     const schedule = describeLanSchedule(state.settings, new Date());
-    const voterTotal = Object.keys(state.votes).length;
+    const voterTotal = voterIds(state.votes, state.settings).length;
     const gameTotal = state.scores.length;
     const onlineTotal = Object.keys(state.status).filter(uid => statusIdentity(state.status[uid])).length;
     const eventTotal = Object.keys(state.events).length;
@@ -1021,7 +1050,7 @@ function renderSoiree() {
     if (state.settings.isVotingOpen) {
         const card = el('article', 'm-card');
         card.appendChild(el('h3', 'm-card__title', 'Le vote est ouvert'));
-        card.appendChild(el('p', 'm-card__meta', `${Object.keys(state.votes).length} joueur${Object.keys(state.votes).length > 1 ? 's' : ''} ont déjà voté`));
+        card.appendChild(el('p', 'm-card__meta', `${voterIds(state.votes, state.settings).length} joueur${voterIds(state.votes, state.settings).length > 1 ? 's' : ''} ont déjà voté`));
         const btn = el('button', 'm-btn m-btn--solid m-btn--full', 'Voter maintenant');
         btn.addEventListener('click', () => goto('vote'));
         card.appendChild(btn);
@@ -1261,21 +1290,14 @@ function openGameSheet(gameName) {
    ========================================================================== */
 
 function readMyVote() {
-    const mine = state.user && state.votes[state.user.uid];
-    const draft = { p1: [], p2: [], p3: [], p_other: [] };
-    if (mine && mine.votes) {
-        PRIORITIES.forEach(p => {
-            // voteList plutôt qu'un test de tableau : une priorité revenue en
-            // objet (clés non contiguës) était jetée en silence.
-            draft[p.key] = voteList(mine.votes[p.key]);
-        });
-    }
-    return draft;
+    const mine = state.user
+        ? ballotRecordForRound(state.votes[state.user.uid], state.settings)
+        : null;
+    return normalizeBallot(mine && mine.votes);
 }
 
 function draftTotal() {
-    if (!voteDraft) return 0;
-    return PRIORITIES.reduce((sum, p) => sum + voteDraft[p.key].length, 0);
+    return ballotCount(voteDraft);
 }
 
 /* Seule P1 est limitée à un jeu, comme sur l'interface bureau où elle est la
@@ -1302,6 +1324,7 @@ function addToDraft(gameName, priority) {
         showToast('P1 ne porte qu\'un jeu. Ajouté aux autres.', 'error');
     }
     voteDraft[target].push(clean);
+    voteDraftDirty = true;
     renderVote();
     return true;
 }
@@ -1322,7 +1345,9 @@ function renderVote() {
     if (voteDraft === null) voteDraft = readMyVote();
     refreshGameDatalist();
     const mount = $('m-vote-groups');
-    const open = !!state.settings.isVotingOpen;
+    const open = state.settings.isVotingOpen === true
+        && state.settings.isLanActive !== true
+        && state.settings.lanFinished !== true;
 
     /* Ce qui est en cours de frappe survit au redessin : un autre joueur qui
        vote au même moment ne doit pas vider le champ sous les doigts. */
@@ -1356,6 +1381,7 @@ function renderVote() {
                     del.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>';
                     del.addEventListener('click', () => {
                         voteDraft[p.key].splice(index, 1);
+                        voteDraftDirty = true;
                         renderVote();
                     });
                     item.appendChild(del);
@@ -1432,6 +1458,7 @@ function renderVote() {
                     p3: previous.votes.p3.slice(),
                     p_other: previous.votes.p_other.slice()
                 };
+                voteDraftDirty = true;
                 renderVote();
                 showToast('Bulletin repris — relis-le puis enregistre.', 'success');
             };
@@ -1440,9 +1467,10 @@ function renderVote() {
 
     /* Ce que la base contient vraiment, à côté du brouillon en cours : c'est ce
        qui rend visible un écart entre deux appareils. */
-    const stored = ((state.votes[state.user && state.user.uid] || {}).votes) || {};
+    const storedRecord = state.user ? ballotRecordForRound(state.votes[state.user.uid], state.settings) : null;
+    const stored = normalizeBallot(storedRecord && storedRecord.votes);
     const storedTotal = ['p1', 'p2', 'p3', 'p_other']
-        .reduce((n, key) => n + voteList(stored[key]).length, 0);
+        .reduce((n, key) => n + stored[key].length, 0);
 
     $('m-vote-count').textContent = storedTotal === total
         ? `${total} jeu${total > 1 ? 'x' : ''}`
@@ -1459,6 +1487,11 @@ $('m-vote-submit').addEventListener('click', () => {
     if (!user) return;
     const error = $('m-vote-error');
     error.style.display = 'none';
+    if (!state.settings.isVotingOpen || state.settings.isLanActive || state.settings.lanFinished) {
+        error.textContent = 'Le vote est clos. Ton brouillon reste sur ce téléphone.';
+        error.style.display = 'block';
+        return;
+    }
 
     if (!draftTotal()) {
         error.textContent = 'Ajoute au moins un jeu avant d\'enregistrer.';
@@ -1500,13 +1533,71 @@ $('m-vote-submit').addEventListener('click', () => {
     saveVote(voteDraft);
 });
 
-function saveVote(draft) {
+async function saveVote(draft, force, expectedRound) {
     const user = auth.currentUser;
-    if (!user) return;
-    db.ref(`lan/votes/${user.uid}`)
-        .set({ name: user.displayName || user.email, votes: draft })
-        .then(() => showToast('Vote enregistré !', 'success'))
-        .catch(error => showToast('Erreur : ' + error.message, 'error'));
+    if (!user || savingVote) return;
+    if (!state.settings.isVotingOpen || state.settings.isLanActive || state.settings.lanFinished) {
+        showToast('Le vote est clos. Ton brouillon est conservé.', 'error');
+        return;
+    }
+    const roundId = activeVoteRoundId(state.settings);
+    const draftRound = expectedRound || voteBaseRound;
+    if (draftRound !== roundId) {
+        resetMobileVoteDraft(user);
+        renderVote();
+        showToast('Une nouvelle LAN a commencé. Le brouillon précédent n’a pas été envoyé.', 'error');
+        return;
+    }
+    savingVote = true;
+    $('m-vote-submit').disabled = true;
+    try {
+        const result = await saveBallotWithRevision(db.ref(`lan/votes/${user.uid}`), {
+            name: user.displayName || user.email || 'Joueur',
+            votes: normalizeBallot(draft),
+            roundId: roundId,
+            baseRevision: voteBaseRevision,
+            force: !!force,
+            device: 'mobile',
+            serverTimestamp: firebase.database.ServerValue.TIMESTAMP
+        });
+        if (!result.ok) {
+            const conflictRound = result.conflict && result.conflict.roundId;
+            if (conflictRound && conflictRound !== roundId) {
+                resetMobileVoteDraft(user);
+                renderVote();
+                showToast('Une nouvelle LAN a commencé. L’ancien brouillon n’a pas été envoyé.', 'error');
+                return;
+            }
+            confirmSheet(
+                'Ton vote a changé sur un autre appareil. Ton brouillon reste ici. Veux-tu remplacer le vote plus récent ?',
+                'Remplacer',
+                () => {
+                    if (activeVoteRoundId(state.settings) !== roundId) {
+                        resetMobileVoteDraft(user);
+                        renderVote();
+                        showToast('Une nouvelle LAN a commencé. Le brouillon précédent n’a pas été envoyé.', 'error');
+                        return;
+                    }
+                    saveVote(draft, true, roundId);
+                },
+                true
+            );
+            return;
+        }
+        voteDraft = normalizeBallot(draft);
+        voteDraftDirty = false;
+        voteDraftUid = user.uid;
+        voteBaseRound = roundId;
+        voteBaseRevision = ballotRevision(result.record);
+        showToast('Vote enregistré !', 'success');
+    } catch (error) {
+        showToast('Erreur : ' + error.message, 'error');
+    } finally {
+        savingVote = false;
+        $('m-vote-submit').disabled = !(state.settings.isVotingOpen === true
+            && state.settings.isLanActive !== true
+            && state.settings.lanFinished !== true);
+    }
 }
 
 /* ==========================================================================
@@ -2745,55 +2836,143 @@ $('m-new-lan').addEventListener('click', () => {
     );
 });
 
-/* Miroir de startNewLan de l'interface bureau : la soirée est archivée
-   entière, puis tout ce qui lui appartient est effacé. */
+function mobileTcgStandingsForArchive() {
+    const set = tcgCurrentSet(state.tcg);
+    if (!set) return null;
+    const cards = tcgCards(state.tcg);
+    const board = tcgLeaderboard(set.cards || {}, cards, economyPlayers())
+        .map(row => ({
+            name: playerName(row.uid),
+            owned: row.owned,
+            total: row.total,
+            foils: row.foils
+        }));
+    return board.length ? { setName: set.name || '', standings: board } : null;
+}
+
+/* Même attribution que sur PC. Les clés sont déterministes : si un téléphone
+   et un PC clôturent presque ensemble, Firebase remplace la même récompense au
+   lieu de compter l'XP deux fois. */
+async function awardLanExperienceMobile(lanId, archivedVotes, previousEconomy) {
+    const data = Object.assign({}, achData(), {
+        economy: previousEconomy,
+        votes: archivedVotes,
+        settings: state.settings
+    });
+    const players = Array.from(new Set(economyPlayers().concat(Object.keys(archivedVotes || {}))));
+    const writes = [];
+    const titles = [];
+    const by = (auth.currentUser && auth.currentUser.uid) || null;
+
+    voterIds(archivedVotes, state.settings).forEach(uid => {
+        const awardId = attendanceAwardId(uid, lanId);
+        if (hasXpAward(state.xp, awardId)) return;
+        writes.push(db.ref('lan/xp/awards/' + awardId).set({
+            uid: uid,
+            delta: XP.LAN_ATTENDANCE,
+            type: 'attendance',
+            reason: state.settings.lanName ? 'Soirée ' + state.settings.lanName : 'Une soirée de plus',
+            refId: lanId,
+            by: by,
+            ts: firebase.database.ServerValue.TIMESTAMP
+        }));
+    });
+
+    lanTitles(data, players).forEach(entry => {
+        const awardId = entry.uid + '__title__' + lanId + '__' + entry.title.id;
+        titles.push({
+            id: entry.title.id,
+            label: entry.title.label,
+            name: playerName(entry.uid),
+            value: entry.value
+        });
+        if (hasXpAward(state.xp, awardId)) return;
+        writes.push(db.ref('lan/xp/awards/' + awardId).set({
+            uid: entry.uid,
+            delta: entry.title.xp,
+            type: 'title',
+            reason: entry.title.label,
+            refId: lanId,
+            by: by,
+            ts: firebase.database.ServerValue.TIMESTAMP
+        }));
+    });
+
+    players.forEach(uid => {
+        closureAchievements(data, uid).forEach(ach => {
+            const awardId = achievementAwardId(uid, ach.id);
+            if (hasXpAward(state.xp, awardId)) return;
+            writes.push(db.ref('lan/xp/awards/' + awardId).set({
+                uid: uid,
+                delta: ach.xp,
+                type: 'achievement',
+                reason: ach.label,
+                refId: ach.id,
+                by: by,
+                ts: firebase.database.ServerValue.TIMESTAMP
+            }));
+        });
+    });
+
+    await Promise.allSettled(writes);
+    return titles;
+}
+
+/* Miroir exact de l'interface bureau : une lecture fraîche, une archive à clé
+   déterministe, puis une seule mise à jour multipath pour changer de cycle. */
 async function startNewLan(newName) {
     try {
         const previousName = state.settings.lanName || 'LAN Demain';
-        const sortedGames = calculateScores(state.votes);
-        const events = state.events;
-        const oneshot = (state.cocktails && state.cocktails.oneshot) || null;
-        const hadContent = sortedGames.length > 0 || Object.keys(events).length > 0 || (oneshot && Object.keys(oneshot).length > 0);
+        const roundId = activeVoteRoundId(state.settings);
+        const [votesSnap, eventsSnap, cocktailsSnap, economySnap] = await Promise.all([
+            db.ref('lan/votes').once('value'),
+            db.ref('lan/events').once('value'),
+            db.ref('lan/cocktails/oneshot').once('value'),
+            db.ref('lan/economy').once('value')
+        ]);
+        const archivedVotes = votesSnap.val() || {};
+        const sortedGames = calculateScores(archivedVotes);
+        const previousEconomy = economySnap.val() || {};
+        const finalStandings = economyLeaderboard(previousEconomy, economyPlayers())
+            .map(row => ({ name: playerName(row.uid), balance: row.balance }));
+        const economyHadActivity = ['ledger', 'ticks', 'purchases']
+            .some(key => economySnap.child(key).exists());
+        const hadContent = sortedGames.length > 0 || eventsSnap.exists() || cocktailsSnap.exists()
+            || economyHadActivity;
+        const awardedTitles = hadContent
+            ? await awardLanExperienceMobile(roundId, archivedVotes, previousEconomy)
+            : [];
+        const nextRoundId = createVoteRoundId();
 
         if (hadContent) {
-            await db.ref('lan/history').push().set({
+            await archiveAndResetLan(db, roundId, {
                 name: previousName,
                 date: new Date().toLocaleDateString('fr-FR'),
                 timestamp: firebase.database.ServerValue.TIMESTAMP,
+                roundId: roundId,
                 topGames: sortedGames.slice(0, state.settings.topGamesCount || 10),
-                votes: state.votes,
-                events: Object.keys(events).length ? events : null,
-                oneshotCocktails: oneshot
-            });
+                votes: archivedVotes,
+                events: eventsSnap.val() || null,
+                oneshotCocktails: cocktailsSnap.val() || null,
+                economyStandings: finalStandings.length ? finalStandings : null,
+                tcgStandings: mobileTcgStandingsForArchive(),
+                lanTitles: awardedTitles.length ? awardedTitles : null
+            }, newLanResetUpdates(nextRoundId, newName));
+        } else {
+            await db.ref('lan').update(newLanResetUpdates(nextRoundId, newName));
         }
 
-        await Promise.all([
-            db.ref('lan/votes').remove(),
-            db.ref('lan/events').remove(),
-            db.ref('lan/cocktails/oneshot').remove(),
-            db.ref('lan/cocktails/orders').remove(),
-            db.ref('lan/polls').remove(),
-            db.ref('lan/foodRuns').remove(),
-            db.ref('lan/steamLibraries').remove()
-        ]);
-
-        const settings = { isVotingOpen: true, isLanActive: false, lanFinished: false };
-        if (newName) settings.lanName = newName;
-        await db.ref('lan/settings').update(settings);
-
-        /* Le brouillon de vote appartenait à la soirée précédente. */
-        voteDraft = null;
+        resetMobileVoteDraft(state.user);
         recapShown = false;
         $('m-new-lan-name').value = '';
         showToast(sortedGames.length > 0
-            ? `Nouvelle LAN lancée ! ${sortedGames.length} jeux archivés.`
+            ? 'Nouvelle LAN lancée ! ' + sortedGames.length + ' jeux archivés.'
             : 'Nouvelle LAN lancée ! Les votes sont ouverts.', 'success');
         goto('soiree');
     } catch (error) {
         showToast('Impossible de démarrer : ' + error.message, 'error');
     }
 }
-
 /* ==========================================================================
    Notifications
    ========================================================================== */
@@ -2851,7 +3030,7 @@ function renderRecap() {
 
     const stats = el('div', 'm-card');
     const rows = [
-        ['Joueurs', Object.keys(state.votes).length],
+        ['Joueurs', voterIds(state.votes, state.settings).length],
         ['Jeux proposés', state.scores.length],
         ['Événements', sortedEvents().length],
         ['Sondages', Object.keys(state.polls).length],
