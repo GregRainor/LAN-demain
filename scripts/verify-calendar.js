@@ -19,8 +19,16 @@ const timedSettings = {
 };
 const timedEvent = calendar.buildLanCalendarEvent(timedSettings);
 assert(timedEvent && !timedEvent.allDay, 'A LAN with a start time must create a timed event');
-assert.strictEqual(timedEvent.end.getTime() - timedEvent.start.getTime(), 6 * 60 * 60 * 1000,
-    'Timed LAN calendar events reserve six hours');
+assert.strictEqual(timedEvent.end.getFullYear(), 2026);
+assert.strictEqual(timedEvent.end.getMonth(), 7);
+assert.strictEqual(timedEvent.end.getDate(), 30, 'A timed multi-day LAN must end on its announced final day');
+assert.strictEqual(timedEvent.end.getHours(), 20, 'The final day keeps the six-hour evening duration');
+
+const singleDayEvent = calendar.buildLanCalendarEvent({
+    lanDate: '2026-08-28', lanStartTime: '14:00', lanPlace: 'La Kiks'
+});
+assert.strictEqual(singleDayEvent.end.getTime() - singleDayEvent.start.getTime(), 6 * 60 * 60 * 1000,
+    'A timed single-day LAN still reserves six hours');
 
 const timedLinks = calendar.buildLanCalendarLinks(timedSettings);
 const google = new URL(timedLinks.google);
@@ -63,6 +71,10 @@ assert.strictEqual(new URL(allDayLinks.outlook).searchParams.get('enddt'), '2026
 assert.strictEqual(new URL(allDayLinks.outlook).searchParams.get('allday'), 'true');
 assert.strictEqual(new URL(allDayLinks.yahoo).searchParams.get('dur'), 'allday');
 
+const timedIcs = calendar.buildLanIcs(timedSettings);
+assert(/DTSTART:20260828T140000\r\n/.test(timedIcs));
+assert(/DTEND:20260830T200000\r\n/.test(timedIcs),
+    'The .ics timed event must preserve the announced 28–30 August range');
 const ics = calendar.buildLanIcs(allDaySettings);
 assert(/DTSTART;VALUE=DATE:20260828\r\n/.test(ics));
 assert(/DTEND;VALUE=DATE:20260831\r\n/.test(ics));
@@ -89,7 +101,7 @@ assert(/add\.addEventListener\('click', openMobileCalendarChooser\)/.test(mobile
 assert((mobileScript.match(/mobileCalendarOption\(/g) || []).length >= 5,
     'Mobile must expose three providers and the .ics fallback');
 assert(/\.m-calendar-option\s*\{[\s\S]{0,180}min-height:64px/.test(mobileCss));
-assert(/20260825-calendar-choice/.test(desktopHtml) && /20260825-calendar-choice/.test(read('m.html')),
+assert(/20260825-calendar-range/.test(desktopHtml) && /20260825-calendar-range/.test(read('m.html')),
     'Calendar assets need a shared cache-busting release tag');
 
 console.log('Calendar checks passed (shared event model, Google, Outlook, Yahoo, .ics, desktop, mobile).');

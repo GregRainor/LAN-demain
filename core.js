@@ -643,9 +643,12 @@ function buildLanCalendarEvent(settings) {
         event.exclusiveEndKey = shiftDayKey(event.endKey, 1);
     } else {
         event.start = new Date(schedule.startsAt.getTime());
-        // Aucune heure de fin n'est demandée à l'admin : six heures réserve
-        // honnêtement la soirée sans prétendre connaître la fin de la LAN.
-        event.end = new Date(event.start.getTime() + (6 * 60 * 60 * 1000));
+        // L'admin annonce une date de fin, mais pas son heure. On place donc
+        // la fin six heures après l'heure de départ SUR LE DERNIER JOUR : une
+        // LAN du 28 au 30 reste bien un événement du 28 au 30, à 14 h–20 h.
+        const finalDay = parseDayKey(event.endKey);
+        finalDay.setHours(event.start.getHours(), event.start.getMinutes(), 0, 0);
+        event.end = new Date(finalDay.getTime() + (6 * 60 * 60 * 1000));
     }
 
     return event;
