@@ -7420,6 +7420,329 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function ensureEconomyActionPanels() {
+        const catalog = document.getElementById('shop-catalog');
+        const pane = catalog && catalog.closest('.pane');
+        if (!pane) return;
+
+        if (!document.getElementById('shop-inventory-panel')) {
+            const panel = document.createElement('div');
+            panel.id = 'shop-inventory-panel';
+            panel.className = 'luxury-panel';
+            panel.style.cssText = 'padding:25px;margin-bottom:25px;display:none;';
+            const title = document.createElement('h3');
+            title.className = 'section-title';
+            title.textContent = '🎒 Mon inventaire';
+            const hint = document.createElement('p');
+            hint.className = 'panel-section__hint';
+            hint.textContent = 'Les bonus attendent d’être utilisés ou offerts. Les handicaps attendent leur victime.';
+            const mount = document.createElement('div');
+            mount.id = 'shop-inventory';
+            mount.className = 'shop-grid';
+            panel.append(title, hint, mount);
+            pane.insertBefore(panel, catalog.closest('.luxury-panel'));
+        }
+
+        if (!document.getElementById('shop-duels-panel')) {
+            const panel = document.createElement('div');
+            panel.id = 'shop-duels-panel';
+            panel.className = 'luxury-panel';
+            panel.style.cssText = 'padding:25px;margin-bottom:25px;';
+            const head = document.createElement('div');
+            head.className = 'panel-head';
+            const title = document.createElement('h3');
+            title.className = 'section-title';
+            title.style.margin = '0';
+            title.textContent = '⚔️ Duels à mise';
+            const create = document.createElement('button');
+            create.className = 'gold-link-btn';
+            create.textContent = '+ Lancer un duel';
+            create.addEventListener('click', openDuelComposer);
+            head.append(title, create);
+            const hint = document.createElement('p');
+            hint.className = 'panel-section__hint';
+            hint.textContent = 'L’adversaire accepte la mise. Le maître du jeu désigne le vainqueur, qui prend le pot.';
+            const mount = document.createElement('div');
+            mount.id = 'shop-duels';
+            mount.className = 'stack stack--sm';
+            panel.append(head, hint, mount);
+            pane.insertBefore(panel, catalog.closest('.luxury-panel'));
+        }
+    }
+
+    function renderInventory() {
+        ensureEconomyActionPanels();
+        const user = auth.currentUser;
+        const panel = document.getElementById('shop-inventory-panel');
+        const mount = document.getElementById('shop-inventory');
+        if (!user || !panel || !mount) return;
+
+        const tokens = inventoryItems(globalEconomy, user.uid);
+        panel.style.display = tokens.length ? 'block' : 'none';
+        mount.innerHTML = '';
+
+        tokens.forEach(token => {
+            const item = token.catalogItem || {};
+            const family = item.category || 'fun';
+            const card = document.createElement('div');
+            card.className = 'shop-item shop-item--' + family;
+            card.innerHTML = `
+                <span class="shop-item__cost">1</span>
+                <div class="shop-item__main">
+                    <h4 class="shop-item__name">${escapeHtml(item.name || token.itemName || 'Article')}</h4>
+                    <p class="shop-item__desc">${escapeHtml(item.description || token.itemDescription || '')}</p>
+                    <div class="shop-item__strip">
+                        <span class="shop-item__gem"></span>
+                        <span class="shop-item__fam">${family === 'handicap' ? 'À infliger' : 'Bonus disponible'}</span>
+                    </div>
+                </div>`;
+
+            const actions = document.createElement('div');
+            actions.className = 'shop-item__actions';
+            if (family === 'boost') {
+                const use = document.createElement('button');
+                use.className = 'gold-btn';
+                use.textContent = 'Utiliser';
+                use.addEventListener('click', () => useInventoryBonus(token));
+                actions.appendChild(use);
+            }
+            const send = document.createElement('button');
+            send.className = 'gold-link-btn';
+            send.textContent = family === 'handicap' ? 'Jouer sur…' : 'Offrir à…';
+            send.addEventListener('click', () => chooseInventoryTarget(token));
+            actions.appendChild(send);
+            card.appendChild(actions);
+            mount.appendChild(card);
+        });
+    }
+
+    function useInventoryBonus(token) {
+        askConfirm(`Utiliser « ${token.itemName || 'ce bonus'} » maintenant ?`, {
+            title: '🛡️ Bonus'
+        }).then(ok => {
+            if (!ok) return;
+            const user = auth.currentUser;
+            db.ref('lan/economy/purchases/' + token.id).update({
+                inventoryStatus: 'used',
+                sentBy: user.uid,
+                sentAt: firebase.database.ServerValue.TIMESTAMP
+            }).then(() => showToast('Bonus utilisé. Annoncez-le à la table !', 'success'))
+              .catch(err => showToast('Erreur : ' + err.message, 'error'));
+        });
+    }
+
+    function chooseInventoryTarget(token) {
+        const options = playerOptions(false);
+        if (!options.length) {
+            showToast('Aucun autre joueur à viser pour le moment.', 'error');
+            return;
+        }
+        const handicap = (token.itemCategory || (token.catalogItem || {}).category) === 'handicap';
+        openFormModal({
+            title: handicap ? 'Jouer le handicap' : 'Offrir le bonus',
+            intro: token.itemName || 'Article',
+            submitLabel: handicap ? 'Envoyer le handicap' : 'Offrir',
+            fields: [{ key: 'target', type: 'select', label: 'À qui ?', options: options }]
+        }).then(values => {
+            if (!values || !values.target) return;
+            sendInventoryToken(token, values.target, playerLabel(values.target), handicap);
+        });
+    }
+
+    function sendInventoryToken(token, targetUid, targetName, handicap) {
+        const user = auth.currentUser;
+        if (!user) return;
+        const changes = handicap ? {
+            inventoryStatus: 'sent',
+            sentToUid: targetUid,
+            sentToName: targetName,
+            sentBy: user.uid,
+            sentAt: firebase.database.ServerValue.TIMESTAMP
+        } : {
+            inventoryOwnerUid: targetUid,
+            sentToUid: targetUid,
+            sentToName: targetName,
+            sentBy: user.uid,
+            sentAt: firebase.database.ServerValue.TIMESTAMP
+        };
+
+        db.ref('lan/economy/purchases/' + token.id).update(changes)
+            .then(() => sendNotification(targetUid,
+                handicap
+                    ? `${user.displayName || 'Quelqu’un'} vous inflige « ${token.itemName} ».`
+                    : `${user.displayName || 'Quelqu’un'} vous offre le bonus « ${token.itemName} ».`,
+                handicap ? 'alert' : 'success'))
+            .then(() => showToast(handicap ? 'Handicap envoyé !' : 'Bonus offert !', 'success'))
+            .catch(err => showToast('Erreur : ' + err.message, 'error'));
+    }
+
+    function openDuelComposer() {
+        const user = auth.currentUser;
+        if (!user) return;
+        const options = playerOptions(false);
+        if (!options.length) {
+            showToast('Aucun adversaire disponible.', 'error');
+            return;
+        }
+        openFormModal({
+            title: '⚔️ Lancer un duel',
+            intro: 'Votre mise sera réservée. Si l’adversaire accepte, il engage la même somme.',
+            submitLabel: 'Défier',
+            fields: [
+                { key: 'opponent', type: 'select', label: 'Adversaire', options: options },
+                { key: 'game', type: 'text', label: 'Jeu', placeholder: 'Ex : Tekken 8' },
+                { key: 'wager', type: 'number', label: 'Mise par joueur', placeholder: 'En złotych' }
+            ]
+        }).then(values => {
+            if (!values) return;
+            const wager = Math.floor(Number(values.wager) || 0);
+            if (!values.opponent || !String(values.game || '').trim() || wager < 1) {
+                showToast('Choisissez un adversaire, un jeu et une mise.', 'error');
+                return;
+            }
+            if (wager > availablePoints(globalEconomy, user.uid)) {
+                showToast('Votre solde disponible ne couvre pas cette mise.', 'error');
+                return;
+            }
+            const duel = {
+                challengerUid: user.uid,
+                challengerName: user.displayName || 'Un joueur',
+                opponentUid: values.opponent,
+                opponentName: playerLabel(values.opponent),
+                game: String(values.game).trim().slice(0, 80),
+                wager: wager,
+                status: 'pending',
+                createdAt: firebase.database.ServerValue.TIMESTAMP
+            };
+            db.ref('lan/economy/duels').push().set(duel)
+                .then(() => sendNotification(values.opponent,
+                    `${duel.challengerName} vous défie sur ${duel.game} pour ${formatPoints(wager)}.`, 'alert'))
+                .then(() => showToast('Duel envoyé !', 'success'))
+                .catch(err => showToast('Erreur : ' + err.message, 'error'));
+        });
+    }
+
+    function answerDuel(duel, accepted) {
+        const user = auth.currentUser;
+        if (!user) return;
+        if (accepted && availablePoints(globalEconomy, user.uid) < Number(duel.wager || 0)) {
+            showToast('Votre solde disponible ne couvre plus cette mise.', 'error');
+            return;
+        }
+        db.ref('lan/economy/duels/' + duel.id).update({
+            status: accepted ? 'accepted' : 'refused',
+            answeredAt: firebase.database.ServerValue.TIMESTAMP
+        }).then(() => sendNotification(duel.challengerUid,
+            accepted
+                ? `${user.displayName || duel.opponentName} accepte votre duel sur ${duel.game}.`
+                : `${user.displayName || duel.opponentName} refuse votre duel sur ${duel.game}.`,
+            accepted ? 'success' : 'info'))
+          .catch(err => showToast('Erreur : ' + err.message, 'error'));
+    }
+
+    function finishDuel(duel, winnerUid) {
+        const wager = Math.max(1, Number(duel.wager) || 0);
+        if (economyBalance(globalEconomy, duel.challengerUid) < wager
+            || economyBalance(globalEconomy, duel.opponentUid) < wager) {
+            showToast('Un des deux joueurs ne peut plus couvrir la mise.', 'error');
+            return;
+        }
+        const winnerName = winnerUid === duel.challengerUid ? duel.challengerName : duel.opponentName;
+        askConfirm(`Déclarer ${winnerName} vainqueur et lui verser ${formatPoints(wager * 2)} ?`, {
+            title: '⚔️ Verdict du duel'
+        }).then(ok => {
+            if (!ok) return;
+            const update = {};
+            const stakeA = db.ref('lan/economy/ledger').push().key;
+            const stakeB = db.ref('lan/economy/ledger').push().key;
+            const prize = db.ref('lan/economy/ledger').push().key;
+            const ts = firebase.database.ServerValue.TIMESTAMP;
+            update['lan/economy/ledger/' + stakeA] = {
+                uid: duel.challengerUid, delta: -wager, type: 'duel-stake',
+                reason: 'Mise — ' + duel.game, refId: duel.id, ts: ts
+            };
+            update['lan/economy/ledger/' + stakeB] = {
+                uid: duel.opponentUid, delta: -wager, type: 'duel-stake',
+                reason: 'Mise — ' + duel.game, refId: duel.id, ts: ts
+            };
+            update['lan/economy/ledger/' + prize] = {
+                uid: winnerUid, delta: wager * 2, type: 'duel-prize',
+                reason: 'Victoire — ' + duel.game, refId: duel.id, ts: ts
+            };
+            update['lan/economy/duels/' + duel.id + '/status'] = 'completed';
+            update['lan/economy/duels/' + duel.id + '/winnerUid'] = winnerUid;
+            update['lan/economy/duels/' + duel.id + '/winnerName'] = winnerName;
+            update['lan/economy/duels/' + duel.id + '/resolvedAt'] = ts;
+            db.ref().update(update)
+                .then(() => Promise.all([
+                    sendNotification(duel.challengerUid, `Duel sur ${duel.game} : ${winnerName} gagne le pot.`, 'info'),
+                    sendNotification(duel.opponentUid, `Duel sur ${duel.game} : ${winnerName} gagne le pot.`, 'info')
+                ]))
+                .then(() => showToast('Duel réglé.', 'success'))
+                .catch(err => showToast('Erreur : ' + err.message, 'error'));
+        });
+    }
+
+    function renderDuels() {
+        ensureEconomyActionPanels();
+        const user = auth.currentUser;
+        const mount = document.getElementById('shop-duels');
+        if (!user || !mount) return;
+        mount.innerHTML = '';
+        const rows = economyDuels(globalEconomy)
+            .filter(duel => duel.status === 'pending' || duel.status === 'accepted'
+                || duel.challengerUid === user.uid || duel.opponentUid === user.uid)
+            .slice(0, 8);
+        if (!rows.length) {
+            mount.innerHTML = '<p class="panel-section__hint">Aucun duel lancé. Pour l’instant.</p>';
+            return;
+        }
+        rows.forEach(duel => {
+            const card = document.createElement('div');
+            card.className = 'shop-request';
+            const status = duel.status === 'pending' ? 'en attente'
+                : duel.status === 'accepted' ? 'accepté'
+                : duel.status === 'completed' ? 'terminé' : 'refusé';
+            card.innerHTML = `
+                <div class="shop-card__head">
+                    <h4 class="shop-card__name">${escapeHtml(duel.game || 'Duel')}</h4>
+                    <span class="shop-card__price">${escapeHtml(formatPoints(duel.wager))} chacun</span>
+                </div>
+                <p class="shop-card__meta">${escapeHtml(duel.challengerName || playerLabel(duel.challengerUid))}
+                    contre ${escapeHtml(duel.opponentName || playerLabel(duel.opponentUid))} · ${status}</p>`;
+            const actions = document.createElement('div');
+            actions.className = 'shop-card__actions';
+            if (duel.status === 'pending' && duel.opponentUid === user.uid) {
+                const yes = document.createElement('button');
+                yes.className = 'gold-btn';
+                yes.textContent = 'Accepter';
+                yes.addEventListener('click', () => answerDuel(duel, true));
+                const no = document.createElement('button');
+                no.className = 'gold-link-btn';
+                no.textContent = 'Refuser';
+                no.addEventListener('click', () => answerDuel(duel, false));
+                actions.append(yes, no);
+            } else if (duel.status === 'pending' && duel.challengerUid === user.uid) {
+                const cancel = document.createElement('button');
+                cancel.className = 'gold-link-btn';
+                cancel.textContent = 'Annuler';
+                cancel.addEventListener('click', () => db.ref('lan/economy/duels/' + duel.id).remove()
+                    .catch(err => showToast('Erreur : ' + err.message, 'error')));
+                actions.appendChild(cancel);
+            } else if (duel.status === 'accepted' && window.currentUserIsGamemaster) {
+                [duel.challengerUid, duel.opponentUid].forEach(uid => {
+                    const win = document.createElement('button');
+                    win.className = 'gold-btn';
+                    win.textContent = 'Victoire ' + playerLabel(uid);
+                    win.addEventListener('click', () => finishDuel(duel, uid));
+                    actions.appendChild(win);
+                });
+            }
+            if (actions.childNodes.length) card.appendChild(actions);
+            mount.appendChild(card);
+        });
+    }
+
     function renderBoutique() {
         const user = auth.currentUser;
         if (!user || !document.getElementById('lan-boutique')) return;
@@ -7437,7 +7760,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const ticks = Number(((globalEconomy.ticks || {})[user.uid] || {}).count) || 0;
                 hint.textContent = ticks >= ECONOMY.MAX_TICKS
                     ? 'Présence : plafond atteint. Les points se gagnent autrement, maintenant.'
-                    : `+${ECONOMY.TICK_VALUE} ${ECONOMY.CURRENCY} toutes les 10 minutes de présence`;
+                    : `+${ECONOMY.TICK_VALUE} ${ECONOMY.CURRENCY} toutes les 10 minutes · ${passivePointsPerHour()} ${ECONOMY.CURRENCY}/h · booster standard ${formatPoints(BOOSTER_STANDARD_PRICE)}`;
             } else {
                 hint.textContent = 'Les points se gagnent une fois la LAN lancée.';
             }
@@ -7463,6 +7786,8 @@ document.addEventListener('DOMContentLoaded', () => {
         renderBoosterShelf(user);
         renderShopQueue(isGm);
         renderShopCatalog(user);
+        renderInventory();
+        renderDuels();
         fillGrantSelect();
         updateShopBadge(isGm);
 
@@ -7704,7 +8029,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const buy = document.createElement('button');
         buy.className = 'shop-item__buy';
-        buy.textContent = verdict.ok ? (item.needsTarget ? 'Viser' : 'Prendre') : verdict.why;
+        buy.textContent = verdict.ok
+            ? (isInventoryCatalogItem(item) ? 'Ajouter à l’inventaire' : (item.needsTarget ? 'Viser' : 'Prendre'))
+            : verdict.why;
         buy.disabled = !verdict.ok;
         buy.addEventListener('click', () => requestPurchase(id, item));
         actions.appendChild(buy);
@@ -7730,8 +8057,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const missing = missingStarterItems(globalEconomy);
         if (!missing.length) { showToast('La boutique a déjà tout.', 'success'); return; }
 
+        const catalog = globalEconomy.catalog || {};
         const update = {};
         missing.forEach(item => {
+            const existing = Object.entries(catalog)
+                .find(([, current]) => current && normalizeGameName(current.name) === normalizeGameName(item.name));
+            if (existing && item.forcePrice === true) {
+                update['lan/economy/catalog/' + existing[0] + '/price'] = item.price;
+                update['lan/economy/catalog/' + existing[0] + '/description'] = item.description || '';
+                return;
+            }
             const id = db.ref('lan/economy/catalog').push().key;
             update['lan/economy/catalog/' + id] = {
                 name: item.name,
@@ -7740,6 +8075,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 category: item.category || 'fun',
                 stock: null,
                 needsTarget: !!item.needsTarget,
+                storable: isInventoryCatalogItem(item),
                 kind: null,
                 active: true,
                 createdBy: user.uid,
@@ -7748,7 +8084,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         db.ref().update(update)
-            .then(() => showToast(`${missing.length} articles ajoutés à la boutique.`, 'success'))
+            .then(() => showToast(`${missing.length} articles ajoutés ou actualisés.`, 'success'))
             .catch(err => showToast('Erreur : ' + err.message, 'error'));
     }
 
@@ -7842,7 +8178,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function createDefaultPackItem() {
         const user = auth.currentUser;
         if (!user) return;
-        const price = Math.round(ECONOMY.MAX_TICKS * ECONOMY.TICK_VALUE / 3);
+        const price = BOOSTER_STANDARD_PRICE;
         db.ref('lan/economy/catalog').push().set({
             name: packLabel({ name: generatedArtNames[PACK_ART_KEY] }, globalSettings.lanName),
             description: `${TCG.PACK_SIZE} cartes du set de la soirée.`,
@@ -7915,6 +8251,132 @@ document.addEventListener('DOMContentLoaded', () => {
        joueur lui-même. Un débit, il sait l'écrire ; un CRÉDIT, non.
        ====================================================================== */
 
+    let desktopExerciseDraw = null;
+
+    function ensureDesktopExercisePanel() {
+        const challengeMount = document.getElementById('challenge-list');
+        const challengePanel = challengeMount && challengeMount.closest('.luxury-panel');
+        const host = challengePanel && challengePanel.parentElement;
+        if (!host || document.getElementById('exercise-panel')) return;
+
+        const panel = document.createElement('div');
+        panel.id = 'exercise-panel';
+        panel.className = 'luxury-panel';
+        panel.style.cssText = 'padding:25px;margin-bottom:25px;';
+        const title = document.createElement('h3');
+        title.className = 'section-title';
+        title.textContent = '🧠 Donner un exercice';
+        const hint = document.createElement('p');
+        hint.className = 'panel-section__hint';
+        hint.textContent = 'Choisissez un type : l’application tire un exercice dans la banque. Répondez, puis le maître du jeu corrige.';
+        const types = document.createElement('div');
+        types.id = 'exercise-types';
+        types.className = 'shop-card__actions';
+        const draw = document.createElement('div');
+        draw.id = 'exercise-draw';
+        draw.style.marginTop = '16px';
+        panel.append(title, hint, types, draw);
+        host.insertBefore(panel, challengePanel);
+    }
+
+    function renderExercisePanel() {
+        ensureDesktopExercisePanel();
+        const user = auth.currentUser;
+        const types = document.getElementById('exercise-types');
+        const draw = document.getElementById('exercise-draw');
+        if (!user || !types || !draw) return;
+
+        types.innerHTML = '';
+        EXERCISE_TYPES.forEach(type => {
+            const button = document.createElement('button');
+            button.className = 'gold-link-btn';
+            button.textContent = type.icon + ' ' + type.label;
+            button.addEventListener('click', () => drawDesktopExercise(type.key));
+            types.appendChild(button);
+        });
+
+        draw.innerHTML = '';
+        if (!desktopExerciseDraw) {
+            const empty = document.createElement('p');
+            empty.className = 'panel-section__hint';
+            empty.textContent = 'Maths, orthographe ou culture G : choisissez votre poison.';
+            draw.appendChild(empty);
+            return;
+        }
+
+        const challenge = exerciseAsChallenge(desktopExerciseDraw);
+        const verdict = claimState(globalQuests, challenge, user.uid);
+        const card = document.createElement('div');
+        card.className = 'shop-request';
+        card.innerHTML = `
+            <div class="shop-card__head">
+                <h4 class="shop-card__name">${escapeHtml(challenge.title)}</h4>
+                <span class="shop-card__price">${escapeHtml(formatPoints(challenge.zl))} · ${challenge.xp} XP</span>
+            </div>
+            <p class="shop-card__desc">${escapeHtml(challenge.exercisePrompt)}</p>`;
+        const go = document.createElement('button');
+        go.className = 'gold-btn';
+        go.style.padding = '9px 18px';
+        go.textContent = verdict.can ? 'Répondre' : verdict.why;
+        go.disabled = !verdict.can;
+        go.addEventListener('click', () => claimDesktopExercise(challenge));
+        card.appendChild(go);
+        draw.appendChild(card);
+    }
+
+    function drawDesktopExercise(type) {
+        const user = auth.currentUser;
+        if (!user) return;
+        const available = exercisesByType(type)
+            .filter(exercise => claimState(globalQuests, exerciseAsChallenge(exercise), user.uid).can);
+        if (!available.length) {
+            desktopExerciseDraw = null;
+            renderExercisePanel();
+            showToast('Vous avez déjà fait toute cette banque pendant la LAN.', 'success');
+            return;
+        }
+        desktopExerciseDraw = available[Math.floor(Math.random() * available.length)];
+        renderExercisePanel();
+    }
+
+    function claimDesktopExercise(challenge) {
+        const user = auth.currentUser;
+        if (!user) return;
+        openFormModal({
+            title: challenge.title,
+            intro: challenge.exercisePrompt + ' · ' + formatPoints(challenge.zl)
+                + ' et ' + challenge.xp + ' XP si la réponse est validée.',
+            submitLabel: 'Envoyer la réponse',
+            fields: [
+                { key: 'answer', type: 'textarea', label: 'Votre réponse',
+                  placeholder: 'Écrivez votre réponse ici.' }
+            ]
+        }).then(values => {
+            if (!values) return;
+            const answer = String(values.answer || '').trim();
+            if (!answer) {
+                showToast('Écrivez une réponse avant d’envoyer.', 'error');
+                return;
+            }
+            db.ref('lan/claims').push().set({
+                challengeId: challenge.id,
+                title: challenge.title,
+                category: 'intellect',
+                zl: challenge.zl,
+                xp: challenge.xp,
+                uid: user.uid,
+                userName: user.displayName || 'Un joueur',
+                note: answer.slice(0, 500),
+                exercisePrompt: challenge.exercisePrompt,
+                exerciseSolution: challenge.exerciseSolution,
+                exerciseType: challenge.exerciseType,
+                status: 'pending',
+                ts: firebase.database.ServerValue.TIMESTAMP
+            }).then(() => showToast('Réponse envoyée au maître du jeu.', 'success'))
+              .catch(err => showToast('Erreur : ' + err.message, 'error'));
+        });
+    }
+
     function renderDefis() {
         const user = auth.currentUser;
         if (!user || !document.getElementById('lan-defis')) return;
@@ -7922,6 +8384,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderClaimsQueue();
         renderProposals();
         renderMyClaims(user);
+        renderExercisePanel();
         renderChallengeList(user);
         renderSuggestions(user);
         updateDefisBadge();
@@ -7956,6 +8419,9 @@ document.addEventListener('DOMContentLoaded', () => {
             card.className = 'shop-request';
             const witness = claim.witnessName ? ` — témoin : ${escapeHtml(claim.witnessName)}` : '';
             const note = claim.note ? `<p class="shop-card__desc">« ${escapeHtml(claim.note)} »</p>` : '';
+            const correction = claim.exercisePrompt
+                ? `<p class="shop-card__desc"><strong>Énoncé :</strong> ${escapeHtml(claim.exercisePrompt)}<br><strong>Correction :</strong> ${escapeHtml(claim.exerciseSolution || '—')}</p>`
+                : '';
             card.innerHTML = `
                 <div class="shop-card__head">
                     <h4 class="shop-card__name">${escapeHtml(claim.title || 'Défi')}</h4>
@@ -7963,6 +8429,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                 <p class="shop-card__meta">${escapeHtml(claim.userName || playerLabel(claim.uid))}${witness}</p>
                 ${note}
+                ${correction}
             `;
 
             const actions = document.createElement('div');
@@ -8079,6 +8546,12 @@ document.addEventListener('DOMContentLoaded', () => {
             ok.addEventListener('click', () => approveChallenge(challenge));
             actions.appendChild(ok);
 
+            const edit = document.createElement('button');
+            edit.className = 'gold-link-btn';
+            edit.textContent = 'Modifier';
+            edit.addEventListener('click', () => editChallenge(challenge));
+            actions.appendChild(edit);
+
             const no = document.createElement('button');
             no.className = 'gold-link-btn';
             no.style.color = 'var(--danger-color)';
@@ -8169,8 +8642,8 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        CHALLENGES.CATEGORIES.forEach(cat => {
-            const items = list.filter(c => (c.category || 'autre') === cat.key);
+        challengeCategories().forEach(cat => {
+            const items = list.filter(challenge => challengeMatchesCategory(challenge, cat.key));
             if (!items.length) return;
 
             const title = document.createElement('p');
@@ -8196,6 +8669,63 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function editChallenge(challenge) {
+        const user = auth.currentUser;
+        if (!user || !window.currentUserIsGamemaster) return;
+        const currentCategory = challenge.category === 'farm' ? 'repeatable'
+            : (challenge.category || 'autre');
+        openFormModal({
+            title: 'Modifier le défi',
+            intro: 'Les nouvelles valeurs s’appliquent aux prochaines réclamations. Celles déjà envoyées gardent leur récompense.',
+            submitLabel: 'Enregistrer',
+            fields: [
+                { key: 'title', type: 'text', label: 'Titre', value: challenge.title || '' },
+                { key: 'description', type: 'textarea', label: 'Règles',
+                  value: challenge.description || '', rows: 3 },
+                { key: 'category', type: 'select', label: 'Catégorie',
+                  value: currentCategory,
+                  options: challengeCategories().map(category => ({
+                      value: category.key,
+                      label: category.icon + ' ' + category.label
+                  })) },
+                { key: 'zl', type: 'number', label: 'Récompense en ' + ECONOMY.CURRENCY,
+                  value: Number(challenge.zl) || 0, min: 0 },
+                { key: 'xp', type: 'number', label: 'Récompense en XP',
+                  value: Number(challenge.xp) || 0, min: 0 },
+                { key: 'repeatable', type: 'select', label: 'Fréquence',
+                  value: challenge.repeatable === false ? 'once' : 'repeatable',
+                  options: [
+                      { value: 'repeatable', label: 'Répétable' },
+                      { value: 'once', label: 'Une seule fois par joueur' }
+                  ] },
+                { key: 'maxPerLan', type: 'number', label: 'Plafond par joueur et par LAN',
+                  value: Number(challenge.maxPerLan) > 0 ? Number(challenge.maxPerLan) : '',
+                  min: 0, placeholder: 'Vide = illimité' }
+            ]
+        }).then(values => {
+            if (!values) return;
+            const title = String(values.title || '').trim();
+            if (!title) {
+                showToast('Le titre est obligatoire.', 'error');
+                return;
+            }
+            const repeatable = values.repeatable !== 'once';
+            const cap = Math.max(0, Math.floor(Number(values.maxPerLan) || 0));
+            db.ref('lan/challenges/' + challenge.id).update({
+                title: title.slice(0, 120),
+                description: String(values.description || '').trim().slice(0, 500),
+                category: values.category || 'autre',
+                zl: Math.max(0, Math.round(Number(values.zl) || 0)),
+                xp: Math.max(0, Math.round(Number(values.xp) || 0)),
+                repeatable: repeatable,
+                maxPerLan: repeatable && cap > 0 ? cap : null,
+                updatedBy: user.uid,
+                updatedAt: firebase.database.ServerValue.TIMESTAMP
+            }).then(() => showToast('Défi modifié.', 'success'))
+              .catch(err => showToast('Erreur : ' + err.message, 'error'));
+        });
+    }
+
     function buildChallengeCard(challenge, user) {
         const verdict = claimState(globalQuests, challenge, user.uid);
         const card = document.createElement('div');
@@ -8204,7 +8734,10 @@ document.addEventListener('DOMContentLoaded', () => {
             + (verdict.can ? '' : ' is-locked');
 
         const done = challengeGrantedCount(globalQuests, challenge.id);
-        const doneLine = done ? `<span class="shop-item__stock">relevé ${done}×</span>` : '';
+        const cap = Math.max(0, Number(challenge.maxPerLan) || 0);
+        const doneLine = cap
+            ? `<span class="shop-item__stock">${verdict.granted}/${cap} pour vous</span>`
+            : (done ? `<span class="shop-item__stock">relevé ${done}×</span>` : '');
         const desc = challenge.description
             ? `<p class="shop-item__desc">${escapeHtml(challenge.description)}</p>` : '';
 
@@ -8232,6 +8765,12 @@ document.addEventListener('DOMContentLoaded', () => {
         actions.appendChild(go);
 
         if (window.currentUserIsGamemaster) {
+            const edit = document.createElement('button');
+            edit.className = 'gold-link-btn';
+            edit.textContent = 'Modifier';
+            edit.addEventListener('click', () => editChallenge(challenge));
+            actions.appendChild(edit);
+
             const del = document.createElement('button');
             del.className = 'gold-link-btn';
             del.style.color = 'var(--danger-color)';
@@ -8296,8 +8835,22 @@ document.addEventListener('DOMContentLoaded', () => {
         const missing = missingStarterChallenges(globalQuests);
         if (!missing.length) { showToast('La liste a déjà tout.', 'success'); return; }
 
+        const challenges = globalQuests.challenges || {};
         const update = {};
         missing.forEach(challenge => {
+            const existing = Object.entries(challenges)
+                .find(([, current]) => current
+                    && normalizeGameName(current.title) === normalizeGameName(challenge.title));
+            if (existing && challenge.forceUnlimited === true) {
+                const path = 'lan/challenges/' + existing[0] + '/';
+                update[path + 'category'] = 'repeatable';
+                update[path + 'repeatable'] = true;
+                update[path + 'maxPerLan'] = null;
+                update[path + 'zl'] = challenge.zl;
+                update[path + 'xp'] = challenge.xp;
+                update[path + 'description'] = challenge.description || '';
+                return;
+            }
             const id = db.ref('lan/challenges').push().key;
             update['lan/challenges/' + id] = {
                 title: challenge.title,
@@ -8306,6 +8859,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 zl: challenge.zl,
                 xp: challenge.xp,
                 repeatable: challenge.repeatable !== false,
+                maxPerLan: Number(challenge.maxPerLan) || null,
                 status: 'open',
                 createdBy: user.uid,
                 createdByName: user.displayName || 'Admin',
@@ -8314,7 +8868,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         db.ref().update(update)
-            .then(() => showToast(`${missing.length} défis ajoutés.`, 'success'))
+            .then(() => showToast(`${missing.length} défis ajoutés ou actualisés.`, 'success'))
             .catch(err => showToast('Erreur : ' + err.message, 'error'));
     }
 
@@ -8534,7 +9088,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 { key: 'description', type: 'textarea', label: 'Les règles exactes',
                   placeholder: 'Ce qui compte, ce qui ne compte pas.', rows: 2 },
                 { key: 'category', type: 'select', label: 'Catégorie',
-                  options: CHALLENGES.CATEGORIES.map(c => ({ value: c.key, label: `${c.icon} ${c.label}` })) },
+                  options: challengeCategories().map(c => ({ value: c.key, label: `${c.icon} ${c.label}` })) },
                 { key: 'zl', type: 'number', label: `Récompense en ${ECONOMY.CURRENCY}`,
                   value: 80, min: 0 },
                 { key: 'xp', type: 'number', label: 'Récompense en XP', value: 50, min: 0 }
@@ -8697,6 +9251,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const count = Math.max(1, Math.floor(Number(quantity) || 1));
         const price = Number(item.price) || 0;
+        const storable = isInventoryCatalogItem(item);
         const update = {};
         const purchaseIds = [];
 
@@ -8706,17 +9261,15 @@ document.addEventListener('DOMContentLoaded', () => {
             purchaseIds.push(purchaseId);
 
             update['lan/economy/ledger/' + entryId] = {
-                uid: user.uid,
-                delta: -price,
-                type: 'purchase',
-                itemId: itemId,
-                reason: item.name || 'Achat',
-                refId: purchaseId,
+                uid: user.uid, delta: -price, type: 'purchase', itemId: itemId,
+                reason: item.name || 'Achat', refId: purchaseId,
                 ts: firebase.database.ServerValue.TIMESTAMP
             };
-            update['lan/economy/purchases/' + purchaseId] = {
+            const receipt = {
                 itemId: itemId,
                 itemName: item.name || 'Article',
+                itemDescription: item.description || '',
+                itemCategory: item.category || 'fun',
                 price: price,
                 uid: user.uid,
                 userName: user.displayName || 'Un joueur',
@@ -8725,10 +9278,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 status: 'granted',
                 ts: firebase.database.ServerValue.TIMESTAMP
             };
+            if (storable) {
+                receipt.storable = true;
+                receipt.inventoryStatus = 'ready';
+                receipt.inventoryOwnerUid = user.uid;
+            }
+            update['lan/economy/purchases/' + purchaseId] = receipt;
         }
 
-        // Ces paquets-là s'annoncent au moment du clic : le sceau qui suivra
-        // restera muet, sinon acheter cinq boosters ferait dix bulles.
         if (isPackItem(item)) purchaseIds.forEach(id => sealedQuietly.add(id));
 
         return db.ref().update(update)
@@ -8737,6 +9294,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     showToast(count > 1
                         ? `${count} boosters achetés ! Ils vous attendent dans la collection.`
                         : 'Booster acheté ! Il vous attend dans la collection.', 'success');
+                } else if (storable) {
+                    showToast(`${item.name || 'Article'}${count > 1 ? ' ×' + count : ''} ajouté à votre inventaire.`, 'success');
                 } else {
                     showToast(`${item.name || 'Article'}${count > 1 ? ' ×' + count : ''} : c'est à vous !`, 'success');
                 }
@@ -8754,7 +9313,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Un handicap sans cible serait du sabotage anonyme : on demande sur
         // qui, et le nom restera visible dans le registre. On n'en achète qu'un
         // à la fois — jouer trois fois le même handicap n'a pas de sens.
-        if (item.needsTarget) {
+        if (item.needsTarget && !isInventoryCatalogItem(item)) {
             const others = playerOptions(false);
             if (!others.length) {
                 showToast('Aucun autre joueur à viser pour le moment.', 'error');

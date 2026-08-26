@@ -153,6 +153,7 @@ function newLanResetUpdates(newRoundId, newName) {
         'economy/ledger': null,
         'economy/ticks': null,
         'economy/purchases': null,
+        'economy/duels': null,
         claims: null,
         'settings/isVotingOpen': true,
         'settings/isLanActive': false,
@@ -785,6 +786,16 @@ const ECONOMY = {
     ]
 };
 
+/* Repères d'équilibrage : la présence rapporte 30 zł par heure et un booster
+   standard en coûte 100. Une LAN de dix heures paie donc trois boosters même
+   sans courir après les défis ; les défis servent à accélérer ou à acheter
+   les privilèges plus chers. */
+const BOOSTER_STANDARD_PRICE = 100;
+
+function passivePointsPerHour() {
+    return Math.round((60 * 60 * 1000 / ECONOMY.TICK_INTERVAL_MS) * ECONOMY.TICK_VALUE);
+}
+
 function categoryLabel(key) {
     const found = ECONOMY.CATEGORIES.find(c => c.key === key);
     return found ? found.label : 'Divers';
@@ -856,7 +867,58 @@ function pendingSpend(economy, uid) {
 
 /* Ce que le joueur peut réellement engager maintenant. */
 function availablePoints(economy, uid) {
-    return economyBalance(economy, uid) - pendingSpend(economy, uid);
+    return economyBalance(economy, uid) - pendingSpend(economy, uid) - duelReservedSpend(economy, uid);
+}
+
+/* Une mise n'est débitée qu'au verdict, mais elle cesse d'être disponible dès
+   que le duel l'engage. Avant acceptation seul le défiant réserve sa mise ;
+   après acceptation, les deux joueurs la réservent. */
+function duelReservedSpend(economy, uid) {
+    const duels = (economy && economy.duels) || {};
+    let total = 0;
+    Object.values(duels).forEach(duel => {
+        if (!duel || !uid) return;
+        const wager = Math.max(0, Number(duel.wager) || 0);
+        if (duel.status === 'pending' && duel.challengerUid === uid) total += wager;
+        if (duel.status === 'accepted'
+            && (duel.challengerUid === uid || duel.opponentUid === uid)) total += wager;
+    });
+    return total;
+}
+
+function economyDuels(economy) {
+    return Object.entries((economy && economy.duels) || {})
+        .map(([id, duel]) => Object.assign({ id: id }, duel))
+        .filter(duel => duel && duel.challengerUid && duel.opponentUid)
+        .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+}
+
+/* Les bonus et handicaps achetés deviennent des jetons. Leur reçu d'achat est
+   aussi leur certificat : pas de second nœud forgeable, et une source unique
+   pour le prix, le propriétaire et l'état du jeton. */
+function isInventoryCatalogItem(item) {
+    return !!item && (item.storable === true
+        || item.category === 'boost' || item.category === 'handicap');
+}
+
+function inventoryItems(economy, uid) {
+    const catalog = (economy && economy.catalog) || {};
+    return Object.entries((economy && economy.purchases) || {})
+        .map(([id, purchase]) => {
+            const snapshot = {
+                name: purchase && purchase.itemName,
+                description: purchase && purchase.itemDescription,
+                category: purchase && purchase.itemCategory,
+                storable: purchase && purchase.storable
+            };
+            const item = Object.assign(snapshot, catalog[purchase && purchase.itemId] || {});
+            return Object.assign({ id: id, catalogItem: item }, purchase || {});
+        })
+        .filter(token => token.status === 'granted'
+            && token.inventoryStatus === 'ready'
+            && token.inventoryOwnerUid === uid
+            && isInventoryCatalogItem(token.catalogItem))
+        .sort((a, b) => (b.ts || 0) - (a.ts || 0));
 }
 
 /* Un article épuisé ne se commande plus. Les achats refusés ne consomment pas
@@ -2121,18 +2183,20 @@ function lanComebackFor(history, votes, uid) {
 function challengeCountersFor(node, uid, since) {
     const challenges = (node && node.challenges) || {};
     const byCategory = {};
-    CHALLENGES.CATEGORIES.forEach(category => { byCategory[category.key] = 0; });
+    challengeCategories().forEach(category => { byCategory[category.key] = 0; });
     let count = 0;
     allClaims(node).forEach(claim => {
-        if (claim.uid !== uid || claim.status !== 'granted' || (Number(claim.ts) || 0) <= (Number(since) || 0)) return;
+        if (claim.uid !== uid || claim.status !== 'granted'
+            || (Number(claim.ts) || 0) <= (Number(since) || 0)) return;
         count += 1;
-        const category = challengeCategory((challenges[claim.challengeId] || {}).category).key;
+        const source = challenges[claim.challengeId] || {};
+        const category = challengeCategory(source.category || claim.category).key;
         byCategory[category] = (byCategory[category] || 0) + 1;
     });
     return {
         count: count,
         categories: byCategory,
-        categoryCount: CHALLENGES.CATEGORIES.filter(category => byCategory[category.key] > 0).length
+        categoryCount: challengeCategories().filter(category => byCategory[category.key] > 0).length
     };
 }
 
@@ -2525,12 +2589,71 @@ const SHOP_STARTER = [
 
 /* Ce qui manque encore à la boutique, comparé à la carte de départ. On
    compare sur le nom : regarnir deux fois ne doit pas doubler les articles. */
+/* Ajouts issus des règles de table : ils restent séparés de la carte historique
+   afin que le regarnissage reconnaisse aussi les boutiques déjà initialisées. */
+const SHOP_STARTER_ADDITIONS = [
+    { name: 'Choisir un coach', price: 190, category: 'boost',
+      description: 'Choisis ton coach pour une partie : conseils, stratégie et mauvaise foi inclus.' },
+    { name: 'Clavier à l\'envers', price: 230, category: 'handicap', needsTarget: true,
+      description: 'Le clavier est physiquement retourné pendant une manche entière.' },
+    { name: 'Sans chaise', price: 210, category: 'handicap', needsTarget: true,
+      description: 'Une partie complète debout. La chaise part hors de portée.' },
+    { name: 'Clavier-souris inversés', price: 260, category: 'handicap', needsTarget: true,
+      description: 'Souris dans l\'autre main et clavier de l\'autre côté pendant une partie.' },
+    { name: 'FPS sous rationnement', price: 280, category: 'handicap', needsTarget: true,
+      description: 'Le plafond de FPS est fortement réduit pour une partie, valeur choisie par le groupe.' },
+    { name: 'Réquisition de stuff', price: 320, category: 'handicap', needsTarget: true,
+      description: 'Emprunte le clavier ou la souris d\'un autre joueur pendant une partie, avec son accord.' },
+    { name: 'Échange de setup', price: 420, category: 'handicap', needsTarget: true,
+      description: 'Échange complet de place et de périphériques avec la cible pour une partie.' },
+    { name: 'Rentre chez toi maintenant', price: 1500, category: 'privilege',
+      description: 'Pour une somme beaucoup trop indécente, tu ordonnes à quelqu\'un de rentrer chez lui maintenant.' }
+];
+
+function starterShopItems() {
+    const durationItems = [
+        { name: 'Imposer le prochain jeu — partie moyenne', price: 160, category: 'privilege',
+          description: 'Pour une partie de 30 à 90 minutes : un match complet, un petit tournoi, un run.' },
+        { name: 'Imposer le prochain jeu — longue session', price: 300, category: 'privilege',
+          description: 'Pour 1 h 30 à 3 heures : une vraie session qui bloque la table un moment.' },
+        { name: 'Imposer le prochain jeu — marathon', price: 500, category: 'privilege',
+          description: 'Au-delà de 3 heures, façon Civilization VI : toute la table signe pour le voyage.' }
+    ];
+    const adjusted = SHOP_STARTER.map(item => {
+        if (item.name === 'Choisir le prochain jeu') {
+            return Object.assign({}, item, {
+                price: 80,
+                forcePrice: true,
+                description: 'Impose une partie courte, jusqu’à 30 minutes — typiquement une game de Rocket League.'
+            });
+        }
+        if (item.name === 'Lancer un défi') {
+            return Object.assign({}, item, {
+                price: 350,
+                forcePrice: true,
+                description: 'Tu imposes un défi de la liste à qui tu veux. Le pouvoir se paie désormais très cher.'
+            });
+        }
+        return item;
+    });
+    const additions = SHOP_STARTER_ADDITIONS.map(item =>
+        item.name === 'Rentre chez toi maintenant'
+            ? Object.assign({}, item, { needsTarget: true })
+            : item);
+    return adjusted.concat(durationItems, additions);
+}
+
 function missingStarterItems(economy) {
     const have = {};
-    Object.values((economy && economy.catalog) || {}).forEach(item => {
-        if (item && item.name) have[normalizeGameName(item.name)] = true;
+    Object.entries((economy && economy.catalog) || {}).forEach(([id, item]) => {
+        if (item && item.name) have[normalizeGameName(item.name)] = { id: id, item: item };
     });
-    return SHOP_STARTER.filter(item => !have[normalizeGameName(item.name)]);
+    return starterShopItems().filter(item => {
+        const current = have[normalizeGameName(item.name)];
+        if (!current) return true;
+        return item.forcePrice === true
+            && Number(current.item.price) !== Number(item.price);
+    });
 }
 
 /* ==========================================================================
@@ -2567,8 +2690,22 @@ const CHALLENGES = {
     ]
 };
 
+function challengeCategories() {
+    return CHALLENGES.CATEGORIES.concat([
+        { key: 'repeatable', label: 'Répétables', icon: '🔁' }
+    ]);
+}
+
 function challengeCategory(key) {
-    return CHALLENGES.CATEGORIES.find(c => c.key === key) || CHALLENGES.CATEGORIES[4];
+    if (key === 'intellect') return { key: 'intellect', label: 'Exercices', icon: '🧠' };
+    /* Compatibilité avec les défis semés sous l'ancien nom Farming. */
+    if (key === 'farm') key = 'repeatable';
+    return challengeCategories().find(c => c.key === key) || CHALLENGES.CATEGORIES[4];
+}
+
+function challengeMatchesCategory(challenge, key) {
+    const actual = (challenge && challenge.category) || 'autre';
+    return actual === key || (key === 'repeatable' && actual === 'farm');
 }
 
 /* Les défis ouverts, prêts à être relevés. Les propositions en attente et les
@@ -2576,7 +2713,9 @@ function challengeCategory(key) {
 function openChallenges(node) {
     return Object.entries((node && node.challenges) || {})
         .map(([id, c]) => Object.assign({ id: id }, c))
-        .filter(c => c.status === 'open')
+        /* Les anciens exercices éventuellement déjà semés restent en base,
+           mais leur nouvelle banque a désormais son écran dédié. */
+        .filter(c => c.status === 'open' && c.category !== 'intellect')
         .sort((a, b) => (Number(a.zl) || 0) - (Number(b.zl) || 0));
 }
 
@@ -2613,8 +2752,12 @@ function claimState(node, challenge, uid) {
     const mine = allClaims(node).filter(c => c.challengeId === challenge.id && c.uid === uid);
     const pending = mine.some(c => c.status === 'pending');
     const granted = mine.filter(c => c.status === 'granted').length;
+    const cap = Math.max(0, Math.floor(Number(challenge.maxPerLan) || 0));
 
     if (pending) return { can: false, why: 'En attente de validation', pending: true, granted: granted };
+    if (cap > 0 && granted >= cap) {
+        return { can: false, why: 'Plafond atteint (' + cap + '/LAN)', pending: false, granted: granted };
+    }
     if (!challenge.repeatable && granted > 0) {
         return { can: false, why: 'Déjà validé', pending: false, granted: granted };
     }
@@ -2791,10 +2934,156 @@ const CHALLENGE_STARTER = [
 
 /* Ce qui manque encore, comparé à la liste de départ. On compare sur le titre :
    regarnir deux fois ne doit pas doubler les défis. */
+
+/* Les exercices ne sont plus des défis semés en base : l'interface en tire un
+   dans cette banque, puis envoie la réponse au maître du jeu comme une
+   réclamation ordinaire. */
+const EXERCISE_TYPES = [
+    { key: 'math', label: 'Maths', icon: '➗' },
+    { key: 'orthographe', label: 'Orthographe', icon: '✍️' },
+    { key: 'culture', label: 'Culture G', icon: '🌍' }
+];
+
+const EXERCISE_BANK = [
+    { id: 'math-17x6', type: 'math', label: 'Multiplication express',
+      prompt: 'Combien font 17 × 6 ?', solution: '102', zl: 12, xp: 6 },
+    { id: 'math-priority', type: 'math', label: 'Priorités opératoires',
+      prompt: 'Calcule 144 ÷ 12 + 7.', solution: '19', zl: 12, xp: 6 },
+    { id: 'math-percent', type: 'math', label: 'Pourcentage',
+      prompt: 'Combien représentent 15 % de 240 ?', solution: '36', zl: 15, xp: 8 },
+    { id: 'math-sequence', type: 'math', label: 'Suite logique',
+      prompt: 'Quel nombre vient après 2, 6, 12, 20, 30 ?', solution: '42', zl: 15, xp: 8 },
+    { id: 'math-equation', type: 'math', label: 'Petite équation',
+      prompt: 'Résous 3x + 7 = 28.', solution: 'x = 7', zl: 15, xp: 8 },
+    { id: 'math-die', type: 'math', label: 'Probabilité',
+      prompt: 'Avec un dé à six faces, quelle est la probabilité d’obtenir strictement plus que 4 ?',
+      solution: '2/6, soit 1/3', zl: 20, xp: 10 },
+
+    { id: 'ortho-fini', type: 'orthographe', label: 'Passé composé',
+      prompt: 'Complète : « Ils ___ (finir) avant minuit. »', solution: 'ont fini', zl: 12, xp: 6 },
+    { id: 'ortho-avais', type: 'orthographe', label: 'Imparfait',
+      prompt: 'Complète : « Si j’___ le temps, je rejouerais. »', solution: 'avais', zl: 12, xp: 6 },
+    { id: 'ortho-branchees', type: 'orthographe', label: 'Accord du participe',
+      prompt: 'Complète : « Les souris que j’ai ___ fonctionnent. » (brancher)',
+      solution: 'branchées', zl: 18, xp: 9 },
+    { id: 'ortho-fasses', type: 'orthographe', label: 'Subjonctif',
+      prompt: 'Complète : « Il faut que tu ___ une pause. » (faire)', solution: 'fasses', zl: 15, xp: 8 },
+    { id: 'ortho-ca', type: 'orthographe', label: 'Correction éclair',
+      prompt: 'Corrige : « Sa c’est une belle victoire. »', solution: 'Ça, c’est une belle victoire.', zl: 12, xp: 6 },
+    { id: 'ortho-quelques', type: 'orthographe', label: 'Quelque ou quelques',
+      prompt: 'Complète : « Il reste ___ minutes avant la partie. »',
+      solution: 'quelques', zl: 12, xp: 6 },
+
+    { id: 'culture-australia', type: 'culture', label: 'Capitales',
+      prompt: 'Quelle est la capitale de l’Australie ?', solution: 'Canberra', zl: 12, xp: 6 },
+    { id: 'culture-au', type: 'culture', label: 'Table périodique',
+      prompt: 'Quel élément chimique porte le symbole Au ?', solution: 'L’or', zl: 12, xp: 6 },
+    { id: 'culture-1984', type: 'culture', label: 'Littérature',
+      prompt: 'Qui a écrit 1984 ?', solution: 'George Orwell', zl: 12, xp: 6 },
+    { id: 'culture-ocean', type: 'culture', label: 'Géographie',
+      prompt: 'Quel est le plus grand océan du monde ?', solution: 'L’océan Pacifique', zl: 12, xp: 6 },
+    { id: 'culture-foot', type: 'culture', label: 'Sport',
+      prompt: 'Combien de joueurs une équipe de football aligne-t-elle sur le terrain ?',
+      solution: '11', zl: 12, xp: 6 },
+    { id: 'culture-zloty', type: 'culture', label: 'Question maison',
+      prompt: 'Quelle est la monnaie officielle de la Pologne ?', solution: 'Le złoty', zl: 10, xp: 5 }
+];
+
+function exerciseType(key) {
+    return EXERCISE_TYPES.find(type => type.key === key) || EXERCISE_TYPES[0];
+}
+
+function exercisesByType(type) {
+    return EXERCISE_BANK.filter(exercise => exercise.type === type);
+}
+
+function exerciseAsChallenge(exercise) {
+    const type = exerciseType(exercise.type);
+    return {
+        id: 'exercise__' + exercise.id,
+        title: type.label + ' · ' + exercise.label,
+        description: exercise.prompt,
+        category: 'intellect',
+        zl: exercise.zl,
+        xp: exercise.xp,
+        repeatable: false,
+        maxPerLan: 1,
+        exercisePrompt: exercise.prompt,
+        exerciseSolution: exercise.solution,
+        exerciseType: type.label
+    };
+}
+
+/* Farming : des micro-moments drôles et fréquents, mais chacun est plafonné
+   pour que le farm reste un condiment. La présence seule reste la principale
+   rente fiable de la soirée. */
+const CHALLENGE_FARM_STARTER = [
+    { title: 'Boire une bière', category: 'farm', zl: 10, xp: 2, maxPerLan: 3,
+      description: 'Une bière, avec ou sans alcool. Pas de cul-sec : le farm n’est pas un concours de vitesse.' },
+    { title: 'Grand verre d’eau', category: 'farm', zl: 5, xp: 1, maxPerLan: 5,
+      description: 'Un vrai grand verre. Le farm hydratation finance les mauvaises idées suivantes.' },
+    { title: 'GG sans ironie', category: 'farm', zl: 5, xp: 1, maxPerLan: 5,
+      description: 'Félicite sincèrement le joueur qui vient de te rouler dessus.' },
+    { title: 'Défaite avec panache', category: 'farm', zl: 8, xp: 2, maxPerLan: 5,
+      description: 'Perds une partie sans accuser le jeu, la connexion, la chaise ou Mercure rétrograde.' },
+    { title: 'Revanche immédiate gagnée', category: 'farm', zl: 12, xp: 3, maxPerLan: 4,
+      description: 'Perds, relance immédiatement le même adversaire, puis gagne.' },
+    { title: 'Sauvetage de coéquipier', category: 'farm', zl: 8, xp: 2, maxPerLan: 5,
+      description: 'Sauve ou relève un coéquipier au moment où tout semblait perdu.' },
+    { title: 'Faire rire la table', category: 'farm', zl: 10, xp: 2, maxPerLan: 5,
+      description: 'Un vrai rire collectif. Montrer un même n’est accepté qu’une fois.' },
+    { title: 'Dépannage express', category: 'farm', zl: 15, xp: 4, maxPerLan: 3,
+      description: 'Aide quelqu’un à installer, lancer ou réparer son jeu sans soupirer trop fort.' },
+    { title: 'Ravitaillement partagé', category: 'farm', zl: 10, xp: 2, maxPerLan: 3,
+      description: 'Ramène un snack ou une tournée d’eau à la table.' },
+    { title: 'Ramassage de la honte', category: 'farm', zl: 15, xp: 4, maxPerLan: 2,
+      description: 'Ramasse les canettes, verres et emballages de tout le groupe.' },
+    { title: 'Changer de place', category: 'farm', zl: 8, xp: 2, maxPerLan: 3,
+      description: 'Prête ta place ou ton périphérique cinq minutes à quelqu’un qui veut tester.' },
+    { title: 'Victoire au dernier souffle', category: 'farm', zl: 12, xp: 3, maxPerLan: 4,
+      description: 'Gagne avec presque plus de vie, de temps ou de dignité.' }
+];
+
+const CHALLENGE_REPEATABLE_ADDITIONS = [
+    { title: 'Un verre d’alcool fort', category: 'repeatable', zl: 15, xp: 3,
+      description: 'Une dose standard, tranquillement — pas cul sec. Le maître du jeu refuse les enchaînements douteux.' },
+    { title: 'Un shot de la maison', category: 'repeatable', zl: 12, xp: 3,
+      description: 'Un shot servi par le groupe. Une seule dose à la fois, et jamais comme course de vitesse.' },
+    { title: 'Boire un kocktail maison', category: 'repeatable', zl: 12, xp: 3,
+      description: 'Un kocktail de la carte, avec ou sans alcool, terminé normalement.' },
+    { title: 'Tchin collectif', category: 'repeatable', zl: 8, xp: 2,
+      description: 'Réunis au moins quatre personnes pour un vrai tchin synchronisé.' }
+];
+
+function repeatableStarterChallenges() {
+    return CHALLENGE_FARM_STARTER.concat(CHALLENGE_REPEATABLE_ADDITIONS)
+        .map(challenge => {
+            const adjusted = Object.assign({}, challenge, {
+                category: 'repeatable',
+                repeatable: true
+            });
+            /* La bière est volontairement sans plafond applicatif. Chaque
+               occurrence passe tout de même par la validation humaine. */
+            if (challenge.title === 'Boire une bière') {
+                delete adjusted.maxPerLan;
+                adjusted.forceUnlimited = true;
+            }
+            return adjusted;
+        });
+}
+
 function missingStarterChallenges(node) {
     const have = {};
-    Object.values((node && node.challenges) || {}).forEach(c => {
-        if (c && c.title) have[normalizeGameName(c.title)] = true;
+    Object.entries((node && node.challenges) || {}).forEach(([id, challenge]) => {
+        if (challenge && challenge.title) {
+            have[normalizeGameName(challenge.title)] = { id: id, challenge: challenge };
+        }
     });
-    return CHALLENGE_STARTER.filter(c => !have[normalizeGameName(c.title)]);
+    return CHALLENGE_STARTER.concat(repeatableStarterChallenges())
+        .filter(c => {
+            const current = have[normalizeGameName(c.title)];
+            if (!current) return true;
+            return c.forceUnlimited === true
+                && Number(current.challenge.maxPerLan) > 0;
+        });
 }

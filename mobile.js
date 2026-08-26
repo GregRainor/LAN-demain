@@ -3407,6 +3407,316 @@ function startTickEngine() {
     claimTick();
 }
 
+function ensureMobileEconomyPanels() {
+    const shop = $('m-shop-list');
+    const shopSection = shop && shop.closest('.m-section');
+    const screen = shopSection && shopSection.parentElement;
+    if (!screen) return;
+
+    if (!$('m-inventory-section')) {
+        const section = el('div', 'm-section');
+        section.id = 'm-inventory-section';
+        section.style.display = 'none';
+        const head = el('div', 'm-section__head');
+        head.appendChild(el('h2', 'm-section__title', '🎒 Mon inventaire'));
+        section.appendChild(head);
+        section.appendChild(el('p', 'm-card__meta',
+            'Utilise ou offre tes bonus. Garde tes handicaps jusqu’au bon moment.'));
+        const mount = el('div');
+        mount.id = 'm-inventory';
+        section.appendChild(mount);
+        screen.insertBefore(section, shopSection);
+    }
+
+    if (!$('m-duels-section')) {
+        const section = el('div', 'm-section');
+        section.id = 'm-duels-section';
+        const head = el('div', 'm-section__head');
+        head.appendChild(el('h2', 'm-section__title', '⚔️ Duels à mise'));
+        const create = el('button', 'm-section__link', '+ Duel');
+        create.addEventListener('click', openMobileDuelComposer);
+        head.appendChild(create);
+        section.appendChild(head);
+        section.appendChild(el('p', 'm-card__meta',
+            'L’adversaire accepte la mise. Le maître du jeu désigne le vainqueur.'));
+        const mount = el('div');
+        mount.id = 'm-duels';
+        section.appendChild(mount);
+        screen.insertBefore(section, shopSection);
+    }
+}
+
+function renderMobileInventory() {
+    ensureMobileEconomyPanels();
+    const user = state.user;
+    const section = $('m-inventory-section');
+    const mount = $('m-inventory');
+    if (!user || !section || !mount) return;
+    const tokens = inventoryItems(state.economy, user.uid);
+    section.style.display = tokens.length ? 'flex' : 'none';
+    mount.innerHTML = '';
+
+    tokens.forEach(token => {
+        const item = token.catalogItem || {};
+        const handicap = item.category === 'handicap';
+        const card = el('article', 'm-card');
+        const top = el('div', 'm-card__top');
+        top.appendChild(el('h3', 'm-card__title', item.name || token.itemName || 'Article'));
+        top.appendChild(el('span', 'm-chip', handicap ? 'handicap' : 'bonus'));
+        card.appendChild(top);
+        if (item.description || token.itemDescription) {
+            card.appendChild(el('p', 'm-card__body', item.description || token.itemDescription));
+        }
+        if (!handicap) {
+            const use = el('button', 'm-btn m-btn--solid m-btn--sm', 'Utiliser');
+            use.addEventListener('click', () => useMobileInventoryBonus(token));
+            card.appendChild(use);
+        }
+        const send = el('button', 'm-btn m-btn--quiet m-btn--sm',
+            handicap ? 'Jouer sur quelqu’un' : 'Offrir à quelqu’un');
+        send.addEventListener('click', () => chooseMobileInventoryTarget(token, handicap));
+        card.appendChild(send);
+        mount.appendChild(card);
+    });
+}
+
+function useMobileInventoryBonus(token) {
+    const user = state.user;
+    if (!user) return;
+    openSheet('Utiliser ' + (token.itemName || 'ce bonus') + ' ?', body => {
+        body.appendChild(el('p', 'm-card__body',
+            'Le bonus quittera ton inventaire. Annonce son effet à la table.'));
+        const go = el('button', 'm-btn m-btn--solid m-btn--full', 'Utiliser maintenant');
+        go.addEventListener('click', () => {
+            db.ref('lan/economy/purchases/' + token.id).update({
+                inventoryStatus: 'used',
+                sentBy: user.uid,
+                sentAt: firebase.database.ServerValue.TIMESTAMP
+            }).then(() => { closeSheet(); showToast('Bonus utilisé !', 'success'); })
+              .catch(e => showToast('Erreur : ' + e.message, 'error'));
+        });
+        body.appendChild(go);
+    });
+}
+
+function chooseMobileInventoryTarget(token, handicap) {
+    const user = state.user;
+    if (!user) return;
+    openSheet(handicap ? 'Jouer le handicap' : 'Offrir le bonus', body => {
+        const others = economyPlayers().filter(uid => uid !== user.uid);
+        if (!others.length) {
+            body.appendChild(emptyState('Aucun autre joueur pour le moment.'));
+            return;
+        }
+        others.forEach(uid => {
+            const go = el('button', 'm-btn m-btn--full', playerName(uid));
+            go.addEventListener('click', () => sendMobileInventoryToken(
+                token, uid, playerName(uid), handicap));
+            body.appendChild(go);
+        });
+    });
+}
+
+function sendMobileInventoryToken(token, targetUid, targetName, handicap) {
+    const user = state.user;
+    if (!user) return;
+    const changes = handicap ? {
+        inventoryStatus: 'sent',
+        sentToUid: targetUid,
+        sentToName: targetName,
+        sentBy: user.uid,
+        sentAt: firebase.database.ServerValue.TIMESTAMP
+    } : {
+        inventoryOwnerUid: targetUid,
+        sentToUid: targetUid,
+        sentToName: targetName,
+        sentBy: user.uid,
+        sentAt: firebase.database.ServerValue.TIMESTAMP
+    };
+    db.ref('lan/economy/purchases/' + token.id).update(changes)
+        .then(() => sendNotification(targetUid,
+            handicap
+                ? (user.displayName || 'Quelqu’un') + ' t’inflige « ' + token.itemName + ' ».'
+                : (user.displayName || 'Quelqu’un') + ' t’offre le bonus « ' + token.itemName + ' ».',
+            handicap ? 'alert' : 'success'))
+        .then(() => {
+            closeSheet();
+            showToast(handicap ? 'Handicap envoyé !' : 'Bonus offert !', 'success');
+        })
+        .catch(e => showToast('Erreur : ' + e.message, 'error'));
+}
+
+function openMobileDuelComposer() {
+    const user = state.user;
+    if (!user) return;
+    openSheet('⚔️ Lancer un duel', body => {
+        const others = economyPlayers().filter(uid => uid !== user.uid);
+        if (!others.length) {
+            body.appendChild(emptyState('Aucun adversaire disponible.'));
+            return;
+        }
+        const opponent = el('select', 'm-input');
+        others.forEach(uid => {
+            const option = el('option', null, playerName(uid));
+            option.value = uid;
+            opponent.appendChild(option);
+        });
+        const game = el('input', 'm-input');
+        game.placeholder = 'Jeu — ex : Tekken 8';
+        game.maxLength = 80;
+        const wager = el('input', 'm-input');
+        wager.type = 'number';
+        wager.inputMode = 'numeric';
+        wager.min = '1';
+        wager.placeholder = 'Mise par joueur en złotych';
+        body.append(opponent, game, wager);
+        const go = el('button', 'm-btn m-btn--solid m-btn--full', 'Défier');
+        go.addEventListener('click', () => {
+            const amount = Math.floor(Number(wager.value) || 0);
+            if (!game.value.trim() || amount < 1) {
+                showToast('Indique un jeu et une mise.', 'error');
+                return;
+            }
+            if (amount > availablePoints(state.economy, user.uid)) {
+                showToast('Ton solde disponible ne couvre pas cette mise.', 'error');
+                return;
+            }
+            const duel = {
+                challengerUid: user.uid,
+                challengerName: user.displayName || 'Un joueur',
+                opponentUid: opponent.value,
+                opponentName: playerName(opponent.value),
+                game: game.value.trim().slice(0, 80),
+                wager: amount,
+                status: 'pending',
+                createdAt: firebase.database.ServerValue.TIMESTAMP
+            };
+            db.ref('lan/economy/duels').push().set(duel)
+                .then(() => sendNotification(opponent.value,
+                    duel.challengerName + ' te défie sur ' + duel.game + ' pour ' + formatPoints(amount) + '.', 'alert'))
+                .then(() => { closeSheet(); showToast('Duel envoyé !', 'success'); })
+                .catch(e => showToast('Erreur : ' + e.message, 'error'));
+        });
+        body.appendChild(go);
+    });
+}
+
+function answerMobileDuel(duel, accepted) {
+    const user = state.user;
+    if (!user) return;
+    if (accepted && availablePoints(state.economy, user.uid) < Number(duel.wager || 0)) {
+        showToast('Ton solde disponible ne couvre plus cette mise.', 'error');
+        return;
+    }
+    db.ref('lan/economy/duels/' + duel.id).update({
+        status: accepted ? 'accepted' : 'refused',
+        answeredAt: firebase.database.ServerValue.TIMESTAMP
+    }).then(() => sendNotification(duel.challengerUid,
+        (user.displayName || duel.opponentName)
+            + (accepted ? ' accepte' : ' refuse') + ' ton duel sur ' + duel.game + '.',
+        accepted ? 'success' : 'info'))
+      .catch(e => showToast('Erreur : ' + e.message, 'error'));
+}
+
+function finishMobileDuel(duel, winnerUid) {
+    const wager = Math.max(1, Number(duel.wager) || 0);
+    if (economyBalance(state.economy, duel.challengerUid) < wager
+        || economyBalance(state.economy, duel.opponentUid) < wager) {
+        showToast('Un des deux joueurs ne peut plus couvrir la mise.', 'error');
+        return;
+    }
+    const user = state.user;
+    const winnerName = playerName(winnerUid);
+    openSheet('Victoire de ' + winnerName + ' ?', body => {
+        body.appendChild(el('p', 'm-card__body',
+            winnerName + ' recevra le pot de ' + formatPoints(wager * 2) + '.'));
+        const go = el('button', 'm-btn m-btn--solid m-btn--full', 'Valider le résultat');
+        go.addEventListener('click', () => {
+            const update = {};
+            const stakeA = db.ref('lan/economy/ledger').push().key;
+            const stakeB = db.ref('lan/economy/ledger').push().key;
+            const prize = db.ref('lan/economy/ledger').push().key;
+            const ts = firebase.database.ServerValue.TIMESTAMP;
+            update['lan/economy/ledger/' + stakeA] = {
+                uid: duel.challengerUid, delta: -wager, type: 'duel-stake',
+                reason: 'Mise — ' + duel.game, refId: duel.id, ts: ts
+            };
+            update['lan/economy/ledger/' + stakeB] = {
+                uid: duel.opponentUid, delta: -wager, type: 'duel-stake',
+                reason: 'Mise — ' + duel.game, refId: duel.id, ts: ts
+            };
+            update['lan/economy/ledger/' + prize] = {
+                uid: winnerUid, delta: wager * 2, type: 'duel-prize',
+                reason: 'Victoire — ' + duel.game, refId: duel.id, ts: ts
+            };
+            update['lan/economy/duels/' + duel.id + '/status'] = 'completed';
+            update['lan/economy/duels/' + duel.id + '/winnerUid'] = winnerUid;
+            update['lan/economy/duels/' + duel.id + '/winnerName'] = winnerName;
+            update['lan/economy/duels/' + duel.id + '/resolvedBy'] = user.uid;
+            update['lan/economy/duels/' + duel.id + '/resolvedAt'] = ts;
+            db.ref().update(update)
+                .then(() => Promise.all([
+                    sendNotification(duel.challengerUid,
+                        'Duel sur ' + duel.game + ' : ' + winnerName + ' gagne le pot.', 'info'),
+                    sendNotification(duel.opponentUid,
+                        'Duel sur ' + duel.game + ' : ' + winnerName + ' gagne le pot.', 'info')
+                ]))
+                .then(() => { closeSheet(); showToast('Duel réglé.', 'success'); })
+                .catch(e => showToast('Erreur : ' + e.message, 'error'));
+        });
+        body.appendChild(go);
+    });
+}
+
+function renderMobileDuels() {
+    ensureMobileEconomyPanels();
+    const user = state.user;
+    const mount = $('m-duels');
+    if (!user || !mount) return;
+    mount.innerHTML = '';
+    const rows = economyDuels(state.economy)
+        .filter(duel => duel.status === 'pending' || duel.status === 'accepted'
+            || duel.challengerUid === user.uid || duel.opponentUid === user.uid)
+        .slice(0, 8);
+    if (!rows.length) {
+        mount.appendChild(emptyState('Aucun duel lancé. Pour l’instant.'));
+        return;
+    }
+    rows.forEach(duel => {
+        const card = el('article', 'm-card');
+        const top = el('div', 'm-card__top');
+        top.appendChild(el('h3', 'm-card__title', duel.game || 'Duel'));
+        top.appendChild(el('span', 'm-price', formatPoints(duel.wager) + ' chacun'));
+        card.appendChild(top);
+        const status = duel.status === 'pending' ? 'en attente'
+            : duel.status === 'accepted' ? 'accepté'
+            : duel.status === 'completed' ? 'terminé' : 'refusé';
+        card.appendChild(el('p', 'm-card__meta',
+            (duel.challengerName || playerName(duel.challengerUid)) + ' contre '
+            + (duel.opponentName || playerName(duel.opponentUid)) + ' · ' + status));
+        if (duel.status === 'pending' && duel.opponentUid === user.uid) {
+            const yes = el('button', 'm-btn m-btn--solid m-btn--sm', 'Accepter');
+            yes.addEventListener('click', () => answerMobileDuel(duel, true));
+            const no = el('button', 'm-btn m-btn--quiet m-btn--sm', 'Refuser');
+            no.addEventListener('click', () => answerMobileDuel(duel, false));
+            card.append(yes, no);
+        } else if (duel.status === 'pending' && duel.challengerUid === user.uid) {
+            const cancel = el('button', 'm-btn m-btn--quiet m-btn--sm', 'Annuler');
+            cancel.addEventListener('click', () => db.ref('lan/economy/duels/' + duel.id).remove()
+                .catch(e => showToast('Erreur : ' + e.message, 'error')));
+            card.appendChild(cancel);
+        } else if (duel.status === 'accepted' && state.isGamemaster) {
+            [duel.challengerUid, duel.opponentUid].forEach(uid => {
+                const win = el('button', 'm-btn m-btn--solid m-btn--sm m-btn--full',
+                    'Victoire ' + playerName(uid));
+                win.addEventListener('click', () => finishMobileDuel(duel, uid));
+                card.appendChild(win);
+            });
+        }
+        mount.appendChild(card);
+    });
+}
+
 function renderBoutique() {
     const uid = state.user && state.user.uid;
     if (!uid) return;
@@ -3423,7 +3733,9 @@ function renderBoutique() {
         const ticks = Number(((state.economy.ticks || {})[uid] || {}).count) || 0;
         hint.textContent = ticks >= ECONOMY.MAX_TICKS
             ? 'Présence : plafond atteint, à toi de jouer'
-            : '+' + ECONOMY.TICK_VALUE + ' ' + ECONOMY.CURRENCY + ' toutes les 10 min de présence';
+            : '+' + ECONOMY.TICK_VALUE + ' ' + ECONOMY.CURRENCY + ' toutes les 10 min · '
+                + passivePointsPerHour() + ' ' + ECONOMY.CURRENCY + '/h · booster '
+                + formatPoints(BOOSTER_STANDARD_PRICE);
     } else {
         hint.textContent = 'Les points se gagnent pendant la LAN.';
     }
@@ -3433,6 +3745,8 @@ function renderBoutique() {
     renderBoosterShelf();
     renderGmQueue();
     renderMyPurchases();
+    renderMobileInventory();
+    renderMobileDuels();
     renderShopList();
     renderShopLeaderboard();
     renderShopFeed();
@@ -3553,7 +3867,7 @@ function buildBoosterCard(id, item, uid) {
 function createDefaultPackItem() {
     const user = state.user;
     if (!user) return;
-    const price = Math.round(ECONOMY.MAX_TICKS * ECONOMY.TICK_VALUE / 3);
+    const price = BOOSTER_STANDARD_PRICE;
     db.ref('lan/economy/catalog').push().set({
         name: packLabel({ name: generatedArtNames[PACK_ART_KEY] }, state.settings.lanName),
         description: TCG.PACK_SIZE + ' cartes du set de la soirée.',
@@ -3578,8 +3892,16 @@ function stockStarterShop() {
     const missing = missingStarterItems(state.economy);
     if (!missing.length) { showToast('La boutique a déjà tout.', 'success'); return; }
 
+    const catalog = state.economy.catalog || {};
     const update = {};
     missing.forEach(item => {
+        const existing = Object.entries(catalog)
+            .find(([, current]) => current && normalizeGameName(current.name) === normalizeGameName(item.name));
+        if (existing && item.forcePrice === true) {
+            update['lan/economy/catalog/' + existing[0] + '/price'] = item.price;
+            update['lan/economy/catalog/' + existing[0] + '/description'] = item.description || '';
+            return;
+        }
         const id = db.ref('lan/economy/catalog').push().key;
         update['lan/economy/catalog/' + id] = {
             name: item.name,
@@ -3588,6 +3910,7 @@ function stockStarterShop() {
             category: item.category || 'fun',
             stock: null,
             needsTarget: !!item.needsTarget,
+            storable: isInventoryCatalogItem(item),
             kind: null,
             active: true,
             createdBy: user.uid,
@@ -3596,7 +3919,7 @@ function stockStarterShop() {
     });
 
     db.ref().update(update)
-        .then(() => showToast(missing.length + ' articles ajoutés à la boutique.', 'success'))
+        .then(() => showToast(missing.length + ' articles ajoutés ou actualisés.', 'success'))
         .catch(e => showToast('Erreur : ' + e.message, 'error'));
 }
 
@@ -3811,7 +4134,8 @@ function buildShopCard(id, item, uid) {
     const buy = el('button', 'm-sitem__buy');
     if (verdict.ok) {
         buy.appendChild(iconSvg('M5 12h14M13 6l6 6-6 6'));
-        buy.appendChild(document.createTextNode(item.needsTarget ? 'Viser' : 'Prendre'));
+        buy.appendChild(document.createTextNode(
+            isInventoryCatalogItem(item) ? 'Inventaire' : (item.needsTarget ? 'Viser' : 'Prendre')));
     } else {
         buy.textContent = verdict.why;
     }
@@ -3866,6 +4190,7 @@ function buyItem(itemId, item, quantity, targetUid, targetName) {
 
     const count = Math.max(1, Math.floor(Number(quantity) || 1));
     const price = Number(item.price) || 0;
+    const storable = isInventoryCatalogItem(item);
     const update = {};
     const purchaseIds = [];
 
@@ -3873,19 +4198,16 @@ function buyItem(itemId, item, quantity, targetUid, targetName) {
         const purchaseId = db.ref('lan/economy/purchases').push().key;
         const entryId = db.ref('lan/economy/ledger').push().key;
         purchaseIds.push(purchaseId);
-
         update['lan/economy/ledger/' + entryId] = {
-            uid: user.uid,
-            delta: -price,
-            type: 'purchase',
-            itemId: itemId,
-            reason: item.name || 'Achat',
-            refId: purchaseId,
+            uid: user.uid, delta: -price, type: 'purchase', itemId: itemId,
+            reason: item.name || 'Achat', refId: purchaseId,
             ts: firebase.database.ServerValue.TIMESTAMP
         };
-        update['lan/economy/purchases/' + purchaseId] = {
+        const receipt = {
             itemId: itemId,
             itemName: item.name || 'Article',
+            itemDescription: item.description || '',
+            itemCategory: item.category || 'fun',
             price: price,
             uid: user.uid,
             userName: user.displayName || 'Un joueur',
@@ -3894,27 +4216,34 @@ function buyItem(itemId, item, quantity, targetUid, targetName) {
             status: 'granted',
             ts: firebase.database.ServerValue.TIMESTAMP
         };
+        if (storable) {
+            receipt.storable = true;
+            receipt.inventoryStatus = 'ready';
+            receipt.inventoryOwnerUid = user.uid;
+        }
+        update['lan/economy/purchases/' + purchaseId] = receipt;
     }
 
-    /* Ces paquets-là s'annoncent tout seuls au moment du clic : le sceau qui
-       suivra restera muet, sinon acheter cinq boosters ferait dix bulles. */
     if (isPackItem(item)) purchaseIds.forEach(id => sealedQuietly.add(id));
 
     return db.ref().update(update)
         .then(() => {
             closeSheet();
-            /* UN seul message, quel que soit le nombre. */
             if (isPackItem(item)) {
                 showToast(count > 1
-                    ? count + ' boosters achetés ! Ils t\'attendent dans tes cartes.'
-                    : 'Booster acheté ! Il t\'attend dans tes cartes.', 'success');
+                    ? count + ' boosters achetés ! Ils t’attendent dans tes cartes.'
+                    : 'Booster acheté ! Il t’attend dans tes cartes.', 'success');
+            } else if (storable) {
+                showToast((item.name || 'Article') + (count > 1 ? ' ×' + count : '')
+                    + ' ajouté à ton inventaire.', 'success');
             } else {
-                showToast((item.name || 'Article')
-                    + (count > 1 ? ' ×' + count : '') + ' : c\'est à toi !', 'success');
+                showToast((item.name || 'Article') + (count > 1 ? ' ×' + count : '')
+                    + ' : c’est à toi !', 'success');
             }
             if (targetUid && targetUid !== user.uid) {
                 sendNotification(targetUid,
-                    (user.displayName || 'Quelqu\'un') + ' te joue « ' + (item.name || 'un handicap') + ' »', 'info');
+                    (user.displayName || 'Quelqu’un') + ' te joue « '
+                    + (item.name || 'un handicap') + ' »', 'info');
             }
         })
         .catch(e => showToast('Erreur : ' + e.message, 'error'));
@@ -3927,7 +4256,7 @@ function requestPurchase(itemId, item) {
     /* Un handicap sans cible serait du sabotage anonyme : on demande sur qui,
        et le nom restera visible dans le registre. On n'en achète qu'un à la
        fois — jouer trois fois le même handicap sur quelqu'un n'a pas de sens. */
-    if (item.needsTarget) {
+    if (item.needsTarget && !isInventoryCatalogItem(item)) {
         openSheet(item.name + ' — sur qui ?', (body) => {
             const others = economyPlayers().filter(u => u !== user.uid);
             if (!others.length) {
@@ -6276,6 +6605,124 @@ function openProfile(uid) {
    złotych au registre et l'expérience au journal — jamais le joueur lui-même.
    ========================================================================== */
 
+let mobileExerciseDraw = null;
+
+function ensureMobileExercisePanel() {
+    const challengeMount = $('m-challenge-list');
+    const challengeSection = challengeMount && challengeMount.closest('.m-section');
+    const host = challengeSection && challengeSection.parentElement;
+    if (!host || $('m-exercise-section')) return;
+
+    const section = el('div', 'm-section');
+    section.id = 'm-exercise-section';
+    const head = el('div', 'm-section__head');
+    head.appendChild(el('h2', 'm-section__title', '🧠 Donner un exercice'));
+    section.appendChild(head);
+    section.appendChild(el('p', 'm-card__meta',
+        'Choisis un type : l’application tire un exercice dans la banque.'));
+    const types = el('div', 'm-field');
+    types.id = 'm-exercise-types';
+    types.style.flexWrap = 'wrap';
+    section.appendChild(types);
+    const draw = el('div');
+    draw.id = 'm-exercise-draw';
+    section.appendChild(draw);
+    host.insertBefore(section, challengeSection);
+}
+
+function renderMobileExercisePanel() {
+    ensureMobileExercisePanel();
+    const user = state.user;
+    const types = $('m-exercise-types');
+    const draw = $('m-exercise-draw');
+    if (!user || !types || !draw) return;
+
+    types.innerHTML = '';
+    EXERCISE_TYPES.forEach(type => {
+        const button = el('button', 'm-btn m-btn--quiet m-btn--sm',
+            type.icon + ' ' + type.label);
+        button.addEventListener('click', () => drawMobileExercise(type.key));
+        types.appendChild(button);
+    });
+
+    draw.innerHTML = '';
+    if (!mobileExerciseDraw) {
+        draw.appendChild(emptyState('Maths, orthographe ou culture G : choisis ton poison.'));
+        return;
+    }
+
+    const challenge = exerciseAsChallenge(mobileExerciseDraw);
+    const verdict = claimState(state.quests, challenge, user.uid);
+    const card = el('article', 'm-card');
+    const top = el('div', 'm-card__top');
+    top.appendChild(el('h3', 'm-card__title', challenge.title));
+    top.appendChild(el('span', 'm-price', formatPoints(challenge.zl)));
+    card.appendChild(top);
+    card.appendChild(el('p', 'm-card__body', challenge.exercisePrompt));
+    card.appendChild(el('p', 'm-card__meta', '+' + challenge.xp + ' XP'));
+    const go = el('button', 'm-btn m-btn--solid m-btn--full',
+        verdict.can ? 'Répondre' : verdict.why);
+    go.disabled = !verdict.can;
+    go.addEventListener('click', () => claimMobileExercise(challenge));
+    card.appendChild(go);
+    draw.appendChild(card);
+}
+
+function drawMobileExercise(type) {
+    const user = state.user;
+    if (!user) return;
+    const available = exercisesByType(type)
+        .filter(exercise => claimState(state.quests, exerciseAsChallenge(exercise), user.uid).can);
+    if (!available.length) {
+        mobileExerciseDraw = null;
+        renderMobileExercisePanel();
+        showToast('Tu as déjà fait toute cette banque pendant la LAN.', 'success');
+        return;
+    }
+    mobileExerciseDraw = available[Math.floor(Math.random() * available.length)];
+    renderMobileExercisePanel();
+}
+
+function claimMobileExercise(challenge) {
+    const user = state.user;
+    if (!user) return;
+    openSheet(challenge.title, body => {
+        body.appendChild(el('p', 'm-card__body', challenge.exercisePrompt));
+        body.appendChild(el('p', 'm-card__meta',
+            formatPoints(challenge.zl) + ' et ' + challenge.xp + ' XP si la réponse est validée.'));
+        const answer = el('textarea', 'm-input');
+        answer.placeholder = 'Ta réponse';
+        body.appendChild(answer);
+        const go = el('button', 'm-btn m-btn--solid m-btn--full', 'Envoyer la réponse');
+        go.addEventListener('click', () => {
+            const value = answer.value.trim();
+            if (!value) {
+                showToast('Écris une réponse avant d’envoyer.', 'error');
+                return;
+            }
+            db.ref('lan/claims').push().set({
+                challengeId: challenge.id,
+                title: challenge.title,
+                category: 'intellect',
+                zl: challenge.zl,
+                xp: challenge.xp,
+                uid: user.uid,
+                userName: user.displayName || 'Un joueur',
+                note: value.slice(0, 500),
+                exercisePrompt: challenge.exercisePrompt,
+                exerciseSolution: challenge.exerciseSolution,
+                exerciseType: challenge.exerciseType,
+                status: 'pending',
+                ts: firebase.database.ServerValue.TIMESTAMP
+            }).then(() => {
+                closeSheet();
+                showToast('Réponse envoyée au maître du jeu.', 'success');
+            }).catch(e => showToast('Erreur : ' + e.message, 'error'));
+        });
+        body.appendChild(go);
+    });
+}
+
 function renderDefis() {
     const uid = state.user && state.user.uid;
     if (!uid) return;
@@ -6289,6 +6736,7 @@ function renderDefis() {
     renderClaimsQueue();
     renderProposals();
     renderMyClaims();
+    renderMobileExercisePanel();
     renderChallengeList();
     renderSuggestions();
 }
@@ -6314,6 +6762,10 @@ function renderClaimsQueue() {
             'par ' + (claim.userName || playerName(claim.uid))
             + (claim.witnessName ? ' · témoin : ' + claim.witnessName : '')));
         if (claim.note) card.appendChild(el('p', 'm-card__body', '« ' + claim.note + ' »'));
+        if (claim.exercisePrompt) {
+            card.appendChild(el('p', 'm-card__body',
+                'Énoncé : ' + claim.exercisePrompt + '\nCorrection : ' + (claim.exerciseSolution || '—')));
+        }
         card.appendChild(el('p', 'm-card__meta',
             'Vaut ' + formatPoints(claim.zl) + ' et ' + (Number(claim.xp) || 0) + ' XP'));
 
@@ -6413,6 +6865,9 @@ function renderProposals() {
         const ok = el('button', 'm-btn m-btn--solid m-btn--sm m-btn--full', 'Ouvrir aux joueurs');
         ok.addEventListener('click', () => approveChallenge(challenge));
         card.appendChild(ok);
+        const edit = el('button', 'm-btn m-btn--quiet m-btn--sm', 'Modifier');
+        edit.addEventListener('click', () => editMobileChallenge(challenge));
+        card.appendChild(edit);
         const no = el('button', 'm-btn m-btn--quiet m-btn--sm', 'Refuser');
         no.addEventListener('click', () => {
             db.ref('lan/challenges/' + challenge.id).remove()
@@ -6497,8 +6952,8 @@ function renderChallengeList() {
         return;
     }
 
-    CHALLENGES.CATEGORIES.forEach(cat => {
-        const items = list.filter(c => (c.category || 'autre') === cat.key);
+    challengeCategories().forEach(cat => {
+        const items = list.filter(challenge => challengeMatchesCategory(challenge, cat.key));
         if (!items.length) return;
         mount.appendChild(el('p', 'm-shop__cat', cat.icon + ' ' + cat.label));
         items.forEach(challenge => mount.appendChild(buildChallengeCard(challenge, uid)));
@@ -6511,6 +6966,96 @@ function renderChallengeList() {
         more.addEventListener('click', stockStarterChallenges);
         mount.appendChild(more);
     }
+}
+
+function editMobileChallenge(challenge) {
+    const user = state.user;
+    if (!user || !state.isGamemaster) return;
+    openSheet('Modifier le défi', body => {
+        const title = el('input', 'm-input');
+        title.value = challenge.title || '';
+        title.placeholder = 'Titre';
+        body.appendChild(title);
+
+        const description = el('textarea', 'm-input');
+        description.value = challenge.description || '';
+        description.placeholder = 'Règles exactes';
+        body.appendChild(description);
+
+        const category = el('select', 'm-input');
+        const currentCategory = challenge.category === 'farm' ? 'repeatable'
+            : (challenge.category || 'autre');
+        challengeCategories().forEach(item => {
+            const option = el('option', null, item.icon + ' ' + item.label);
+            option.value = item.key;
+            option.selected = item.key === currentCategory;
+            category.appendChild(option);
+        });
+        body.appendChild(category);
+
+        const rewards = el('div', 'm-field');
+        const zl = el('input', 'm-input');
+        zl.type = 'number';
+        zl.min = '0';
+        zl.value = String(Number(challenge.zl) || 0);
+        zl.placeholder = 'złotych';
+        const xp = el('input', 'm-input');
+        xp.type = 'number';
+        xp.min = '0';
+        xp.value = String(Number(challenge.xp) || 0);
+        xp.placeholder = 'XP';
+        rewards.append(zl, xp);
+        body.appendChild(rewards);
+
+        const repeatable = el('select', 'm-input');
+        [
+            { value: 'repeatable', label: 'Répétable' },
+            { value: 'once', label: 'Une seule fois par joueur' }
+        ].forEach(item => {
+            const option = el('option', null, item.label);
+            option.value = item.value;
+            option.selected = item.value === (challenge.repeatable === false ? 'once' : 'repeatable');
+            repeatable.appendChild(option);
+        });
+        body.appendChild(repeatable);
+
+        const cap = el('input', 'm-input');
+        cap.type = 'number';
+        cap.min = '0';
+        cap.value = Number(challenge.maxPerLan) > 0 ? String(challenge.maxPerLan) : '';
+        cap.placeholder = 'Plafond par LAN — vide = illimité';
+        body.appendChild(cap);
+
+        const hint = el('p', 'm-card__meta',
+            'Les réclamations déjà envoyées gardent leur ancienne récompense.');
+        body.appendChild(hint);
+
+        const save = el('button', 'm-btn m-btn--solid m-btn--full', 'Enregistrer');
+        save.addEventListener('click', () => {
+            const name = title.value.trim();
+            if (!name) {
+                showToast('Le titre est obligatoire.', 'error');
+                return;
+            }
+            const isRepeatable = repeatable.value !== 'once';
+            const max = Math.max(0, Math.floor(Number(cap.value) || 0));
+            db.ref('lan/challenges/' + challenge.id).update({
+                title: name.slice(0, 120),
+                description: description.value.trim().slice(0, 500),
+                category: category.value || 'autre',
+                zl: Math.max(0, Math.round(Number(zl.value) || 0)),
+                xp: Math.max(0, Math.round(Number(xp.value) || 0)),
+                repeatable: isRepeatable,
+                maxPerLan: isRepeatable && max > 0 ? max : null,
+                updatedBy: user.uid,
+                updatedAt: firebase.database.ServerValue.TIMESTAMP
+            }).then(() => {
+                closeSheet();
+                showToast('Défi modifié.', 'success');
+            }).catch(error => showToast('Erreur : ' + error.message, 'error'));
+        });
+        body.appendChild(save);
+    });
 }
 
 function buildChallengeCard(challenge, uid) {
@@ -6528,7 +7073,9 @@ function buildChallengeCard(challenge, uid) {
     strip.appendChild(el('span', 'm-sitem__gem'));
     strip.appendChild(el('span', 'm-sitem__fam', '+' + (Number(challenge.xp) || 0) + ' XP'));
     const done = challengeGrantedCount(state.quests, challenge.id);
-    if (done) strip.appendChild(el('span', 'm-sitem__stock', 'relevé ' + done + '×'));
+    const cap = Math.max(0, Number(challenge.maxPerLan) || 0);
+    if (cap) strip.appendChild(el('span', 'm-sitem__stock', state_.granted + '/' + cap + ' pour toi'));
+    else if (done) strip.appendChild(el('span', 'm-sitem__stock', 'relevé ' + done + '×'));
     main.appendChild(strip);
 
     const go = el('button', 'm-sitem__buy');
@@ -6543,6 +7090,9 @@ function buildChallengeCard(challenge, uid) {
     main.appendChild(go);
 
     if (state.isGamemaster) {
+        const edit = el('button', 'm-btn m-btn--quiet m-btn--sm', 'Modifier');
+        edit.addEventListener('click', () => editMobileChallenge(challenge));
+        main.appendChild(edit);
         const del = el('button', 'm-btn m-btn--quiet m-btn--sm', 'Retirer');
         del.addEventListener('click', () => {
             db.ref('lan/challenges/' + challenge.id).remove()
@@ -6617,8 +7167,22 @@ function stockStarterChallenges() {
     const missing = missingStarterChallenges(state.quests);
     if (!missing.length) { showToast('La liste a déjà tout.', 'success'); return; }
 
+    const challenges = state.quests.challenges || {};
     const update = {};
     missing.forEach(challenge => {
+        const existing = Object.entries(challenges)
+            .find(([, current]) => current
+                && normalizeGameName(current.title) === normalizeGameName(challenge.title));
+        if (existing && challenge.forceUnlimited === true) {
+            const path = 'lan/challenges/' + existing[0] + '/';
+            update[path + 'category'] = 'repeatable';
+            update[path + 'repeatable'] = true;
+            update[path + 'maxPerLan'] = null;
+            update[path + 'zl'] = challenge.zl;
+            update[path + 'xp'] = challenge.xp;
+            update[path + 'description'] = challenge.description || '';
+            return;
+        }
         const id = db.ref('lan/challenges').push().key;
         update['lan/challenges/' + id] = {
             title: challenge.title,
@@ -6627,6 +7191,7 @@ function stockStarterChallenges() {
             zl: challenge.zl,
             xp: challenge.xp,
             repeatable: challenge.repeatable !== false,
+            maxPerLan: Number(challenge.maxPerLan) || null,
             status: 'open',
             createdBy: user.uid,
             createdByName: user.displayName || 'Admin',
@@ -6635,7 +7200,7 @@ function stockStarterChallenges() {
     });
 
     db.ref().update(update)
-        .then(() => showToast(missing.length + ' défis ajoutés.', 'success'))
+        .then(() => showToast(missing.length + ' défis ajoutés ou actualisés.', 'success'))
         .catch(e => showToast('Erreur : ' + e.message, 'error'));
 }
 
@@ -6656,7 +7221,7 @@ $('m-challenge-new').addEventListener('click', () => {
         body.appendChild(desc);
 
         const category = el('select', 'm-input');
-        CHALLENGES.CATEGORIES.forEach(cat => {
+        challengeCategories().forEach(cat => {
             const opt = el('option', null, cat.icon + ' ' + cat.label);
             opt.value = cat.key;
             category.appendChild(opt);
