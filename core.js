@@ -1648,6 +1648,72 @@ function collectionBySet(setCards, cards, uid) {
             || a.name.localeCompare(b.name, 'fr'));
 }
 
+function tcgArchiveSnapshot(tcg) {
+    const setId = tcgCurrentSetId(tcg);
+    const set = tcgCurrentSet(tcg);
+    if (!setId || !set) return null;
+
+    const cards = tcgCards(tcg)
+        .filter(card => card && card.gameKey && card.owner
+            && (!card.setId || card.setId === setId))
+        .map(card => ({
+            id: card.id || '',
+            gameKey: card.gameKey,
+            name: card.name || card.gameKey,
+            rarity: card.rarity || 'common',
+            appId: card.appId || '',
+            foil: card.foil === true,
+            owner: card.owner
+        }));
+
+    return {
+        setId: setId,
+        setName: set.name || 'Set archivé',
+        setCreatedAt: Number(set.ts) || Number(set.createdAt) || 0,
+        setCards: set.cards || {},
+        cards: cards
+    };
+}
+
+function tcgArchiveView(historyEntry, uid) {
+    const archive = historyEntry && historyEntry.tcgArchive;
+    if (!archive || !archive.setCards) return null;
+
+    const cards = Array.isArray(archive.cards)
+        ? archive.cards.filter(Boolean)
+        : Object.values(archive.cards || {}).filter(Boolean);
+
+    return {
+        archived: true,
+        cards: cards,
+        applied: new Set(),
+        set: {
+            id: archive.setId || '',
+            name: archive.setName || (historyEntry.name ? 'Set · ' + historyEntry.name : 'Set archivé'),
+            createdAt: Number(archive.setCreatedAt) || 0
+        },
+        setCards: archive.setCards || {},
+        uid: uid || ''
+    };
+}
+
+function tcgArchivedSets(history) {
+    return Object.entries(history || {})
+        .map(([id, entry]) => {
+            const archive = entry && entry.tcgArchive;
+            if (!archive || !archive.setCards) return null;
+            return {
+                id: id,
+                setName: archive.setName || 'Set archivé',
+                lanName: entry.name || '',
+                date: entry.date || '',
+                timestamp: Number(entry.timestamp) || 0
+            };
+        })
+        .filter(Boolean)
+        .sort((a, b) => b.timestamp - a.timestamp || b.id.localeCompare(a.id));
+}
+
 function setProgress(setCards, cards, uid) {
     const keys = Object.keys(setCards || {});
     const owned = new Set();
@@ -1761,11 +1827,13 @@ function packItems(economy) {
    validation, son paquet l'attend au prochain chargement. */
 function unsealedPurchases(economy, tcg, uid) {
     const packs = (tcg && tcg.packs) || {};
+    const resetAt = Math.max(0, Number(tcg && tcg.resetAt) || 0);
     const catalog = (economy && economy.catalog) || {};
     return Object.entries((economy && economy.purchases) || {})
         .map(([id, purchase]) => Object.assign({ id }, purchase))
         .filter(purchase => purchase.uid === uid
             && purchase.status === 'granted'
+            && Math.max(Number(purchase.resolvedAt) || 0, Number(purchase.ts) || 0) > resetAt
             && isPackItem(catalog[purchase.itemId])
             && !packs[purchase.id])
         .sort((a, b) => (a.ts || 0) - (b.ts || 0));

@@ -5,7 +5,7 @@ const vm = require('vm');
 
 const root = path.resolve(__dirname, '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
-const source = read('core.js') + '\nthis.__ach={achievementAwardId,achievementById,achievementRevealTheme,achievementState,pendingAchievements,xpTotal,hasXpAward,isXpAwardRevoked,achievementGrantRecord,achievementResetRecord,achievementResetUpdates,unseenAchievementAwards};';
+const source = read('core.js') + '\nthis.__ach={achievementAwardId,achievementById,achievementRevealTheme,achievementState,pendingAchievements,xpTotal,hasXpAward,isXpAwardRevoked,achievementGrantRecord,achievementResetRecord,achievementResetUpdates,unseenAchievementAwards,tcgArchiveSnapshot,tcgArchiveView,tcgArchivedSets,unsealedPurchases};';
 const context = vm.createContext({ console, URL, Date, Math, Promise, Set, Map });
 vm.runInContext(source, context, { filename: 'core.js' });
 const ach = context.__ach;
@@ -76,6 +76,44 @@ data.xp.awards[awardId] = ach.achievementResetRecord(uid, beta, admin, 600);
 assert.strictEqual(ach.unseenAchievementAwards(data.xp, uid, { beta: 400 }, 350).length, 0,
     'Reset tombstones are not unlock ceremonies');
 
+const setCards = {
+    game1: { name: 'Jeu archive', rarity: 'rare', score: 12, appId: 42 }
+};
+const archiveSnapshot = ach.tcgArchiveSnapshot({
+    currentSet: 'set-1',
+    sets: { 'set-1': { name: 'Set Alpha', ts: 123, cards: setCards } },
+    packs: {},
+    trades: {}
+});
+assert.strictEqual(archiveSnapshot.setName, 'Set Alpha');
+assert.strictEqual(archiveSnapshot.setCreatedAt, 123);
+assert.deepStrictEqual(plain(archiveSnapshot.setCards), setCards);
+const historyEntry = {
+    name: 'LAN précédente',
+    date: '27/08/2026',
+    timestamp: 456,
+    tcgArchive: Object.assign({}, archiveSnapshot, {
+        cards: [{ id: 'card-1', gameKey: 'game1', name: 'Jeu archive', rarity: 'rare', appId: 42, foil: true, owner: uid }]
+    })
+};
+const archiveView = ach.tcgArchiveView(historyEntry, uid);
+assert.strictEqual(archiveView.archived, true);
+assert.strictEqual(archiveView.cards[0].owner, uid);
+assert.deepStrictEqual(plain(ach.tcgArchivedSets({ round1: historyEntry }).map(row => row.id)), ['round1']);
+
+const packEconomy = {
+    catalog: { booster: { kind: 'pack' } },
+    purchases: {
+        old: { uid, itemId: 'booster', status: 'granted', ts: 100 },
+        fresh: { uid, itemId: 'booster', status: 'granted', ts: 300 }
+    }
+};
+assert.deepStrictEqual(
+    plain(ach.unsealedPurchases(packEconomy, { resetAt: 200, packs: {} }, uid).map(row => row.id)),
+    ['fresh'],
+    'A collection reset must not recreate boosters from older granted purchases'
+);
+
 const desktop = read('newScript.js');
 const mobile = read('mobile.js');
 const desktopHtml = read('desktop.html');
@@ -95,6 +133,15 @@ assert(mobileHtml.includes('id="m-ach-preview"') && mobileHtml.includes('id="m-a
 assert(mobileHtml.includes('id="m-ach-preview-select"') && mobileHtml.includes('id="m-ach-preview-all"'));
 assert(mobile.includes('previewAllMobileAchievementReveals') && mobile.includes('achievementRevealTheme(ach)'));
 assert(mobile.includes('queuePendingMobileAchievementReveals') && mobile.includes('navigator.vibrate'));
+for (const client of [desktop, mobile]) {
+    assert(client.includes('.transaction(current => (Number(current) || 0) >= ts ? undefined : ts)'),
+        'Achievement ceremonies must be claimed atomically before display');
+    assert(!client.includes('.set(Number(entry.award.ts)'),
+        'Closing a ceremony must not be the first acknowledgement write');
+    assert(client.includes('tcgArchive: archivedTcg'), 'New LAN history must include the complete TCG archive');
+}
+assert(desktopHtml.includes('id="tcg-set-view"') && desktopHtml.includes('id="btn-reset-player-cards"'));
+assert(mobileHtml.includes('id="m-set-view"') && mobileHtml.includes('id="m-reset-player-cards"'));
 for (const family of ['commerce', 'collection', 'legacy', 'challenge', 'vote', 'prototype']) {
     assert(desktopCss.includes(`data-ach-family="${family}"`), `Desktop reveal theme missing: ${family}`);
     assert(mobileCss.includes(`data-ach-family="${family}"`), `Mobile reveal theme missing: ${family}`);
@@ -107,6 +154,12 @@ for (const field of ['equippedTitleId', 'featuredAchievement1', 'featuredAchieve
 }
 assert.strictEqual(rules.rules.lan.xp.awards['$award_id'].revoked['.validate'], '!newData.exists() || newData.isBoolean()');
 assert(userRules.seenAchievements['$achievement_id']['.write'].includes('auth.uid === $uid'));
-assert(/20260825-calendar-range/.test(desktopHtml) && /20260825-calendar-range/.test(mobileHtml));
+assert(rules.rules.lan.tcg.packs['.write'].includes('!newData.exists()')
+    && rules.rules.lan.tcg.trades['.write'].includes('!newData.exists()'),
+    'Gamemasters need collection-level delete permission for player-card reset');
+assert(rules.rules.lan.tcg.resetAt['.write'].includes("val() !== true")
+    && rules.rules.lan.tcg.resetAt['.validate'].includes('newData.val() === now'),
+    'The durable reset marker must be gamemaster-writable only during an open LAN');
+assert(/20260828-tcg-archive-achievement-claim/.test(desktopHtml) && /20260828-tcg-archive-achievement-claim/.test(mobileHtml));
 
-console.log('Achievement administration checks passed (grant, durable reset, permanent editor, queued desktop/mobile ceremony).');
+console.log('Achievement and TCG archive checks passed (atomic ceremony claim, reset, archived sets).');

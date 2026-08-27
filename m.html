@@ -14,7 +14,7 @@
     <script defer src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js" integrity="sha384-p62xBRve8PdqGDGASZtZMuHgPsyPcT5VsFwgmz2p4zaFdEtt5ZzNqxK+CLzQS7xP" crossorigin="anonymous"></script>
     <script defer src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js" integrity="sha384-fuqdSwJXSvcAuKu5FbSJcHqHK474liv5ji8tuDnHz1rpfrnuXZPdM0oRaSK6c95L" crossorigin="anonymous"></script>
 
-    <link rel="stylesheet" href="mobile.css?v=20260825-calendar-range">
+    <link rel="stylesheet" href="mobile.css?v=20260828-tcg-archive-achievement-claim">
 </head>
 
 <body>
@@ -658,11 +658,19 @@
                  et leur rareté est leur score. Rien n'est stocké ici — la
                  collection se rejoue depuis les paquets ouverts. -->
             <section class="m-screen" data-screen="cartes">
+                <div class="m-section">
+                    <label class="m-label" for="m-set-view">Collection affichée</label>
+                    <select class="m-input" id="m-set-view">
+                        <option value="">Set actuel</option>
+                    </select>
+                    <p class="m-card__meta" id="m-set-view-hint"></p>
+                </div>
+
                 <div class="m-setband" id="m-set-band"></div>
 
                 <!-- Poste du maître du jeu : créer le set au démarrage de la
                      soirée, et offrir un booster (récompense, ou test). -->
-                <div class="m-section" id="m-mint-section" style="display:none">
+                <div class="m-section" id="m-mint-section" data-m-tcg-live-only style="display:none">
                     <div class="m-section__head">
                         <h2 class="m-section__title">Maître du jeu</h2>
                     </div>
@@ -670,20 +678,22 @@
                     <button class="m-btn m-btn--full" id="m-mint-set">Créer le set de la LAN</button>
                     <button class="m-btn m-btn--quiet m-btn--full" id="m-remint-set" style="display:none">Recréer
                         le set</button>
+                    <button class="m-btn m-btn--quiet m-btn--full" id="m-reset-player-cards"
+                        style="display:none">Vider les collections des joueurs</button>
                     <button class="m-btn m-btn--quiet m-btn--full" id="m-gift-pack">Offrir un booster</button>
                     <!-- Débogage : en attendant la boutique, l'admin ouvre
                          autant de boosters qu'il veut pour éprouver le set. -->
                     <button class="m-btn m-btn--solid m-btn--full" id="m-debug-pack">🧪 Ouvrir un booster</button>
                 </div>
 
-                <div class="m-section" id="m-packs-section" style="display:none">
+                <div class="m-section" id="m-packs-section" data-m-tcg-live-only style="display:none">
                     <div class="m-section__head">
                         <h2 class="m-section__title">Mes boosters</h2>
                     </div>
                     <div id="m-packs"></div>
                 </div>
 
-                <div class="m-section" id="m-trade-in-section" style="display:none">
+                <div class="m-section" id="m-trade-in-section" data-m-tcg-live-only style="display:none">
                     <div class="m-section__head">
                         <h2 class="m-section__title">Échanges reçus</h2>
                     </div>
@@ -698,7 +708,7 @@
                     <div class="m-cardgrid" id="m-set-grid"></div>
                 </div>
 
-                <div class="m-section" id="m-dupes-section" style="display:none">
+                <div class="m-section" id="m-dupes-section" data-m-tcg-live-only style="display:none">
                     <div class="m-section__head">
                         <h2 class="m-section__title">Mes doubles</h2>
                         <button class="m-section__link" id="m-trade-new">Proposer</button>
@@ -706,21 +716,21 @@
                     <div class="m-cardgrid" id="m-dupes"></div>
                 </div>
 
-                <div class="m-section" id="m-trade-out-section" style="display:none">
+                <div class="m-section" id="m-trade-out-section" data-m-tcg-live-only style="display:none">
                     <div class="m-section__head">
                         <h2 class="m-section__title">Mes propositions</h2>
                     </div>
                     <div id="m-trade-out"></div>
                 </div>
 
-                <div class="m-section">
+                <div class="m-section" data-m-tcg-live-only>
                     <div class="m-section__head">
                         <h2 class="m-section__title">Complétion</h2>
                     </div>
                     <div id="m-tcg-leaderboard"></div>
                 </div>
 
-                <div class="m-section">
+                <div class="m-section" data-m-tcg-live-only>
                     <div class="m-section__head">
                         <h2 class="m-section__title">Journal des échanges</h2>
                     </div>
@@ -873,9 +883,9 @@
     <div id="m-toasts"></div>
 
     <script defer src="config.js"></script>
-    <script defer src="core.js?v=20260825-calendar-range"></script>
+    <script defer src="core.js?v=20260828-tcg-archive-achievement-claim"></script>
     <script defer src="sound.js"></script>
-    <script defer src="mobile.js?v=20260825-calendar-range"></script>
+    <script defer src="mobile.js?v=20260828-tcg-archive-achievement-claim"></script>
 </body>
 
 </html>

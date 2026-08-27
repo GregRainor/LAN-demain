@@ -702,7 +702,10 @@ function boot(user) {
     watch('lan/economy', value => { state.economy = value || {}; sealBoughtPacks(); });
     watch('lan/tcg', value => { state.tcg = value || {}; sealBoughtPacks(); });
     watch('lan/steamLibraries', value => { state.libraries = value || {}; });
-    watch('lan/history', value => { state.history = value || {}; });
+    watch('lan/history', value => {
+        state.history = value || {};
+        renderCartes();
+    });
     watch('lan/xp', value => {
         state.xp = value || {};
         achievementXpReady = true;
@@ -2883,15 +2886,38 @@ function queuePendingMobileAchievementReveals() {
     const seen = ((state.profiles[user.uid] || {}).seenAchievements) || {};
     const fresh = unseenAchievementAwards(state.xp, user.uid, seen, ACHIEVEMENT_REVEAL_SINCE)
         .filter(award => !achievementRevealQueued.has(`${award.refId}@${award.ts}`));
-    let displayTotal = xpTotal(state.xp, user.uid)
-        - fresh.reduce((sum, award) => sum + (Number(award.delta) || 0), 0);
-    fresh.forEach(award => {
+    if (!fresh.length) return;
+
+    const claims = fresh.map(award => {
         const key = `${award.refId}@${award.ts}`;
-        displayTotal += Number(award.delta) || 0;
+        const ts = Math.max(1, Number(award.ts) || Date.now());
         achievementRevealQueued.add(key);
-        achievementRevealQueue.push({ award, preview: false, key, displayTotal });
+        return db.ref(`lan/users/${user.uid}/seenAchievements/${award.refId}`)
+            .transaction(current => (Number(current) || 0) >= ts ? undefined : ts)
+            .then(result => result.committed ? { award, key } : null)
+            .catch(error => {
+                achievementRevealQueued.delete(key);
+                console.warn('Révélation de haut fait non revendiquée :', error);
+                return null;
+            });
     });
-    showNextMobileAchievementReveal();
+
+    Promise.all(claims).then(results => {
+        const claimed = results.filter(Boolean)
+            .sort((a, b) => (Number(a.award.ts) || 0) - (Number(b.award.ts) || 0));
+        let displayTotal = xpTotal(state.xp, user.uid)
+            - claimed.reduce((sum, entry) => sum + (Number(entry.award.delta) || 0), 0);
+        claimed.forEach(entry => {
+            displayTotal += Number(entry.award.delta) || 0;
+            achievementRevealQueue.push({
+                award: entry.award,
+                preview: false,
+                key: entry.key,
+                displayTotal
+            });
+        });
+        showNextMobileAchievementReveal();
+    });
 }
 
 function populateMobileAchievementRevealTester() {
@@ -2997,14 +3023,8 @@ function showMobileAchievementReveal(entry) {
 function closeMobileAchievementReveal() {
     const overlay = $('m-ach-unlock');
     const entry = achievementRevealCurrent;
-    const user = auth.currentUser;
     if (!overlay || !entry) return;
     overlay.classList.add('is-leaving');
-    if (!entry.preview && user) {
-        db.ref(`lan/users/${user.uid}/seenAchievements/${entry.award.refId}`)
-            .set(Number(entry.award.ts) || firebase.database.ServerValue.TIMESTAMP)
-            .catch(error => console.warn('Haut fait vu non enregistré :', error));
-    }
     setTimeout(() => {
         overlay.classList.remove('is-visible', 'is-leaving');
         overlay.setAttribute('aria-hidden', 'true');
@@ -3256,8 +3276,9 @@ async function startNewLan(newName) {
             .map(row => ({ name: playerName(row.uid), balance: row.balance }));
         const economyHadActivity = ['ledger', 'ticks', 'purchases']
             .some(key => economySnap.child(key).exists());
+        const archivedTcg = tcgArchiveSnapshot(state.tcg);
         const hadContent = sortedGames.length > 0 || eventsSnap.exists() || cocktailsSnap.exists()
-            || economyHadActivity;
+            || economyHadActivity || !!archivedTcg;
         const awardedTitles = hadContent
             ? await awardLanExperienceMobile(roundId, archivedVotes, previousEconomy)
             : [];
@@ -3275,6 +3296,7 @@ async function startNewLan(newName) {
                 oneshotCocktails: cocktailsSnap.val() || null,
                 economyStandings: finalStandings.length ? finalStandings : null,
                 tcgStandings: mobileTcgStandingsForArchive(),
+                tcgArchive: archivedTcg,
                 lanTitles: awardedTitles.length ? awardedTitles : null
             }, newLanResetUpdates(nextRoundId, newName));
         } else {
@@ -4498,6 +4520,55 @@ function tcgSnapshot() {
     return tcgView;
 }
 
+let mobileTcgArchiveKey = '';
+
+function selectedMobileTcgView(uid) {
+    if (!mobileTcgArchiveKey) return tcgSnapshot();
+    return tcgArchiveView(state.history[mobileTcgArchiveKey], uid) || tcgSnapshot();
+}
+
+function renderMobileTcgSetSelector(uid) {
+    const select = $('m-set-view');
+    if (!select) return;
+
+    const archives = tcgArchivedSets(state.history);
+    if (mobileTcgArchiveKey && !archives.some(entry => entry.id === mobileTcgArchiveKey)) {
+        mobileTcgArchiveKey = '';
+    }
+
+    select.innerHTML = '';
+    const current = el('option', '', 'Set actuel');
+    current.value = '';
+    select.appendChild(current);
+    archives.forEach(entry => {
+        const option = el('option', '',
+            entry.setName
+            + (entry.lanName ? ' — ' + entry.lanName : '')
+            + (entry.date ? ' · ' + entry.date : ''));
+        option.value = entry.id;
+        select.appendChild(option);
+    });
+    select.value = mobileTcgArchiveKey;
+    select.disabled = archives.length === 0;
+    select.onchange = () => {
+        mobileTcgArchiveKey = select.value;
+        renderCartes();
+    };
+
+    const hint = $('m-set-view-hint');
+    if (hint) {
+        hint.textContent = archives.length
+            ? archives.length + ' ancien' + (archives.length > 1 ? 's sets disponibles' : ' set disponible')
+            : 'Les anciens sets apparaîtront ici après archivage d’une LAN.';
+    }
+}
+
+function showMobileArchivedCollectionOnly(archived) {
+    document.querySelectorAll('[data-m-tcg-live-only]').forEach(node => {
+        node.style.display = archived ? 'none' : '';
+    });
+}
+
 /* Les illustrations générées pour les Signature, chargées à la demande. Elles
    vivent sous `lan/cardArt`, à côté de `lan/tcg` et non dedans : ce sont des
    images en base64, et les faire transiter dans la synchro permanente de tous
@@ -4636,21 +4707,27 @@ function openCardSheet(card) {
 /* ---------- Le bandeau du set ---------- */
 
 function renderCartes() {
-    const view = tcgSnapshot();
-    if (!view.uid) return;
+    const liveView = tcgSnapshot();
+    if (!liveView.uid) return;
     /* Redessiner trois cents cartes à chaque mise à jour Firebase mettrait le
        téléphone à genoux. Hors de l'écran Cartes, il n'y a rien à voir : le
        rappel d'accueil et la pastille de « Plus » suffisent. */
     if (currentScreen !== 'cartes') return;
 
-    // L'emballage a son propre visuel, chargé comme celui d'une Signature.
-    ensureGeneratedArt(PACK_ART_KEY);
+    renderMobileTcgSetSelector(liveView.uid);
+    const view = selectedMobileTcgView(liveView.uid);
+    const archived = view.archived === true;
+    showMobileArchivedCollectionOnly(archived);
 
     renderSetBand(view);
+    renderSetGrid(view);
+    if (archived) return;
+
+    // L'emballage a son propre visuel, chargé comme celui d'une Signature.
+    ensureGeneratedArt(PACK_ART_KEY);
     renderMintPanel(view);
     renderMyPacks(view);
     renderTradesIn(view);
-    renderSetGrid(view);
     renderDupes(view);
     renderTradesOut(view);
     renderTcgLeaderboard(view);
@@ -4669,14 +4746,15 @@ function renderSetBand(view) {
     }
 
     const progress = setProgress(view.setCards, view.cards, view.uid);
-    band.appendChild(el('p', 'm-setband__title', view.set.name));
+    band.appendChild(el('p', 'm-setband__title', view.set.name + (view.archived ? ' · archivé' : '')));
     const bar = el('div', 'm-setband__bar');
     const fill = el('span', 'm-setband__fill');
     fill.style.width = progress.percent + '%';
     bar.appendChild(fill);
     band.appendChild(bar);
     band.appendChild(el('p', 'm-setband__hint',
-        progress.owned + ' / ' + progress.total + ' cartes'
+        (view.archived ? 'Collection archivée · ' : '')
+        + progress.owned + ' / ' + progress.total + ' cartes'
         + (progress.foils ? ' · ' + progress.foils + ' brillante' + (progress.foils > 1 ? 's' : '') : '')
         + (progress.complete ? ' · set complet 🏆' : '')));
 }
@@ -4707,6 +4785,7 @@ function renderMintPanel(view) {
     /* La soirée close, les collections sont archivées : on ne propose plus de
        tout jeter pour recomposer. */
     $('m-remint-set').style.display = (view.set && !state.settings.lanFinished) ? 'block' : 'none';
+    $('m-reset-player-cards').style.display = (view.set && !state.settings.lanFinished) ? 'block' : 'none';
 }
 
 /* Tous les jeux qui peuvent devenir des cartes : les votés, plus tout ce que
@@ -4760,10 +4839,55 @@ function resolveVotedArt(pool) {
 function discardCards(keepSetId) {
     const doomed = Object.keys(state.tcg.sets || {}).filter(id => id !== keepSetId);
     return Promise.all(doomed.map(id => db.ref('lan/tcg/sets/' + id).remove()))
-        .then(() => Promise.all([
-            db.ref('lan/tcg/packs').remove(),
-            db.ref('lan/tcg/trades').remove()
-        ]));
+        .then(() => db.ref().update({
+            'lan/tcg/packs': null,
+            'lan/tcg/trades': null,
+            'lan/tcg/resetAt': firebase.database.ServerValue.TIMESTAMP
+        }));
+}
+
+function resetPlayerCards() {
+    if (!state.isGamemaster) return;
+    if (state.settings.lanFinished) {
+        showToast('La LAN est terminée : cette collection est protégée.', 'error');
+        return;
+    }
+    if (!tcgCurrentSetId(state.tcg)) {
+        showToast('Aucun set actif à réinitialiser.', 'error');
+        return;
+    }
+
+    const packs = Object.keys(state.tcg.packs || {}).length;
+    const cards = tcgCards(state.tcg).length;
+    const trades = Object.keys(state.tcg.trades || {}).length;
+    if (!packs && !cards && !trades) {
+        showToast('Les collections des joueurs sont déjà vides.', 'success');
+        return;
+    }
+
+    openSheet('Réinitialiser les collections ?', body => {
+        body.appendChild(el('p', 'm-card__meta',
+            'Le set actif et ses illustrations restent en place. Tous les boosters, les cartes possédées et les échanges sont supprimés'
+            + (cards ? ' — ' + cards + ' carte' + (cards > 1 ? 's' : '') + ' actuellement possédée' + (cards > 1 ? 's' : '') + '.' : '.')));
+        const go = el('button', 'm-btn m-btn--danger m-btn--full', 'Vider les collections');
+        go.addEventListener('click', () => {
+            go.disabled = true;
+            db.ref().update({
+                'lan/tcg/packs': null,
+                'lan/tcg/trades': null,
+                'lan/tcg/resetAt': firebase.database.ServerValue.TIMESTAMP
+            })
+                .then(() => {
+                    closeSheet();
+                    showToast('Cartes des joueurs réinitialisées. Le set actif est conservé.', 'success');
+                })
+                .catch(error => {
+                    go.disabled = false;
+                    showToast(tcgWriteError(error), 'error');
+                });
+        });
+        body.appendChild(go);
+    });
 }
 
 /* Une écriture refusée par les règles ne dit rien d'utile telle quelle. Ici on
@@ -5035,6 +5159,8 @@ $('m-remint-set').addEventListener('click', () => {
         body.appendChild(go);
     });
 });
+
+$('m-reset-player-cards').addEventListener('click', resetPlayerCards);
 
 /* Débogage : en attendant la boutique, le maître du jeu ouvre autant de
    boosters qu'il veut. Le paquet est scellé puis ouvert dans la foulée — même
@@ -5797,7 +5923,7 @@ function renderSetGrid(view) {
         head.addEventListener('click', () => {
             if (openRarities.has(rarity.key)) openRarities.delete(rarity.key);
             else openRarities.add(rarity.key);
-            renderSetGrid(tcgSnapshot());
+            renderSetGrid(view);
         });
         mount.appendChild(head);
 

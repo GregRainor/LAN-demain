@@ -1556,15 +1556,38 @@ document.addEventListener('DOMContentLoaded', () => {
         const seen = ((globalProfiles[user.uid] || {}).seenAchievements) || {};
         const fresh = unseenAchievementAwards(globalXp, user.uid, seen, ACHIEVEMENT_REVEAL_SINCE)
             .filter(award => !achievementRevealQueued.has(`${award.refId}@${award.ts}`));
-        let displayTotal = xpTotal(globalXp, user.uid)
-            - fresh.reduce((sum, award) => sum + (Number(award.delta) || 0), 0);
-        fresh.forEach(award => {
+        if (!fresh.length) return;
+
+        const claims = fresh.map(award => {
             const key = `${award.refId}@${award.ts}`;
-            displayTotal += Number(award.delta) || 0;
+            const ts = Math.max(1, Number(award.ts) || Date.now());
             achievementRevealQueued.add(key);
-            achievementRevealQueue.push({ award: award, preview: false, key: key, displayTotal: displayTotal });
+            return db.ref(`lan/users/${user.uid}/seenAchievements/${award.refId}`)
+                .transaction(current => (Number(current) || 0) >= ts ? undefined : ts)
+                .then(result => result.committed ? { award: award, key: key } : null)
+                .catch(error => {
+                    achievementRevealQueued.delete(key);
+                    console.warn('Révélation de haut fait non revendiquée :', error);
+                    return null;
+                });
         });
-        showNextAchievementReveal();
+
+        Promise.all(claims).then(results => {
+            const claimed = results.filter(Boolean)
+                .sort((a, b) => (Number(a.award.ts) || 0) - (Number(b.award.ts) || 0));
+            let displayTotal = xpTotal(globalXp, user.uid)
+                - claimed.reduce((sum, entry) => sum + (Number(entry.award.delta) || 0), 0);
+            claimed.forEach(entry => {
+                displayTotal += Number(entry.award.delta) || 0;
+                achievementRevealQueue.push({
+                    award: entry.award,
+                    preview: false,
+                    key: entry.key,
+                    displayTotal: displayTotal
+                });
+            });
+            showNextAchievementReveal();
+        });
     }
 
     const ACHIEVEMENT_PREVIEW_TESTERS = [
@@ -1673,14 +1696,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function closeAchievementReveal() {
         const overlay = document.getElementById('achievement-unlock-overlay');
         const entry = achievementRevealCurrent;
-        const user = auth.currentUser;
         if (!overlay || !entry) return;
         overlay.classList.add('is-leaving');
-        if (!entry.preview && user) {
-            db.ref(`lan/users/${user.uid}/seenAchievements/${entry.award.refId}`)
-                .set(Number(entry.award.ts) || firebase.database.ServerValue.TIMESTAMP)
-                .catch(error => console.warn('Haut fait vu non enregistré :', error));
-        }
         setTimeout(() => {
             overlay.classList.remove('is-visible', 'is-leaving');
             overlay.setAttribute('aria-hidden', 'true');
@@ -1880,6 +1897,7 @@ document.addEventListener('DOMContentLoaded', () => {
            trois soirées, et une soirée est une entrée d'historique. */
         watchValue(db.ref('lan/history'), (snapshot) => {
             globalHistory = snapshot.val() || {};
+            renderCollection();
             renderDesktopShell();
         });
         startTickEngine();
@@ -3932,8 +3950,9 @@ document.addEventListener('DOMContentLoaded', () => {
             .map(row => ({ name: playerLabel(row.uid), balance: row.balance }));
         const economyHadActivity = ['ledger', 'ticks', 'purchases']
             .some(key => economySnap.child(key).exists());
+        const archivedTcg = tcgArchiveSnapshot(globalTcg);
         const hadContent = sortedGames.length > 0 || eventsSnap.exists() || cocktailsSnap.exists()
-            || economyHadActivity;
+            || economyHadActivity || !!archivedTcg;
         const awardedTitles = hadContent
             ? await awardLanExperience(roundId, archivedVotes, previousEconomy)
             : [];
@@ -3951,6 +3970,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 oneshotCocktails: cocktailsSnap.val() || null,
                 economyStandings: finalStandings.length ? finalStandings : null,
                 tcgStandings: tcgStandingsForArchive(),
+                tcgArchive: archivedTcg,
                 lanTitles: awardedTitles.length ? awardedTitles : null
             }, newLanResetUpdates(nextRoundId, newName));
         } else {
@@ -9646,6 +9666,55 @@ document.addEventListener('DOMContentLoaded', () => {
         return tcgViewCache;
     }
 
+    let tcgArchiveKey = '';
+
+    function selectedTcgView(uid) {
+        if (!tcgArchiveKey) return tcgView();
+        return tcgArchiveView(globalHistory[tcgArchiveKey], uid) || tcgView();
+    }
+
+    function renderTcgSetSelector(uid) {
+        const select = document.getElementById('tcg-set-view');
+        if (!select) return;
+
+        const archives = tcgArchivedSets(globalHistory);
+        if (tcgArchiveKey && !archives.some(entry => entry.id === tcgArchiveKey)) {
+            tcgArchiveKey = '';
+        }
+
+        select.innerHTML = '<option value="">Set actuel</option>';
+        archives.forEach(entry => {
+            const option = document.createElement('option');
+            option.value = entry.id;
+            option.textContent = entry.setName
+                + (entry.lanName ? ' — ' + entry.lanName : '')
+                + (entry.date ? ' · ' + entry.date : '');
+            select.appendChild(option);
+        });
+        select.value = tcgArchiveKey;
+        select.disabled = archives.length === 0;
+        select.title = archives.length
+            ? 'Afficher le set actif ou une collection archivée'
+            : 'Les anciens sets apparaîtront après la prochaine LAN archivée';
+        select.onchange = () => {
+            tcgArchiveKey = select.value;
+            renderCollection();
+        };
+
+        const hint = document.getElementById('tcg-set-view-hint');
+        if (hint) {
+            hint.textContent = archives.length
+                ? archives.length + ' ancien' + (archives.length > 1 ? 's sets disponibles' : ' set disponible')
+                : 'Les anciens sets apparaîtront ici après archivage d’une LAN.';
+        }
+    }
+
+    function showArchivedCollectionOnly(panel, archived) {
+        panel.querySelectorAll('[data-tcg-live-only]').forEach(node => {
+            node.style.display = archived ? 'none' : '';
+        });
+    }
+
     // Un échange se lit à l'échelle de la soirée, pas du calendrier :
     // formatAge() compte en jours, ce qui dirait « aujourd'hui » toute la nuit.
     function timeSince(ts) {
@@ -9920,19 +9989,25 @@ document.addEventListener('DOMContentLoaded', () => {
            cher pour rien : hors de l'onglet Collection, personne ne regarde.
            Le badge du menu, lui, se met à jour dans tous les cas. */
         const visible = panel.offsetParent !== null;
-        const view = tcgView();
-        if (!visible) { renderTcgBadge(view); return; }
+        const liveView = tcgView();
+        if (!visible) { renderTcgBadge(liveView); return; }
 
+        renderTcgSetSelector(user.uid);
+        const view = selectedTcgView(user.uid);
+        const archived = view.archived === true;
+        showArchivedCollectionOnly(panel, archived);
         renderSetBanner(view);
+        renderSetGrid(view);
+        renderTcgBadge(liveView);
+        if (archived) return;
+
         renderTcgGmPanel(view);
         renderMyPacks(view);
         renderTradesIn(view);
-        renderSetGrid(view);
         renderDupes(view);
         renderTradesOut(view);
         renderTcgLeaderboard(view);
         renderTradeFeed(view);
-        renderTcgBadge(view);
     }
 
     function renderSetBanner(view) {
@@ -9951,10 +10026,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const progress = setProgress(view.setCards, view.cards, view.uid);
-        name.textContent = view.set.name;
+        name.textContent = view.set.name + (view.archived ? ' · archivé' : '');
         value.textContent = `${progress.owned} / ${progress.total}`;
         fill.style.width = `${progress.percent}%`;
-        hint.textContent = `${progress.percent} % du set`
+        hint.textContent = (view.archived ? 'Collection archivée · ' : '') + `${progress.percent} % du set`
             + (progress.foils ? ` · ${progress.foils} brillante${progress.foils > 1 ? 's' : ''}` : '')
             + (progress.complete ? ' · set complet 🏆' : '');
     }
@@ -10011,6 +10086,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // de tout jeter pour recomposer.
         document.getElementById('btn-remint-set').style.display =
             (view.set && !globalSettings.lanFinished) ? 'inline-block' : 'none';
+        document.getElementById('btn-reset-player-cards').style.display =
+            (view.set && !globalSettings.lanFinished) ? 'inline-block' : 'none';
         document.getElementById('btn-debug-pack').disabled = !view.set;
 
         const select = document.getElementById('tcg-gift-user');
@@ -10045,10 +10122,46 @@ document.addEventListener('DOMContentLoaded', () => {
     function discardCards(keepSetId) {
         const doomed = Object.keys(globalTcg.sets || {}).filter(id => id !== keepSetId);
         return Promise.all(doomed.map(id => db.ref('lan/tcg/sets/' + id).remove()))
-            .then(() => Promise.all([
-                db.ref('lan/tcg/packs').remove(),
-                db.ref('lan/tcg/trades').remove()
-            ]));
+            .then(() => db.ref().update({
+                'lan/tcg/packs': null,
+                'lan/tcg/trades': null,
+                'lan/tcg/resetAt': firebase.database.ServerValue.TIMESTAMP
+            }));
+    }
+
+    async function resetPlayerCards() {
+        if (!window.currentUserIsGamemaster) return;
+        if (globalSettings.lanFinished) {
+            showToast('La LAN est terminée : cette collection est protégée.', 'error');
+            return;
+        }
+        if (!tcgCurrentSetId(globalTcg)) {
+            showToast('Aucun set actif à réinitialiser.', 'error');
+            return;
+        }
+
+        const packs = Object.keys(globalTcg.packs || {}).length;
+        const cards = tcgCards(globalTcg).length;
+        const trades = Object.keys(globalTcg.trades || {}).length;
+        if (!packs && !cards && !trades) {
+            showToast('Les collections des joueurs sont déjà vides.', 'success');
+            return;
+        }
+
+        const ok = await askConfirm(
+            'Réinitialiser les cartes de tous les joueurs ? Le set actif et ses illustrations restent en place, '
+            + 'mais tous les boosters et tous les échanges sont supprimés'
+            + (cards ? `, soit ${cards} carte${cards > 1 ? 's' : ''} actuellement possédée${cards > 1 ? 's' : ''}.` : '.'),
+            { title: 'Réinitialiser les collections', danger: true, confirmLabel: 'Vider les collections' });
+        if (!ok) return;
+
+        db.ref().update({
+            'lan/tcg/packs': null,
+            'lan/tcg/trades': null,
+            'lan/tcg/resetAt': firebase.database.ServerValue.TIMESTAMP
+        })
+            .then(() => showToast('Cartes des joueurs réinitialisées. Le set actif est conservé.', 'success'))
+            .catch(err => showToast(tcgWriteError(err), 'error'));
     }
 
     /* Une écriture refusée par les règles ne dit rien d'utile telle quelle. Ici
@@ -10313,6 +10426,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('btn-mint-set')?.addEventListener('click', () => mintSet(false));
     document.getElementById('btn-remint-set')?.addEventListener('click', () => mintSet(true));
+    document.getElementById('btn-reset-player-cards')?.addEventListener('click', resetPlayerCards);
 
     /* Débogage : en attendant la boutique, le maître du jeu ouvre autant de
        boosters qu'il veut. Le paquet est scellé puis ouvert dans la foulée —

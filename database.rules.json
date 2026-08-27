@@ -112,6 +112,11 @@
           ".validate": "newData.isString() && newData.val().length <= 60"
         },
 
+        "resetAt": {
+          ".write": "auth != null && root.child('lan/settings/lanFinished').val() !== true && (root.child('lan/roles').child(auth.uid).val() === 'admin' || root.child('lan/roles').child(auth.uid).val() === 'gamemaster' || auth.uid === 'ITe5VPuwewMzO7JnJA5oPWMdfvt2')",
+          ".validate": "newData.isNumber() && newData.val() === now"
+        },
+
         "sets": {
           ".write": "auth != null && (root.child('lan/roles').child(auth.uid).val() === 'admin' || root.child('lan/roles').child(auth.uid).val() === 'gamemaster' || auth.uid === 'ITe5VPuwewMzO7JnJA5oPWMdfvt2')",
           "$set_id": {
@@ -132,6 +137,7 @@
         },
 
         "packs": {
+          ".write": "auth != null && !newData.exists() && root.child('lan/settings/lanFinished').val() !== true && (root.child('lan/roles').child(auth.uid).val() === 'admin' || root.child('lan/roles').child(auth.uid).val() === 'gamemaster' || auth.uid === 'ITe5VPuwewMzO7JnJA5oPWMdfvt2')",
           "$pack_id": {
             ".write": "auth != null && newData.exists() && ((!data.exists() && newData.child('status').val() === 'sealed' && newData.child('sealedAt').val() === now && newData.child('setId').val() === root.child('lan/tcg/currentSet').val() && ((newData.child('uid').val() === auth.uid && root.child('lan/economy/purchases').child($pack_id).child('uid').val() === auth.uid && root.child('lan/economy/purchases').child($pack_id).child('status').val() === 'granted' && root.child('lan/economy/catalog').child(root.child('lan/economy/purchases').child($pack_id).child('itemId').val()).child('kind').val() === 'pack') || root.child('lan/roles').child(auth.uid).val() === 'gamemaster')) || (data.exists() && data.child('status').val() === 'sealed' && data.child('uid').val() === auth.uid && newData.child('status').val() === 'opened' && newData.child('openedAt').val() === now && newData.child('uid').val() === data.child('uid').val() && newData.child('setId').val() === data.child('setId').val() && newData.child('sealedAt').val() === data.child('sealedAt').val()))",
             ".validate": "newData.hasChildren(['uid', 'setId', 'status', 'sealedAt'])",
@@ -147,6 +153,7 @@
         },
 
         "trades": {
+          ".write": "auth != null && !newData.exists() && root.child('lan/settings/lanFinished').val() !== true && (root.child('lan/roles').child(auth.uid).val() === 'admin' || root.child('lan/roles').child(auth.uid).val() === 'gamemaster' || auth.uid === 'ITe5VPuwewMzO7JnJA5oPWMdfvt2')",
           "$trade_id": {
             ".write": "auth != null && newData.exists() && ((!data.exists() && newData.child('fromUid').val() === auth.uid && newData.child('toUid').val() !== auth.uid && newData.child('status').val() === 'pending' && newData.child('ts').val() === now) || (data.exists() && data.child('status').val() === 'pending' && newData.child('fromUid').val() === data.child('fromUid').val() && newData.child('toUid').val() === data.child('toUid').val() && newData.child('offer').val() === data.child('offer').val() && newData.child('request').val() === data.child('request').val() && newData.child('ts').val() === data.child('ts').val() && newData.child('resolvedAt').val() === now && ((auth.uid === data.child('toUid').val() && (newData.child('status').val() === 'accepted' || newData.child('status').val() === 'declined')) || (auth.uid === data.child('fromUid').val() && newData.child('status').val() === 'cancelled'))))",
             ".validate": "newData.hasChildren(['fromUid', 'toUid', 'status', 'ts'])",

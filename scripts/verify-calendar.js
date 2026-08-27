@@ -101,7 +101,7 @@ assert(/add\.addEventListener\('click', openMobileCalendarChooser\)/.test(mobile
 assert((mobileScript.match(/mobileCalendarOption\(/g) || []).length >= 5,
     'Mobile must expose three providers and the .ics fallback');
 assert(/\.m-calendar-option\s*\{[\s\S]{0,180}min-height:64px/.test(mobileCss));
-assert(/20260825-calendar-range/.test(desktopHtml) && /20260825-calendar-range/.test(read('m.html')),
+assert(/20260828-tcg-archive-achievement-claim/.test(desktopHtml) && /20260828-tcg-archive-achievement-claim/.test(read('m.html')),
     'Calendar assets need a shared cache-busting release tag');
 
 console.log('Calendar checks passed (shared event model, Google, Outlook, Yahoo, .ics, desktop, mobile).');
