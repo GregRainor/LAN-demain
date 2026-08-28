@@ -777,18 +777,23 @@ function buildLanIcs(settings) {
 
 const ECONOMY = {
     /* Un point toutes les dix minutes de présence, pendant la LAN seulement.
-       Ce filet n'est pas une stratégie : plafonné à dix heures, il garantit
-       juste que celui qui ne court pas après les défis a de quoi dépenser.
+       Ce filet n'est pas une stratégie : plafonné, il garantit juste que celui
+       qui ne court pas après les défis a de quoi dépenser.
+
+       Le plafond était de dix heures pour la LAN ENTIÈRE, pas par jour : sur
+       une soirée de trois jours, la présence s'arrêtait de payer le premier
+       soir et le reste du week-end ne rapportait plus rien. Il vaut désormais
+       dix heures par jour sur trois jours.
 
        ATTENTION : ces deux nombres sont aussi écrits en dur dans
-       database.rules.json (600000 ms et 60 tranches), parce qu'un fichier de
+       database.rules.json (600000 ms et 180 tranches), parce qu'un fichier de
        règles ne peut ni importer ni commenter. Ce sont les règles qui font
        foi — elles seules empêchent un client bricolé d'accélérer le compteur.
        Changer l'un sans l'autre rend le plafond affiché faux, ou fait échouer
        silencieusement chaque tranche. */
     TICK_INTERVAL_MS: 10 * 60 * 1000,
-    TICK_VALUE: 5,
-    MAX_TICKS: 60,
+    TICK_VALUE: 10,
+    MAX_TICKS: 180,
     /* Le zloty : « złoty » veut dire « en or » en polonais, et le pluriel qu'on
        lit sur les billets est « złotych ». Un clin d'oeil qui tombe juste — la
        monnaie de la soirée est littéralement de l'or. */
@@ -806,10 +811,11 @@ const ECONOMY = {
     ]
 };
 
-/* Repères d'équilibrage : la présence rapporte 30 zł par heure et un booster
-   standard en coûte 100. Une LAN de dix heures paie donc trois boosters même
+/* Repères d'équilibrage : la présence rapporte 60 zł par heure et un booster
+   standard en coûte 100. Une LAN de dix heures paie donc six boosters même
    sans courir après les défis ; les défis servent à accélérer ou à acheter
-   les privilèges plus chers. */
+   les privilèges plus chers. Les prix, eux, n'ont pas bougé : doubler les
+   gains ET les prix n'aurait rien donné. */
 const BOOSTER_STANDARD_PRICE = 100;
 
 function passivePointsPerHour() {
@@ -1984,13 +1990,17 @@ function unsealedPurchases(economy, tcg, uid) {
 const XP = {
     /* Le palier grandit linéairement, donc le cumul est quadratique : chaque
        niveau coûte 200 XP de plus que le précédent. Une soirée bien remplie
-       rapporte 400 à 600 XP, ce qui fait deux ou trois niveaux la première
+       rapporte 800 à 1200 XP, ce qui fait trois ou quatre niveaux la première
        fois puis de moins en moins — un vétéran de dix LAN reste devant sans
-       que le nouveau soit largué. */
+       que le nouveau soit largué.
+
+       Les gains ont doublé, pas le palier : c'est délibéré. Le palier décide
+       de la FORME de la courbe, et le baisser aurait recalculé vers le haut
+       les niveaux déjà atteints, donc réécrit le passé de tout le monde. */
     LEVEL_STEP: 200,
     /* Ce que vaut une soirée, simplement pour être venu et avoir voté. C'est
        la récompense de l'assiduité que le reste ne mesure pas. */
-    LAN_ATTENDANCE: 150
+    LAN_ATTENDANCE: 300
 };
 
 /* Cumul nécessaire pour ATTEINDRE le niveau n (le niveau 1 est à zéro). */
@@ -2198,65 +2208,65 @@ function unseenAchievementAwards(xpNode, uid, seenByAchievement, since) {
 
 const ACHIEVEMENTS = [
     /* --- La boutique --- */
-    { id: 'first-buy', icon: 'cart', family: 'boutique', xp: 25,
+    { id: 'first-buy', icon: 'cart', family: 'boutique', xp: 50,
       label: 'Premier achat', hint: 'Acheter quoi que ce soit', goal: 1 },
-    { id: 'buyer-5', icon: 'cart', family: 'boutique', xp: 50,
+    { id: 'buyer-5', icon: 'cart', family: 'boutique', xp: 100,
       label: 'Client fidèle', hint: 'Cinq achats validés', goal: 5, nickname: 'Le Client' },
-    { id: 'buyer-20', icon: 'cart', family: 'boutique', xp: 120,
+    { id: 'buyer-20', icon: 'cart', family: 'boutique', xp: 240,
       label: 'Pilier du comptoir', hint: 'Vingt achats validés', goal: 20, nickname: 'Le Pilier' },
-    { id: 'spender-500', icon: 'coin', family: 'boutique', xp: 60,
+    { id: 'spender-500', icon: 'coin', family: 'boutique', xp: 120,
       label: 'Dépensier', hint: 'Cinq cents złotych dépensés', goal: 500, nickname: 'Le Dépensier' },
-    { id: 'spender-2000', icon: 'coin', family: 'boutique', xp: 150,
+    { id: 'spender-2000', icon: 'coin', family: 'boutique', xp: 300,
       label: 'Le PIB de la LAN', hint: 'Dépenser deux mille złotych pendant une LAN', goal: 2000, nickname: 'Le PIB de la LAN' },
-    { id: 'spender-broke', icon: 'coin', family: 'boutique', xp: 100,
+    { id: 'spender-broke', icon: 'coin', family: 'boutique', xp: 200,
       label: 'La CB en PLS', hint: 'Dépenser mille złotych et finir avec moins de vingt', goal: 1000,
       nickname: 'La CB en PLS', closureOnly: true },
-    { id: 'handicap-1', icon: 'target', family: 'boutique', xp: 40,
+    { id: 'handicap-1', icon: 'target', family: 'boutique', xp: 80,
       label: 'Sale coup', hint: 'Jouer un handicap sur quelqu\'un', goal: 1, nickname: 'La Crapule' },
-    { id: 'handicap-5', icon: 'target', family: 'boutique', xp: 110,
+    { id: 'handicap-5', icon: 'target', family: 'boutique', xp: 220,
       label: 'Fléau du lobby', hint: 'Infliger cinq handicaps pendant une LAN', goal: 5, nickname: 'Le Fléau du lobby' },
 
     /* --- Les cartes --- */
-    { id: 'pack-1', icon: 'pack', family: 'cartes', xp: 25,
+    { id: 'pack-1', icon: 'pack', family: 'cartes', xp: 50,
       label: 'Premier paquet', hint: 'Ouvrir un booster', goal: 1 },
-    { id: 'pack-10', icon: 'pack', family: 'cartes', xp: 100,
+    { id: 'pack-10', icon: 'pack', family: 'cartes', xp: 200,
       label: 'Ouvreur compulsif', hint: 'Ouvrir dix boosters', goal: 10, nickname: 'L\'Ouvreur' },
-    { id: 'cards-50', icon: 'cards', family: 'cartes', xp: 80,
+    { id: 'cards-50', icon: 'cards', family: 'cartes', xp: 160,
       label: 'Collectionneur', hint: 'Cinquante cartes différentes', goal: 50, nickname: 'Le Collectionneur' },
-    { id: 'foil-10', icon: 'spark', family: 'cartes', xp: 80,
+    { id: 'foil-10', icon: 'spark', family: 'cartes', xp: 160,
       label: 'Ça brille', hint: 'Dix cartes brillantes', goal: 10, nickname: 'L\'Étincelant' },
-    { id: 'signature-1', icon: 'signature', family: 'cartes', xp: 150,
+    { id: 'signature-1', icon: 'signature', family: 'cartes', xp: 300,
       label: 'La Signature', hint: 'Sortir une carte Signature', goal: 1, nickname: 'Le Signataire' },
-    { id: 'set-complete', icon: 'trophy', family: 'cartes', xp: 300,
+    { id: 'set-complete', icon: 'trophy', family: 'cartes', xp: 600,
       label: 'Set complet', hint: 'Compléter un set entier', goal: 1, nickname: 'Le Complétiste' },
-    { id: 'trade-1', icon: 'trade', family: 'cartes', xp: 40,
+    { id: 'trade-1', icon: 'trade', family: 'cartes', xp: 80,
       label: 'Premier échange', hint: 'Conclure un échange', goal: 1 },
-    { id: 'trade-10', icon: 'trade', family: 'cartes', xp: 120,
+    { id: 'trade-10', icon: 'trade', family: 'cartes', xp: 240,
       label: 'Négociant', hint: 'Conclure dix échanges', goal: 10, nickname: 'Le Négociant' },
 
     /* --- L'assiduité --- */
-    { id: 'tick-max', icon: 'clock', family: 'soirée', xp: 60,
+    { id: 'tick-max', icon: 'clock', family: 'soirée', xp: 120,
       label: 'Increvable', hint: 'Atteindre le plafond de présence', goal: ECONOMY.MAX_TICKS, nickname: 'L\'Increvable' },
-    { id: 'lan-3', icon: 'flag', family: 'soirée', xp: 100,
+    { id: 'lan-3', icon: 'flag', family: 'soirée', xp: 200,
       label: 'Le Meuble', hint: 'Participer à trois LAN', goal: 3, nickname: 'Le Meuble' },
-    { id: 'lan-7', icon: 'flag', family: 'soirée', xp: 180,
+    { id: 'lan-7', icon: 'flag', family: 'soirée', xp: 360,
       label: 'Il habite ici', hint: 'Participer à sept LAN', goal: 7, nickname: 'Il habite ici' },
-    { id: 'lan-15', icon: 'flag', family: 'soirée', xp: 320,
+    { id: 'lan-15', icon: 'flag', family: 'soirée', xp: 640,
       label: 'Le bail est à son nom', hint: 'Participer à quinze LAN', goal: 15, nickname: 'Le bail est à son nom' },
-    { id: 'lan-comeback', icon: 'clock', family: 'soirée', xp: 140,
+    { id: 'lan-comeback', icon: 'clock', family: 'soirée', xp: 280,
       label: 'Le Revenant', hint: 'Revenir après avoir manqué trois LAN de suite', goal: 1, nickname: 'Le Revenant' },
 
     /* --- Les défis --- */
-    { id: 'challenge-all', icon: 'spark', family: 'défis', xp: 150,
+    { id: 'challenge-all', icon: 'spark', family: 'défis', xp: 300,
       label: 'Le Couteau suisse', hint: 'Valider un défi de chaque catégorie pendant une LAN', goal: 5, nickname: 'Le Couteau suisse' },
-    { id: 'challenge-faker', icon: 'trophy', family: 'défis', xp: 300,
+    { id: 'challenge-faker', icon: 'trophy', family: 'défis', xp: 600,
       label: 'Faker', hint: 'Valider quinze défis pendant une LAN', goal: 15, nickname: 'Faker' },
 
     /* --- Les votes, figés uniquement à la clôture --- */
-    { id: 'vote-solo-winner', icon: 'target', family: 'votes', xp: 200,
+    { id: 'vote-solo-winner', icon: 'target', family: 'votes', xp: 400,
       label: 'Seul contre tous', hint: 'Faire gagner un jeu dont on était l’unique votant', goal: 1,
       nickname: 'Seul contre tous', closureOnly: true },
-    { id: 'vote-kingmaker', icon: 'trophy', family: 'votes', xp: 250,
+    { id: 'vote-kingmaker', icon: 'trophy', family: 'votes', xp: 500,
       label: 'Le Faiseur de roi', hint: 'Voir son choix numéro un gagner trois LAN', goal: 3,
       nickname: 'Le Faiseur de roi', closureOnly: true },
 
@@ -2265,7 +2275,7 @@ const ACHIEVEMENTS = [
        l'admin laisse `lan/settings/beta` allumé, quiconque participe à une
        soirée l'obtient. Il s'éteint le jour où la bêta se termine, et devient
        alors impossible à décrocher — c'est tout l'intérêt. */
-    { id: 'beta', icon: 'flag', family: 'légende', xp: 200,
+    { id: 'beta', icon: 'flag', family: 'légende', xp: 400,
       label: 'Bêta-testeur', hint: 'Avoir été là pendant la bêta', goal: 1,
       nickname: 'Le Cobaye originel' }
 ];
@@ -2356,12 +2366,12 @@ function achievementById(id) {
 /* Les titres décernés à la clôture. `pick` reçoit les compteurs de tous les
    joueurs et rend celui qui l'emporte. */
 const LAN_TITLES = [
-    { id: 'top-buyer', label: 'Le plus gros acheteur', xp: 100, metric: 'purchases' },
-    { id: 'top-spender', label: 'Le plus dépensier', xp: 100, metric: 'spent' },
-    { id: 'top-fortune', label: 'La plus grosse fortune', xp: 100, metric: 'balance' },
-    { id: 'top-opener', label: 'Le plus gros ouvreur', xp: 100, metric: 'packs' },
-    { id: 'top-trader', label: 'Le plus grand négociant', xp: 100, metric: 'trades' },
-    { id: 'top-presence', label: 'Le plus présent', xp: 100, metric: 'ticks' }
+    { id: 'top-buyer', label: 'Le plus gros acheteur', xp: 200, metric: 'purchases' },
+    { id: 'top-spender', label: 'Le plus dépensier', xp: 200, metric: 'spent' },
+    { id: 'top-fortune', label: 'La plus grosse fortune', xp: 200, metric: 'balance' },
+    { id: 'top-opener', label: 'Le plus gros ouvreur', xp: 200, metric: 'packs' },
+    { id: 'top-trader', label: 'Le plus grand négociant', xp: 200, metric: 'trades' },
+    { id: 'top-presence', label: 'Le plus présent', xp: 200, metric: 'ticks' }
 ];
 
 /* Combien de LAN ce joueur a-t-il faites ? L'historique garde les votes de
@@ -3031,110 +3041,110 @@ const CHALLENGE_STARTER = [
        de la vie » ne se relève pas, et une liste que personne ne touche ne
        rapporte d'expérience à personne. Dix pompes, on les fait ; trente, on
        les remet à plus tard. */
-    { title: '10 pompes', category: 'sport', zl: 60, xp: 40,
+    { title: '10 pompes', category: 'sport', zl: 120, xp: 80,
       description: 'D\'affilée. Quelqu\'un compte à voix haute, et se moque si tu triches.' },
-    { title: '3 tractions', category: 'sport', zl: 70, xp: 45,
+    { title: '3 tractions', category: 'sport', zl: 140, xp: 90,
       description: 'Menton au-dessus de la barre. Trois, pas deux et demie.' },
-    { title: 'La chaise, 1 minute', category: 'sport', zl: 70, xp: 45,
+    { title: 'La chaise, 1 minute', category: 'sport', zl: 140, xp: 90,
       description: 'Dos au mur, cuisses à l\'horizontale. Une minute complète. Ça paraît court.' },
-    { title: 'Gagner un bras de fer', category: 'sport', zl: 70, xp: 45,
+    { title: 'Gagner un bras de fer', category: 'sport', zl: 140, xp: 90,
       description: 'Contre qui tu veux dans la soirée. Le perdant confirme, la mort dans l\'âme.' },
-    { title: 'Une pompe entre chaque manche', category: 'sport', zl: 120, xp: 80,
+    { title: 'Une pompe entre chaque manche', category: 'sport', zl: 240, xp: 160,
       description: 'Toute une session. Une pompe après chaque partie perdue. Deux si tu râles.' },
-    { title: '2 km de course', category: 'sport', zl: 110, xp: 70,
+    { title: '2 km de course', category: 'sport', zl: 220, xp: 140,
       description: 'Pendant la LAN. Capture d\'écran de la montre ou de l\'appli.' },
-    { title: 'Un tour du pâté de maisons', category: 'sport', zl: 80, xp: 50,
+    { title: 'Un tour du pâté de maisons', category: 'sport', zl: 160, xp: 100,
       description: 'À pied, dehors, en pleine LAN. Le monde extérieur existe encore.' },
 
     /* La piscine. Elle est là, autant s'en servir — mais à jeun et jamais seul :
        un défi qui envoie quelqu'un dans l'eau après trois verres n'est pas un
        défi, et aucune récompense ne vaut ça. Le témoin sur le bord fait partie
        de la règle, pas de la décoration. */
-    { title: 'Le plongeon des braves', category: 'sport', zl: 80, xp: 50,
+    { title: 'Le plongeon des braves', category: 'sport', zl: 160, xp: 100,
       description: 'Dans l\'eau d\'un coup, sans tremper l\'orteil d\'abord. À jeun. Un témoin sur le bord.' },
-    { title: 'Vingt longueurs', category: 'sport', zl: 130, xp: 80,
+    { title: 'Vingt longueurs', category: 'sport', zl: 260, xp: 160,
       description: 'En une fois, à l\'heure que tu veux. À jeun, et quelqu\'un compte depuis le bord.' },
-    { title: 'L\'apnée de la soirée', category: 'sport', zl: 90, xp: 55,
+    { title: 'L\'apnée de la soirée', category: 'sport', zl: 180, xp: 110,
       description: 'Le meilleur temps sous l\'eau. Deux témoins, dont un qui ne rigole pas.' },
-    { title: 'La baignade de l\'aube', category: 'sport', zl: 140, xp: 90,
+    { title: 'La baignade de l\'aube', category: 'sport', zl: 280, xp: 180,
       description: 'Dans l\'eau au lever du jour, après une nuit blanche. À jeun. Quelqu\'un reste au bord.' },
-    { title: 'Le sauvetage du canard', category: 'sport', zl: 60, xp: 40,
+    { title: 'Le sauvetage du canard', category: 'sport', zl: 120, xp: 80,
       description: 'Quelqu\'un lance un objet qui flotte au milieu. Tu vas le chercher. Habillé.' },
 
     /* --- Jeu --- */
-    { title: 'Une manche à une main', category: 'jeu', zl: 90, xp: 55,
+    { title: 'Une manche à une main', category: 'jeu', zl: 180, xp: 110,
       description: 'L\'autre main reste sur la table. Une manche entière.' },
-    { title: 'Build imposé', category: 'jeu', zl: 110, xp: 70,
+    { title: 'Build imposé', category: 'jeu', zl: 220, xp: 140,
       description: 'Un autre joueur choisit tes objets, un par un, pendant la partie.' },
-    { title: 'Perso choisi par un autre', category: 'jeu', zl: 90, xp: 55,
+    { title: 'Perso choisi par un autre', category: 'jeu', zl: 180, xp: 110,
       description: 'Quelqu\'un d\'autre choisit ton personnage. Il a le droit d\'être méchant.' },
-    { title: 'Run de roguelite sans [au choix]', category: 'jeu', zl: 140, xp: 85,
+    { title: 'Run de roguelite sans [au choix]', category: 'jeu', zl: 280, xp: 170,
       description: 'Finir un run privé de quelque chose : une arme, un objet, une touche. Annonce la contrainte avant.' },
-    { title: 'Roguelite à quatre mains', category: 'jeu', zl: 180, xp: 110,
+    { title: 'Roguelite à quatre mains', category: 'jeu', zl: 360, xp: 220,
       description: 'Un joueur à la souris, l\'autre au clavier, même run. Les deux touchent la récompense.' },
-    { title: 'Touches remappées', category: 'jeu', zl: 150, xp: 90,
+    { title: 'Touches remappées', category: 'jeu', zl: 300, xp: 180,
       description: 'Quelqu\'un échange deux touches avant la partie. Tu joues avec, sans les remettre.' },
-    { title: 'Clavier retourné', category: 'jeu', zl: 170, xp: 100,
+    { title: 'Clavier retourné', category: 'jeu', zl: 340, xp: 200,
       description: 'AZERTY passé en QWERTY, une partie complète. Regarder ses doigts ne sert plus à rien.' },
-    { title: 'Gagner en aveugle', category: 'jeu', zl: 250, xp: 130,
+    { title: 'Gagner en aveugle', category: 'jeu', zl: 500, xp: 260,
       description: 'Une manche, l\'écran retourné ou les yeux bandés. Un copilote a le droit de parler. Pas de te toucher.' },
-    { title: 'Sans interface', category: 'jeu', zl: 120, xp: 75,
+    { title: 'Sans interface', category: 'jeu', zl: 240, xp: 150,
       description: 'HUD coupé : pas de vie, pas de munitions, pas de minimap. Une partie entière.' },
-    { title: 'Le pilote et le copilote', category: 'jeu', zl: 130, xp: 80,
+    { title: 'Le pilote et le copilote', category: 'jeu', zl: 260, xp: 160,
       description: 'Quelqu\'un derrière toi donne les ordres. Tu exécutes sans discuter, même les mauvais.' },
-    { title: 'Annoncer la victoire', category: 'jeu', zl: 160, xp: 95,
+    { title: 'Annoncer la victoire', category: 'jeu', zl: 320, xp: 190,
       description: 'Tu annonces que tu gagnes, avant la partie, devant tout le monde. Si tu perds, tu paies la tournée.' },
-    { title: 'Le boulet volontaire', category: 'jeu', zl: 140, xp: 85,
+    { title: 'Le boulet volontaire', category: 'jeu', zl: 280, xp: 170,
       description: 'Tu prends la classe, le perso ou l\'arme dont personne ne veut. Et tu finis dans les trois premiers.' },
-    { title: 'Une partie sans son', category: 'jeu', zl: 90, xp: 55,
+    { title: 'Une partie sans son', category: 'jeu', zl: 180, xp: 110,
       description: 'Casque débranché, volume à zéro. Une partie complète, sans râler.' },
-    { title: 'Commentateur en direct', category: 'jeu', zl: 100, xp: 60,
+    { title: 'Commentateur en direct', category: 'jeu', zl: 200, xp: 120,
       description: 'Tu commentes ta propre partie à voix haute, sans t\'arrêter. Ton de match télévisé exigé.' },
-    { title: 'Debout toute la partie', category: 'jeu', zl: 110, xp: 70,
+    { title: 'Debout toute la partie', category: 'jeu', zl: 220, xp: 140,
       description: 'Une partie entière jouée debout. Chaise repoussée, pas de triche.' },
-    { title: 'Chaque mort, une gorgée', category: 'jeu', zl: 100, xp: 60,
+    { title: 'Chaque mort, une gorgée', category: 'jeu', zl: 200, xp: 120,
       description: 'Une gorgée à chaque mort, toute la session. De l\'eau compte aussi, on n\'est pas des animaux.' },
 
     /* --- Boisson --- */
-    { title: 'Une bière à 9 h du matin', category: 'boisson', zl: 80, xp: 50,
+    { title: 'Une bière à 9 h du matin', category: 'boisson', zl: 160, xp: 100,
       description: 'Avec le pain au chocolat. C\'est le petit-déjeuner officiel de la LAN.' },
-    { title: 'Un shot dans les 10 min du réveil', category: 'boisson', zl: 100, xp: 60,
+    { title: 'Un shot dans les 10 min du réveil', category: 'boisson', zl: 200, xp: 120,
       description: 'Un témoin obligatoire, et il doit être réveillé aussi.' },
-    { title: 'Boire un one-shot inventé ce soir', category: 'boisson', zl: 70, xp: 45,
+    { title: 'Boire un one-shot inventé ce soir', category: 'boisson', zl: 140, xp: 90,
       description: 'Un kocktail de la carte « one-shot ». En entier. Sans grimacer, si possible.' },
-    { title: 'Cul sec de l\'infâme', category: 'boisson', zl: 130, xp: 80,
+    { title: 'Cul sec de l\'infâme', category: 'boisson', zl: 260, xp: 160,
       description: 'Quelqu\'un compose le verre avec ce qu\'il trouve. Buvable, mais à peine.' },
-    { title: 'Deux litres d\'eau dans la soirée', category: 'boisson', zl: 70, xp: 45,
+    { title: 'Deux litres d\'eau dans la soirée', category: 'boisson', zl: 140, xp: 90,
       description: 'Oui, c\'est un défi. Non, la bière ne compte pas.' },
-    { title: 'La tournée du perdant', category: 'boisson', zl: 110, xp: 70,
+    { title: 'La tournée du perdant', category: 'boisson', zl: 220, xp: 140,
       description: 'Une session entière : à chaque défaite, tu sers un verre à quelqu\'un d\'autre. Jamais deux fois le même.' },
-    { title: 'Le mot interdit', category: 'boisson', zl: 90, xp: 55,
+    { title: 'Le mot interdit', category: 'boisson', zl: 180, xp: 110,
       description: 'Le groupe choisit un mot. Chaque fois qu\'il sort de ta bouche, une gorgée. Deux heures.' },
-    { title: 'Le barman de la nuit', category: 'boisson', zl: 120, xp: 75,
+    { title: 'Le barman de la nuit', category: 'boisson', zl: 240, xp: 150,
       description: 'Tu tiens le bar une heure. Tout le monde est servi, personne n\'attend, et toi tu ne bois pas.' },
-    { title: 'Le verre du dernier', category: 'boisson', zl: 100, xp: 60,
+    { title: 'Le verre du dernier', category: 'boisson', zl: 200, xp: 120,
       description: 'Le dernier éliminé d\'une manche boit. Toi, tu tiens le compte de la soirée sans te tromper.' },
 
     /* --- Autre --- */
-    { title: 'Tenir jusqu\'à 4 h du matin', category: 'autre', zl: 120, xp: 75,
+    { title: 'Tenir jusqu\'à 4 h du matin', category: 'autre', zl: 240, xp: 150,
       description: 'Debout, éveillé, et capable de tenir une conversation suivie.' },
-    { title: 'Se lever avant 9 h', category: 'autre', zl: 100, xp: 60,
+    { title: 'Se lever avant 9 h', category: 'autre', zl: 200, xp: 120,
       description: 'Après une nuit de LAN. Un témoin confirme que tu étais vertical.' },
-    { title: 'Le réveil du groupe', category: 'autre', zl: 110, xp: 70,
+    { title: 'Le réveil du groupe', category: 'autre', zl: 220, xp: 140,
       description: 'Tu annonces une heure la veille. Le lendemain, tu lèves tout le monde à la minute près.' },
-    { title: 'Une heure sans écran', category: 'autre', zl: 100, xp: 60,
+    { title: 'Une heure sans écran', category: 'autre', zl: 200, xp: 120,
       description: 'Aucun écran. Le téléphone est un écran. La montre aussi.' },
-    { title: 'Accent imposé pendant une heure', category: 'autre', zl: 110, xp: 70,
+    { title: 'Accent imposé pendant une heure', category: 'autre', zl: 220, xp: 140,
       description: 'Quelqu\'un choisit l\'accent. Une heure. Y compris au téléphone.' },
-    { title: 'Vouvoyer tout le monde', category: 'autre', zl: 80, xp: 50,
+    { title: 'Vouvoyer tout le monde', category: 'autre', zl: 160, xp: 100,
       description: 'Deux heures. « Vous » à tout le monde, y compris en pleine rage.' },
-    { title: 'Le photographe officiel', category: 'autre', zl: 90, xp: 55,
+    { title: 'Le photographe officiel', category: 'autre', zl: 180, xp: 110,
       description: 'Dix photos de la soirée, dont une de chacun. Personne n\'est prévenu.' },
-    { title: 'DJ imposé', category: 'autre', zl: 100, xp: 60,
+    { title: 'DJ imposé', category: 'autre', zl: 200, xp: 120,
       description: 'Tu tiens la musique une heure, et tu acceptes une demande de chaque personne présente.' },
-    { title: 'Ranger la table de tout le monde', category: 'autre', zl: 90, xp: 55,
+    { title: 'Ranger la table de tout le monde', category: 'autre', zl: 180, xp: 110,
       description: 'Sans rien casser, sans se plaindre. Quelqu\'un valide le résultat.' },
-    { title: 'Le discours de minuit', category: 'autre', zl: 130, xp: 80,
+    { title: 'Le discours de minuit', category: 'autre', zl: 260, xp: 160,
       description: 'Trente secondes debout sur une chaise, à minuit pile, sur un sujet donné dix secondes avant.' }
 ];
 
@@ -3152,47 +3162,47 @@ const EXERCISE_TYPES = [
 
 const EXERCISE_BANK = [
     { id: 'math-17x6', type: 'math', label: 'Multiplication express',
-      prompt: 'Combien font 17 × 6 ?', solution: '102', zl: 12, xp: 6 },
+      prompt: 'Combien font 17 × 6 ?', solution: '102', zl: 24, xp: 12 },
     { id: 'math-priority', type: 'math', label: 'Priorités opératoires',
-      prompt: 'Calcule 144 ÷ 12 + 7.', solution: '19', zl: 12, xp: 6 },
+      prompt: 'Calcule 144 ÷ 12 + 7.', solution: '19', zl: 24, xp: 12 },
     { id: 'math-percent', type: 'math', label: 'Pourcentage',
-      prompt: 'Combien représentent 15 % de 240 ?', solution: '36', zl: 15, xp: 8 },
+      prompt: 'Combien représentent 15 % de 240 ?', solution: '36', zl: 30, xp: 16 },
     { id: 'math-sequence', type: 'math', label: 'Suite logique',
-      prompt: 'Quel nombre vient après 2, 6, 12, 20, 30 ?', solution: '42', zl: 15, xp: 8 },
+      prompt: 'Quel nombre vient après 2, 6, 12, 20, 30 ?', solution: '42', zl: 30, xp: 16 },
     { id: 'math-equation', type: 'math', label: 'Petite équation',
-      prompt: 'Résous 3x + 7 = 28.', solution: 'x = 7', zl: 15, xp: 8 },
+      prompt: 'Résous 3x + 7 = 28.', solution: 'x = 7', zl: 30, xp: 16 },
     { id: 'math-die', type: 'math', label: 'Probabilité',
       prompt: 'Avec un dé à six faces, quelle est la probabilité d’obtenir strictement plus que 4 ?',
-      solution: '2/6, soit 1/3', zl: 20, xp: 10 },
+      solution: '2/6, soit 1/3', zl: 40, xp: 20 },
 
     { id: 'ortho-fini', type: 'orthographe', label: 'Passé composé',
-      prompt: 'Complète : « Ils ___ (finir) avant minuit. »', solution: 'ont fini', zl: 12, xp: 6 },
+      prompt: 'Complète : « Ils ___ (finir) avant minuit. »', solution: 'ont fini', zl: 24, xp: 12 },
     { id: 'ortho-avais', type: 'orthographe', label: 'Imparfait',
-      prompt: 'Complète : « Si j’___ le temps, je rejouerais. »', solution: 'avais', zl: 12, xp: 6 },
+      prompt: 'Complète : « Si j’___ le temps, je rejouerais. »', solution: 'avais', zl: 24, xp: 12 },
     { id: 'ortho-branchees', type: 'orthographe', label: 'Accord du participe',
       prompt: 'Complète : « Les souris que j’ai ___ fonctionnent. » (brancher)',
-      solution: 'branchées', zl: 18, xp: 9 },
+      solution: 'branchées', zl: 36, xp: 18 },
     { id: 'ortho-fasses', type: 'orthographe', label: 'Subjonctif',
-      prompt: 'Complète : « Il faut que tu ___ une pause. » (faire)', solution: 'fasses', zl: 15, xp: 8 },
+      prompt: 'Complète : « Il faut que tu ___ une pause. » (faire)', solution: 'fasses', zl: 30, xp: 16 },
     { id: 'ortho-ca', type: 'orthographe', label: 'Correction éclair',
-      prompt: 'Corrige : « Sa c’est une belle victoire. »', solution: 'Ça, c’est une belle victoire.', zl: 12, xp: 6 },
+      prompt: 'Corrige : « Sa c’est une belle victoire. »', solution: 'Ça, c’est une belle victoire.', zl: 24, xp: 12 },
     { id: 'ortho-quelques', type: 'orthographe', label: 'Quelque ou quelques',
       prompt: 'Complète : « Il reste ___ minutes avant la partie. »',
-      solution: 'quelques', zl: 12, xp: 6 },
+      solution: 'quelques', zl: 24, xp: 12 },
 
     { id: 'culture-australia', type: 'culture', label: 'Capitales',
-      prompt: 'Quelle est la capitale de l’Australie ?', solution: 'Canberra', zl: 12, xp: 6 },
+      prompt: 'Quelle est la capitale de l’Australie ?', solution: 'Canberra', zl: 24, xp: 12 },
     { id: 'culture-au', type: 'culture', label: 'Table périodique',
-      prompt: 'Quel élément chimique porte le symbole Au ?', solution: 'L’or', zl: 12, xp: 6 },
+      prompt: 'Quel élément chimique porte le symbole Au ?', solution: 'L’or', zl: 24, xp: 12 },
     { id: 'culture-1984', type: 'culture', label: 'Littérature',
-      prompt: 'Qui a écrit 1984 ?', solution: 'George Orwell', zl: 12, xp: 6 },
+      prompt: 'Qui a écrit 1984 ?', solution: 'George Orwell', zl: 24, xp: 12 },
     { id: 'culture-ocean', type: 'culture', label: 'Géographie',
-      prompt: 'Quel est le plus grand océan du monde ?', solution: 'L’océan Pacifique', zl: 12, xp: 6 },
+      prompt: 'Quel est le plus grand océan du monde ?', solution: 'L’océan Pacifique', zl: 24, xp: 12 },
     { id: 'culture-foot', type: 'culture', label: 'Sport',
       prompt: 'Combien de joueurs une équipe de football aligne-t-elle sur le terrain ?',
-      solution: '11', zl: 12, xp: 6 },
+      solution: '11', zl: 24, xp: 12 },
     { id: 'culture-zloty', type: 'culture', label: 'Question maison',
-      prompt: 'Quelle est la monnaie officielle de la Pologne ?', solution: 'Le złoty', zl: 10, xp: 5 }
+      prompt: 'Quelle est la monnaie officielle de la Pologne ?', solution: 'Le złoty', zl: 20, xp: 10 }
 ];
 
 function exerciseType(key) {
@@ -3224,40 +3234,40 @@ function exerciseAsChallenge(exercise) {
    pour que le farm reste un condiment. La présence seule reste la principale
    rente fiable de la soirée. */
 const CHALLENGE_FARM_STARTER = [
-    { title: 'Boire une bière', category: 'farm', zl: 10, xp: 2, maxPerLan: 3,
+    { title: 'Boire une bière', category: 'farm', zl: 20, xp: 4, maxPerLan: 3,
       description: 'Une bière, avec ou sans alcool. Pas de cul-sec : le farm n’est pas un concours de vitesse.' },
-    { title: 'Grand verre d’eau', category: 'farm', zl: 5, xp: 1, maxPerLan: 5,
+    { title: 'Grand verre d’eau', category: 'farm', zl: 10, xp: 2, maxPerLan: 5,
       description: 'Un vrai grand verre. Le farm hydratation finance les mauvaises idées suivantes.' },
-    { title: 'GG sans ironie', category: 'farm', zl: 5, xp: 1, maxPerLan: 5,
+    { title: 'GG sans ironie', category: 'farm', zl: 10, xp: 2, maxPerLan: 5,
       description: 'Félicite sincèrement le joueur qui vient de te rouler dessus.' },
-    { title: 'Défaite avec panache', category: 'farm', zl: 8, xp: 2, maxPerLan: 5,
+    { title: 'Défaite avec panache', category: 'farm', zl: 16, xp: 4, maxPerLan: 5,
       description: 'Perds une partie sans accuser le jeu, la connexion, la chaise ou Mercure rétrograde.' },
-    { title: 'Revanche immédiate gagnée', category: 'farm', zl: 12, xp: 3, maxPerLan: 4,
+    { title: 'Revanche immédiate gagnée', category: 'farm', zl: 24, xp: 6, maxPerLan: 4,
       description: 'Perds, relance immédiatement le même adversaire, puis gagne.' },
-    { title: 'Sauvetage de coéquipier', category: 'farm', zl: 8, xp: 2, maxPerLan: 5,
+    { title: 'Sauvetage de coéquipier', category: 'farm', zl: 16, xp: 4, maxPerLan: 5,
       description: 'Sauve ou relève un coéquipier au moment où tout semblait perdu.' },
-    { title: 'Faire rire la table', category: 'farm', zl: 10, xp: 2, maxPerLan: 5,
+    { title: 'Faire rire la table', category: 'farm', zl: 20, xp: 4, maxPerLan: 5,
       description: 'Un vrai rire collectif. Montrer un même n’est accepté qu’une fois.' },
-    { title: 'Dépannage express', category: 'farm', zl: 15, xp: 4, maxPerLan: 3,
+    { title: 'Dépannage express', category: 'farm', zl: 30, xp: 8, maxPerLan: 3,
       description: 'Aide quelqu’un à installer, lancer ou réparer son jeu sans soupirer trop fort.' },
-    { title: 'Ravitaillement partagé', category: 'farm', zl: 10, xp: 2, maxPerLan: 3,
+    { title: 'Ravitaillement partagé', category: 'farm', zl: 20, xp: 4, maxPerLan: 3,
       description: 'Ramène un snack ou une tournée d’eau à la table.' },
-    { title: 'Ramassage de la honte', category: 'farm', zl: 15, xp: 4, maxPerLan: 2,
+    { title: 'Ramassage de la honte', category: 'farm', zl: 30, xp: 8, maxPerLan: 2,
       description: 'Ramasse les canettes, verres et emballages de tout le groupe.' },
-    { title: 'Changer de place', category: 'farm', zl: 8, xp: 2, maxPerLan: 3,
+    { title: 'Changer de place', category: 'farm', zl: 16, xp: 4, maxPerLan: 3,
       description: 'Prête ta place ou ton périphérique cinq minutes à quelqu’un qui veut tester.' },
-    { title: 'Victoire au dernier souffle', category: 'farm', zl: 12, xp: 3, maxPerLan: 4,
+    { title: 'Victoire au dernier souffle', category: 'farm', zl: 24, xp: 6, maxPerLan: 4,
       description: 'Gagne avec presque plus de vie, de temps ou de dignité.' }
 ];
 
 const CHALLENGE_REPEATABLE_ADDITIONS = [
-    { title: 'Un verre d’alcool fort', category: 'repeatable', zl: 15, xp: 3,
+    { title: 'Un verre d’alcool fort', category: 'repeatable', zl: 30, xp: 6,
       description: 'Une dose standard, tranquillement — pas cul sec. Le maître du jeu refuse les enchaînements douteux.' },
-    { title: 'Un shot de la maison', category: 'repeatable', zl: 12, xp: 3,
+    { title: 'Un shot de la maison', category: 'repeatable', zl: 24, xp: 6,
       description: 'Un shot servi par le groupe. Une seule dose à la fois, et jamais comme course de vitesse.' },
-    { title: 'Boire un kocktail maison', category: 'repeatable', zl: 12, xp: 3,
+    { title: 'Boire un kocktail maison', category: 'repeatable', zl: 24, xp: 6,
       description: 'Un kocktail de la carte, avec ou sans alcool, terminé normalement.' },
-    { title: 'Tchin collectif', category: 'repeatable', zl: 8, xp: 2,
+    { title: 'Tchin collectif', category: 'repeatable', zl: 16, xp: 4,
       description: 'Réunis au moins quatre personnes pour un vrai tchin synchronisé.' }
 ];
 
@@ -3289,6 +3299,18 @@ function missingStarterChallenges(node) {
         .filter(c => {
             const current = have[normalizeGameName(c.title)];
             if (!current) return true;
+            /* Un défi proposé par un joueur n'appartient pas à la liste de
+               départ, même s'il en porte le titre : les règles plafonnent ses
+               récompenses tant qu'il est « proposed », et le réaligner ferait
+               refuser l'écriture entière. On le laisse au maître du jeu. */
+            if (current.challenge.status === 'proposed') return false;
+            /* Un défi déjà en base gardait ses anciens montants : changer un
+               barème ici ne touchait que ceux jamais ajoutés, et il fallait
+               rééditer les autres un par un. On les réaligne, même ceux qui
+               ont déjà été relevés — les réclamations déjà validées, elles,
+               gardent la récompense qu'elles ont payée. */
+            if (Number(current.challenge.zl) !== Number(c.zl)
+                || Number(current.challenge.xp) !== Number(c.xp)) return true;
             return c.forceUnlimited === true
                 && Number(current.challenge.maxPerLan) > 0;
         });

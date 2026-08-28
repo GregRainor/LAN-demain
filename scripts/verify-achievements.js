@@ -141,7 +141,7 @@ assert.strictEqual(ach.achievementGrantIfMissing(
 ), undefined, 'Automatic grants must preserve an admin reset tombstone');
 data.xp.awards[awardId] = grant;
 assert.strictEqual(ach.hasXpAward(data.xp, awardId), true);
-assert.strictEqual(ach.xpTotal(data.xp, uid), 200);
+assert.strictEqual(ach.xpTotal(data.xp, uid), beta.xp);
 assert.strictEqual(ach.achievementState(data, uid).find(row => row.ach.id === 'beta').owned, true);
 
 const reset = ach.achievementResetRecord(uid, beta, admin, 200);
@@ -171,7 +171,7 @@ const reassigned = ach.achievementGrantRecord(uid, beta, admin, 400);
 assert.strictEqual(Object.prototype.hasOwnProperty.call(reassigned, 'revoked'), false);
 data.xp.awards[awardId] = reassigned;
 assert.strictEqual(ach.achievementState(data, uid).find(row => row.ach.id === 'beta').owned, true);
-assert.strictEqual(ach.xpTotal(data.xp, uid), 200);
+assert.strictEqual(ach.xpTotal(data.xp, uid), beta.xp);
 
 let unseen = ach.unseenAchievementAwards(data.xp, uid, {}, 350);
 assert.deepStrictEqual(plain(unseen.map(row => row.refId)), ['beta']);

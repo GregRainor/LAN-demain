@@ -82,7 +82,7 @@
         "ticks": {
           "$uid": {
             ".write": "auth != null && auth.uid === $uid && root.child('lan/settings/isLanActive').val() === true",
-            ".validate": "newData.hasChildren(['count', 'lastTick']) && newData.child('lastTick').val() <= now && newData.child('count').val() <= 60 && ((!data.exists() && newData.child('count').val() === 1) || (data.exists() && newData.child('count').val() === data.child('count').val() + 1 && newData.child('lastTick').val() >= data.child('lastTick').val() + 600000))",
+            ".validate": "newData.hasChildren(['count', 'lastTick']) && newData.child('lastTick').val() <= now && newData.child('count').val() <= 180 && ((!data.exists() && newData.child('count').val() === 1) || (data.exists() && newData.child('count').val() === data.child('count').val() + 1 && newData.child('lastTick').val() >= data.child('lastTick').val() + 600000))",
             "count": { ".validate": "newData.isNumber()" },
             "lastTick": { ".validate": "newData.isNumber()" },
             "$other": { ".validate": false }

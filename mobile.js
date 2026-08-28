@@ -3952,9 +3952,9 @@ function buildBoosterCard(id, item, uid) {
     return card;
 }
 
-/* Un booster prêt à vendre, sans passer par le formulaire. Le prix part du
-   plafond de présence : dix heures de LAN paient trois paquets, ce qui laisse
-   la place aux défis pour le reste. */
+/* Un booster prêt à vendre, sans passer par le formulaire. Le prix part de la
+   présence : dix heures de LAN paient six paquets, ce qui laisse la place aux
+   défis pour le reste. */
 function createDefaultPackItem() {
     const user = state.user;
     if (!user) return;
@@ -7289,7 +7289,7 @@ function renderChallengeList() {
     const missing = state.isGamemaster ? missingStarterChallenges(state.quests).length : 0;
     if (missing) {
         const more = el('button', 'm-btn m-btn--quiet m-btn--sm m-btn--full',
-            'Ajouter les ' + missing + ' défis de la liste de départ');
+            'Ajouter ou actualiser ' + missing + ' défis de la liste de départ');
         more.addEventListener('click', stockStarterChallenges);
         mount.appendChild(more);
     }
@@ -7500,11 +7500,17 @@ function stockStarterChallenges() {
         const existing = Object.entries(challenges)
             .find(([, current]) => current
                 && normalizeGameName(current.title) === normalizeGameName(challenge.title));
-        if (existing && challenge.forceUnlimited === true) {
+        /* Un défi déjà en base se met à jour, il ne se recrée pas : le
+           dupliquer donnerait deux lignes du même défi dans la liste. On ne
+           touche qu'aux récompenses et au texte — le journal des réclamations
+           déjà validées garde ses montants d'alors. */
+        if (existing) {
             const path = 'lan/challenges/' + existing[0] + '/';
-            update[path + 'category'] = 'repeatable';
-            update[path + 'repeatable'] = true;
-            update[path + 'maxPerLan'] = null;
+            if (challenge.forceUnlimited === true) {
+                update[path + 'category'] = 'repeatable';
+                update[path + 'repeatable'] = true;
+                update[path + 'maxPerLan'] = null;
+            }
             update[path + 'zl'] = challenge.zl;
             update[path + 'xp'] = challenge.xp;
             update[path + 'description'] = challenge.description || '';
