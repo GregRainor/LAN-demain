@@ -4706,7 +4706,11 @@ const legacyArtObserver = ('IntersectionObserver' in window)
    et le set entier ne déclenche pas une seule requête. */
 function cardArtFor(card, imgEl) {
     if (card.rarity === 'signature') {
-        const artKey = card.artKey || card.gameKey;
+        /* cardArtKey(), et pas « artKey || gameKey » : c'est la fonction dont
+           se sert cardImage() pour LIRE l'illustration. Deux façons de calculer
+           la même clé, c'est deux façons de ne pas tomber d'accord — on allait
+           chercher une clé et on en lisait une autre. */
+        const artKey = cardArtKey(card);
         ensureGeneratedArt(artKey);
         // La marque qui permet de repeindre cette image quand l'illustration
         // arrive, même hors de la grille.
@@ -5309,7 +5313,8 @@ function importArt(key, label, file) {
 }
 
 function importCardArt(card, file) {
-    return importArt(card.artKey || card.gameKey, card.name, file);
+    // Même clé à l'écriture qu'à la lecture, par la même fonction.
+    return importArt(cardArtKey(card), card.name, file);
 }
 
 /* Renommer l'emballage sans forcément lui donner une image : le nom seul suffit
@@ -6138,10 +6143,14 @@ function renderSetGrid(view) {
         group.forEach(row => {
             const best = row.copies.find(copy => copy.foil) || row.copies[0];
             /* La silhouette d'une carte manquante porte quand même son appId :
-               sans lui, elle n'aurait aucune illustration à griser. */
+               sans lui, elle n'aurait aucune illustration à griser. Et sa clé
+               d'illustration : une Signature qu'on ne possède PAS était la
+               seule carte à en être privée, si bien qu'elle allait chercher
+               son dessin sous « __signature--jeu » — une clé qui n'existe
+               nulle part — et retombait sur la jaquette Steam. */
             const card = best || {
-                gameKey: row.gameKey, name: row.name, rarity: row.rarity,
-                appId: row.appId, foil: false
+                gameKey: row.gameKey, artKey: row.artKey, name: row.name,
+                rarity: row.rarity, appId: row.appId, foil: false
             };
             grid.appendChild(cardNode(card, {
                 missing: !row.owned,
