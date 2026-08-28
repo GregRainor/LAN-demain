@@ -1257,16 +1257,16 @@ function steamHeaderUrl(appId) {
     return appId ? 'https://cdn.cloudflare.steamstatic.com/steam/apps/' + appId + '/header.jpg' : null;
 }
 
-/* Le poids qui classe une carte, et donc sa rareté. Deux forces, à parts
-   égales à plein régime :
+/* Le poids qui classe la longue traîne du set, après les jeux votés. Deux
+   forces, à parts égales à plein régime :
 
    - LE TERRAIN COMMUN : la part du groupe qui possède le jeu, de 0 à 1. Un jeu
      que tout le monde a vaut autant qu'un jeu choisi en premier par un joueur.
    - L'ENVIE : ce que le vote en a dit.
 
-   Elles s'additionnent, donc le jeu que tout le monde possède ET que tout le
-   monde réclame est en tête du set. C'est exactement la carte qu'on veut voir
-   sortir d'un booster un soir de LAN. */
+   Elles s'additionnent pour départager les ex aequo du vote puis les jeux que
+   personne n'a cités. Le classement du vote reste toutefois souverain pour
+   les Signature et les Showcase. */
 function cardWeight(score, owners, libraries) {
     const share = libraries > 0 ? Math.min(1, owners / libraries) : 0;
     return share * TCG.OWNERSHIP_WEIGHT + (Number(score) || 0) * TCG.VOTE_WEIGHT;
@@ -1298,11 +1298,12 @@ function buildCardSet(scores, pool) {
             name: String(game.name).trim().replace(/\s+/g, ' '),
             score: 0,
             owners: Math.max(Number(game.owners) || 0, (byKey.get(key) || {}).owners || 0),
-            appId: game.appId || null
+            appId: game.appId || null,
+            voteRank: Number.MAX_SAFE_INTEGER
         });
     });
 
-    (scores || []).forEach(game => {
+    (scores || []).forEach((game, voteRank) => {
         if (!game || !game.name) return;
         const key = cardKey(game.name);
         if (!key) return;
@@ -1312,8 +1313,16 @@ function buildCardSet(scores, pool) {
             // Le nom voté fait foi : c'est celui que les joueurs ont écrit.
             known.name = String(game.name).trim().replace(/\s+/g, ' ');
             known.score = Math.max(known.score, score);
+            known.voteRank = Math.min(known.voteRank, voteRank);
         } else {
-            byKey.set(key, { key, name: String(game.name).trim().replace(/\s+/g, ' '), score, owners: 0, appId: null });
+            byKey.set(key, {
+                key,
+                name: String(game.name).trim().replace(/\s+/g, ' '),
+                score,
+                owners: 0,
+                appId: null,
+                voteRank
+            });
         }
     });
 
@@ -1326,14 +1335,26 @@ function buildCardSet(scores, pool) {
         if (!game.appId) byKey.delete(key);
     });
 
-    const ranked = Array.from(byKey.values())
+    const stableByWeight = (a, b) => b.weight - a.weight
+        || tcgHash(a.key) - tcgHash(b.key)
+        || (a.key < b.key ? -1 : 1);
+    const weighted = Array.from(byKey.values())
         .map(game => Object.assign(game, { weight: cardWeight(game.score, game.owners, libraries) }))
-        .sort((a, b) => b.weight - a.weight
-            || tcgHash(a.key) - tcgHash(b.key)
-            || (a.key < b.key ? -1 : 1))
-        /* Un set n'est pas l'inventaire exhaustif des bibliothèques Steam.
-           On garde les jeux les plus représentatifs du groupe : votes et
-           propriété partagée pèsent déjà dans le classement ci-dessus. */
+        .sort(stableByWeight);
+
+    /* Le tableau `scores` est aussi celui qui alimente le classement visible
+       aux joueurs. On conserve donc cet ordre comme source d'autorité : les
+       meilleurs votes entrent d'abord dans le set, même face à 858 jeux Steam,
+       puis la possession partagée complète les places restantes. */
+    const voted = weighted
+        .filter(game => game.score > 0)
+        .sort((a, b) => b.score - a.score
+            || a.voteRank - b.voteRank
+            || stableByWeight(a, b));
+    const votedKeys = new Set(voted.map(game => game.key));
+    const ranked = voted
+        .concat(weighted.filter(game => !votedKeys.has(game.key)))
+        /* Un set n'est pas l'inventaire exhaustif des bibliothèques Steam. */
         .slice(0, TCG.SET_SIZE);
 
     const total = ranked.length;
@@ -1344,8 +1365,9 @@ function buildCardSet(scores, pool) {
        personne d'autre ne possède et que personne n'a demandé n'y entre pas,
        même s'il reste de la place. Sans cette réserve, les prestiges d'un set
        de cinq cents jeux seraient tirées au hasard et la rareté cesserait de
-       dire quoi que ce soit du groupe. `ranked` étant trié par poids
-       décroissant, les méritantes sont exactement les premières.
+       dire quoi que ce soit du groupe. `ranked` place d'abord tous les jeux
+       votés, puis les jeux partagés par ordre de poids : les méritantes sont
+       donc exactement les premières.
 
        La réserve s'arrête à « épique », et pas plus bas : le booster garantit
        un emplacement rare à chaque ouverture, et une rareté réduite à deux ou
@@ -1381,29 +1403,8 @@ function buildCardSet(scores, pool) {
         while (index < upTo) bands[index++] = i;
     });
 
-    /* Après les Signature, Showcase raconte explicitement le vote. Le poids
-       global (bibliothèques + votes) continue de choisir les Signature et le
-       reste de la pyramide, mais les quelques places Showcase reviennent aux
-       jeux les plus votés qui ne sont pas déjà au sommet. Leur illustration
-       reste la jaquette Steam normale. */
-    const showcaseBand = rarityIndex('showcase');
-    const showcaseSlots = bands.filter(band => band === showcaseBand).length;
-    const signatureGames = ranked.slice(0, signatures);
-    const remainingGames = ranked.slice(signatures);
-    const showcaseGames = remainingGames
-        .filter(game => game.score > 0)
-        .sort((a, b) => b.score - a.score
-            || b.weight - a.weight
-            || tcgHash(a.key) - tcgHash(b.key)
-            || (a.key < b.key ? -1 : 1))
-        .slice(0, showcaseSlots);
-    const showcaseKeys = new Set(showcaseGames.map(game => game.key));
-    const rarityRanked = signatureGames
-        .concat(showcaseGames)
-        .concat(remainingGames.filter(game => !showcaseKeys.has(game.key)));
-
     const cards = {};
-    rarityRanked.forEach((game, i) => {
+    ranked.forEach((game, i) => {
         cards[game.key] = {
             name: game.name,
             rarity: TCG.RARITIES[bands[i]].key,

@@ -24,6 +24,16 @@ assert.strictEqual(Object.keys(cappedSet).length, ach.TCG.SET_SIZE,
     'A large Steam library pool must be capped to a classic card-set size');
 assert(Object.values(cappedSet).some(card => card.name === 'Jeu prioritaire'),
     'Shared games must keep their ranking priority when the set is capped');
+const crowdedPool = Array.from({ length: 300 }, (_, index) => ({
+    name: 'Partage ' + index,
+    owners: 5,
+    appId: 9000 + index
+}));
+crowdedPool.push({ name: 'Vote recent', owners: 0, appId: 9999 });
+assert(Object.values(ach.buildCardSet([
+    { name: 'Vote recent', score: 1 }
+], { games: crowdedPool, libraries: 5 })).some(card => card.name === 'Vote recent'),
+    'A voted game must not be evicted from a capped set by highly-owned library games');
 assert.strictEqual(Object.keys(ach.buildCardSet([], {
     games: libraryGames.slice(0, 20),
     libraries: 5
@@ -36,26 +46,28 @@ for (let index = 0; index < 12; index += 1) {
 for (let index = 0; index < 83; index += 1) {
     rarityPool.push({ name: 'Library ' + index, owners: 1, appId: 2000 + index });
 }
-['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon'].forEach((name, index) => {
-    rarityPool.push({ name: 'Voted ' + name, owners: 0, appId: 3000 + index });
+const votedNames = Array.from({ length: 12 }, (_, index) => 'Voted ' + (index + 1));
+votedNames.forEach((name, index) => {
+    rarityPool.push({ name, owners: 0, appId: 3000 + index });
 });
-const voteLedSet = ach.buildCardSet([
-    { name: 'Voted Alpha', score: 4 },
-    { name: 'Voted Beta', score: 3 },
-    { name: 'Voted Gamma', score: 2 },
-    { name: 'Voted Delta', score: 1 },
-    { name: 'Voted Epsilon', score: 1 }
-], { games: rarityPool, libraries: 5 });
+const voteLedSet = ach.buildCardSet(votedNames.map((name, index) => ({
+    name,
+    score: 20 - Math.floor(index / 2)
+})), { games: rarityPool, libraries: 5 });
+const signatures = Object.values(voteLedSet).filter(card => card.rarity === 'signature');
 const showcases = Object.values(voteLedSet).filter(card => card.rarity === 'showcase');
-assert(showcases.some(card => card.name === 'Voted Alpha'),
-    'Showcase must include the best-voted games left below Signature');
+assert.deepStrictEqual(signatures.map(card => card.name), votedNames.slice(0, 8),
+    'Signature must be the first eight games in the visible vote ranking');
+assert(showcases.length > 0, 'A full-size rarity fixture must expose Showcase slots');
+assert.deepStrictEqual(showcases.map(card => card.name), votedNames.slice(8, 8 + showcases.length),
+    'Showcase must continue with the next games in the visible vote ranking');
 assert.strictEqual(
-    ach.cardImage({ gameKey: 'voted-alpha', rarity: 'showcase', appId: 3000 }, { 'voted-alpha': 'data:image/png;base64,custom' }),
-    'https://cdn.cloudflare.steamstatic.com/steam/apps/3000/header.jpg',
+    ach.cardImage({ gameKey: 'voted-9', rarity: 'showcase', appId: 3008 }, { 'voted-9': 'data:image/png;base64,custom' }),
+    'https://cdn.cloudflare.steamstatic.com/steam/apps/3008/header.jpg',
     'Only Signature cards may reuse custom artwork'
 );
 assert.strictEqual(
-    ach.cardImage({ gameKey: 'voted-alpha', rarity: 'signature', appId: 3000 }, { 'voted-alpha': 'data:image/png;base64,custom' }),
+    ach.cardImage({ gameKey: 'voted-1', rarity: 'signature', appId: 3000 }, { 'voted-1': 'data:image/png;base64,custom' }),
     'data:image/png;base64,custom'
 );
 
@@ -257,6 +269,6 @@ assert(rules.rules.lan.tcg.packs['.write'].includes('!newData.exists()')
 assert(rules.rules.lan.tcg.resetAt['.write'].includes("val() !== true")
     && rules.rules.lan.tcg.resetAt['.validate'].includes('newData.val() === now'),
     'The durable reset marker must be gamemaster-writable only during an open LAN');
-assert(/20260828-tcg-set-controls/.test(desktopHtml) && /20260828-tcg-set-controls/.test(mobileHtml));
+assert(/20260828-tcg-vote-rarities/.test(desktopHtml) && /20260828-tcg-vote-rarities/.test(mobileHtml));
 
 console.log('Achievement and TCG archive checks passed (atomic ceremony claim, reset, archived sets).');
