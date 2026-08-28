@@ -14,7 +14,7 @@
     <script defer src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js" integrity="sha384-p62xBRve8PdqGDGASZtZMuHgPsyPcT5VsFwgmz2p4zaFdEtt5ZzNqxK+CLzQS7xP" crossorigin="anonymous"></script>
     <script defer src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js" integrity="sha384-fuqdSwJXSvcAuKu5FbSJcHqHK474liv5ji8tuDnHz1rpfrnuXZPdM0oRaSK6c95L" crossorigin="anonymous"></script>
 
-    <link rel="stylesheet" href="mobile.css?v=20260828-prelan-price-comparator">
+    <link rel="stylesheet" href="mobile.css?v=20260828-tcg-set-controls">
 </head>
 
 <body>
@@ -666,6 +666,15 @@
                     <p class="m-card__meta" id="m-set-view-hint"></p>
                 </div>
 
+                <div class="m-section" id="m-set-admin-section" style="display:none">
+                    <div class="m-section__head">
+                        <h2 class="m-section__title">Gestion des sets</h2>
+                        <span class="m-section__link" id="m-set-admin-count"></span>
+                    </div>
+                    <p class="m-card__meta">Supprime un set de test sans effacer le reste de l’historique de sa LAN.</p>
+                    <div id="m-set-admin-list" class="m-set-admin-list"></div>
+                </div>
+
                 <div class="m-setband" id="m-set-band"></div>
 
                 <!-- Poste du maître du jeu : créer le set au démarrage de la
@@ -883,9 +892,9 @@
     <div id="m-toasts"></div>
 
     <script defer src="config.js"></script>
-    <script defer src="core.js?v=20260828-prelan-price-comparator"></script>
+    <script defer src="core.js?v=20260828-tcg-set-controls"></script>
     <script defer src="sound.js"></script>
-    <script defer src="mobile.js?v=20260828-prelan-price-comparator"></script>
+    <script defer src="mobile.js?v=20260828-tcg-set-controls"></script>
 </body>
 
 </html>

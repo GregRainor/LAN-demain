@@ -10033,6 +10033,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!visible) { renderTcgBadge(liveView); return; }
 
         renderTcgSetSelector(user.uid);
+        renderTcgSetAdmin();
         const view = selectedTcgView(user.uid);
         const archived = view.archived === true;
         showArchivedCollectionOnly(panel, archived);
@@ -10094,6 +10095,104 @@ document.addEventListener('DOMContentLoaded', () => {
         return knownGames({ libraries: groupLibraries });
     }
 
+    async function freshSetInputs() {
+        const [votesSnap, librariesSnap, settingsSnap] = await Promise.all([
+            db.ref('lan/votes').once('value'),
+            db.ref('lan/steamLibraries').once('value'),
+            db.ref('lan/settings').once('value')
+        ]);
+        const settings = Object.assign({}, globalSettings, settingsSnap.val() || {});
+        const votes = votesSnap.val() || {};
+        return {
+            settings,
+            scores: calculateScores(votes, settings),
+            pool: knownGames({ libraries: librariesSnap.val() || {} })
+        };
+    }
+
+    function renderTcgSetAdmin() {
+        const tools = document.getElementById('tcg-set-admin-tools');
+        const list = document.getElementById('tcg-set-admin-list');
+        if (!tools || !list) return;
+
+        const allowed = !!window.currentUserIsAdmin;
+        tools.style.display = allowed ? 'block' : 'none';
+        if (!allowed) return;
+
+        const live = Object.entries(globalTcg.sets || {}).map(([id, set]) => ({
+            kind: 'live', id, name: (set && set.name) || 'Set sans nom',
+            cards: Object.keys((set && set.cards) || {}).length,
+            current: id === tcgCurrentSetId(globalTcg),
+            timestamp: Number(set && set.ts) || 0
+        })).sort((a, b) => b.timestamp - a.timestamp);
+        const archived = tcgArchivedSets(globalHistory).map(entry => ({
+            kind: 'archive', id: entry.id, name: entry.setName,
+            cards: Object.keys((globalHistory[entry.id].tcgArchive || {}).setCards || {}).length,
+            current: false, timestamp: entry.timestamp
+        }));
+        const entries = live.concat(archived);
+
+        const count = document.getElementById('tcg-set-admin-count');
+        if (count) count.textContent = entries.length ? String(entries.length) : '';
+        list.innerHTML = '';
+        if (!entries.length) {
+            list.innerHTML = '<p class="panel-section__hint">Aucun set à supprimer.</p>';
+            return;
+        }
+
+        entries.forEach(entry => {
+            const row = document.createElement('div');
+            row.className = 'tcg-set-admin-row';
+            const copy = document.createElement('div');
+            copy.className = 'tcg-set-admin-copy';
+            const name = document.createElement('strong');
+            name.textContent = entry.name;
+            const meta = document.createElement('span');
+            meta.textContent = (entry.kind === 'archive' ? 'Archivé' : (entry.current ? 'Actuel' : 'Live'))
+                + ' · ' + entry.cards + ' carte' + (entry.cards > 1 ? 's' : '');
+            copy.append(name, meta);
+
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'danger-link-btn tcg-set-admin-delete';
+            button.textContent = 'Supprimer';
+            button.addEventListener('click', () => deleteTcgSet(entry));
+            row.append(copy, button);
+            list.appendChild(row);
+        });
+    }
+
+    async function deleteTcgSet(entry) {
+        if (!window.currentUserIsAdmin || !entry) return;
+
+        if (entry.kind === 'archive') {
+            const ok = await askConfirm(
+                `Supprimer le set archivé « ${entry.name} » ? La LAN, ses votes et son classement restent dans l’historique ; seules les cartes archivées disparaissent.`,
+                { title: 'Supprimer ce set archivé', danger: true, confirmLabel: 'Supprimer le set' });
+            if (!ok) return;
+            db.ref('lan/history/' + entry.id + '/tcgArchive').remove()
+                .then(() => {
+                    if (tcgArchiveKey === entry.id) tcgArchiveKey = '';
+                    showToast('Set archivé supprimé. L’historique de la LAN est conservé.', 'success');
+                })
+                .catch(error => showToast(tcgWriteError(error), 'error'));
+            return;
+        }
+
+        const plan = tcgSetDeletionPlan(globalTcg, entry.id, firebase.database.ServerValue.TIMESTAMP);
+        if (!plan) { showToast('Ce set n’existe plus.', 'error'); return; }
+        const impact = plan.current
+            ? ' C’est le set actuel : les boosters, cartes possédées et échanges live seront aussi remis à zéro.'
+            : (plan.packCount ? ` ${plan.packCount} booster${plan.packCount > 1 ? 's' : ''} lié${plan.packCount > 1 ? 's' : ''} sera aussi supprimé, ainsi que les échanges live.` : '');
+        const ok = await askConfirm(
+            `Supprimer « ${entry.name} » (${plan.cardCount} cartes) ?${impact}`,
+            { title: 'Supprimer ce set', danger: true, confirmLabel: 'Supprimer le set' });
+        if (!ok) return;
+        db.ref('lan/tcg').update(plan.updates)
+            .then(() => showToast('Set supprimé.', 'success'))
+            .catch(error => showToast(tcgWriteError(error), 'error'));
+    }
+
     function renderTcgGmPanel(view) {
         const panel = document.getElementById('tcg-gm-panel');
         if (!panel) return;
@@ -10107,7 +10206,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (badge) badge.textContent = (isGm && !view.set) ? '!' : '';
         if (!isGm) return;
 
-        const pool = Object.keys(buildCardSet(calculateScores(globalVotes), setPool())).length;
+        const pool = Object.keys(buildCardSet(calculateScores(globalVotes, globalSettings), setPool())).length;
         const state = document.getElementById('tcg-mint-state');
         if (!view.set) {
             state.textContent = pool
@@ -10231,8 +10330,21 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const pool = setPool();
-        const preview = Object.keys(buildCardSet(calculateScores(globalVotes), pool)).length;
+        showToast('Actualisation des votes et des bibliothèques…', 'success');
+        let fresh;
+        try {
+            fresh = await freshSetInputs();
+        } catch (error) {
+            showToast('Impossible de relire les votes : ' + error.message, 'error');
+            return;
+        }
+        if (force && fresh.settings.lanFinished) {
+            showToast('La LAN est terminée : les cartes sont archivées. Rouvre la LAN pour recomposer un set.', 'error');
+            return;
+        }
+        let pool = fresh.pool;
+        let scores = fresh.scores;
+        const preview = Object.keys(buildCardSet(scores, pool)).length;
 
         const doomedPacks = Object.keys(globalTcg.packs || {}).length;
         const doomedCards = tcgCards(globalTcg).length;
@@ -10244,20 +10356,35 @@ document.addEventListener('DOMContentLoaded', () => {
                       ? `, soit ${doomedCards} carte${doomedCards > 1 ? 's' : ''} dans ${doomedPacks} booster${doomedPacks > 1 ? 's' : ''}, pour tout le monde.`
                       : '.')
                   + ' Tant que la soirée n\'est pas close, une collection est un brouillon. Les illustrations déjà faites sont conservées.'
-                : `Créer le set de la LAN « ${globalSettings.lanName || 'LAN Demain'} » : environ ${preview} cartes, du vote au fond des bibliothèques Steam. `
+                : `Créer le set de la LAN « ${fresh.settings.lanName || 'LAN Demain'} » : environ ${preview} cartes, du vote au fond des bibliothèques Steam. `
                   + `Les ${TCG.SIGNATURE_COUNT} cartes du sommet recevront une illustration.`,
             { title: '🎴 Les cartes', danger: force, confirmLabel: force ? 'Tout effacer et recréer' : 'Créer le set' });
         if (!ok) return;
 
+        // La confirmation peut rester ouverte pendant qu'un dernier bulletin
+        // arrive. On relit donc une seconde fois juste avant la frappe réelle.
+        try {
+            fresh = await freshSetInputs();
+            pool = fresh.pool;
+            scores = fresh.scores;
+        } catch (error) {
+            showToast('Impossible de relire les votes : ' + error.message, 'error');
+            return;
+        }
+        if (force && fresh.settings.lanFinished) {
+            showToast('La LAN vient d’être clôturée : le set n’a pas été recréé.', 'error');
+            return;
+        }
+
         showToast('Composition du set…', 'success');
-        const appIds = await resolveVotedArt(pool);
-        const cards = buildCardSet(calculateScores(globalVotes), Object.assign({}, pool, { appIds }));
+        const appIds = await resolveVotedArt(pool, scores);
+        const cards = buildCardSet(scores, Object.assign({}, pool, { appIds }));
         const count = Object.keys(cards).length;
         if (!count) { showToast('Aucun jeu illustrable : rien à composer.', 'error'); return; }
 
         const ref = db.ref('lan/tcg/sets').push();
         ref.set({
-            name: `Set de la LAN ${globalSettings.lanName || 'LAN Demain'}`,
+            name: `Set de la LAN ${fresh.settings.lanName || 'LAN Demain'}`,
             ts: firebase.database.ServerValue.TIMESTAMP,
             by: user.uid,
             // Combien de bibliothèques comptaient ce jour-là : sans ce nombre,
@@ -10282,9 +10409,9 @@ document.addEventListener('DOMContentLoaded', () => {
        plus réclamés. On les résout donc une fois, à la création du set. C'est
        borné : quelques dizaines de noms, contre plusieurs centaines de jeux de
        bibliothèque qui, eux, arrivent déjà avec leur appId. */
-    function resolveVotedArt(pool) {
+    function resolveVotedArt(pool, scores) {
         const known = new Set(pool.games.map(game => cardKey(game.name)));
-        const missing = calculateScores(globalVotes)
+        const missing = (scores || [])
             .map(game => ({ key: cardKey(game.name), name: game.name }))
             .filter(game => game.key && !known.has(game.key));
 

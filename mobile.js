@@ -674,6 +674,7 @@ function boot(user) {
     watch('lan/settings', value => {
         const previousRound = activeVoteRoundId(state.settings);
         state.settings = Object.assign({ isVotingOpen: false, isLanActive: false, lanFinished: false, lanName: 'LAN Demain', topGamesCount: 10 }, value || {});
+        state.scores = calculateScores(state.votes, state.settings);
         const nextRound = activeVoteRoundId(state.settings);
         if (previousRound !== nextRound) {
             resetMobileVoteDraft(state.user);
@@ -682,7 +683,7 @@ function boot(user) {
     });
     watch('lan/votes', value => {
         state.votes = value || {};
-        state.scores = calculateScores(state.votes);
+        state.scores = calculateScores(state.votes, state.settings);
         const user = state.user;
         const roundId = activeVoteRoundId(state.settings);
         const mine = user ? ballotRecordForRound(state.votes[user.uid], state.settings) : null;
@@ -4779,6 +4780,7 @@ function renderCartes() {
     if (currentScreen !== 'cartes') return;
 
     renderMobileTcgSetSelector(liveView.uid);
+    renderMobileTcgSetAdmin();
     const view = selectedMobileTcgView(liveView.uid);
     const archived = view.archived === true;
     showMobileArchivedCollectionOnly(archived);
@@ -4858,6 +4860,93 @@ function setPool() {
     return knownGames({ libraries: state.libraries });
 }
 
+async function freshSetInputs() {
+    const [votesSnap, librariesSnap, settingsSnap] = await Promise.all([
+        db.ref('lan/votes').once('value'),
+        db.ref('lan/steamLibraries').once('value'),
+        db.ref('lan/settings').once('value')
+    ]);
+    const settings = Object.assign({}, state.settings, settingsSnap.val() || {});
+    const votes = votesSnap.val() || {};
+    return {
+        settings,
+        scores: calculateScores(votes, settings),
+        pool: knownGames({ libraries: librariesSnap.val() || {} })
+    };
+}
+
+function renderMobileTcgSetAdmin() {
+    const section = $('m-set-admin-section');
+    const list = $('m-set-admin-list');
+    if (!section || !list) return;
+    section.style.display = state.isAdmin ? 'flex' : 'none';
+    if (!state.isAdmin) return;
+
+    const live = Object.entries(state.tcg.sets || {}).map(([id, set]) => ({
+        kind: 'live', id, name: (set && set.name) || 'Set sans nom',
+        cards: Object.keys((set && set.cards) || {}).length,
+        current: id === tcgCurrentSetId(state.tcg),
+        timestamp: Number(set && set.ts) || 0
+    })).sort((a, b) => b.timestamp - a.timestamp);
+    const archived = tcgArchivedSets(state.history).map(entry => ({
+        kind: 'archive', id: entry.id, name: entry.setName,
+        cards: Object.keys(((state.history[entry.id] || {}).tcgArchive || {}).setCards || {}).length,
+        current: false, timestamp: entry.timestamp
+    }));
+    const entries = live.concat(archived);
+    $('m-set-admin-count').textContent = entries.length ? String(entries.length) : '';
+    list.innerHTML = '';
+    if (!entries.length) {
+        list.appendChild(el('p', 'm-card__meta', 'Aucun set à supprimer.'));
+        return;
+    }
+
+    entries.forEach(entry => {
+        const row = el('div', 'm-set-admin-row');
+        const copy = el('div', 'm-set-admin-copy');
+        copy.appendChild(el('strong', null, entry.name));
+        copy.appendChild(el('span', null,
+            (entry.kind === 'archive' ? 'Archivé' : (entry.current ? 'Actuel' : 'Live'))
+            + ' · ' + entry.cards + ' carte' + (entry.cards > 1 ? 's' : '')));
+        const button = el('button', 'm-btn m-btn--danger m-btn--sm', 'Supprimer');
+        button.addEventListener('click', () => deleteMobileTcgSet(entry));
+        row.append(copy, button);
+        list.appendChild(row);
+    });
+}
+
+function deleteMobileTcgSet(entry) {
+    if (!state.isAdmin || !entry) return;
+    if (entry.kind === 'archive') {
+        confirmSheet(
+            'Supprimer le set archivé « ' + entry.name + ' » ? La LAN, ses votes et son classement restent dans l’historique ; seules les cartes archivées disparaissent.',
+            'Supprimer le set',
+            () => db.ref('lan/history/' + entry.id + '/tcgArchive').remove()
+                .then(() => {
+                    if (mobileTcgArchiveKey === entry.id) mobileTcgArchiveKey = '';
+                    showToast('Set archivé supprimé. L’historique de la LAN est conservé.', 'success');
+                })
+                .catch(error => showToast(tcgWriteError(error), 'error')),
+            true
+        );
+        return;
+    }
+
+    const plan = tcgSetDeletionPlan(state.tcg, entry.id, firebase.database.ServerValue.TIMESTAMP);
+    if (!plan) { showToast('Ce set n’existe plus.', 'error'); return; }
+    const impact = plan.current
+        ? ' C’est le set actuel : les boosters, cartes possédées et échanges live seront aussi remis à zéro.'
+        : (plan.packCount ? ' Les boosters liés et les échanges live seront aussi supprimés.' : '');
+    confirmSheet(
+        'Supprimer « ' + entry.name + ' » (' + plan.cardCount + ' cartes) ?' + impact,
+        'Supprimer le set',
+        () => db.ref('lan/tcg').update(plan.updates)
+            .then(() => showToast('Set supprimé.', 'success'))
+            .catch(error => showToast(tcgWriteError(error), 'error')),
+        true
+    );
+}
+
 function setPoolSize() {
     return Object.keys(buildCardSet(state.scores || [], setPool())).length;
 }
@@ -4872,9 +4961,9 @@ function setPoolSize() {
    réclamés. On les résout donc une fois, à la création du set. C'est borné :
    quelques dizaines de noms, une seule fois, contre plusieurs centaines de
    jeux de bibliothèque qui, eux, arrivent déjà avec leur appId. */
-function resolveVotedArt(pool) {
+function resolveVotedArt(pool, scores) {
     const known = new Set(pool.games.map(game => cardKey(game.name)));
-    const missing = (state.scores || [])
+    const missing = (scores || [])
         .map(game => ({ key: cardKey(game.name), name: game.name }))
         .filter(game => game.key && !known.has(game.key));
 
@@ -4965,7 +5054,7 @@ function tcgWriteError(error) {
     return 'Erreur : ' + ((error && error.message) || code);
 }
 
-function mintSet(force) {
+async function mintSet(force) {
     const user = state.user;
     if (!user) return;
 
@@ -4981,17 +5070,31 @@ function mintSet(force) {
         return;
     }
 
-    const pool = setPool();
+    showToast('Actualisation des votes et des bibliothèques…', 'success');
+    let fresh;
+    try {
+        fresh = await freshSetInputs();
+    } catch (error) {
+        showToast('Impossible de relire les votes : ' + error.message, 'error');
+        return;
+    }
+    if (force && fresh.settings.lanFinished) {
+        showToast('La LAN est terminée : les cartes sont archivées. Rouvre la LAN pour recomposer un set.', 'error');
+        return;
+    }
+
+    const pool = fresh.pool;
+    const scores = fresh.scores;
     showToast('Composition du set…', 'success');
 
-    resolveVotedArt(pool).then(appIds => {
-        const cards = buildCardSet(state.scores || [], Object.assign({}, pool, { appIds }));
+    resolveVotedArt(pool, scores).then(appIds => {
+        const cards = buildCardSet(scores, Object.assign({}, pool, { appIds }));
         const count = Object.keys(cards).length;
         if (!count) { showToast('Aucun jeu illustrable : rien à composer.', 'error'); return; }
 
         const ref = db.ref('lan/tcg/sets').push();
         return ref.set({
-            name: 'Set de la LAN ' + (state.settings.lanName || 'LAN Demain'),
+            name: 'Set de la LAN ' + (fresh.settings.lanName || 'LAN Demain'),
             ts: firebase.database.ServerValue.TIMESTAMP,
             by: user.uid,
             // Combien de bibliothèques comptaient ce jour-là : sans ce nombre,

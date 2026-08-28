@@ -2734,6 +2734,37 @@ body.desktop-authenticated #app-container.desktop-os *::after {
 
 .gm-tools > summary::-webkit-details-marker { display: none; }
 
+.tcg-set-admin-list { display: grid; }
+
+.tcg-set-admin-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 0;
+    border-top: 1px solid var(--desktop-line);
+}
+
+.tcg-set-admin-row:first-child { border-top: 0; }
+.tcg-set-admin-copy { min-width: 0; }
+.tcg-set-admin-copy strong,
+.tcg-set-admin-copy span { display: block; }
+.tcg-set-admin-copy strong {
+    overflow: hidden;
+    color: var(--primary-text);
+    font: 500 13px/1.35 var(--font-body);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.tcg-set-admin-copy span {
+    margin-top: 2px;
+    color: var(--desktop-dim);
+    font: 500 9px/1.3 var(--font-body);
+    letter-spacing: .1em;
+    text-transform: uppercase;
+}
+.tcg-set-admin-delete { white-space: nowrap; }
+
 .gm-tools > summary:hover {
     background: rgba(212, 175, 55, 0.05);
     color: var(--accent-color);

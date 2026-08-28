@@ -279,13 +279,15 @@ function lastBallotFor(history, uid) {
     return null;
 }
 
-function calculateScores(votes) {
+function calculateScores(votes, settings) {
     const gameScores = {};
     const displayNames = {}; // garde la "vraie" casse du nom (ex: "PUBG" et pas "Pubg")
     const upperCount = (s) => (s.match(/[A-Z]/g) || []).length;
     const pointsMapping = { p1: 5, p2: 3, p3: 2, p_other: 1 };
     for (const userId in votes) {
-        const voteData = votes[userId];
+        // Quand une ronde explicite existe, un ancien bulletin encore présent
+        // dans Firebase ne doit plus peser ni dans le classement ni dans le set.
+        const voteData = settings ? ballotRecordForRound(votes[userId], settings) : votes[userId];
         if (voteData && voteData.votes) {
             const ballot = normalizeBallot(voteData.votes);
             BALLOT_PRIORITIES.forEach(priority => {
@@ -1184,10 +1186,15 @@ function cardArt(gameKey) {
    Il n'y a pas de quatrième cas : un jeu dont on ne sait pas montrer
    l'illustration n'entre pas dans le set. */
 function cardImage(card, generated) {
-    const drawn = cardArt(card && card.gameKey);
-    if (drawn) return drawn;
-    const made = generated && card && generated[card.gameKey];
-    if (made) return made;
+    // Une illustration sur mesure est le privilège visuel des Signature. Si
+    // le même jeu devient Showcase dans un set suivant, il retrouve sa jaquette
+    // Steam au lieu de conserver l'ancien artwork en mémoire/cache Firebase.
+    if (card && card.rarity === 'signature') {
+        const drawn = cardArt(card.gameKey);
+        if (drawn) return drawn;
+        const made = generated && generated[card.gameKey];
+        if (made) return made;
+    }
     return steamHeaderUrl(card && card.appId);
 }
 
@@ -1374,8 +1381,29 @@ function buildCardSet(scores, pool) {
         while (index < upTo) bands[index++] = i;
     });
 
+    /* Après les Signature, Showcase raconte explicitement le vote. Le poids
+       global (bibliothèques + votes) continue de choisir les Signature et le
+       reste de la pyramide, mais les quelques places Showcase reviennent aux
+       jeux les plus votés qui ne sont pas déjà au sommet. Leur illustration
+       reste la jaquette Steam normale. */
+    const showcaseBand = rarityIndex('showcase');
+    const showcaseSlots = bands.filter(band => band === showcaseBand).length;
+    const signatureGames = ranked.slice(0, signatures);
+    const remainingGames = ranked.slice(signatures);
+    const showcaseGames = remainingGames
+        .filter(game => game.score > 0)
+        .sort((a, b) => b.score - a.score
+            || b.weight - a.weight
+            || tcgHash(a.key) - tcgHash(b.key)
+            || (a.key < b.key ? -1 : 1))
+        .slice(0, showcaseSlots);
+    const showcaseKeys = new Set(showcaseGames.map(game => game.key));
+    const rarityRanked = signatureGames
+        .concat(showcaseGames)
+        .concat(remainingGames.filter(game => !showcaseKeys.has(game.key)));
+
     const cards = {};
-    ranked.forEach((game, i) => {
+    rarityRanked.forEach((game, i) => {
         cards[game.key] = {
             name: game.name,
             rarity: TCG.RARITIES[bands[i]].key,
@@ -1537,6 +1565,42 @@ function tcgCurrentSet(tcg) {
     const id = tcgCurrentSetId(tcg);
     const node = ((tcg && tcg.sets) || {})[id];
     return node ? Object.assign({ id }, node) : null;
+}
+
+/* Suppression administrative d'un set live. Le plan est calculé à partir de
+   l'instantané affiché pour pouvoir annoncer exactement l'impact avant
+   confirmation. Supprimer le set actif remet toute la collection live à zéro ;
+   supprimer un ancien set ne retire que ses boosters éventuels, mais invalide
+   les échanges qui pourraient les référencer. */
+function tcgSetDeletionPlan(tcg, setId, resetAt) {
+    const sets = (tcg && tcg.sets) || {};
+    if (!setId || !sets[setId]) return null;
+
+    const current = tcgCurrentSetId(tcg) === setId;
+    const allPacks = (tcg && tcg.packs) || {};
+    const affectedPackIds = Object.entries(allPacks)
+        .filter(([, pack]) => pack && pack.setId === setId)
+        .map(([id]) => id);
+    const updates = {};
+    updates['sets/' + setId] = null;
+
+    if (current) {
+        updates.currentSet = null;
+        updates.packs = null;
+        updates.trades = null;
+    } else {
+        affectedPackIds.forEach(id => { updates['packs/' + id] = null; });
+        if (affectedPackIds.length) updates.trades = null;
+    }
+
+    if ((current || affectedPackIds.length) && resetAt !== undefined) updates.resetAt = resetAt;
+    return {
+        updates,
+        current,
+        cardCount: Object.keys((sets[setId] && sets[setId].cards) || {}).length,
+        packCount: current ? Object.keys(allPacks).length : affectedPackIds.length,
+        tradeCount: (current || affectedPackIds.length) ? Object.keys((tcg && tcg.trades) || {}).length : 0
+    };
 }
 
 function tcgPacks(tcg) {

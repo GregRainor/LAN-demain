@@ -5,7 +5,7 @@ const vm = require('vm');
 
 const root = path.resolve(__dirname, '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
-const source = read('core.js') + '\nthis.__ach={TCG,buildCardSet,achievementAwardId,achievementById,achievementRevealTheme,achievementState,pendingAchievements,xpTotal,hasXpAward,isXpAwardRevoked,achievementGrantRecord,achievementGrantIfMissing,achievementResetRecord,achievementResetUpdates,unseenAchievementAwards,tcgArchiveSnapshot,tcgArchiveView,tcgArchivedSets,unsealedPurchases};';
+const source = read('core.js') + '\nthis.__ach={TCG,buildCardSet,cardImage,calculateScores,tcgSetDeletionPlan,achievementAwardId,achievementById,achievementRevealTheme,achievementState,pendingAchievements,xpTotal,hasXpAward,isXpAwardRevoked,achievementGrantRecord,achievementGrantIfMissing,achievementResetRecord,achievementResetUpdates,unseenAchievementAwards,tcgArchiveSnapshot,tcgArchiveView,tcgArchivedSets,unsealedPurchases};';
 const context = vm.createContext({ console, URL, Date, Math, Promise, Set, Map });
 vm.runInContext(source, context, { filename: 'core.js' });
 const ach = context.__ach;
@@ -28,6 +28,65 @@ assert.strictEqual(Object.keys(ach.buildCardSet([], {
     games: libraryGames.slice(0, 20),
     libraries: 5
 })).length, 20, 'A small pool must not be padded to the cap');
+
+const rarityPool = [];
+for (let index = 0; index < 12; index += 1) {
+    rarityPool.push({ name: 'Shared ' + index, owners: 5, appId: 1000 + index });
+}
+for (let index = 0; index < 83; index += 1) {
+    rarityPool.push({ name: 'Library ' + index, owners: 1, appId: 2000 + index });
+}
+['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon'].forEach((name, index) => {
+    rarityPool.push({ name: 'Voted ' + name, owners: 0, appId: 3000 + index });
+});
+const voteLedSet = ach.buildCardSet([
+    { name: 'Voted Alpha', score: 4 },
+    { name: 'Voted Beta', score: 3 },
+    { name: 'Voted Gamma', score: 2 },
+    { name: 'Voted Delta', score: 1 },
+    { name: 'Voted Epsilon', score: 1 }
+], { games: rarityPool, libraries: 5 });
+const showcases = Object.values(voteLedSet).filter(card => card.rarity === 'showcase');
+assert(showcases.some(card => card.name === 'Voted Alpha'),
+    'Showcase must include the best-voted games left below Signature');
+assert.strictEqual(
+    ach.cardImage({ gameKey: 'voted-alpha', rarity: 'showcase', appId: 3000 }, { 'voted-alpha': 'data:image/png;base64,custom' }),
+    'https://cdn.cloudflare.steamstatic.com/steam/apps/3000/header.jpg',
+    'Only Signature cards may reuse custom artwork'
+);
+assert.strictEqual(
+    ach.cardImage({ gameKey: 'voted-alpha', rarity: 'signature', appId: 3000 }, { 'voted-alpha': 'data:image/png;base64,custom' }),
+    'data:image/png;base64,custom'
+);
+
+assert.deepStrictEqual(plain(ach.calculateScores({
+    old: { roundId: 'round-old', votes: { p1: ['Ancien jeu'] } },
+    fresh: { roundId: 'round-new', votes: { p1: ['Nouveau jeu'] } }
+}, { voteRoundId: 'round-new' })), [{ name: 'Nouveau jeu', score: 5 }],
+    'Set scores must ignore ballots from an older LAN round');
+
+const deletionFixture = {
+    currentSet: 'set-live',
+    sets: {
+        'set-live': { cards: { a: {}, b: {} } },
+        'set-test': { cards: { c: {} } }
+    },
+    packs: {
+        livePack: { setId: 'set-live' },
+        testPack: { setId: 'set-test' }
+    },
+    trades: { trade1: { status: 'pending' } }
+};
+const testPlan = plain(ach.tcgSetDeletionPlan(deletionFixture, 'set-test', 999));
+assert.strictEqual(testPlan.updates['sets/set-test'], null);
+assert.strictEqual(testPlan.updates['packs/testPack'], null);
+assert.strictEqual(testPlan.updates.trades, null);
+assert.strictEqual(testPlan.updates.currentSet, undefined);
+const livePlan = plain(ach.tcgSetDeletionPlan(deletionFixture, 'set-live', 999));
+assert.strictEqual(livePlan.current, true);
+assert.strictEqual(livePlan.updates.currentSet, null);
+assert.strictEqual(livePlan.updates.packs, null);
+assert.strictEqual(livePlan.updates.resetAt, 999);
 
 const uid = 'player-beta';
 const admin = { uid: 'admin-1', name: 'Greg' };
@@ -171,6 +230,15 @@ for (const client of [desktop, mobile]) {
 }
 assert(desktopHtml.includes('id="tcg-set-view"') && desktopHtml.includes('id="btn-reset-player-cards"'));
 assert(mobileHtml.includes('id="m-set-view"') && mobileHtml.includes('id="m-reset-player-cards"'));
+assert(desktopHtml.includes('id="tcg-set-admin-list"') && desktop.includes('function deleteTcgSet('));
+assert(mobileHtml.includes('id="m-set-admin-list"') && mobile.includes('function deleteMobileTcgSet('));
+for (const client of [desktop, mobile]) {
+    assert(/function freshSetInputs\(\)[\s\S]{0,500}lan\/votes[\s\S]{0,500}lan\/steamLibraries/.test(client),
+        'Set recreation must reread votes and libraries from Firebase');
+    assert(client.includes('tcgSetDeletionPlan('), 'Admin set deletion must use the shared cascade plan');
+}
+assert((desktop.match(/freshSetInputs\(\)/g) || []).length >= 3,
+    'Desktop must refresh once for the preview and again immediately before minting');
 for (const family of ['commerce', 'collection', 'legacy', 'challenge', 'vote', 'prototype']) {
     assert(desktopCss.includes(`data-ach-family="${family}"`), `Desktop reveal theme missing: ${family}`);
     assert(mobileCss.includes(`data-ach-family="${family}"`), `Mobile reveal theme missing: ${family}`);
@@ -189,6 +257,6 @@ assert(rules.rules.lan.tcg.packs['.write'].includes('!newData.exists()')
 assert(rules.rules.lan.tcg.resetAt['.write'].includes("val() !== true")
     && rules.rules.lan.tcg.resetAt['.validate'].includes('newData.val() === now'),
     'The durable reset marker must be gamemaster-writable only during an open LAN');
-assert(/20260828-prelan-price-comparator/.test(desktopHtml) && /20260828-prelan-price-comparator/.test(mobileHtml));
+assert(/20260828-tcg-set-controls/.test(desktopHtml) && /20260828-tcg-set-controls/.test(mobileHtml));
 
 console.log('Achievement and TCG archive checks passed (atomic ceremony claim, reset, archived sets).');

@@ -496,6 +496,13 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .m-btn--full { width: 100%; }
 .m-btn--sm { min-height: var(--tap); padding: 0 13px; font-size: .82rem; }
 
+.m-set-admin-list { display: flex; flex-direction: column; }
+.m-set-admin-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line-2); }
+.m-set-admin-row:first-child { border-top: 0; }
+.m-set-admin-copy { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 2px; }
+.m-set-admin-copy strong { overflow: hidden; font-size: .86rem; color: var(--text); text-overflow: ellipsis; white-space: nowrap; }
+.m-set-admin-copy span { font-size: .7rem; color: var(--text-3); text-transform: uppercase; letter-spacing: .08em; }
+
 .m-input {
     width: 100%;
     min-height: 46px;

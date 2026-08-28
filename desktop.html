@@ -11,8 +11,8 @@
     <script defer src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js" integrity="sha384-p62xBRve8PdqGDGASZtZMuHgPsyPcT5VsFwgmz2p4zaFdEtt5ZzNqxK+CLzQS7xP" crossorigin="anonymous"></script>
     <script defer src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js" integrity="sha384-fuqdSwJXSvcAuKu5FbSJcHqHK474liv5ji8tuDnHz1rpfrnuXZPdM0oRaSK6c95L" crossorigin="anonymous"></script>
 
-    <link rel="stylesheet" href="style.css?v=20260828-prelan-price-comparator">
-    <link rel="stylesheet" href="desktop-v2.css?v=20260828-prelan-price-comparator">
+    <link rel="stylesheet" href="style.css?v=20260828-tcg-set-controls">
+    <link rel="stylesheet" href="desktop-v2.css?v=20260828-tcg-set-controls">
 </head>
 
 <body>
@@ -1097,6 +1097,18 @@
                             <p class="panel-section__hint" id="tcg-set-view-hint"></p>
                         </div>
 
+                        <details id="tcg-set-admin-tools" class="gm-tools" style="display:none;">
+                            <summary>
+                                <span aria-hidden="true">⌫</span>
+                                <span>Gestion des sets</span>
+                                <b id="tcg-set-admin-count"></b>
+                            </summary>
+                            <div class="gm-tools__body">
+                                <p class="panel-section__hint">Supprime un set de test sans effacer le reste de l’historique de sa LAN.</p>
+                                <div id="tcg-set-admin-list" class="tcg-set-admin-list"></div>
+                            </div>
+                        </details>
+
                         <div class="set-banner luxury-panel">
                             <div class="set-banner__main">
                                 <span class="set-banner__label" id="tcg-set-name">Pas encore de set</span>
@@ -1957,9 +1969,9 @@
     <div id="toast-container"></div>
 
     <script defer src="config.js"></script>
-    <script defer src="core.js?v=20260828-prelan-price-comparator"></script>
+    <script defer src="core.js?v=20260828-tcg-set-controls"></script>
     <script defer src="sound.js"></script>
-    <script defer src="newScript.js?v=20260828-prelan-price-comparator"></script>
+    <script defer src="newScript.js?v=20260828-tcg-set-controls"></script>
 </body>
 
 </html>
