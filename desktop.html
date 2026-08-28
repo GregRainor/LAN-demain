@@ -11,8 +11,8 @@
     <script defer src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js" integrity="sha384-p62xBRve8PdqGDGASZtZMuHgPsyPcT5VsFwgmz2p4zaFdEtt5ZzNqxK+CLzQS7xP" crossorigin="anonymous"></script>
     <script defer src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js" integrity="sha384-fuqdSwJXSvcAuKu5FbSJcHqHK474liv5ji8tuDnHz1rpfrnuXZPdM0oRaSK6c95L" crossorigin="anonymous"></script>
 
-    <link rel="stylesheet" href="style.css?v=20260828-tcg-signature-variants">
-    <link rel="stylesheet" href="desktop-v2.css?v=20260828-tcg-signature-variants">
+    <link rel="stylesheet" href="style.css?v=20260829-signature-art-live">
+    <link rel="stylesheet" href="desktop-v2.css?v=20260829-signature-art-live">
 </head>
 
 <body>
@@ -1147,6 +1147,12 @@
                                     set</button>
                                 <button id="btn-reset-player-cards" class="gold-link-btn" style="display:none;">Vider les
                                     collections des joueurs</button>
+                                <!-- Les illustrations ne s'ouvraient qu'une fois, dans la
+                                     foulée de la création du set : les importer plus tard
+                                     obligeait à recréer le set, donc à vider toutes les
+                                     collections. On y revient désormais quand on veut. -->
+                                <button id="btn-signature-art" class="gold-link-btn" style="display:none;">🎨
+                                    Illustrations des Signature</button>
                             </div>
                             <div class="shop-grant-row" style="margin-top: 12px;">
                                 <select id="tcg-gift-user" class="luxury-input shop-field">
@@ -1975,9 +1981,9 @@
     <div id="toast-container"></div>
 
     <script defer src="config.js"></script>
-    <script defer src="core.js?v=20260828-tcg-signature-variants"></script>
+    <script defer src="core.js?v=20260829-signature-art-live"></script>
     <script defer src="sound.js"></script>
-    <script defer src="newScript.js?v=20260828-tcg-signature-variants"></script>
+    <script defer src="newScript.js?v=20260829-signature-art-live"></script>
 </body>
 
 </html>

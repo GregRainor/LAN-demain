@@ -10273,6 +10273,9 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('btn-reset-player-cards').style.display =
             (view.set && !globalSettings.lanFinished) ? 'inline-block' : 'none';
         document.getElementById('btn-debug-pack').disabled = !view.set;
+        // Sans set, il n'y a pas de Signature à illustrer.
+        document.getElementById('btn-signature-art').style.display =
+            view.set ? 'inline-block' : 'none';
 
         const select = document.getElementById('tcg-gift-user');
         const previous = select.value;
@@ -10480,9 +10483,6 @@ document.addEventListener('DOMContentLoaded', () => {
         signatureArtCards = signatureCards(setCards);
         if (!signatureArtCards.length) return Promise.resolve();
 
-        document.getElementById('signature-art-hint').textContent =
-            `Ces ${signatureArtCards.length} cartes sont le sommet du set. Importe tes propres `
-            + 'illustrations pour les distinguer des cartes ordinaires.';
         document.getElementById('signature-art-modal').style.display = 'flex';
 
         // On sait déjà lesquelles existent : on les lit avant de dessiner.
@@ -10549,7 +10549,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function paintSignatureArtList() {
         const list = document.getElementById('signature-art-list');
-        const generate = document.getElementById('signature-art-generate');
         list.innerHTML = '';
         let missing = 0;
 
@@ -10571,8 +10570,15 @@ document.addEventListener('DOMContentLoaded', () => {
             list.appendChild(row);
         });
 
-        generate.textContent = missing ? `Générer les ${missing} manquantes` : 'Toutes illustrées';
-        generate.disabled = !missing;
+        /* Il n'y a pas de générateur : rien, nulle part, ne dessine ces huit
+           cartes. Le bouton « Générer les manquantes » n'a jamais existé dans
+           la page, et le code qui le peuplait plantait ici à chaque passage —
+           l'erreur remontait jusqu'au toast rouge qui suivait « Set créé ».
+           Tant qu'un générateur n'existe pas, on dit simplement où on en est. */
+        document.getElementById('signature-art-hint').textContent = missing
+            ? `${signatureArtCards.length} cartes au sommet du set, ${missing} sans illustration. `
+                + 'Sans import, elles gardent leur jaquette Steam et ressemblent aux autres.'
+            : `Les ${signatureArtCards.length} Signature ont leur illustration.`;
     }
 
     /* Le son se coupe et se retient : une LAN se joue souvent en vocal, et un
@@ -10640,6 +10646,21 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btn-mint-set')?.addEventListener('click', () => mintSet(false));
     document.getElementById('btn-remint-set')?.addEventListener('click', () => mintSet(true));
     document.getElementById('btn-reset-player-cards')?.addEventListener('click', resetPlayerCards);
+
+    /* Revenir aux illustrations sans toucher au set. C'était le trou : la
+       fenêtre ne s'ouvrait qu'à la création d'un set, si bien qu'ajouter une
+       illustration oubliée demandait de recréer le set — donc de vider les
+       collections de tout le monde. */
+    document.getElementById('btn-signature-art')?.addEventListener('click', () => {
+        const user = auth.currentUser;
+        if (!user) return;
+        const view = selectedTcgView(user.uid);
+        if (!view.set) {
+            showToast('Aucun set : il n\'y a pas encore de Signature à illustrer.', 'error');
+            return;
+        }
+        openSignatureArtModal(view.setCards);
+    });
 
     /* Débogage : en attendant la boutique, le maître du jeu ouvre autant de
        boosters qu'il veut. Le paquet est scellé puis ouvert dans la foulée —
