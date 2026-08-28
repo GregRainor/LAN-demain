@@ -10243,6 +10243,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // reste replié le reste du temps.
         const tools = document.getElementById('tcg-gm-tools');
         if (tools) tools.style.display = isGm ? 'block' : 'none';
+        /* Le booster de test vit en tête de l'écran, hors du tiroir : c'est
+           donc ici qu'on le montre au seul maître du jeu. */
+        const debugRow = document.getElementById('tcg-debug-pack-row');
+        if (debugRow) debugRow.style.display = isGm ? 'flex' : 'none';
         const badge = document.getElementById('tcg-gm-tools-badge');
         if (badge) badge.textContent = (isGm && !view.set) ? '!' : '';
         if (!isGm) return;

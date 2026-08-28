@@ -1089,6 +1089,16 @@
                     <div id="lan-tcg" class="lan-subview" style="display: none;">
                         <h2 class="subview-title" style="margin-bottom: 30px;">Collection</h2>
 
+                        <!-- Débogage : en attendant la boutique, le maître du jeu ouvre
+                             autant de boosters qu'il veut pour éprouver le set. Il le fait
+                             toute la soirée, d'où sa place en tête de l'écran plutôt qu'au
+                             fond du tiroir des outils. Invisible pour les autres. -->
+                        <div id="tcg-debug-pack-row" class="shop-grant-row" data-tcg-live-only
+                            style="display: none; margin-bottom: 20px;">
+                            <button id="btn-debug-pack" class="gold-btn shop-grant-btn">🧪 Ouvrir un
+                                booster</button>
+                        </div>
+
                         <div class="luxury-panel" style="padding: 18px 22px; margin-bottom: 20px;">
                             <label class="field-label" for="tcg-set-view">Collection affichée</label>
                             <select id="tcg-set-view" class="luxury-input" style="width: 100%;">
@@ -1137,10 +1147,6 @@
                                     set</button>
                                 <button id="btn-reset-player-cards" class="gold-link-btn" style="display:none;">Vider les
                                     collections des joueurs</button>
-                                <!-- Débogage : en attendant la boutique, l'admin ouvre autant
-                                     de boosters qu'il veut pour éprouver le set. -->
-                                <button id="btn-debug-pack" class="gold-btn shop-grant-btn">🧪 Ouvrir un
-                                    booster</button>
                             </div>
                             <div class="shop-grant-row" style="margin-top: 12px;">
                                 <select id="tcg-gift-user" class="luxury-input shop-field">
