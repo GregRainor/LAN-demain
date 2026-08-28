@@ -27,7 +27,8 @@ Ce projet est parti d'une simple idée de tableur Excel pour évoluer vers une a
   en écriture unique, ce qui rend la triche structurellement impossible (voir [`SECURITY.md`](./SECURITY.md)).
   Les points ne servent jamais à payer à boire ou à manger : le bar reste gratuit.
 * **Les Cartes de la Soirée :** Un jeu de collection **dont le set est un relevé du groupe**.
-  Chaque jeu des bibliothèques Steam devient une carte, et sa rareté vient de deux choses qui
+  Le set retient jusqu'à **236 jeux** des bibliothèques Steam, classés par pertinence pour le groupe,
+  et la rareté de chaque carte vient de deux choses qui
   s'additionnent : **combien de joueurs le possèdent** et **ce que le vote en a dit**. Un jeu que
   personne d'autre n'a est banal — il y en a des centaines. Un jeu que tout le monde possède est
   rare, et c'est celui auquel on peut jouer ce soir sans que personne aille l'acheter. La rareté

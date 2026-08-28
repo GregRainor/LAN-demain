@@ -5,11 +5,29 @@ const vm = require('vm');
 
 const root = path.resolve(__dirname, '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
-const source = read('core.js') + '\nthis.__ach={achievementAwardId,achievementById,achievementRevealTheme,achievementState,pendingAchievements,xpTotal,hasXpAward,isXpAwardRevoked,achievementGrantRecord,achievementResetRecord,achievementResetUpdates,unseenAchievementAwards,tcgArchiveSnapshot,tcgArchiveView,tcgArchivedSets,unsealedPurchases};';
+const source = read('core.js') + '\nthis.__ach={TCG,buildCardSet,achievementAwardId,achievementById,achievementRevealTheme,achievementState,pendingAchievements,xpTotal,hasXpAward,isXpAwardRevoked,achievementGrantRecord,achievementResetRecord,achievementResetUpdates,unseenAchievementAwards,tcgArchiveSnapshot,tcgArchiveView,tcgArchivedSets,unsealedPurchases};';
 const context = vm.createContext({ console, URL, Date, Math, Promise, Set, Map });
 vm.runInContext(source, context, { filename: 'core.js' });
 const ach = context.__ach;
 const plain = value => JSON.parse(JSON.stringify(value));
+
+const libraryGames = Array.from({ length: 858 }, (_, i) => ({
+    name: 'Jeu ' + i,
+    owners: 1,
+    appId: i + 1
+}));
+libraryGames[857].name = 'Jeu prioritaire';
+libraryGames[857].owners = 4;
+const cappedSet = ach.buildCardSet([], { games: libraryGames, libraries: 5 });
+assert.strictEqual(ach.TCG.SET_SIZE, 236);
+assert.strictEqual(Object.keys(cappedSet).length, ach.TCG.SET_SIZE,
+    'A large Steam library pool must be capped to a classic card-set size');
+assert(Object.values(cappedSet).some(card => card.name === 'Jeu prioritaire'),
+    'Shared games must keep their ranking priority when the set is capped');
+assert.strictEqual(Object.keys(ach.buildCardSet([], {
+    games: libraryGames.slice(0, 20),
+    libraries: 5
+})).length, 20, 'A small pool must not be padded to the cap');
 
 const uid = 'player-beta';
 const admin = { uid: 'admin-1', name: 'Greg' };

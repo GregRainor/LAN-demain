@@ -1054,6 +1054,10 @@ const TCG = {
        Les illustrations sont mises en cache par jeu : une signature déjà
        dessinée lors d'une soirée précédente ne se regénère pas. */
     SIGNATURE_COUNT: 8,
+    /* Une extension physique classique reste assez petite pour que compléter
+       le set ait un sens. Les bibliothèques du groupe peuvent dépasser huit
+       cents jeux : seuls les mieux classés entrent donc dans le set. */
+    SET_SIZE: 236,
 
     /* Les noms sont ceux de Riftbound, parce que c'est le vocabulaire du
        groupe. `share` est la part du set — sauf pour la signature, dont le
@@ -1301,7 +1305,11 @@ function buildCardSet(scores, pool) {
         .map(game => Object.assign(game, { weight: cardWeight(game.score, game.owners, libraries) }))
         .sort((a, b) => b.weight - a.weight
             || tcgHash(a.key) - tcgHash(b.key)
-            || (a.key < b.key ? -1 : 1));
+            || (a.key < b.key ? -1 : 1))
+        /* Un set n'est pas l'inventaire exhaustif des bibliothèques Steam.
+           On garde les jeux les plus représentatifs du groupe : votes et
+           propriété partagée pèsent déjà dans le classement ci-dessus. */
+        .slice(0, TCG.SET_SIZE);
 
     const total = ranked.length;
     if (!total) return {};
