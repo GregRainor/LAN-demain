@@ -257,13 +257,31 @@ function thumbFor(gameName, imgEl) {
 }
 
 const detailsCache = new Map();
+const dealsCache = new Map();
+const GAME_PRICE_CLIENT_TTL = 15 * 60 * 1000;
 function gameDetails(gameName) {
     const key = normalizeGameName(gameName);
-    if (detailsCache.has(key)) return detailsCache.get(key);
+    const cached = detailsCache.get(key);
+    if (cached && cached.expiresAt > Date.now()) return cached.promise;
     const promise = fetch(`/api/game-details?name=${encodeURIComponent(key)}`)
         .then(res => (res.ok ? res.json() : null))
         .catch(() => null);
-    detailsCache.set(key, promise);
+    detailsCache.set(key, { promise, expiresAt: Date.now() + GAME_PRICE_CLIENT_TTL });
+    return promise;
+}
+
+function gameDeals(details, gameName) {
+    const appId = details && details.exactMatch && details.appId;
+    const key = appId ? `appid:${appId}` : `title:${normalizeGameName(gameName)}`;
+    const cached = dealsCache.get(key);
+    if (cached && cached.expiresAt > Date.now()) return cached.promise;
+    const query = appId
+        ? `appid=${encodeURIComponent(appId)}`
+        : `title=${encodeURIComponent(gameName)}`;
+    const promise = fetch(`/api/game-deals?${query}`)
+        .then(res => (res.ok ? res.json() : null))
+        .catch(() => null);
+    dealsCache.set(key, { promise, expiresAt: Date.now() + GAME_PRICE_CLIENT_TTL });
     return promise;
 }
 
@@ -929,8 +947,15 @@ function renderEditorialHome() {
         ...Object.keys(state.profiles)
     ]).size;
 
+    const votesAreClosed = p === 'waiting' && gameTotal > 0;
     const views = {
-        waiting: {
+        waiting: votesAreClosed ? {
+            kicker: 'Votes clos · Préparation',
+            title: 'La sélection est arrêtée.',
+            copy: 'Comparez les boutiques, profitez des promotions et installez les jeux retenus avant la LAN.',
+            stats: [[gameTotal, 'Jeux classés'], [voterTotal, 'Votants'], [(schedule && schedule.countdown) || 'À fixer', 'Prochaine']],
+            action: ['Comparer les prix', 'jeux']
+        } : {
             kicker: 'Entre deux nuits',
             title: schedule ? 'Le prochain rendez-vous est posé.' : 'La prochaine nuit se prépare.',
             copy: schedule
@@ -1335,6 +1360,45 @@ function openGameSheet(gameName) {
                 }
                 body.appendChild(price);
             }
+
+            const dealSection = el('section', 'm-game-deals');
+            dealSection.appendChild(el('h3', 'm-section__title', 'Comparer les prix'));
+            const dealList = el('div', 'm-deals');
+            dealList.appendChild(el('div', 'm-loading', 'Recherche des meilleures offres…'));
+            dealSection.appendChild(dealList);
+            body.appendChild(dealSection);
+
+            gameDeals(details, gameName).then(data => {
+                dealList.innerHTML = '';
+                if (!data || !data.found || !Array.isArray(data.deals) || data.deals.length === 0) {
+                    dealSection.remove();
+                    return;
+                }
+
+                data.deals.forEach(deal => {
+                    const row = el('a', 'm-deals__row');
+                    row.href = safeHttpUrl(deal.url);
+                    row.target = '_blank';
+                    row.rel = 'noopener noreferrer';
+
+                    const info = el('span', 'm-deals__info');
+                    info.appendChild(el('span', 'm-deals__shop', deal.shop || 'Boutique'));
+                    const promo = dealPromotionLabel(deal);
+                    if (promo) info.appendChild(el('span', 'm-deals__expiry', promo));
+
+                    const offer = el('span', 'm-deals__offer');
+                    const numericPrice = Number(deal.price);
+                    const numericRegular = Number(deal.regular);
+                    if (Number.isFinite(numericRegular) && numericRegular > numericPrice) {
+                        offer.appendChild(el('del', 'm-deals__regular', money(numericRegular)));
+                    }
+                    if (Number(deal.cut) > 0) offer.appendChild(el('span', 'm-deals__cut', `-${Number(deal.cut)} %`));
+                    offer.appendChild(el('span', 'm-deals__price', numericPrice === 0 ? 'Gratuit' : money(numericPrice)));
+
+                    row.append(info, offer);
+                    dealList.appendChild(row);
+                });
+            });
 
             const score = state.scores.find(g => normalizeGameName(g.name) === normalizeGameName(gameName));
             if (score) {

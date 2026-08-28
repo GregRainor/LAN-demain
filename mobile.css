@@ -828,10 +828,16 @@ button[data-goto]:disabled { cursor: not-allowed; }
 .m-price__was { font-size: .88rem; color: var(--text-3); text-decoration: line-through; }
 .m-price__cut { padding: 2px 7px; border-radius: var(--r-sharp); background: var(--ok); color: #04140a; font-size: .72rem; font-weight: 600; }
 
-.m-deals { display: flex; flex-direction: column; border: 1px solid var(--line-2); border-radius: var(--r-sharp); }
-.m-deals__row { display: flex; align-items: center; gap: 10px; padding: 11px 13px; border-bottom: 1px solid var(--line-2); min-height: var(--tap); }
+.m-game-deals { display: flex; flex-direction: column; gap: 9px; }
+.m-deals { display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--line-2); border-radius: var(--r-sharp); }
+.m-deals__row { display: flex; align-items: center; gap: 10px; padding: 11px 13px; border-bottom: 1px solid var(--line-2); min-height: var(--tap); color: inherit; text-decoration: none; }
 .m-deals__row:last-child { border-bottom: 0; }
-.m-deals__shop { flex: 1; font-size: .86rem; color: var(--text-2); }
+.m-deals__info { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 2px; }
+.m-deals__shop { overflow: hidden; font-size: .86rem; color: var(--text-2); text-overflow: ellipsis; white-space: nowrap; }
+.m-deals__expiry { overflow: hidden; font-size: .7rem; color: var(--text-3); text-overflow: ellipsis; white-space: nowrap; }
+.m-deals__offer { display: flex; align-items: flex-end; flex-direction: column; gap: 1px; }
+.m-deals__regular { font-size: .7rem; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.m-deals__cut { font-size: .68rem; color: var(--ok); }
 .m-deals__price { font-size: .9rem; color: var(--text); font-variant-numeric: tabular-nums; }
 
 .m-loading { padding: 26px 0; text-align: center; font-size: .88rem; color: var(--text-3); }

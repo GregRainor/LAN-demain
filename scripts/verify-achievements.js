@@ -189,6 +189,6 @@ assert(rules.rules.lan.tcg.packs['.write'].includes('!newData.exists()')
 assert(rules.rules.lan.tcg.resetAt['.write'].includes("val() !== true")
     && rules.rules.lan.tcg.resetAt['.validate'].includes('newData.val() === now'),
     'The durable reset marker must be gamemaster-writable only during an open LAN');
-assert(/20260828-achievement-idempotent-grant/.test(desktopHtml) && /20260828-achievement-idempotent-grant/.test(mobileHtml));
+assert(/20260828-prelan-price-comparator/.test(desktopHtml) && /20260828-prelan-price-comparator/.test(mobileHtml));
 
 console.log('Achievement and TCG archive checks passed (atomic ceremony claim, reset, archived sets).');

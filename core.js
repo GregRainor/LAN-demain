@@ -185,6 +185,24 @@ const safeHttpUrl = (url, fallback = '#') => {
     }
 };
 
+// Les boutiques tierces donnent une date ISO ; Steam fournit plutôt une phrase
+// localisée (« L'offre prend fin… »). Les deux interfaces affichent ainsi la
+// même information sans essayer de deviner une date que Steam ne publie pas.
+function dealPromotionLabel(deal) {
+    const steamLabel = String((deal && deal.promoEnds) || '').replace(/\s+/g, ' ').trim();
+    if (steamLabel) return steamLabel;
+    if (!deal || !deal.expiry) return '';
+
+    const expiry = new Date(deal.expiry);
+    if (Number.isNaN(expiry.getTime())) return '';
+    return 'Promo jusqu’au ' + expiry.toLocaleString('fr-FR', {
+        day: 'numeric',
+        month: 'long',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
 /* Un avatar vient de la base, donc d'un autre joueur : c'est une URL qu'il
    choisit et que le navigateur de TOUS les autres ira chercher. Laissée libre,
    elle devient un mouchard — un compte compromis relèverait l'adresse IP de

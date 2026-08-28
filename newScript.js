@@ -4005,12 +4005,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- FICHE JEU STEAM ---------------------------------------------------
 
     const detailsCache = new Map();
+    const GAME_PRICE_CLIENT_TTL = 15 * 60 * 1000;
 
     // Les détails sont mis en cache côté client en plus du CDN : une même partie
     // affiche le même jeu dans plusieurs listes.
     async function getGameDetails(gameName) {
         const key = gameName.toLowerCase().trim();
-        if (detailsCache.has(key)) return detailsCache.get(key);
+        const cached = detailsCache.get(key);
+        if (cached && cached.expiresAt > Date.now()) return cached.promise;
 
         const promise = (async () => {
             try {
@@ -4023,7 +4025,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         })();
 
-        detailsCache.set(key, promise);
+        detailsCache.set(key, { promise, expiresAt: Date.now() + GAME_PRICE_CLIENT_TTL });
         return promise;
     }
 
@@ -4110,9 +4112,21 @@ document.addEventListener('DOMContentLoaded', () => {
             row.target = '_blank';
             row.rel = 'noopener noreferrer';
 
+            const info = document.createElement('span');
+            info.className = 'deal-row__info';
+
             const shop = document.createElement('span');
             shop.className = 'deal-row__shop';
             shop.textContent = deal.shop;
+            info.appendChild(shop);
+
+            const promo = dealPromotionLabel(deal);
+            if (promo) {
+                const expiry = document.createElement('span');
+                expiry.className = 'deal-row__expiry';
+                expiry.textContent = promo;
+                info.appendChild(expiry);
+            }
 
             const cut = document.createElement('span');
             if (deal.cut > 0) {
@@ -4120,12 +4134,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 cut.textContent = `-${deal.cut}%`;
             }
 
+            const prices = document.createElement('span');
+            prices.className = 'deal-row__prices';
+
+            const numericPrice = Number(deal.price);
+            const numericRegular = Number(deal.regular);
+            if (Number.isFinite(numericRegular) && numericRegular > numericPrice) {
+                const regular = document.createElement('del');
+                regular.className = 'deal-row__regular';
+                regular.textContent = `${numericRegular.toFixed(2)} €`;
+                prices.appendChild(regular);
+            }
+
             const price = document.createElement('span');
             price.className = 'deal-row__price';
             // « 0.00 € » se lit mal pour un free-to-play
-            price.textContent = deal.price === 0 ? 'Gratuit' : `${deal.price.toFixed(2)} €`;
+            price.textContent = numericPrice === 0 ? 'Gratuit' : `${numericPrice.toFixed(2)} €`;
+            prices.appendChild(price);
 
-            row.append(shop, cut, price);
+            row.append(info, cut, prices);
             list.appendChild(row);
         });
 
@@ -6005,8 +6032,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const checked = iHaveInstalled(game.name);
             if (checked) mine += 1;
 
-            const row = document.createElement('label');
+            const row = document.createElement('div');
             row.className = 'waiting-install__row' + (checked ? ' is-ready' : '');
+
+            const check = document.createElement('label');
+            check.className = 'waiting-install__check';
 
             const box = document.createElement('input');
             box.type = 'checkbox';
@@ -6022,7 +6052,16 @@ document.addEventListener('DOMContentLoaded', () => {
             state.className = 'waiting-install__state';
             state.textContent = installedCount(game.name) + ' / ' + players + ' installé' + (players > 1 ? 's' : '');
 
-            row.append(box, label, state);
+            check.append(box, label);
+
+            const compare = document.createElement('button');
+            compare.type = 'button';
+            compare.className = 'waiting-install__compare';
+            compare.textContent = 'Comparer';
+            compare.setAttribute('aria-label', 'Comparer les prix pour ' + game.name);
+            compare.addEventListener('click', () => openGameDetails(game.name));
+
+            row.append(check, state, compare);
             mount.appendChild(row);
         });
 
@@ -6030,7 +6069,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (hint) {
             hint.textContent = mine === top.length
                 ? 'Tout est installé chez toi. Il ne reste plus qu’à attendre.'
-                : 'Coche ce que tu as vraiment installé — posséder un jeu ne suffit pas à le lancer samedi.';
+                : 'Coche ce que tu as installé, ou compare les boutiques pour acheter ce qui te manque.';
         }
     }
 

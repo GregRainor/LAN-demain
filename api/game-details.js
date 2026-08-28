@@ -3,7 +3,10 @@
 // Comme get-game-image, tout est mis en cache sur le CDN Vercel : sans ça, chaque
 // visiteur qui ouvre une fiche déclenche un appel serverless -> Steam.
 
-const CACHE_HEADER = 'public, s-maxage=86400, stale-while-revalidate=604800';
+// Les fiches contiennent aussi le prix Steam : une journée de cache rendait les
+// promotions trompeuses. Quinze minutes gardent les appels raisonnables sans
+// figer une remise après son début ou sa fin.
+const CACHE_HEADER = 'public, s-maxage=900, stale-while-revalidate=3600';
 
 // Normalise pour comparer : minuscules, sans accents, sans ™/®, sans ponctuation
 function normalize(str) {

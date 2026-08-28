@@ -2919,6 +2919,29 @@ select.luxury-input option:disabled {
     white-space: nowrap;
 }
 
+.deal-row__info,
+.deal-row__prices {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+}
+
+.deal-row__expiry {
+    overflow: hidden;
+    color: var(--muted-text);
+    font-size: var(--text-xs);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.deal-row__prices { align-items: flex-end; }
+
+.deal-row__regular {
+    color: var(--muted-text);
+    font-size: var(--text-xs);
+    font-variant-numeric: tabular-nums;
+}
+
 .deal-row__cut {
     font-size: var(--text-xs);
     font-weight: 700;

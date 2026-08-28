@@ -2233,15 +2233,23 @@ body.desktop-authenticated #app-container.desktop-os *::after {
    deux choses différentes, et seule la seconde se déclare. */
 .waiting-install__row {
     display: grid;
-    grid-template-columns: 16px minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
-    gap: 12px;
+    gap: 4px 10px;
     padding: 10px 0;
     border-top: 1px solid var(--desktop-line);
-    cursor: pointer;
 }
 
 .waiting-install__row:first-child { border-top: 0; }
+
+.waiting-install__check {
+    display: grid;
+    grid-template-columns: 16px minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    cursor: pointer;
+}
 
 .waiting-install__box {
     box-sizing: border-box;
@@ -2273,12 +2281,37 @@ body.desktop-authenticated #app-container.desktop-os *::after {
 }
 
 .waiting-install__state {
+    grid-column: 1;
+    padding-left: 28px;
     color: var(--desktop-dim);
     font: 500 9px/1.3 var(--font-body);
     letter-spacing: 0.13em;
     text-transform: uppercase;
     white-space: nowrap;
 }
+
+.waiting-install__compare {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    min-height: 30px;
+    padding: 5px 9px;
+    border: 1px solid rgba(212, 175, 55, 0.34);
+    border-radius: 2px;
+    background: rgba(212, 175, 55, 0.06);
+    color: var(--accent-color);
+    font: 600 9px/1 var(--font-body);
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: border-color var(--desktop-motion-fast) ease, background var(--desktop-motion-fast) ease;
+}
+
+.waiting-install__compare:hover {
+    border-color: rgba(212, 175, 55, 0.72);
+    background: rgba(212, 175, 55, 0.12);
+}
+
+.waiting-install__compare:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 2px; }
 
 .waiting-install__row.is-ready .waiting-install__name { color: var(--accent-color); }
 .waiting-install__row.is-ready .waiting-install__state { color: #4e9463; }
