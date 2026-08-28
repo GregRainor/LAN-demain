@@ -5,7 +5,7 @@ const vm = require('vm');
 
 const root = path.resolve(__dirname, '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
-const source = read('core.js') + '\nthis.__ach={TCG,buildCardSet,achievementAwardId,achievementById,achievementRevealTheme,achievementState,pendingAchievements,xpTotal,hasXpAward,isXpAwardRevoked,achievementGrantRecord,achievementResetRecord,achievementResetUpdates,unseenAchievementAwards,tcgArchiveSnapshot,tcgArchiveView,tcgArchivedSets,unsealedPurchases};';
+const source = read('core.js') + '\nthis.__ach={TCG,buildCardSet,achievementAwardId,achievementById,achievementRevealTheme,achievementState,pendingAchievements,xpTotal,hasXpAward,isXpAwardRevoked,achievementGrantRecord,achievementGrantIfMissing,achievementResetRecord,achievementResetUpdates,unseenAchievementAwards,tcgArchiveSnapshot,tcgArchiveView,tcgArchivedSets,unsealedPurchases};';
 const context = vm.createContext({ console, URL, Date, Math, Promise, Set, Map });
 vm.runInContext(source, context, { filename: 'core.js' });
 const ach = context.__ach;
@@ -49,6 +49,13 @@ assert.strictEqual(initial.reached, true, 'Beta Tester fixture should be eligibl
 assert.strictEqual(initial.pending, true, 'Eligible unawarded achievement should be pending');
 
 const grant = ach.achievementGrantRecord(uid, beta, admin, 100);
+assert.deepStrictEqual(plain(ach.achievementGrantIfMissing(null, uid, beta, admin, 100)), plain(grant),
+    'Automatic grants may create a genuinely missing award');
+assert.strictEqual(ach.achievementGrantIfMissing(grant, uid, beta, admin, 200), undefined,
+    'Opening another tab must not refresh an existing award timestamp');
+assert.strictEqual(ach.achievementGrantIfMissing(
+    ach.achievementResetRecord(uid, beta, admin, 200), uid, beta, admin, 300
+), undefined, 'Automatic grants must preserve an admin reset tombstone');
 data.xp.awards[awardId] = grant;
 assert.strictEqual(ach.hasXpAward(data.xp, awardId), true);
 assert.strictEqual(ach.xpTotal(data.xp, uid), 200);
@@ -154,6 +161,10 @@ assert(mobile.includes('queuePendingMobileAchievementReveals') && mobile.include
 for (const client of [desktop, mobile]) {
     assert(client.includes('.transaction(current => (Number(current) || 0) >= ts ? undefined : ts)'),
         'Achievement ceremonies must be claimed atomically before display');
+    assert(client.includes('.transaction(current => achievementGrantIfMissing('),
+        'Automatic grants must be create-only transactions');
+    assert(client.includes('!achievementXpReady'),
+        'Automatic grants must wait for the XP journal before calculating pending awards');
     assert(!client.includes('.set(Number(entry.award.ts)'),
         'Closing a ceremony must not be the first acknowledgement write');
     assert(client.includes('tcgArchive: archivedTcg'), 'New LAN history must include the complete TCG archive');
@@ -178,6 +189,6 @@ assert(rules.rules.lan.tcg.packs['.write'].includes('!newData.exists()')
 assert(rules.rules.lan.tcg.resetAt['.write'].includes("val() !== true")
     && rules.rules.lan.tcg.resetAt['.validate'].includes('newData.val() === now'),
     'The durable reset marker must be gamemaster-writable only during an open LAN');
-assert(/20260828-tcg-archive-achievement-claim/.test(desktopHtml) && /20260828-tcg-archive-achievement-claim/.test(mobileHtml));
+assert(/20260828-achievement-idempotent-grant/.test(desktopHtml) && /20260828-achievement-idempotent-grant/.test(mobileHtml));
 
 console.log('Achievement and TCG archive checks passed (atomic ceremony claim, reset, archived sets).');

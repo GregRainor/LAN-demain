@@ -6392,7 +6392,7 @@ let granting = false;
 
 function grantPendingAchievements() {
     const user = state.user;
-    if (!user || !state.isGamemaster || granting || !state.ready) return;
+    if (!user || !state.isGamemaster || granting || !state.ready || !achievementXpReady) return;
 
     const waiting = pendingAchievements(achData(), economyPlayers());
     if (!waiting.length) return;
@@ -6401,27 +6401,23 @@ function grantPendingAchievements() {
     const next = waiting[0];
     const awardId = achievementAwardId(next.uid, next.ach.id);
 
-    db.ref('lan/xp/awards/' + awardId).set({
-        uid: next.uid,
-        delta: next.ach.xp,
-        type: 'achievement',
-        reason: next.ach.label,
-        refId: next.ach.id,
-        by: user.uid,
-        ts: firebase.database.ServerValue.TIMESTAMP
-    })
-        .then(() => {
+    db.ref('lan/xp/awards/' + awardId)
+        .transaction(current => achievementGrantIfMissing(
+            current, next.uid, next.ach,
+            { uid: user.uid, name: user.displayName || 'Maître du jeu' },
+            firebase.database.ServerValue.TIMESTAMP
+        ))
+        .then(result => {
+            granting = false;
+            if (!result.committed) return;
             if (next.uid !== user.uid) {
                 sendNotification(next.uid,
                     'Haut fait : ' + next.ach.label + ' (+' + next.ach.xp + ' XP)', 'success');
             }
-        })
-        .catch(() => { /* déjà inscrit par un autre maître du jeu, ou refusé */ })
-        .finally(() => {
-            granting = false;
-            /* On enchaîne : une soirée entière de jalons doit se rattraper
-               d'un coup quand le maître du jeu arrive. */
             grantPendingAchievements();
+        })
+        .catch(() => {
+            granting = false;
         });
 }
 

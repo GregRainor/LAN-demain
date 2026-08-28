@@ -9212,35 +9212,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function grantPendingAchievements() {
         const user = auth.currentUser;
-        if (!user || !window.currentUserIsGamemaster || granting) return;
+        if (!user || !window.currentUserIsGamemaster || granting || !achievementXpReady) return;
 
         const waiting = pendingAchievements(achData(), economyPlayers());
         if (!waiting.length) return;
 
         granting = true;
         const next = waiting[0];
+        const awardId = achievementAwardId(next.uid, next.ach.id);
 
-        db.ref('lan/xp/awards/' + achievementAwardId(next.uid, next.ach.id)).set({
-            uid: next.uid,
-            delta: next.ach.xp,
-            type: 'achievement',
-            reason: next.ach.label,
-            refId: next.ach.id,
-            by: user.uid,
-            ts: firebase.database.ServerValue.TIMESTAMP
-        })
-            .then(() => {
+        db.ref('lan/xp/awards/' + awardId)
+            .transaction(current => achievementGrantIfMissing(
+                current, next.uid, next.ach,
+                { uid: user.uid, name: user.displayName || 'Maître du jeu' },
+                firebase.database.ServerValue.TIMESTAMP
+            ))
+            .then(result => {
+                granting = false;
+                if (!result.committed) return;
                 if (next.uid !== user.uid) {
                     sendNotification(next.uid,
-                        `Haut fait : ${next.ach.label} (+${next.ach.xp} XP)`, 'success');
+                        'Haut fait : ' + next.ach.label + ' (+' + next.ach.xp + ' XP)', 'success');
                 }
-            })
-            .catch(() => { /* déjà inscrit par un autre maître du jeu, ou refusé */ })
-            .finally(() => {
-                granting = false;
-                // On enchaîne : une soirée entière de jalons doit se rattraper
-                // d'un coup quand le maître du jeu arrive.
+                /* Le listener XP a normalement intégré l'award avant la
+                   résolution. S'il reste d'autres jalons, on poursuit ; si
+                   l'état local était en retard, l'abandon de transaction
+                   stoppe la boucle jusqu'au prochain snapshot. */
                 grantPendingAchievements();
+            })
+            .catch(() => {
+                granting = false;
             });
     }
     /* Acheter, c'est déposer une demande — jamais se débiter soi-même. Le

@@ -2006,6 +2006,16 @@ function achievementGrantRecord(uid, ach, admin, timestamp) {
     };
 }
 
+/* L'arbitre automatique peut calculer depuis un état local en retard pendant
+   le chargement d'un nouvel onglet. Une clé déterministe ne suffit pas si
+   set() réécrit le nœud : son timestamp redeviendrait neuf et la cérémonie
+   repartirait. La transaction ne crée donc que les awards vraiment absents,
+   sans écraser non plus une réinitialisation volontaire. */
+function achievementGrantIfMissing(current, uid, ach, admin, timestamp) {
+    if (current !== null && current !== undefined) return undefined;
+    return achievementGrantRecord(uid, ach, admin, timestamp);
+}
+
 function achievementResetRecord(uid, ach, admin, timestamp) {
     return {
         uid: uid,
