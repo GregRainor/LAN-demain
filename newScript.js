@@ -8168,6 +8168,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // Sans set, un booster ne contiendrait rien : on ne le propose pas.
         if (!tcgCurrentSetId(globalTcg)) { panel.style.display = 'none'; return; }
 
+        // La boutique s'ouvre souvent avant l'onglet Collection : c'est ici
+        // aussi qu'il faut avoir lu l'illustration de l'emballage.
+        ensureGeneratedArt(PACK_ART_KEY);
+
         const items = packItems(globalEconomy);
         if (!items.length) {
             // Pour un maître du jeu, c'est une chose à faire — pas une absence
@@ -9774,20 +9778,47 @@ document.addEventListener('DOMContentLoaded', () => {
        Huit cartes par set : on les lit une par une, et on retient. */
     const generatedArt = {};
     const generatedArtNames = {};
-    const generatedArtPending = new Set();
+    const generatedArtWatched = new Set();
 
+    /* On ÉCOUTE la clé au lieu de la lire une fois. Une lecture unique se fait
+       à l'ouverture de l'écran : le client d'un joueur déjà connecté quand le
+       maître du jeu importe les illustrations gardait donc « pas d'image »
+       jusqu'au rechargement de la page — et l'illustration n'arrivait, de
+       fait, jamais aux autres. Neuf clés au plus (huit Signature et
+       l'emballage), lues une seule fois puis mises à jour : la synchro
+       permanente du reste de l'app ne transporte toujours aucun base64. */
     function ensureGeneratedArt(gameKey) {
-        if (!gameKey || generatedArt[gameKey] !== undefined || generatedArtPending.has(gameKey)) return;
-        generatedArtPending.add(gameKey);
-        db.ref('lan/cardArt/' + gameKey).once('value')
-            .then(snapshot => {
-                const node = snapshot.val();
-                generatedArt[gameKey] = (node && node.data) || null;
-                generatedArtNames[gameKey] = (node && node.name) || '';
-                if (node && node.data) renderCollection();
-            })
-            .catch(() => { generatedArt[gameKey] = null; })
-            .finally(() => generatedArtPending.delete(gameKey));
+        if (!gameKey || generatedArtWatched.has(gameKey)) return;
+        generatedArtWatched.add(gameKey);
+        db.ref('lan/cardArt/' + gameKey).on('value', snapshot => {
+            const node = snapshot.val();
+            const data = (node && node.data) || null;
+            const changed = generatedArt[gameKey] !== data;
+            generatedArt[gameKey] = data;
+            generatedArtNames[gameKey] = (node && node.name) || '';
+            if (!changed) return;
+            applyGeneratedArt(gameKey, data);
+            renderCollection();
+            // L'emballage est aussi l'article en tête de la boutique.
+            if (gameKey === PACK_ART_KEY && auth.currentUser) renderBoosterShelf(auth.currentUser);
+        }, (error) => {
+            // Une déconnexion annule l'écoute : on oublie la clé pour que la
+            // prochaine carte dessinée la redemande, au lieu de rester muette.
+            console.error('Illustration illisible :', gameKey, error);
+            generatedArt[gameKey] = null;
+            generatedArtWatched.delete(gameKey);
+        });
+    }
+
+    /* L'illustration arrive après que la carte est dessinée, et pas seulement
+       dans la grille : l'échange, la fiche et la révélation affichent la même
+       carte. On repeint donc les images déjà à l'écran, où qu'elles soient,
+       plutôt que de compter sur le redessin d'un seul panneau. */
+    function applyGeneratedArt(gameKey, data) {
+        if (!data) return;
+        document.querySelectorAll('img[data-art-key]').forEach(img => {
+            if (img.dataset.artKey === gameKey) img.src = data;
+        });
     }
 
     /* Repli pour les sets composés avant que les cartes portent un appId : on
@@ -9849,7 +9880,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function paintCardArt(imgEl, card) {
-        if (card.rarity === 'signature') ensureGeneratedArt(card.artKey || card.gameKey);
+        if (card.rarity === 'signature') {
+            const artKey = card.artKey || card.gameKey;
+            ensureGeneratedArt(artKey);
+            // La marque qui permet de repeindre cette image quand
+            // l'illustration arrive, même hors de la grille.
+            imgEl.dataset.artKey = artKey;
+        }
         armCardArtFallback(imgEl, card);
 
         const known = cardImage(card, generatedArt);
@@ -10042,6 +10079,10 @@ document.addEventListener('DOMContentLoaded', () => {
         renderTcgBadge(liveView);
         if (archived) return;
 
+        // L'emballage a son propre visuel, chargé comme celui d'une Signature.
+        // Sans cette ligne, seul le maître du jeu qui vient de l'importer le
+        // voyait : personne d'autre ne lisait jamais la clé.
+        ensureGeneratedArt(PACK_ART_KEY);
         renderTcgGmPanel(view);
         renderMyPacks(view);
         renderTradesIn(view);
@@ -10582,6 +10623,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }).then(() => {
                 generatedArt[key] = dataUrl;
                 generatedArtNames[key] = label || generatedArtNames[key] || '';
+                applyGeneratedArt(key, dataUrl);
                 showToast('Illustration importée.', 'success');
             }))
             .catch(err => showToast(tcgWriteError(err), 'error'));

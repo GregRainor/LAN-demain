@@ -3887,6 +3887,10 @@ function renderBoosterShelf() {
     const setId = tcgCurrentSetId(state.tcg);
     if (!setId) { section.style.display = 'none'; return; }
 
+    /* La boutique s'ouvre souvent avant l'écran Cartes : c'est ici aussi qu'il
+       faut avoir lu l'illustration de l'emballage. */
+    ensureGeneratedArt(PACK_ART_KEY);
+
     if (!items.length) {
         /* Personne n'a encore mis de booster en vente. Pour un maître du jeu,
            c'est une chose à faire, pas une absence à constater. */
@@ -4641,20 +4645,45 @@ function showMobileArchivedCollectionOnly(archived) {
    set : on les lit une par une, et on retient. */
 const generatedArt = {};
 const generatedArtNames = {};
-const generatedArtPending = new Set();
+const generatedArtWatched = new Set();
 
+/* On ÉCOUTE la clé au lieu de la lire une fois. Une lecture unique se fait à
+   l'ouverture de l'écran : le téléphone d'un joueur déjà connecté quand le
+   maître du jeu importe les illustrations gardait donc « pas d'image » jusqu'au
+   rechargement de la page — et l'illustration n'arrivait, de fait, jamais aux
+   autres. Neuf clés au plus (huit Signature et l'emballage), lues une fois puis
+   mises à jour : la synchro permanente ne transporte toujours aucun base64. */
 function ensureGeneratedArt(gameKey) {
-    if (!gameKey || generatedArt[gameKey] !== undefined || generatedArtPending.has(gameKey)) return;
-    generatedArtPending.add(gameKey);
-    db.ref('lan/cardArt/' + gameKey).once('value')
-        .then(snapshot => {
-            const node = snapshot.val();
-            generatedArt[gameKey] = (node && node.data) || null;
-            generatedArtNames[gameKey] = (node && node.name) || '';
-            if (node && node.data) renderCartes();
-        })
-        .catch(() => { generatedArt[gameKey] = null; })
-        .finally(() => generatedArtPending.delete(gameKey));
+    if (!gameKey || generatedArtWatched.has(gameKey)) return;
+    generatedArtWatched.add(gameKey);
+    db.ref('lan/cardArt/' + gameKey).on('value', snapshot => {
+        const node = snapshot.val();
+        const data = (node && node.data) || null;
+        const changed = generatedArt[gameKey] !== data;
+        generatedArt[gameKey] = data;
+        generatedArtNames[gameKey] = (node && node.name) || '';
+        if (!changed) return;
+        applyGeneratedArt(gameKey, data);
+        renderCartes();
+        // L'emballage est aussi l'article en tête de la boutique.
+        if (gameKey === PACK_ART_KEY) renderBoosterShelf();
+    }, (error) => {
+        // Une déconnexion annule l'écoute : on oublie la clé pour que la
+        // prochaine carte dessinée la redemande, au lieu de rester muette.
+        console.error('Illustration illisible :', gameKey, error);
+        generatedArt[gameKey] = null;
+        generatedArtWatched.delete(gameKey);
+    });
+}
+
+/* L'illustration arrive après que la carte est dessinée, et pas seulement dans
+   la grille : l'échange, la fiche et la révélation affichent la même carte. On
+   repeint donc les images déjà à l'écran, où qu'elles soient. */
+function applyGeneratedArt(gameKey, data) {
+    if (!data) return;
+    document.querySelectorAll('img[data-art-key]').forEach(img => {
+        if (img.dataset.artKey === gameKey) img.src = data;
+    });
 }
 
 /* Repli pour les sets composés avant que les cartes portent un appId : on
@@ -4676,7 +4705,13 @@ const legacyArtObserver = ('IntersectionObserver' in window)
    composés à partir de maintenant — l'adresse de la jaquette Steam s'en déduit
    et le set entier ne déclenche pas une seule requête. */
 function cardArtFor(card, imgEl) {
-    if (card.rarity === 'signature') ensureGeneratedArt(card.artKey || card.gameKey);
+    if (card.rarity === 'signature') {
+        const artKey = card.artKey || card.gameKey;
+        ensureGeneratedArt(artKey);
+        // La marque qui permet de repeindre cette image quand l'illustration
+        // arrive, même hors de la grille.
+        imgEl.dataset.artKey = artKey;
+    }
 
     const known = cardImage(card, generatedArt);
     if (known) { imgEl.src = known; return; }
@@ -5266,6 +5301,7 @@ function importArt(key, label, file) {
         }).then(() => {
             generatedArt[key] = dataUrl;
             generatedArtNames[key] = label || generatedArtNames[key] || '';
+            applyGeneratedArt(key, dataUrl);
             showToast('Illustration importée.', 'success');
             renderCartes();
         }))
