@@ -5,7 +5,7 @@ const vm = require('vm');
 
 const root = path.resolve(__dirname, '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
-const source = read('core.js') + '\nthis.__ach={TCG,buildCardSet,cardImage,calculateScores,tcgSetDeletionPlan,achievementAwardId,achievementById,achievementRevealTheme,achievementState,pendingAchievements,xpTotal,hasXpAward,isXpAwardRevoked,achievementGrantRecord,achievementGrantIfMissing,achievementResetRecord,achievementResetUpdates,unseenAchievementAwards,tcgArchiveSnapshot,tcgArchiveView,tcgArchivedSets,unsealedPurchases};';
+const source = read('core.js') + '\nthis.__ach={TCG,buildCardSet,cardImage,cardArtKey,calculateScores,tcgSetDeletionPlan,achievementAwardId,achievementById,achievementRevealTheme,achievementState,pendingAchievements,xpTotal,hasXpAward,isXpAwardRevoked,achievementGrantRecord,achievementGrantIfMissing,achievementResetRecord,achievementResetUpdates,unseenAchievementAwards,tcgArchiveSnapshot,tcgArchiveView,tcgArchivedSets,unsealedPurchases};';
 const context = vm.createContext({ console, URL, Date, Math, Promise, Set, Map });
 vm.runInContext(source, context, { filename: 'core.js' });
 const ach = context.__ach;
@@ -56,18 +56,30 @@ const voteLedSet = ach.buildCardSet(votedNames.map((name, index) => ({
 })), { games: rarityPool, libraries: 5 });
 const signatures = Object.values(voteLedSet).filter(card => card.rarity === 'signature');
 const showcases = Object.values(voteLedSet).filter(card => card.rarity === 'showcase');
-assert.deepStrictEqual(signatures.map(card => card.name), votedNames.slice(0, 8),
-    'Signature must be the first eight games in the visible vote ranking');
+const firebaseCardFields = new Set(['name', 'rarity', 'score', 'owners', 'appId']);
+Object.values(voteLedSet).forEach(card => {
+    assert(Object.keys(card).every(field => firebaseCardFields.has(field)),
+        'Generated cards must only use fields accepted by Firebase rules');
+});
+assert.deepStrictEqual(signatures.map(card => card.name), votedNames.slice(0, 8).map(name => name + ' — Signature'),
+    'The first eight voted games must become explicitly named Signature variants');
 assert(showcases.length > 0, 'A full-size rarity fixture must expose Showcase slots');
-assert.deepStrictEqual(showcases.map(card => card.name), votedNames.slice(8, 8 + showcases.length),
-    'Showcase must continue with the next games in the visible vote ranking');
+assert.deepStrictEqual(showcases.map(card => card.name), votedNames.slice(0, 8),
+    'Every Signature game must also exist as a base-art Showcase card');
+signatures.forEach((signature, index) => {
+    const signatureKey = Object.entries(voteLedSet).find(([, card]) => card === signature)[0];
+    assert.strictEqual(ach.cardArtKey({ gameKey: signatureKey }), 'voted ' + (index + 1),
+        'Signature artwork must resolve to the base game key');
+    assert(Object.values(voteLedSet).some(card => card.rarity === 'showcase'
+        && card.name === votedNames[index] && card.appId === signature.appId));
+});
 assert.strictEqual(
-    ach.cardImage({ gameKey: 'voted-9', rarity: 'showcase', appId: 3008 }, { 'voted-9': 'data:image/png;base64,custom' }),
-    'https://cdn.cloudflare.steamstatic.com/steam/apps/3008/header.jpg',
+    ach.cardImage({ gameKey: 'voted 1', rarity: 'showcase', appId: 3000 }, { 'voted 1': 'data:image/png;base64,custom' }),
+    'https://cdn.cloudflare.steamstatic.com/steam/apps/3000/header.jpg',
     'Only Signature cards may reuse custom artwork'
 );
 assert.strictEqual(
-    ach.cardImage({ gameKey: 'voted-1', rarity: 'signature', appId: 3000 }, { 'voted-1': 'data:image/png;base64,custom' }),
+    ach.cardImage({ gameKey: '__signature--voted 1', rarity: 'signature', appId: 3000 }, { 'voted 1': 'data:image/png;base64,custom' }),
     'data:image/png;base64,custom'
 );
 
@@ -269,6 +281,6 @@ assert(rules.rules.lan.tcg.packs['.write'].includes('!newData.exists()')
 assert(rules.rules.lan.tcg.resetAt['.write'].includes("val() !== true")
     && rules.rules.lan.tcg.resetAt['.validate'].includes('newData.val() === now'),
     'The durable reset marker must be gamemaster-writable only during an open LAN');
-assert(/20260828-tcg-vote-rarities/.test(desktopHtml) && /20260828-tcg-vote-rarities/.test(mobileHtml));
+assert(/20260828-tcg-signature-variants/.test(desktopHtml) && /20260828-tcg-signature-variants/.test(mobileHtml));
 
 console.log('Achievement and TCG archive checks passed (atomic ceremony claim, reset, archived sets).');

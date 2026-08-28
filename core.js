@@ -1140,6 +1140,18 @@ function cardKey(name) {
    commençant par un tiret bas — aucune carte ne peut donc la percuter — et
    ça évite d'ajouter un nœud, donc de republier les règles une fois de plus. */
 const PACK_ART_KEY = '__booster';
+const SIGNATURE_CARD_PREFIX = '__signature--';
+
+/* Une variante Signature a sa propre identité de collection, mais partage la
+   réserve d'artwork de son jeu de base. La relation se déduit de la clé : elle
+   n'ajoute donc aucun champ refusé par les règles Firebase des anciens sets. */
+function cardArtKey(card) {
+    if (card && card.artKey) return card.artKey;
+    const key = String(card && card.gameKey || '');
+    return key.startsWith(SIGNATURE_CARD_PREFIX)
+        ? key.slice(SIGNATURE_CARD_PREFIX.length)
+        : key;
+}
 
 /* Le nom affiché sur l'emballage. Celui que le maître du jeu a choisi, sinon
    celui de la soirée : jamais « Booster de test », qui ne veut rien dire pour
@@ -1190,9 +1202,10 @@ function cardImage(card, generated) {
     // le même jeu devient Showcase dans un set suivant, il retrouve sa jaquette
     // Steam au lieu de conserver l'ancien artwork en mémoire/cache Firebase.
     if (card && card.rarity === 'signature') {
-        const drawn = cardArt(card.gameKey);
+        const artKey = cardArtKey(card);
+        const drawn = cardArt(artKey);
         if (drawn) return drawn;
-        const made = generated && generated[card.gameKey];
+        const made = generated && generated[artKey];
         if (made) return made;
     }
     return steamHeaderUrl(card && card.appId);
@@ -1203,7 +1216,11 @@ function cardImage(card, generated) {
 function signatureCards(setCards) {
     return Object.entries(setCards || {})
         .filter(([, card]) => card && card.rarity === 'signature')
-        .map(([gameKey, card]) => ({ gameKey, name: card.name || gameKey }));
+        .map(([gameKey, card]) => ({
+            gameKey,
+            artKey: cardArtKey({ gameKey }),
+            name: card.name || gameKey
+        }));
 }
 
 /* --------------------------------------------------------------------------
@@ -1352,12 +1369,16 @@ function buildCardSet(scores, pool) {
             || a.voteRank - b.voteRank
             || stableByWeight(a, b));
     const votedKeys = new Set(voted.map(game => game.key));
-    const ranked = voted
-        .concat(weighted.filter(game => !votedKeys.has(game.key)))
-        /* Un set n'est pas l'inventaire exhaustif des bibliothèques Steam. */
-        .slice(0, TCG.SET_SIZE);
+    const ordered = voted.concat(weighted.filter(game => !votedKeys.has(game.key)));
 
-    const total = ranked.length;
+    /* Une Signature est une variante de collection, pas le remplacement de
+       la carte normale. On réserve donc jusqu'à huit places aux variantes,
+       puis on garde autant de jeux de base que le plafond du set l'autorise. */
+    const eligible = ordered.filter(game => game.owners >= 2 || game.score > 0).length;
+    const signatures = Math.min(TCG.SIGNATURE_COUNT, eligible, ordered.length);
+    const ranked = ordered.slice(0, Math.max(0, TCG.SET_SIZE - signatures));
+    const signatureGames = ranked.slice(0, signatures);
+    const total = ranked.length + signatureGames.length;
     if (!total) return {};
 
     /* Les deux raretés de chasse sont RÉSERVÉES aux cartes qui les méritent :
@@ -1374,7 +1395,8 @@ function buildCardSet(scores, pool) {
        trois cartes servirait éternellement les mêmes. Sous l'épique, il n'y a
        de toute façon plus de signal à lire — le bas du set est la longue
        traîne des bibliothèques personnelles, que seule l'empreinte départage. */
-    const deserving = ranked.filter(game => game.owners >= 2 || game.score > 0).length;
+    const deserving = signatureGames.length
+        + ranked.filter(game => game.owners >= 2 || game.score > 0).length;
     const reservedUpTo = rarityIndex('epic');
 
     const bands = new Array(total);
@@ -1383,10 +1405,9 @@ function buildCardSet(scores, pool) {
     /* La signature se compte en cartes, pas en pourcentage : c'est le nombre
        d'illustrations qu'on accepte de faire dessiner. Elle prend le sommet du
        classement, et jamais plus que ce que le set mérite. */
-    const signatures = Math.min(TCG.SIGNATURE_COUNT, deserving, total);
-    while (index < signatures) bands[index++] = 0;
+    while (index < signatureGames.length) bands[index++] = 0;
 
-    const rest = total - signatures;
+    const rest = total - signatureGames.length;
     let cumulative = 0;
     TCG.RARITIES.forEach((rarity, i) => {
         if (i === 0) return;   // la signature est déjà servie
@@ -1398,16 +1419,30 @@ function buildCardSet(scores, pool) {
         const room = total - (TCG.RARITIES.length - 1 - i);
         let upTo = isLast
             ? total
-            : Math.max(index + 1, Math.min(room, signatures + Math.round(rest * cumulative)));
+            : Math.max(index + 1, Math.min(room, signatureGames.length + Math.round(rest * cumulative)));
+        /* Chaque Signature garde aussi sa version normale dans la rareté juste
+           en dessous. Ces Showcase utilisent la jaquette Steam habituelle. */
+        if (rarity.key === 'showcase') {
+            upTo = Math.max(upTo, signatureGames.length + Math.min(signatureGames.length, ranked.length));
+        }
         if (i <= reservedUpTo) upTo = Math.min(upTo, Math.max(index + 1, deserving));
         while (index < upTo) bands[index++] = i;
     });
 
     const cards = {};
+    signatureGames.forEach((game, i) => {
+        cards[SIGNATURE_CARD_PREFIX + game.key] = {
+            name: game.name + ' — Signature',
+            rarity: TCG.RARITIES[bands[i]].key,
+            score: game.score,
+            owners: game.owners,
+            appId: game.appId
+        };
+    });
     ranked.forEach((game, i) => {
         cards[game.key] = {
             name: game.name,
-            rarity: TCG.RARITIES[bands[i]].key,
+            rarity: TCG.RARITIES[bands[signatureGames.length + i]].key,
             score: game.score,
             // Combien de bibliothèques du groupe l'avaient le jour du set.
             // C'est ce qui explique la rareté quand on retourne la carte.
@@ -1656,6 +1691,7 @@ function mintedCards(tcg) {
                 gameKey: card.gameKey,
                 name: (set[card.gameKey] && set[card.gameKey].name) || card.gameKey,
                 appId: (set[card.gameKey] && set[card.gameKey].appId) || null,
+                artKey: cardArtKey(card),
                 rarity: card.rarity,
                 foil: card.foil,
                 /* La provenance : qui l'a sortie du paquet, et quand. Elle ne
@@ -1729,6 +1765,7 @@ function collectionBySet(setCards, cards, uid) {
                 rarity: card.rarity || 'common',
                 score: Number(card.score) || 0,
                 appId: card.appId || null,
+                artKey: cardArtKey({ gameKey }),
                 copies,
                 owned: copies.length > 0,
                 foil: copies.some(copy => copy.foil)

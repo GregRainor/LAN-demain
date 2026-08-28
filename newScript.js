@@ -9849,7 +9849,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function paintCardArt(imgEl, card) {
-        if (card.rarity === 'signature') ensureGeneratedArt(card.gameKey);
+        if (card.rarity === 'signature') ensureGeneratedArt(card.artKey || card.gameKey);
         armCardArtFallback(imgEl, card);
 
         const known = cardImage(card, generatedArt);
@@ -10441,7 +10441,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('signature-art-modal').style.display = 'flex';
 
         // On sait déjà lesquelles existent : on les lit avant de dessiner.
-        const keys = signatureArtCards.map(card => card.gameKey).concat([PACK_ART_KEY]);
+        const keys = signatureArtCards.map(card => card.artKey).concat([PACK_ART_KEY]);
         return Promise.all(keys.map(key =>
             db.ref('lan/cardArt/' + key).once('value')
                 .then(snapshot => {
@@ -10509,7 +10509,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let missing = 0;
 
         signatureArtCards.forEach(card => {
-            const art = generatedArt[card.gameKey];
+            const art = generatedArt[card.artKey];
             if (!art) missing++;
 
             const row = document.createElement('div');
@@ -10588,7 +10588,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function importCardArt(card, file) {
-        return importArt(card.gameKey, card.name, file);
+        return importArt(card.artKey || card.gameKey, card.name, file);
     }
 
     document.getElementById('btn-mint-set')?.addEventListener('click', () => mintSet(false));
@@ -10773,6 +10773,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!drawn.length) throw new Error('Ce booster appartient à un set introuvable.');
                 return startReveal(pack, drawn.map(card => Object.assign({}, card, {
                     name: (setCards[card.gameKey] && setCards[card.gameKey].name) || card.gameKey,
+                    appId: (setCards[card.gameKey] && setCards[card.gameKey].appId) || null,
+                    artKey: cardArtKey(card),
                     owner: pack.uid,
                     mintedBy: pack.uid,
                     mintedAt: Date.now(),

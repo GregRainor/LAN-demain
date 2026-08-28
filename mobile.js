@@ -4676,7 +4676,7 @@ const legacyArtObserver = ('IntersectionObserver' in window)
    composés à partir de maintenant — l'adresse de la jaquette Steam s'en déduit
    et le set entier ne déclenche pas une seule requête. */
 function cardArtFor(card, imgEl) {
-    if (card.rarity === 'signature') ensureGeneratedArt(card.gameKey);
+    if (card.rarity === 'signature') ensureGeneratedArt(card.artKey || card.gameKey);
 
     const known = cardImage(card, generatedArt);
     if (known) { imgEl.src = known; return; }
@@ -5176,7 +5176,7 @@ function openSignatureArtSheet(setCards) {
                 const row = el('div', 'm-artrow');
                 const thumb = el('img', 'm-artrow__thumb');
                 thumb.alt = '';
-                const art = generatedArt[card.gameKey];
+                const art = generatedArt[card.artKey];
                 if (art) thumb.src = art;
                 else { thumb.src = DEFAULT_THUMB; missing++; }
                 row.appendChild(thumb);
@@ -5207,7 +5207,7 @@ function openSignatureArtSheet(setCards) {
         };
 
         // On sait déjà lesquelles existent : on les lit avant de dessiner.
-        const keys = wanted.map(card => card.gameKey).concat([PACK_ART_KEY]);
+        const keys = wanted.map(card => card.artKey).concat([PACK_ART_KEY]);
         Promise.all(keys.map(key =>
             db.ref('lan/cardArt/' + key).once('value')
                 .then(snapshot => {
@@ -5273,7 +5273,7 @@ function importArt(key, label, file) {
 }
 
 function importCardArt(card, file) {
-    return importArt(card.gameKey, card.name, file);
+    return importArt(card.artKey || card.gameKey, card.name, file);
 }
 
 /* Renommer l'emballage sans forcément lui donner une image : le nom seul suffit
@@ -5538,6 +5538,8 @@ function openPack(pack) {
             if (!drawn.length) throw new Error('Ce booster appartient à un set introuvable.');
             startReveal(pack, drawn.map(card => Object.assign({}, card, {
                 name: (setCards[card.gameKey] && setCards[card.gameKey].name) || card.gameKey,
+                appId: (setCards[card.gameKey] && setCards[card.gameKey].appId) || null,
+                artKey: cardArtKey(card),
                 owner: pack.uid,
                 mintedBy: pack.uid,
                 mintedAt: Date.now(),

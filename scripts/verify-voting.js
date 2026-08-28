@@ -107,10 +107,10 @@ async function run() {
     assert(/\$g\.matches\(\/\^0\$\/\)/.test(rules));
     assert(/newData\.hasChildren\(\['roundId', 'revision', 'updatedAt', 'updatedByDevice'\]\)/.test(rules));
 
-    assert(/core\.js\?v=20260828-tcg-vote-rarities/.test(read('desktop.html')));
-    assert(/newScript\.js\?v=20260828-tcg-vote-rarities/.test(read('desktop.html')));
-    assert(/core\.js\?v=20260828-tcg-vote-rarities/.test(read('m.html')));
-    assert(/mobile\.js\?v=20260828-tcg-vote-rarities/.test(read('m.html')));
+    assert(/core\.js\?v=20260828-tcg-signature-variants/.test(read('desktop.html')));
+    assert(/newScript\.js\?v=20260828-tcg-signature-variants/.test(read('desktop.html')));
+    assert(/core\.js\?v=20260828-tcg-signature-variants/.test(read('m.html')));
+    assert(/mobile\.js\?v=20260828-tcg-signature-variants/.test(read('m.html')));
     console.log('Voting lifecycle checks passed (desktop, mobile, rules, conflicts, reset).');
 }
 
