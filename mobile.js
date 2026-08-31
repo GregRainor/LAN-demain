@@ -3415,6 +3415,26 @@ $('m-btn-notifs').addEventListener('click', () => {
    Bilan de fin de LAN
    ========================================================================== */
 
+function mobileRecapWinnerNames(uids) {
+    const names = (uids || []).map(playerName);
+    if (names.length <= 2) return names.join(' & ');
+    return `${names.slice(0, 2).join(', ')} +${names.length - 2}`;
+}
+
+function buildMobileRecapAward(award, index) {
+    const card = el('article', `m-recap-award m-recap-award--${award.tone}`);
+    card.style.setProperty('--award-index', index);
+    const mark = el('span', 'm-recap-award__mark', award.mark);
+    mark.setAttribute('aria-hidden', 'true');
+    const copy = el('div', 'm-recap-award__copy');
+    copy.appendChild(el('span', 'm-recap-award__kicker', award.kicker));
+    copy.appendChild(el('h3', 'm-recap-award__title', award.title));
+    copy.appendChild(el('strong', 'm-recap-award__winner', mobileRecapWinnerNames(award.uids)));
+    copy.appendChild(el('span', 'm-recap-award__value', award.value));
+    card.append(mark, copy);
+    return card;
+}
+
 function renderRecap() {
     const mount = $('m-recap');
     mount.innerHTML = '';
@@ -3434,21 +3454,73 @@ function renderRecap() {
         box.appendChild(section);
     }
 
-    const stats = el('div', 'm-card');
-    const rows = [
-        ['Joueurs', voterIds(state.votes, state.settings).length],
-        ['Jeux proposés', state.scores.length],
-        ['Événements', sortedEvents().length],
-        ['Sondages', Object.keys(state.polls).length],
-        ['Commandes', Object.keys(state.foodRuns).length]
-    ];
-    rows.forEach(([label, value]) => {
-        const row = el('div', 'm-stat');
-        row.appendChild(el('span', 'm-stat__label', label));
-        row.appendChild(el('span', 'm-stat__value', String(value)));
-        stats.appendChild(row);
+    const foodItems = Object.values(state.foodRuns)
+        .flatMap(run => Object.values((run && run.items) || {}));
+    const foodTotal = foodItems.reduce((sum, item) => sum + (Number(item.price) || 0), 0);
+    const highlights = lanRecapHighlights(state.economy, state.tcg, economyPlayers());
+
+    const awards = [];
+    if (highlights.richest) awards.push({
+        tone: 'fortune', mark: 'ZŁ', kicker: 'FORTUNE',
+        title: 'Plus riche', uids: highlights.richest.uids,
+        value: formatPoints(highlights.richest.value)
     });
-    box.appendChild(stats);
+    if (highlights.spender) awards.push({
+        tone: 'spender', mark: '◆', kicker: 'BOUTIQUE',
+        title: 'Plus grand dépenseur', uids: highlights.spender.uids,
+        value: formatPoints(highlights.spender.value)
+    });
+    if (highlights.collector) awards.push({
+        tone: 'collection', mark: '✦', kicker: 'COLLECTION',
+        title: 'Meilleure collection', uids: highlights.collector.uids,
+        value: `${highlights.collector.owned} / ${highlights.collector.total} cartes · ${highlights.collector.percent} %${highlights.collector.foils ? ` · ${highlights.collector.foils} brillante${highlights.collector.foils > 1 ? 's' : ''}` : ''}`
+    });
+
+    if (awards.length) {
+        const section = el('section', 'm-section m-recap-awards-section');
+        const head = el('div', 'm-section__head');
+        head.appendChild(el('h2', 'm-section__title', 'Le tableau d’honneur'));
+        section.appendChild(head);
+        const grid = el('div', 'm-recap-awards');
+        awards.forEach((award, index) => grid.appendChild(buildMobileRecapAward(award, index)));
+        section.appendChild(grid);
+        box.appendChild(section);
+    }
+
+    const rows = [
+        ['Joueurs', voterIds(state.votes, state.settings).length, String(voterIds(state.votes, state.settings).length)],
+        ['Jeux proposés', state.scores.length, String(state.scores.length)],
+        ['Événements', sortedEvents().length, String(sortedEvents().length)],
+        ['Créations kocktails', Object.keys(state.cocktails.oneshot || {}).length, String(Object.keys(state.cocktails.oneshot || {}).length)],
+        ['Sondages', Object.keys(state.polls).length, String(Object.keys(state.polls).length)],
+        ['Commandes groupées', Object.keys(state.foodRuns).length, String(Object.keys(state.foodRuns).length)],
+        ['Total bouffe', foodTotal, `${foodTotal.toFixed(2).replace('.', ',')} €`],
+        ['Złotych gagnés', highlights.totalEarned, formatPoints(highlights.totalEarned)],
+        ['Złotych dépensés', highlights.totalSpent, formatPoints(highlights.totalSpent)],
+        ['Boosters ouverts', highlights.packs, String(highlights.packs)],
+        ['Cartes tirées', highlights.cards, String(highlights.cards)],
+        ['Échanges conclus', highlights.trades, String(highlights.trades)],
+        ['Cartes brillantes', highlights.foils, String(highlights.foils)],
+        ['Signatures trouvées', highlights.signatures, String(highlights.signatures)]
+    ].filter(([, amount]) => Number(amount) > 0);
+
+    if (rows.length) {
+        const section = el('section', 'm-section');
+        const head = el('div', 'm-section__head');
+        head.appendChild(el('h2', 'm-section__title', 'La soirée en chiffres'));
+        section.appendChild(head);
+        const stats = el('div', 'm-card m-recap-stats');
+        rows.forEach(([label, , value], index) => {
+            const row = el('div', 'm-stat');
+            row.style.setProperty('--stat-index', index);
+            row.appendChild(el('span', 'm-stat__label', label));
+            row.appendChild(el('span', 'm-stat__value', value));
+            stats.appendChild(row);
+        });
+        section.appendChild(stats);
+        box.appendChild(section);
+    }
+
     mount.appendChild(box);
 }
 

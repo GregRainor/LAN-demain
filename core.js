@@ -1887,6 +1887,89 @@ function tcgLeaderboard(setCards, cards, uids) {
         .sort((a, b) => b.owned - a.owned || b.foils - a.foils);
 }
 
+/* Le bilan de clôture ne stocke aucun nouveau total : comme la Boutique et la
+   Collection, il rejoue les journaux qui font foi. Les égalités sont conservées
+   pour ne pas inventer un vainqueur selon l'ordre des clés Firebase. */
+function lanRecapHighlights(economy, tcg, uids) {
+    const economyNode = economy || {};
+    const tcgNode = tcg || {};
+    const players = new Set((uids || []).filter(Boolean));
+
+    Object.keys(economyNode.ticks || {}).forEach(uid => players.add(uid));
+    Object.values(economyNode.ledger || {}).forEach(entry => {
+        if (entry && entry.uid) players.add(entry.uid);
+    });
+    Object.values(economyNode.purchases || {}).forEach(purchase => {
+        if (purchase && purchase.uid) players.add(purchase.uid);
+    });
+
+    const economyRows = Array.from(players).map(uid => {
+        let earned = tickPoints(economyNode, uid);
+        Object.values(economyNode.ledger || {}).forEach(entry => {
+            if (!entry || entry.uid !== uid) return;
+            const delta = Number(entry.delta) || 0;
+            if (delta > 0 && entry.type !== 'purchase') earned += delta;
+        });
+        return {
+            uid: uid,
+            earned: earned,
+            spent: grantedSpend(economyNode, uid),
+            balance: economyBalance(economyNode, uid)
+        };
+    });
+
+    function leaders(metric) {
+        const best = economyRows.reduce((max, row) => Math.max(max, Number(row[metric]) || 0), 0);
+        if (best <= 0) return null;
+        return {
+            uids: economyRows.filter(row => row[metric] === best).map(row => row.uid),
+            value: best
+        };
+    }
+
+    const setId = tcgCurrentSetId(tcgNode);
+    const set = tcgCurrentSet(tcgNode);
+    const allCards = tcgCards(tcgNode);
+    const currentCards = setId
+        ? allCards.filter(card => card && (!card.setId || card.setId === setId))
+        : [];
+    currentCards.forEach(card => {
+        if (card.owner) players.add(card.owner);
+    });
+    const currentPacks = setId
+        ? openedPacks(tcgNode).filter(pack => !pack.setId || pack.setId === setId)
+        : [];
+    const board = set
+        ? tcgLeaderboard(set.cards || {}, currentCards, Array.from(players))
+        : [];
+    let collector = null;
+    if (board.length) {
+        const best = board[0];
+        collector = {
+            uids: board
+                .filter(row => row.owned === best.owned && row.foils === best.foils)
+                .map(row => row.uid),
+            owned: best.owned,
+            total: best.total,
+            percent: best.percent,
+            foils: best.foils
+        };
+    }
+
+    return {
+        totalEarned: economyRows.reduce((sum, row) => sum + row.earned, 0),
+        totalSpent: economyRows.reduce((sum, row) => sum + row.spent, 0),
+        richest: leaders('balance'),
+        spender: leaders('spent'),
+        collector: collector,
+        packs: currentPacks.length,
+        cards: currentCards.length,
+        trades: acceptedTrades(tcgNode).length,
+        foils: currentCards.filter(card => card.foil).length,
+        signatures: currentCards.filter(card => card.rarity === 'signature').length
+    };
+}
+
 /* --------------------------------------------------------------------------
    Les échanges
    -------------------------------------------------------------------------- */

@@ -861,10 +861,72 @@ button[data-goto]:disabled { cursor: not-allowed; }
 .m-recap__hero { text-align: center; display: flex; flex-direction: column; gap: 8px; }
 .m-recap__title { font-family: var(--fd); font-size: 2.1rem; font-weight: 600; color: var(--text); line-height: 1.1; }
 .m-recap__sub { font-size: .9rem; color: var(--text-3); }
+.m-recap-awards { display: grid; grid-template-columns: 1fr; gap: 10px; }
+.m-recap-award {
+    --award-accent: var(--gold);
+    position: relative;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 13px;
+    align-items: center;
+    min-height: 112px;
+    padding: 15px;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--award-accent) 46%, transparent);
+    border-radius: var(--r-soft);
+    background:
+        radial-gradient(circle at 0 0, color-mix(in srgb, var(--award-accent) 18%, transparent), transparent 55%),
+        linear-gradient(145deg, rgba(255,255,255,.045), rgba(255,255,255,.012));
+    box-shadow: inset 0 1px rgba(255,255,255,.06), 0 12px 25px rgba(0,0,0,.22);
+    animation: m-recap-badge-in .58s calc(var(--award-index) * 110ms) cubic-bezier(.2,.85,.2,1) both;
+}
+.m-recap-award::after {
+    content: '';
+    position: absolute;
+    inset: -45% auto -45% -42%;
+    width: 28%;
+    transform: skewX(-18deg);
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.16), transparent);
+    animation: m-recap-badge-shine 4.6s calc(1s + var(--award-index) * 220ms) ease-in-out infinite;
+    pointer-events: none;
+}
+.m-recap-award--fortune { --award-accent: #e3bd3b; }
+.m-recap-award--spender { --award-accent: #cf7445; }
+.m-recap-award--collection { --award-accent: #9b7ee8; }
+.m-recap-award__mark {
+    display: grid;
+    place-items: center;
+    width: 48px;
+    height: 48px;
+    border: 1px solid color-mix(in srgb, var(--award-accent) 72%, transparent);
+    border-radius: 50%;
+    color: var(--award-accent);
+    background: color-mix(in srgb, var(--award-accent) 12%, rgba(0,0,0,.48));
+    box-shadow: 0 0 20px color-mix(in srgb, var(--award-accent) 22%, transparent);
+    font-family: var(--fd);
+    font-size: .88rem;
+    letter-spacing: .04em;
+}
+.m-recap-award__copy { display: flex; min-width: 0; flex-direction: column; gap: 2px; }
+.m-recap-award__kicker { color: var(--award-accent); font-size: .6rem; font-weight: 700; letter-spacing: .16em; }
+.m-recap-award__title { margin: 0; color: var(--text-2); font-size: .76rem; font-weight: 500; }
+.m-recap-award__winner { overflow-wrap: anywhere; color: var(--text); font-family: var(--fd); font-size: 1.2rem; line-height: 1.15; }
+.m-recap-award__value { margin-top: 3px; color: var(--award-accent); font-size: .72rem; font-variant-numeric: tabular-nums; }
+.m-recap-stats .m-stat { animation: m-stat-in .42s calc(var(--stat-index) * 36ms) ease both; }
 .m-stat { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line-2); }
 .m-stat:last-child { border-bottom: 0; }
 .m-stat__label { font-size: .84rem; color: var(--text-2); }
 .m-stat__value { font-size: .9rem; color: var(--gold); font-variant-numeric: tabular-nums; }
+
+@keyframes m-recap-badge-in {
+    from { opacity: 0; transform: translateY(14px) scale(.97); }
+    to { opacity: 1; transform: none; }
+}
+@keyframes m-recap-badge-shine {
+    0%, 58% { left: -42%; opacity: 0; }
+    65% { opacity: 1; }
+    78%, 100% { left: 122%; opacity: 0; }
+}
 
 /* ---------- Toasts ---------- */
 #m-toasts {
@@ -896,6 +958,11 @@ button[data-goto]:disabled { cursor: not-allowed; }
         animation-duration: .01ms !important;
         animation-iteration-count: 1 !important;
         transition-duration: .01ms !important;
+    }
+    .m-recap-award,
+    .m-recap-award::after,
+    .m-recap-stats .m-stat {
+        animation: none !important;
     }
 }
 

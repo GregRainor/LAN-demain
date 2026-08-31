@@ -74,6 +74,15 @@ assert(/data-goto="miam"/.test(html)
 for (const motion of ['m-shell-down', 'm-title-in', 'm-line-draw', 'm-stat-in', 'm-rank-in', 'm-tab-ink', 'm-action-sweep', 'm-phase-shift']) {
     assert(css.includes('@keyframes ' + motion), 'Missing Bureau en poche motion: ' + motion);
 }
+assert(/lanRecapHighlights\(state\.economy, state\.tcg, economyPlayers\(\)\)/.test(script)
+    && /Złotych gagnés/.test(script)
+    && /filter\(\(\[, amount\]\) => Number\(amount\) > 0\)/.test(script),
+    'Mobile recap must derive economy and collection figures and suppress zero metrics');
+for (const motion of ['m-recap-badge-in', 'm-recap-badge-shine']) {
+    assert(css.includes('@keyframes ' + motion), 'Missing mobile recap motion: ' + motion);
+}
+assert(/prefers-reduced-motion[\s\S]*\.m-recap-award/.test(css),
+    'Mobile recap badges must honor reduced motion');
 
 /* Régression exacte du cas signalé : vote ouvert, LAN non active. Les écrans
    de soirée sont fermés, mais Jeux et Vote restent atteignables et la racine

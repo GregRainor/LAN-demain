@@ -5,7 +5,7 @@ const vm = require('vm');
 
 const root = path.resolve(__dirname, '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
-const source = read('core.js') + '\nthis.__ach={TCG,buildCardSet,cardImage,cardArtKey,calculateScores,tcgSetDeletionPlan,achievementAwardId,achievementById,achievementRevealTheme,achievementState,pendingAchievements,xpTotal,hasXpAward,isXpAwardRevoked,achievementGrantRecord,achievementGrantIfMissing,achievementResetRecord,achievementResetUpdates,unseenAchievementAwards,tcgArchiveSnapshot,tcgArchiveView,tcgArchivedSets,unsealedPurchases};';
+const source = read('core.js') + '\nthis.__ach={TCG,buildCardSet,cardImage,cardArtKey,calculateScores,tcgSetDeletionPlan,lanRecapHighlights,achievementAwardId,achievementById,achievementRevealTheme,achievementState,pendingAchievements,xpTotal,hasXpAward,isXpAwardRevoked,achievementGrantRecord,achievementGrantIfMissing,achievementResetRecord,achievementResetUpdates,unseenAchievementAwards,tcgArchiveSnapshot,tcgArchiveView,tcgArchivedSets,unsealedPurchases};';
 const context = vm.createContext({ console, URL, Date, Math, Promise, Set, Map });
 vm.runInContext(source, context, { filename: 'core.js' });
 const ach = context.__ach;
@@ -82,6 +82,54 @@ assert.strictEqual(
     ach.cardImage({ gameKey: '__signature--voted 1', rarity: 'signature', appId: 3000 }, { 'voted 1': 'data:image/png;base64,custom' }),
     'data:image/png;base64,custom'
 );
+
+const recapEconomy = {
+    ticks: { alice: { count: 2 } },
+    ledger: {
+        aliceAward: { uid: 'alice', delta: 100, type: 'challenge' },
+        bobAward: { uid: 'bob', delta: 120, type: 'challenge' },
+        ignoredDebit: { uid: 'alice', delta: -40, type: 'purchase' }
+    },
+    purchases: {
+        aliceBuy: { uid: 'alice', price: 40, status: 'granted' },
+        bobBuy: { uid: 'bob', price: 40, status: 'granted' }
+    }
+};
+const recap = plain(ach.lanRecapHighlights(recapEconomy, {}, ['alice', 'bob', 'zero']));
+assert.strictEqual(recap.totalEarned, 240, 'Recap earnings must include attendance and positive ledger awards');
+assert.strictEqual(recap.totalSpent, 80, 'Recap spending must use granted purchase receipts');
+assert.deepStrictEqual(recap.richest.uids, ['alice', 'bob'], 'Recap must preserve ties for the richest badge');
+assert.deepStrictEqual(recap.spender.uids, ['alice', 'bob'], 'Recap must preserve ties for the spender badge');
+assert.strictEqual(recap.collector, null, 'An absent set must not create an irrelevant collection badge');
+const emptyRecap = plain(ach.lanRecapHighlights({}, {}, ['zero']));
+assert.strictEqual(emptyRecap.richest, null);
+assert.strictEqual(emptyRecap.spender, null);
+assert.strictEqual(emptyRecap.totalEarned, 0);
+const recapSet = ach.buildCardSet([], {
+    games: Array.from({ length: 8 }, (_, index) => ({
+        name: 'Recap ' + index,
+        owners: 1,
+        appId: 7000 + index
+    })),
+    libraries: 2
+});
+const collectionRecap = plain(ach.lanRecapHighlights({}, {
+    currentSet: 'recap-set',
+    sets: { 'recap-set': { name: 'Recap', cards: recapSet } },
+    packs: {
+        ghostPack: {
+            uid: 'ghost-collector',
+            setId: 'recap-set',
+            status: 'opened',
+            sealedAt: 100,
+            openedAt: 200
+        }
+    }
+}, []));
+assert.deepStrictEqual(collectionRecap.collector.uids, ['ghost-collector'],
+    'A card owner must remain eligible for best collection after leaving presence lists');
+assert.strictEqual(collectionRecap.packs, 1);
+assert(collectionRecap.cards > 0);
 
 assert.deepStrictEqual(plain(ach.calculateScores({
     old: { roundId: 'round-old', votes: { p1: ['Ancien jeu'] } },
@@ -281,6 +329,6 @@ assert(rules.rules.lan.tcg.packs['.write'].includes('!newData.exists()')
 assert(rules.rules.lan.tcg.resetAt['.write'].includes("val() !== true")
     && rules.rules.lan.tcg.resetAt['.validate'].includes('newData.val() === now'),
     'The durable reset marker must be gamemaster-writable only during an open LAN');
-assert(/20260828-tcg-signature-variants/.test(desktopHtml) && /20260828-tcg-signature-variants/.test(mobileHtml));
+assert(/20260831-lan-recap/.test(desktopHtml) && /20260831-lan-recap/.test(mobileHtml));
 
 console.log('Achievement and TCG archive checks passed (atomic ceremony claim, reset, archived sets).');

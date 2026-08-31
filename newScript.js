@@ -1807,6 +1807,7 @@ document.addEventListener('DOMContentLoaded', () => {
             globalUsers = snapshot.val() || {};
             reassertPresence();
             renderActiveUsers();
+            refreshRecapIfVisible();
         });
 
         watchValue(db.ref('lan/users'), snapshot => {
@@ -1814,6 +1815,7 @@ document.addEventListener('DOMContentLoaded', () => {
             achievementProfilesReady = true;
             renderActiveUsers();
             queuePendingAchievementReveals();
+            refreshRecapIfVisible();
             if (openProfileUid && document.getElementById('player-votes-modal')?.style.display === 'flex') {
                 renderPlayerProfileHead(openProfileUid, openProfileName || playerLabel(openProfileUid));
             }
@@ -1827,6 +1829,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderWaitingClosed();
             renderBoard();
             checkEventReminders(eventsData, user);
+            refreshRecapIfVisible();
         });
 
         // Une minute suffit : rappels, compte à rebours et repère « maintenant »
@@ -1850,6 +1853,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderCocktails(cocktailsData, user);
             renderCocktailSummary(cocktailsData);
             renderBoard();
+            refreshRecapIfVisible();
         });
 
         watchValue(db.ref('lan/economy'), (snapshot) => {
@@ -1862,6 +1866,7 @@ document.addEventListener('DOMContentLoaded', () => {
             sealBoughtPacks();
             renderCollection();
             renderDesktopShell();
+            refreshRecapIfVisible();
         });
 
         watchValue(db.ref('lan/challenges'), (snapshot) => {
@@ -1899,6 +1904,7 @@ document.addEventListener('DOMContentLoaded', () => {
             globalHistory = snapshot.val() || {};
             renderCollection();
             renderDesktopShell();
+            refreshRecapIfVisible();
         });
         startTickEngine();
 
@@ -2012,6 +2018,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderDashboard(globalVotes, user);
             renderActiveUsers();
             renderDesktopShell();
+            refreshRecapIfVisible();
             appInitialized = true;
         });
 
@@ -3773,6 +3780,41 @@ document.addEventListener('DOMContentLoaded', () => {
         return row;
     }
 
+    function recapWinnerNames(uids) {
+        const names = (uids || []).map(playerLabel);
+        if (names.length <= 2) return names.join(' & ');
+        return `${names.slice(0, 2).join(', ')} +${names.length - 2}`;
+    }
+
+    function recapAwardCard(award, index) {
+        const card = document.createElement('article');
+        card.className = `recap-award recap-award--${award.tone}`;
+        card.style.setProperty('--award-index', index);
+
+        const mark = document.createElement('span');
+        mark.className = 'recap-award__mark';
+        mark.setAttribute('aria-hidden', 'true');
+        mark.textContent = award.mark;
+
+        const copy = document.createElement('div');
+        copy.className = 'recap-award__copy';
+        const kicker = document.createElement('span');
+        kicker.className = 'recap-award__kicker';
+        kicker.textContent = award.kicker;
+        const title = document.createElement('h4');
+        title.className = 'recap-award__title';
+        title.textContent = award.title;
+        const winner = document.createElement('strong');
+        winner.className = 'recap-award__winner';
+        winner.textContent = recapWinnerNames(award.uids);
+        const value = document.createElement('span');
+        value.className = 'recap-award__value';
+        value.textContent = award.value;
+        copy.append(kicker, title, winner, value);
+        card.append(mark, copy);
+        return card;
+    }
+
     // Le bilan est calculé à la volée : rien n'ayant été effacé à la clôture,
     // toutes les données de la soirée sont encore en base.
     function renderLanRecap() {
@@ -3788,13 +3830,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 : 'ARCHIVÉE';
         }
 
-        const sorted = calculateScores(globalVotes);
+        const sorted = calculateScores(globalVotes, globalSettings);
         const voterCount = voterIds(globalVotes, globalSettings).length;
 
         const subtitle = document.getElementById('recap-subtitle');
         subtitle.textContent = sorted.length
-            ? `${voterCount} joueur(s), ${sorted.length} jeux proposés. Le grand gagnant : ${sorted[0].name}.`
-            : `${voterCount} joueur(s). Aucun vote enregistré.`;
+            ? `${voterCount} ${voterCount > 1 ? 'joueurs' : 'joueur'}, ${sorted.length} ${sorted.length > 1 ? 'jeux proposés' : 'jeu proposé'}. Le grand gagnant : ${sorted[0].name}.`
+            : (voterCount ? `${voterCount} ${voterCount > 1 ? 'joueurs' : 'joueur'}. Aucun vote enregistré.` : 'Aucun vote enregistré.');
 
         const podium = document.getElementById('recap-podium');
         podium.innerHTML = '';
@@ -3809,21 +3851,51 @@ document.addEventListener('DOMContentLoaded', () => {
         const foodItems = Object.values(globalFoodRuns)
             .flatMap(run => Object.values(run.items || {}));
         const foodTotal = foodItems.reduce((sum, it) => sum + (Number(it.price) || 0), 0);
+        const highlights = lanRecapHighlights(globalEconomy, globalTcg, economyPlayers());
 
         const stats = document.getElementById('recap-stats');
         stats.innerHTML = '';
-        stats.appendChild(statLine('Votants', String(voterCount)));
-        stats.appendChild(statLine('Jeux proposés', String(sorted.length)));
-        stats.appendChild(statLine('Événements organisés', String(Object.keys(events).length)));
-        stats.appendChild(statLine('Créations kocktails', String(Object.keys(cocktails.oneshot || {}).length)));
-        stats.appendChild(statLine('Sondages lancés', String(Object.keys(globalPolls).length)));
-        stats.appendChild(statLine('Commandes groupées', String(Object.keys(globalFoodRuns).length)));
-        if (foodItems.length) {
-            stats.appendChild(statLine('Total bouffe', `${foodTotal.toFixed(2).replace('.', ',')} €`));
-        }
-        if (globalSettings.lanClosedAt) {
-            stats.appendChild(statLine('Terminée', new Date(globalSettings.lanClosedAt).toLocaleString('fr-FR')));
-        }
+        const rows = [
+            ['Votants', voterCount, String(voterCount)],
+            ['Jeux proposés', sorted.length, String(sorted.length)],
+            ['Événements organisés', Object.keys(events).length, String(Object.keys(events).length)],
+            ['Créations kocktails', Object.keys(cocktails.oneshot || {}).length, String(Object.keys(cocktails.oneshot || {}).length)],
+            ['Sondages lancés', Object.keys(globalPolls).length, String(Object.keys(globalPolls).length)],
+            ['Commandes groupées', Object.keys(globalFoodRuns).length, String(Object.keys(globalFoodRuns).length)],
+            ['Total bouffe', foodTotal, `${foodTotal.toFixed(2).replace('.', ',')} €`],
+            ['Złotych gagnés', highlights.totalEarned, formatPoints(highlights.totalEarned)],
+            ['Złotych dépensés', highlights.totalSpent, formatPoints(highlights.totalSpent)],
+            ['Boosters ouverts', highlights.packs, String(highlights.packs)],
+            ['Cartes tirées', highlights.cards, String(highlights.cards)],
+            ['Échanges conclus', highlights.trades, String(highlights.trades)],
+            ['Cartes brillantes', highlights.foils, String(highlights.foils)],
+            ['Signatures trouvées', highlights.signatures, String(highlights.signatures)]
+        ].filter(([, amount]) => Number(amount) > 0);
+        rows.forEach(([label, , value]) => stats.appendChild(statLine(label, value)));
+        const statsPanel = document.getElementById('recap-stats-panel');
+        if (statsPanel) statsPanel.hidden = rows.length === 0;
+
+        const awards = [];
+        if (highlights.richest) awards.push({
+            tone: 'fortune', mark: 'ZŁ', kicker: 'FORTUNE',
+            title: 'Plus riche', uids: highlights.richest.uids,
+            value: formatPoints(highlights.richest.value)
+        });
+        if (highlights.spender) awards.push({
+            tone: 'spender', mark: '◆', kicker: 'BOUTIQUE',
+            title: 'Plus grand dépenseur', uids: highlights.spender.uids,
+            value: formatPoints(highlights.spender.value)
+        });
+        if (highlights.collector) awards.push({
+            tone: 'collection', mark: '✦', kicker: 'COLLECTION',
+            title: 'Meilleure collection', uids: highlights.collector.uids,
+            value: `${highlights.collector.owned} / ${highlights.collector.total} cartes · ${highlights.collector.percent} %${highlights.collector.foils ? ` · ${highlights.collector.foils} brillante${highlights.collector.foils > 1 ? 's' : ''}` : ''}`
+        });
+        const awardsMount = document.getElementById('recap-awards');
+        const awardsPanel = document.getElementById('recap-awards-panel');
+        awardsMount.innerHTML = '';
+        awards.forEach((award, index) => awardsMount.appendChild(recapAwardCard(award, index)));
+        if (awardsPanel) awardsPanel.hidden = awards.length === 0;
 
         const adminBox = document.getElementById('recap-admin');
         if (adminBox) adminBox.style.display = window.currentUserIsAdmin ? 'grid' : 'none';

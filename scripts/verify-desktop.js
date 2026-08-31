@@ -71,6 +71,16 @@ assert(/phase === 'voting' && destination === 'games'\)\s*\{\s*desktopVotingDest
     'The rail must lead back to the ballot while voting is open');
 assert(!/Quand & où/.test(html) && !/Quand & où/.test(script), 'Desktop copy must use Quand et où');
 assert(/class="luxury-panel recap-admin"/.test(html) && /id="recap-seal-date"/.test(html), 'Finished LAN must expose the redesigned next-chapter panel');
+assert(ids.includes('recap-awards-panel') && ids.includes('recap-awards') && ids.includes('recap-stats-panel'),
+    'Finished LAN must expose conditional stats and a hall of fame');
+assert(/lanRecapHighlights\(globalEconomy, globalTcg, economyPlayers\(\)\)/.test(script)
+    && /Złotych gagnés/.test(script)
+    && /filter\(\(\[, amount\]\) => Number\(amount\) > 0\)/.test(script),
+    'Desktop recap must derive economy and collection figures and suppress zero metrics');
+assert(/@keyframes recap-badge-in/.test(baseCss)
+    && /@keyframes recap-badge-shine/.test(baseCss)
+    && /prefers-reduced-motion[\s\S]*\.recap-award/.test(baseCss),
+    'Desktop recap badges need an accessible motion treatment');
 
 assert(/const activeValueWatches = \[\]/.test(script) && /function stopValueWatches\(\)/.test(script), 'Firebase value listeners must be tracked for logout teardown');
 assert(/stopValueWatches\(\);[\s\S]{0,240}await auth\.signOut\(\)/.test(script), 'Logout must detach Firebase listeners before removing authentication');
@@ -382,7 +392,7 @@ assert(/const CHALLENGE_STARTER = \[/.test(core)
     && (core.match(/\{ title: '/g) || []).length >= 30,
     'The starter challenge list must ship with the app');
 assert(/window\.currentUserIsGamemaster\s*\?\s*missingStarterChallenges\(globalQuests\)\.length : 0/.test(script)
-    && /Ajouter les \$\{missing\} défis de la liste de départ/.test(script),
+    && /Ajouter ou actualiser \$\{missing\} défis de la liste de départ/.test(script),
     'A gamemaster must be able to top the starter list up once the catalogue is no longer empty');
 assert(/function missingStarterChallenges/.test(core)
     && /have\[normalizeGameName\(c\.title\)\]/.test(core),
