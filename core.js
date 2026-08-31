@@ -1887,13 +1887,21 @@ function tcgLeaderboard(setCards, cards, uids) {
         .sort((a, b) => b.owned - a.owned || b.foils - a.foils);
 }
 
+function latestLanArchiveTimestamp(history) {
+    return Object.values(history || {}).reduce((latest, entry) =>
+        Math.max(latest, Number(entry && entry.timestamp) || 0), 0);
+}
+
 /* Le bilan de clôture ne stocke aucun nouveau total : comme la Boutique et la
    Collection, il rejoue les journaux qui font foi. Les égalités sont conservées
    pour ne pas inventer un vainqueur selon l'ordre des clés Firebase. */
-function lanRecapHighlights(economy, tcg, uids) {
+function lanRecapHighlights(economy, tcg, uids, quests, since) {
     const economyNode = economy || {};
     const tcgNode = tcg || {};
+    const questNode = quests || {};
+    const floor = Math.max(0, Number(since) || 0);
     const players = new Set((uids || []).filter(Boolean));
+    const belongsToCurrentLan = record => !floor || (Number(record && record.ts) || 0) > floor;
 
     Object.keys(economyNode.ticks || {}).forEach(uid => players.add(uid));
     Object.values(economyNode.ledger || {}).forEach(entry => {
@@ -1902,18 +1910,29 @@ function lanRecapHighlights(economy, tcg, uids) {
     Object.values(economyNode.purchases || {}).forEach(purchase => {
         if (purchase && purchase.uid) players.add(purchase.uid);
     });
+    allClaims(questNode).forEach(claim => {
+        if (claim.status === 'granted' && belongsToCurrentLan(claim)) players.add(claim.uid);
+    });
 
     const economyRows = Array.from(players).map(uid => {
         let earned = tickPoints(economyNode, uid);
         Object.values(economyNode.ledger || {}).forEach(entry => {
-            if (!entry || entry.uid !== uid) return;
+            if (!entry || entry.uid !== uid || !belongsToCurrentLan(entry)) return;
             const delta = Number(entry.delta) || 0;
             if (delta > 0 && entry.type !== 'purchase') earned += delta;
         });
+        /* Seuls les reçus Boutique validés représentent une dépense. Les
+           boosters offerts par un admin vivent uniquement dans tcg/packs avec
+           origin: 'gift' et ne doivent donc jamais gonfler ce classement. */
+        const spent = Object.values(economyNode.purchases || {}).reduce((sum, purchase) => {
+            if (!purchase || purchase.uid !== uid || purchase.status !== 'granted'
+                || !belongsToCurrentLan(purchase)) return sum;
+            return sum + Math.abs(Number(purchase.price) || 0);
+        }, 0);
         return {
             uid: uid,
             earned: earned,
-            spent: grantedSpend(economyNode, uid),
+            spent: spent,
             balance: economyBalance(economyNode, uid)
         };
     });
@@ -1955,12 +1974,23 @@ function lanRecapHighlights(economy, tcg, uids) {
             foils: best.foils
         };
     }
+    const challengeRows = Array.from(players).map(uid => ({
+        uid: uid,
+        count: challengeCountersFor(questNode, uid, floor).count
+    }));
+    const bestChallengeCount = challengeRows.reduce((best, row) => Math.max(best, row.count), 0);
+    const challenger = bestChallengeCount > 0 ? {
+        uids: challengeRows.filter(row => row.count === bestChallengeCount).map(row => row.uid),
+        value: bestChallengeCount
+    } : null;
 
     return {
         totalEarned: economyRows.reduce((sum, row) => sum + row.earned, 0),
         totalSpent: economyRows.reduce((sum, row) => sum + row.spent, 0),
-        richest: leaders('balance'),
+        totalChallenges: challengeRows.reduce((sum, row) => sum + row.count, 0),
+        earner: leaders('earned'),
         spender: leaders('spent'),
+        challenger: challenger,
         collector: collector,
         packs: currentPacks.length,
         cards: currentCards.length,

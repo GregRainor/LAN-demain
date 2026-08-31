@@ -3398,6 +3398,81 @@ select.luxury-input option:disabled {
     align-items: start;
 }
 
+.recap-infographic {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
+    gap: var(--space-3);
+}
+
+.recap-metric {
+    --metric-accent: var(--accent-color);
+    position: relative;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    min-height: 128px;
+    padding: var(--space-4);
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--metric-accent) 28%, var(--border-subtle));
+    border-radius: var(--radius-soft);
+    background:
+        radial-gradient(circle at 100% 0, color-mix(in srgb, var(--metric-accent) 16%, transparent), transparent 48%),
+        rgba(255, 255, 255, .025);
+    animation: recap-metric-in .48s calc(var(--metric-index) * 42ms) cubic-bezier(.2, .8, .2, 1) both;
+}
+
+.recap-metric::after {
+    content: '';
+    position: absolute;
+    right: -20px;
+    bottom: -28px;
+    width: 78px;
+    height: 78px;
+    border: 1px solid color-mix(in srgb, var(--metric-accent) 16%, transparent);
+    border-radius: 50%;
+    box-shadow: 0 0 0 12px color-mix(in srgb, var(--metric-accent) 5%, transparent);
+}
+
+.recap-metric--people { --metric-accent: #63b3c5; }
+.recap-metric--games { --metric-accent: #d4af37; }
+.recap-metric--events { --metric-accent: #6f91d8; }
+.recap-metric--social { --metric-accent: #d66f9e; }
+.recap-metric--votes { --metric-accent: #8c67d7; }
+.recap-metric--food { --metric-accent: #d58d54; }
+.recap-metric--economy { --metric-accent: #e3bd3b; }
+.recap-metric--challenge { --metric-accent: #d95a5a; }
+.recap-metric--collection { --metric-accent: #9075df; }
+
+.recap-metric__mark {
+    position: relative;
+    z-index: 1;
+    justify-self: end;
+    color: var(--metric-accent);
+    font-family: var(--font-display);
+    font-size: var(--text-sm);
+    font-weight: 800;
+    letter-spacing: .04em;
+}
+
+.recap-metric__value {
+    position: relative;
+    z-index: 1;
+    align-self: end;
+    color: var(--primary-text);
+    font-family: var(--font-display);
+    font-size: clamp(1.45rem, 2.4vw, 2rem);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+}
+
+.recap-metric__label {
+    position: relative;
+    z-index: 1;
+    margin-top: var(--space-2);
+    color: var(--secondary-text);
+    font-size: var(--text-xs);
+    line-height: 1.25;
+}
+
 .recap-awards-panel {
     margin-top: var(--space-5);
     padding: var(--space-6);
@@ -3410,7 +3485,7 @@ select.luxury-input option:disabled {
 
 .recap-awards {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(235px, 1fr));
     gap: var(--space-4);
 }
 
@@ -3421,7 +3496,7 @@ select.luxury-input option:disabled {
     grid-template-columns: auto minmax(0, 1fr);
     gap: var(--space-4);
     align-items: center;
-    min-height: 150px;
+    min-height: 178px;
     padding: var(--space-5);
     overflow: hidden;
     border: 1px solid color-mix(in srgb, var(--award-accent) 45%, transparent);
@@ -3446,6 +3521,7 @@ select.luxury-input option:disabled {
 
 .recap-award--fortune { --award-accent: #e3bd3b; }
 .recap-award--spender { --award-accent: #cf7445; }
+.recap-award--challenge { --award-accent: #d95a5a; }
 .recap-award--collection { --award-accent: #9075df; }
 
 .recap-award__mark {
@@ -3499,6 +3575,18 @@ select.luxury-input option:disabled {
     font-variant-numeric: tabular-nums;
 }
 
+.recap-award__detail {
+    margin-top: var(--space-2);
+    color: var(--muted-text);
+    font-size: .7rem;
+    line-height: 1.35;
+}
+
+@keyframes recap-metric-in {
+    from { opacity: 0; transform: translateY(10px) scale(.98); }
+    to { opacity: 1; transform: none; }
+}
+
 @keyframes recap-badge-in {
     from { opacity: 0; transform: translateY(18px) scale(.97); }
     to { opacity: 1; transform: none; }
@@ -3522,9 +3610,14 @@ select.luxury-input option:disabled {
     .recap-awards {
         grid-template-columns: 1fr;
     }
+
+    .recap-infographic {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
 
 @media (prefers-reduced-motion: reduce) {
+    .recap-metric,
     .recap-award,
     .recap-award::after {
         animation: none;

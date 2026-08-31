@@ -65,7 +65,7 @@ assert(/GAME_PRICE_CLIENT_TTL/.test(desktop) && /GAME_PRICE_CLIENT_TTL/.test(mob
     'Long-lived tabs must eventually refresh Steam prices and promotions');
 assert(/expiry: deal\.expiry \|\| null/.test(read('api/game-deals.js')),
     'ITAD promotion expiry must not be dropped');
-assert(/20260831-lan-recap/.test(desktopHtml)
-    && /20260831-lan-recap/.test(mobileHtml), 'Comparator assets need the current cache tag');
+assert(/20260831-lan-infographic/.test(desktopHtml)
+    && /20260831-lan-infographic/.test(mobileHtml), 'Comparator assets need the current cache tag');
 
 console.log('Price comparator checks passed (Steam, ITAD expiry, desktop and mobile).');

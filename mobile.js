@@ -3431,7 +3431,19 @@ function buildMobileRecapAward(award, index) {
     copy.appendChild(el('h3', 'm-recap-award__title', award.title));
     copy.appendChild(el('strong', 'm-recap-award__winner', mobileRecapWinnerNames(award.uids)));
     copy.appendChild(el('span', 'm-recap-award__value', award.value));
+    copy.appendChild(el('span', 'm-recap-award__detail', award.detail));
     card.append(mark, copy);
+    return card;
+}
+
+function buildMobileRecapMetric(label, value, mark, tone, index) {
+    const card = el('article', `m-recap-metric m-recap-metric--${tone}`);
+    card.style.setProperty('--metric-index', index);
+    const icon = el('span', 'm-recap-metric__mark', mark);
+    icon.setAttribute('aria-hidden', 'true');
+    card.appendChild(icon);
+    card.appendChild(el('strong', 'm-recap-metric__value', value));
+    card.appendChild(el('span', 'm-recap-metric__label', label));
     return card;
 }
 
@@ -3457,23 +3469,35 @@ function renderRecap() {
     const foodItems = Object.values(state.foodRuns)
         .flatMap(run => Object.values((run && run.items) || {}));
     const foodTotal = foodItems.reduce((sum, item) => sum + (Number(item.price) || 0), 0);
-    const highlights = lanRecapHighlights(state.economy, state.tcg, economyPlayers());
+    const recapSince = latestLanArchiveTimestamp(state.history);
+    const highlights = lanRecapHighlights(
+        state.economy, state.tcg, economyPlayers(), state.quests, recapSince
+    );
 
     const awards = [];
-    if (highlights.richest) awards.push({
-        tone: 'fortune', mark: 'ZŁ', kicker: 'FORTUNE',
-        title: 'Plus riche', uids: highlights.richest.uids,
-        value: formatPoints(highlights.richest.value)
+    if (highlights.earner) awards.push({
+        tone: 'fortune', mark: 'ZŁ', kicker: 'ÉCONOMIE · CETTE LAN',
+        title: 'Plus gros gain de złotych', uids: highlights.earner.uids,
+        value: formatPoints(highlights.earner.value),
+        detail: 'Présence, défis et autres gains cumulés.'
+    });
+    if (highlights.challenger) awards.push({
+        tone: 'challenge', mark: '⚔', kicker: 'DÉFIS · CETTE LAN',
+        title: 'Plus de défis relevés', uids: highlights.challenger.uids,
+        value: `${highlights.challenger.value} défi${highlights.challenger.value > 1 ? 's' : ''} validé${highlights.challenger.value > 1 ? 's' : ''}`,
+        detail: 'Uniquement les défis validés depuis la dernière archive.'
     });
     if (highlights.spender) awards.push({
-        tone: 'spender', mark: '◆', kicker: 'BOUTIQUE',
+        tone: 'spender', mark: '◆', kicker: 'BOUTIQUE · CETTE LAN',
         title: 'Plus grand dépenseur', uids: highlights.spender.uids,
-        value: formatPoints(highlights.spender.value)
+        value: formatPoints(highlights.spender.value),
+        detail: 'Achats validés pendant cette LAN — boosters offerts exclus.'
     });
     if (highlights.collector) awards.push({
-        tone: 'collection', mark: '✦', kicker: 'COLLECTION',
+        tone: 'collection', mark: '✦', kicker: 'SET · CETTE LAN',
         title: 'Meilleure collection', uids: highlights.collector.uids,
-        value: `${highlights.collector.owned} / ${highlights.collector.total} cartes · ${highlights.collector.percent} %${highlights.collector.foils ? ` · ${highlights.collector.foils} brillante${highlights.collector.foils > 1 ? 's' : ''}` : ''}`
+        value: `${highlights.collector.owned} / ${highlights.collector.total} cartes · ${highlights.collector.percent} %${highlights.collector.foils ? ` · ${highlights.collector.foils} brillante${highlights.collector.foils > 1 ? 's' : ''}` : ''}`,
+        detail: 'Cartes différentes, départagées par les brillantes.'
     });
 
     if (awards.length) {
@@ -3488,20 +3512,21 @@ function renderRecap() {
     }
 
     const rows = [
-        ['Joueurs', voterIds(state.votes, state.settings).length, String(voterIds(state.votes, state.settings).length)],
-        ['Jeux proposés', state.scores.length, String(state.scores.length)],
-        ['Événements', sortedEvents().length, String(sortedEvents().length)],
-        ['Créations kocktails', Object.keys(state.cocktails.oneshot || {}).length, String(Object.keys(state.cocktails.oneshot || {}).length)],
-        ['Sondages', Object.keys(state.polls).length, String(Object.keys(state.polls).length)],
-        ['Commandes groupées', Object.keys(state.foodRuns).length, String(Object.keys(state.foodRuns).length)],
-        ['Total bouffe', foodTotal, `${foodTotal.toFixed(2).replace('.', ',')} €`],
-        ['Złotych gagnés', highlights.totalEarned, formatPoints(highlights.totalEarned)],
-        ['Złotych dépensés', highlights.totalSpent, formatPoints(highlights.totalSpent)],
-        ['Boosters ouverts', highlights.packs, String(highlights.packs)],
-        ['Cartes tirées', highlights.cards, String(highlights.cards)],
-        ['Échanges conclus', highlights.trades, String(highlights.trades)],
-        ['Cartes brillantes', highlights.foils, String(highlights.foils)],
-        ['Signatures trouvées', highlights.signatures, String(highlights.signatures)]
+        ['Joueurs', voterIds(state.votes, state.settings).length, String(voterIds(state.votes, state.settings).length), '◉', 'people'],
+        ['Jeux proposés', state.scores.length, String(state.scores.length), '▶', 'games'],
+        ['Événements', sortedEvents().length, String(sortedEvents().length), '◆', 'events'],
+        ['Créations kocktails', Object.keys(state.cocktails.oneshot || {}).length, String(Object.keys(state.cocktails.oneshot || {}).length), '◌', 'social'],
+        ['Sondages', Object.keys(state.polls).length, String(Object.keys(state.polls).length), '?', 'votes'],
+        ['Commandes groupées', Object.keys(state.foodRuns).length, String(Object.keys(state.foodRuns).length), '+', 'food'],
+        ['Total bouffe', foodTotal, `${foodTotal.toFixed(2).replace('.', ',')} €`, '€', 'food'],
+        ['Złotych gagnés', highlights.totalEarned, formatPoints(highlights.totalEarned), 'ZŁ', 'economy'],
+        ['Złotych dépensés', highlights.totalSpent, formatPoints(highlights.totalSpent), '↗', 'economy'],
+        ['Défis validés', highlights.totalChallenges, String(highlights.totalChallenges), '⚔', 'challenge'],
+        ['Boosters ouverts', highlights.packs, String(highlights.packs), '▣', 'collection'],
+        ['Cartes tirées', highlights.cards, String(highlights.cards), '✦', 'collection'],
+        ['Échanges conclus', highlights.trades, String(highlights.trades), '⇄', 'collection'],
+        ['Cartes brillantes', highlights.foils, String(highlights.foils), '◇', 'collection'],
+        ['Signatures trouvées', highlights.signatures, String(highlights.signatures), 'Σ', 'collection']
     ].filter(([, amount]) => Number(amount) > 0);
 
     if (rows.length) {
@@ -3509,14 +3534,9 @@ function renderRecap() {
         const head = el('div', 'm-section__head');
         head.appendChild(el('h2', 'm-section__title', 'La soirée en chiffres'));
         section.appendChild(head);
-        const stats = el('div', 'm-card m-recap-stats');
-        rows.forEach(([label, , value], index) => {
-            const row = el('div', 'm-stat');
-            row.style.setProperty('--stat-index', index);
-            row.appendChild(el('span', 'm-stat__label', label));
-            row.appendChild(el('span', 'm-stat__value', value));
-            stats.appendChild(row);
-        });
+        const stats = el('div', 'm-recap-infographic');
+        rows.forEach(([label, , value, mark, tone], index) =>
+            stats.appendChild(buildMobileRecapMetric(label, value, mark, tone, index)));
         section.appendChild(stats);
         box.appendChild(section);
     }

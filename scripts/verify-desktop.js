@@ -73,10 +73,15 @@ assert(!/Quand & où/.test(html) && !/Quand & où/.test(script), 'Desktop copy m
 assert(/class="luxury-panel recap-admin"/.test(html) && /id="recap-seal-date"/.test(html), 'Finished LAN must expose the redesigned next-chapter panel');
 assert(ids.includes('recap-awards-panel') && ids.includes('recap-awards') && ids.includes('recap-stats-panel'),
     'Finished LAN must expose conditional stats and a hall of fame');
-assert(/lanRecapHighlights\(globalEconomy, globalTcg, economyPlayers\(\)\)/.test(script)
+assert(/lanRecapHighlights\([\s\S]{0,160}globalQuests, recapSince/.test(script)
     && /Złotych gagnés/.test(script)
     && /filter\(\(\[, amount\]\) => Number\(amount\) > 0\)/.test(script),
     'Desktop recap must derive economy and collection figures and suppress zero metrics');
+assert(/Plus gros gain de złotych/.test(script) && /Plus de défis relevés/.test(script)
+    && !/title: 'Plus riche'/.test(script), 'Desktop recap must reward earnings and challenges, not leftover balance');
+assert(/class="recap-infographic"/.test(html)
+    && /\.recap-metric\s*\{/.test(baseCss)
+    && /@keyframes recap-metric-in/.test(baseCss), 'Desktop figures must render as an animated infographic');
 assert(/@keyframes recap-badge-in/.test(baseCss)
     && /@keyframes recap-badge-shine/.test(baseCss)
     && /prefers-reduced-motion[\s\S]*\.recap-award/.test(baseCss),

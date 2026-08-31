@@ -861,6 +861,46 @@ button[data-goto]:disabled { cursor: not-allowed; }
 .m-recap__hero { text-align: center; display: flex; flex-direction: column; gap: 8px; }
 .m-recap__title { font-family: var(--fd); font-size: 2.1rem; font-weight: 600; color: var(--text); line-height: 1.1; }
 .m-recap__sub { font-size: .9rem; color: var(--text-3); }
+.m-recap-infographic { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.m-recap-metric {
+    --metric-accent: var(--gold);
+    position: relative;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    min-width: 0;
+    min-height: 116px;
+    padding: 13px;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--metric-accent) 28%, var(--line-2));
+    border-radius: var(--r-soft);
+    background:
+        radial-gradient(circle at 100% 0, color-mix(in srgb, var(--metric-accent) 17%, transparent), transparent 50%),
+        rgba(255,255,255,.025);
+    animation: m-recap-metric-in .44s calc(var(--metric-index) * 38ms) cubic-bezier(.2,.8,.2,1) both;
+}
+.m-recap-metric::after {
+    content: '';
+    position: absolute;
+    right: -18px;
+    bottom: -24px;
+    width: 65px;
+    height: 65px;
+    border: 1px solid color-mix(in srgb, var(--metric-accent) 17%, transparent);
+    border-radius: 50%;
+    box-shadow: 0 0 0 10px color-mix(in srgb, var(--metric-accent) 5%, transparent);
+}
+.m-recap-metric--people { --metric-accent: #63b3c5; }
+.m-recap-metric--games { --metric-accent: #d4af37; }
+.m-recap-metric--events { --metric-accent: #6f91d8; }
+.m-recap-metric--social { --metric-accent: #d66f9e; }
+.m-recap-metric--votes { --metric-accent: #8c67d7; }
+.m-recap-metric--food { --metric-accent: #d58d54; }
+.m-recap-metric--economy { --metric-accent: #e3bd3b; }
+.m-recap-metric--challenge { --metric-accent: #d95a5a; }
+.m-recap-metric--collection { --metric-accent: #9b7ee8; }
+.m-recap-metric__mark { position: relative; z-index: 1; justify-self: end; color: var(--metric-accent); font-family: var(--fd); font-size: .72rem; font-weight: 700; letter-spacing: .04em; }
+.m-recap-metric__value { position: relative; z-index: 1; align-self: end; overflow-wrap: anywhere; color: var(--text); font-family: var(--fd); font-size: 1.42rem; font-variant-numeric: tabular-nums; line-height: 1; }
+.m-recap-metric__label { position: relative; z-index: 1; margin-top: 7px; color: var(--text-2); font-size: .68rem; line-height: 1.22; }
 .m-recap-awards { display: grid; grid-template-columns: 1fr; gap: 10px; }
 .m-recap-award {
     --award-accent: var(--gold);
@@ -892,6 +932,7 @@ button[data-goto]:disabled { cursor: not-allowed; }
 }
 .m-recap-award--fortune { --award-accent: #e3bd3b; }
 .m-recap-award--spender { --award-accent: #cf7445; }
+.m-recap-award--challenge { --award-accent: #d95a5a; }
 .m-recap-award--collection { --award-accent: #9b7ee8; }
 .m-recap-award__mark {
     display: grid;
@@ -912,12 +953,17 @@ button[data-goto]:disabled { cursor: not-allowed; }
 .m-recap-award__title { margin: 0; color: var(--text-2); font-size: .76rem; font-weight: 500; }
 .m-recap-award__winner { overflow-wrap: anywhere; color: var(--text); font-family: var(--fd); font-size: 1.2rem; line-height: 1.15; }
 .m-recap-award__value { margin-top: 3px; color: var(--award-accent); font-size: .72rem; font-variant-numeric: tabular-nums; }
+.m-recap-award__detail { margin-top: 5px; color: var(--text-3); font-size: .66rem; line-height: 1.32; }
 .m-recap-stats .m-stat { animation: m-stat-in .42s calc(var(--stat-index) * 36ms) ease both; }
 .m-stat { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line-2); }
 .m-stat:last-child { border-bottom: 0; }
 .m-stat__label { font-size: .84rem; color: var(--text-2); }
 .m-stat__value { font-size: .9rem; color: var(--gold); font-variant-numeric: tabular-nums; }
 
+@keyframes m-recap-metric-in {
+    from { opacity: 0; transform: translateY(10px) scale(.98); }
+    to { opacity: 1; transform: none; }
+}
 @keyframes m-recap-badge-in {
     from { opacity: 0; transform: translateY(14px) scale(.97); }
     to { opacity: 1; transform: none; }
@@ -961,6 +1007,7 @@ button[data-goto]:disabled { cursor: not-allowed; }
     }
     .m-recap-award,
     .m-recap-award::after,
+    .m-recap-metric,
     .m-recap-stats .m-stat {
         animation: none !important;
     }

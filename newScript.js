@@ -3767,17 +3767,22 @@ document.addEventListener('DOMContentLoaded', () => {
         if (view && view.style.display !== 'none') renderLanRecap();
     }
 
-    function statLine(label, value) {
-        const row = document.createElement('div');
-        row.className = 'player-row';
-        const l = document.createElement('span');
-        l.className = 'player-row__name';
-        l.textContent = label;
-        const v = document.createElement('span');
-        v.className = 'player-row__score';
-        v.textContent = value;
-        row.append(l, v);
-        return row;
+    function recapMetricCard(label, value, mark, tone, index) {
+        const card = document.createElement('article');
+        card.className = `recap-metric recap-metric--${tone}`;
+        card.style.setProperty('--metric-index', index);
+        const icon = document.createElement('span');
+        icon.className = 'recap-metric__mark';
+        icon.setAttribute('aria-hidden', 'true');
+        icon.textContent = mark;
+        const number = document.createElement('strong');
+        number.className = 'recap-metric__value';
+        number.textContent = value;
+        const caption = document.createElement('span');
+        caption.className = 'recap-metric__label';
+        caption.textContent = label;
+        card.append(icon, number, caption);
+        return card;
     }
 
     function recapWinnerNames(uids) {
@@ -3810,7 +3815,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const value = document.createElement('span');
         value.className = 'recap-award__value';
         value.textContent = award.value;
-        copy.append(kicker, title, winner, value);
+        const detail = document.createElement('span');
+        detail.className = 'recap-award__detail';
+        detail.textContent = award.detail;
+        copy.append(kicker, title, winner, value, detail);
         card.append(mark, copy);
         return card;
     }
@@ -3851,45 +3859,59 @@ document.addEventListener('DOMContentLoaded', () => {
         const foodItems = Object.values(globalFoodRuns)
             .flatMap(run => Object.values(run.items || {}));
         const foodTotal = foodItems.reduce((sum, it) => sum + (Number(it.price) || 0), 0);
-        const highlights = lanRecapHighlights(globalEconomy, globalTcg, economyPlayers());
+        const recapSince = latestLanArchiveTimestamp(globalHistory);
+        const highlights = lanRecapHighlights(
+            globalEconomy, globalTcg, economyPlayers(), globalQuests, recapSince
+        );
 
         const stats = document.getElementById('recap-stats');
         stats.innerHTML = '';
         const rows = [
-            ['Votants', voterCount, String(voterCount)],
-            ['Jeux proposés', sorted.length, String(sorted.length)],
-            ['Événements organisés', Object.keys(events).length, String(Object.keys(events).length)],
-            ['Créations kocktails', Object.keys(cocktails.oneshot || {}).length, String(Object.keys(cocktails.oneshot || {}).length)],
-            ['Sondages lancés', Object.keys(globalPolls).length, String(Object.keys(globalPolls).length)],
-            ['Commandes groupées', Object.keys(globalFoodRuns).length, String(Object.keys(globalFoodRuns).length)],
-            ['Total bouffe', foodTotal, `${foodTotal.toFixed(2).replace('.', ',')} €`],
-            ['Złotych gagnés', highlights.totalEarned, formatPoints(highlights.totalEarned)],
-            ['Złotych dépensés', highlights.totalSpent, formatPoints(highlights.totalSpent)],
-            ['Boosters ouverts', highlights.packs, String(highlights.packs)],
-            ['Cartes tirées', highlights.cards, String(highlights.cards)],
-            ['Échanges conclus', highlights.trades, String(highlights.trades)],
-            ['Cartes brillantes', highlights.foils, String(highlights.foils)],
-            ['Signatures trouvées', highlights.signatures, String(highlights.signatures)]
+            ['Votants', voterCount, String(voterCount), '◉', 'people'],
+            ['Jeux proposés', sorted.length, String(sorted.length), '▶', 'games'],
+            ['Événements organisés', Object.keys(events).length, String(Object.keys(events).length), '◆', 'events'],
+            ['Créations kocktails', Object.keys(cocktails.oneshot || {}).length, String(Object.keys(cocktails.oneshot || {}).length), '◌', 'social'],
+            ['Sondages lancés', Object.keys(globalPolls).length, String(Object.keys(globalPolls).length), '?', 'votes'],
+            ['Commandes groupées', Object.keys(globalFoodRuns).length, String(Object.keys(globalFoodRuns).length), '+', 'food'],
+            ['Total bouffe', foodTotal, `${foodTotal.toFixed(2).replace('.', ',')} €`, '€', 'food'],
+            ['Złotych gagnés', highlights.totalEarned, formatPoints(highlights.totalEarned), 'ZŁ', 'economy'],
+            ['Złotych dépensés', highlights.totalSpent, formatPoints(highlights.totalSpent), '↗', 'economy'],
+            ['Défis validés', highlights.totalChallenges, String(highlights.totalChallenges), '⚔', 'challenge'],
+            ['Boosters ouverts', highlights.packs, String(highlights.packs), '▣', 'collection'],
+            ['Cartes tirées', highlights.cards, String(highlights.cards), '✦', 'collection'],
+            ['Échanges conclus', highlights.trades, String(highlights.trades), '⇄', 'collection'],
+            ['Cartes brillantes', highlights.foils, String(highlights.foils), '◇', 'collection'],
+            ['Signatures trouvées', highlights.signatures, String(highlights.signatures), 'Σ', 'collection']
         ].filter(([, amount]) => Number(amount) > 0);
-        rows.forEach(([label, , value]) => stats.appendChild(statLine(label, value)));
+        rows.forEach(([label, , value, mark, tone], index) =>
+            stats.appendChild(recapMetricCard(label, value, mark, tone, index)));
         const statsPanel = document.getElementById('recap-stats-panel');
         if (statsPanel) statsPanel.hidden = rows.length === 0;
 
         const awards = [];
-        if (highlights.richest) awards.push({
-            tone: 'fortune', mark: 'ZŁ', kicker: 'FORTUNE',
-            title: 'Plus riche', uids: highlights.richest.uids,
-            value: formatPoints(highlights.richest.value)
+        if (highlights.earner) awards.push({
+            tone: 'fortune', mark: 'ZŁ', kicker: 'ÉCONOMIE · CETTE LAN',
+            title: 'Plus gros gain de złotych', uids: highlights.earner.uids,
+            value: formatPoints(highlights.earner.value),
+            detail: 'Présence, défis et autres gains cumulés.'
+        });
+        if (highlights.challenger) awards.push({
+            tone: 'challenge', mark: '⚔', kicker: 'DÉFIS · CETTE LAN',
+            title: 'Plus de défis relevés', uids: highlights.challenger.uids,
+            value: `${highlights.challenger.value} défi${highlights.challenger.value > 1 ? 's' : ''} validé${highlights.challenger.value > 1 ? 's' : ''}`,
+            detail: 'Uniquement les défis validés depuis la dernière archive.'
         });
         if (highlights.spender) awards.push({
-            tone: 'spender', mark: '◆', kicker: 'BOUTIQUE',
+            tone: 'spender', mark: '◆', kicker: 'BOUTIQUE · CETTE LAN',
             title: 'Plus grand dépenseur', uids: highlights.spender.uids,
-            value: formatPoints(highlights.spender.value)
+            value: formatPoints(highlights.spender.value),
+            detail: 'Achats validés pendant cette LAN — boosters offerts exclus.'
         });
         if (highlights.collector) awards.push({
-            tone: 'collection', mark: '✦', kicker: 'COLLECTION',
+            tone: 'collection', mark: '✦', kicker: 'SET · CETTE LAN',
             title: 'Meilleure collection', uids: highlights.collector.uids,
-            value: `${highlights.collector.owned} / ${highlights.collector.total} cartes · ${highlights.collector.percent} %${highlights.collector.foils ? ` · ${highlights.collector.foils} brillante${highlights.collector.foils > 1 ? 's' : ''}` : ''}`
+            value: `${highlights.collector.owned} / ${highlights.collector.total} cartes · ${highlights.collector.percent} %${highlights.collector.foils ? ` · ${highlights.collector.foils} brillante${highlights.collector.foils > 1 ? 's' : ''}` : ''}`,
+            detail: 'Cartes différentes, départagées par les brillantes.'
         });
         const awardsMount = document.getElementById('recap-awards');
         const awardsPanel = document.getElementById('recap-awards-panel');

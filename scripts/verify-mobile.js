@@ -74,10 +74,15 @@ assert(/data-goto="miam"/.test(html)
 for (const motion of ['m-shell-down', 'm-title-in', 'm-line-draw', 'm-stat-in', 'm-rank-in', 'm-tab-ink', 'm-action-sweep', 'm-phase-shift']) {
     assert(css.includes('@keyframes ' + motion), 'Missing Bureau en poche motion: ' + motion);
 }
-assert(/lanRecapHighlights\(state\.economy, state\.tcg, economyPlayers\(\)\)/.test(script)
+assert(/lanRecapHighlights\([\s\S]{0,160}state\.quests, recapSince/.test(script)
     && /Złotych gagnés/.test(script)
     && /filter\(\(\[, amount\]\) => Number\(amount\) > 0\)/.test(script),
     'Mobile recap must derive economy and collection figures and suppress zero metrics');
+assert(/Plus gros gain de złotych/.test(script) && /Plus de défis relevés/.test(script)
+    && !/title: 'Plus riche'/.test(script), 'Mobile recap must reward earnings and challenges, not leftover balance');
+assert(/m-recap-infographic/.test(script)
+    && /\.m-recap-metric\s*\{/.test(css)
+    && /@keyframes m-recap-metric-in/.test(css), 'Mobile figures must render as an animated infographic');
 for (const motion of ['m-recap-badge-in', 'm-recap-badge-shine']) {
     assert(css.includes('@keyframes ' + motion), 'Missing mobile recap motion: ' + motion);
 }
