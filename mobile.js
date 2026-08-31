@@ -4968,12 +4968,12 @@ function renderCartes() {
     renderMobileTcgSetSelector(liveView.uid);
     renderMobileTcgSetAdmin();
     const view = selectedMobileTcgView(liveView.uid);
-    const archived = view.archived === true;
-    showMobileArchivedCollectionOnly(archived);
+    const readOnly = view.archived === true || state.settings.lanFinished === true;
+    showMobileArchivedCollectionOnly(readOnly);
 
-    renderSetBand(view);
+    renderSetBand(view, readOnly);
     renderSetGrid(view);
-    if (archived) return;
+    if (readOnly) return;
 
     // L'emballage a son propre visuel, chargé comme celui d'une Signature.
     ensureGeneratedArt(PACK_ART_KEY);
@@ -4986,7 +4986,7 @@ function renderCartes() {
     renderTradeFeed(view);
 }
 
-function renderSetBand(view) {
+function renderSetBand(view, readOnly) {
     const band = $('m-set-band');
     band.innerHTML = '';
 
@@ -4998,14 +4998,14 @@ function renderSetBand(view) {
     }
 
     const progress = setProgress(view.setCards, view.cards, view.uid);
-    band.appendChild(el('p', 'm-setband__title', view.set.name + (view.archived ? ' · archivé' : '')));
+    band.appendChild(el('p', 'm-setband__title', view.set.name + (readOnly ? ' · archivé' : '')));
     const bar = el('div', 'm-setband__bar');
     const fill = el('span', 'm-setband__fill');
     fill.style.width = progress.percent + '%';
     bar.appendChild(fill);
     band.appendChild(bar);
     band.appendChild(el('p', 'm-setband__hint',
-        (view.archived ? 'Collection archivée · ' : '')
+        (readOnly ? 'Collection archivée · ' : '')
         + progress.owned + ' / ' + progress.total + ' cartes'
         + (progress.foils ? ' · ' + progress.foils + ' brillante' + (progress.foils > 1 ? 's' : '') : '')
         + (progress.complete ? ' · set complet 🏆' : '')));

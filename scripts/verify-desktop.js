@@ -106,13 +106,23 @@ assert(/#view-voting-open #vote-form\s*\{[\s\S]{0,180}grid-template-columns: rep
 assert(/const gamesUnlocked = phase === 'voting' \|\| phase === 'active' \|\| !!window\.currentUserIsAdmin/.test(script)
     && /const liveUnlocked = phase === 'active' \|\| !!window\.currentUserIsAdmin/.test(script),
     'Every LAN screen must stay open to the admin, whatever the phase');
+assert(/const finishedCollection = phase === 'finished'[\s\S]{0,100}item\.dataset\.desktopTarget === 'lan-tcg'/.test(script)
+    && /const itemUnlocked = liveUnlocked \|\| finishedCollection/.test(script),
+    'The desktop Collection rail item must unlock once the LAN is finished');
 assert(/let desktopPreviewSubview = ''/.test(script)
-    && /desktopPreviewSubview && window\.currentUserIsAdmin && phase !== 'active'/.test(script),
-    'The admin preview must remember which screen is open');
+    && /window\.currentUserIsAdmin \|\| finishedCollectionOpen/.test(script),
+    'The detached desktop view must remember admin previews and the finished Collection');
 assert(!/tcgAdminPreview/.test(script) && !ids.includes('btn-tcg-preview'),
     'The Collection-only preview button must be gone: the rail opens it in every phase');
 assert(/const adminPreview = phase !== 'active' && !votingProgramme && !!window\.currentUserIsAdmin/.test(script),
     'activateDesktopSubview must let the admin through outside the active LAN');
+assert(/const finishedCollection = phase === 'finished' && targetId === 'lan-tcg'/.test(script)
+    && /!adminPreview && !finishedCollection\) return/.test(script),
+    'activateDesktopSubview must let every player revisit Collection after closure');
+assert(/const readOnly = view\.archived === true \|\| globalSettings\.lanFinished === true/.test(script)
+    && /showArchivedCollectionOnly\(panel, readOnly\)/.test(script)
+    && /if \(readOnly\) return/.test(script),
+    'Finished desktop collections must expose cards in archive mode without live controls');
 assert(/phase === 'voting' \? desktopVotingDestination === 'events' : true/.test(script)
     && /phase === 'voting' && desktopVotingDestination === 'games'/.test(script), 'Events and Games navigation highlights must remain exclusive');
 // Le panneau admin est une destination, pas une phase. Testé après la branche

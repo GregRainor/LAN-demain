@@ -412,9 +412,12 @@ document.addEventListener('DOMContentLoaded', () => {
            qu'on prépare la soirée. */
         const liveUnlocked = phase === 'active' || !!window.currentUserIsAdmin;
         document.querySelectorAll('[data-live-only]').forEach(item => {
-            item.classList.toggle('is-locked', !liveUnlocked);
-            item.disabled = !liveUnlocked;
-            item.setAttribute('aria-disabled', String(!liveUnlocked));
+            const finishedCollection = phase === 'finished'
+                && item.dataset.desktopTarget === 'lan-tcg';
+            const itemUnlocked = liveUnlocked || finishedCollection;
+            item.classList.toggle('is-locked', !itemUnlocked);
+            item.disabled = !itemUnlocked;
+            item.setAttribute('aria-disabled', String(!itemUnlocked));
         });
 
         // Jeux désigne le bulletin pendant le vote, puis l'historique pendant
@@ -517,14 +520,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const phase = desktopPhase();
         const votingProgramme = phase === 'voting' && targetId === 'lan-calendar';
         const adminPreview = phase !== 'active' && !votingProgramme && !!window.currentUserIsAdmin;
-        if (phase !== 'active' && !votingProgramme && !adminPreview) return;
+        const finishedCollection = phase === 'finished' && targetId === 'lan-tcg';
+        if (phase !== 'active' && !votingProgramme && !adminPreview && !finishedCollection) return;
         if (votingProgramme) desktopVotingDestination = 'events';
         desktopAdminOverride = false;
-        // Hors soirée, l'admin visite : la phase reste ce qu'elle est, seul
-        // l'écran change. updateVotingUIState() se charge d'afficher la coque
-        // de LAN active autour.
-        desktopPreviewSubview = adminPreview ? targetId : '';
-        if (adminPreview) {
+        // Hors soirée, l'admin visite les écrans de préparation. Après la
+        // clôture, tout joueur peut aussi relire sa Collection archivée. La
+        // phase reste inchangée : seule la vue intérieure change.
+        desktopPreviewSubview = adminPreview || finishedCollection ? targetId : '';
+        if (adminPreview || finishedCollection) {
             updateVotingUIState();
             if (targetId === 'lan-tcg') renderCollection();
             return;
@@ -2059,7 +2063,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!window.currentUserIsAdmin) desktopAdminOverride = false;
         const phase = desktopPhase();
 
-        if (!window.currentUserIsAdmin) desktopPreviewSubview = '';
+        const finishedCollectionOpen = phase === 'finished'
+            && desktopPreviewSubview === 'lan-tcg';
+        if (!window.currentUserIsAdmin && !finishedCollectionOpen) desktopPreviewSubview = '';
 
         /* L'admin a ouvert un écran de la soirée alors qu'elle n'a pas
            commencé. On lui montre la vue de LAN active, ouverte sur cet
@@ -2067,7 +2073,8 @@ document.addEventListener('DOMContentLoaded', () => {
            liste de défis ou un set avant le jour J. On clique l'aiguillage
            hérité plutôt que d'appeler activateDesktopSubview(), qui
            rappellerait cette fonction. */
-        if (desktopPreviewSubview && window.currentUserIsAdmin && phase !== 'active') {
+        if (desktopPreviewSubview && phase !== 'active'
+            && (window.currentUserIsAdmin || finishedCollectionOpen)) {
             if (viewLanActive) viewLanActive.style.display = 'block';
             const btnNotifPreview = document.getElementById('btn-notifications');
             if (btnNotifPreview) btnNotifPreview.style.display = 'grid';
@@ -10241,12 +10248,12 @@ document.addEventListener('DOMContentLoaded', () => {
         renderTcgSetSelector(user.uid);
         renderTcgSetAdmin();
         const view = selectedTcgView(user.uid);
-        const archived = view.archived === true;
-        showArchivedCollectionOnly(panel, archived);
-        renderSetBanner(view);
+        const readOnly = view.archived === true || globalSettings.lanFinished === true;
+        showArchivedCollectionOnly(panel, readOnly);
+        renderSetBanner(view, readOnly);
         renderSetGrid(view);
         renderTcgBadge(liveView);
-        if (archived) return;
+        if (readOnly) return;
 
         // L'emballage a son propre visuel, chargé comme celui d'une Signature.
         // Sans cette ligne, seul le maître du jeu qui vient de l'importer le
@@ -10261,7 +10268,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderTradeFeed(view);
     }
 
-    function renderSetBanner(view) {
+    function renderSetBanner(view, readOnly) {
         const name = document.getElementById('tcg-set-name');
         const value = document.getElementById('tcg-progress');
         const fill = document.getElementById('tcg-progress-fill');
@@ -10277,10 +10284,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const progress = setProgress(view.setCards, view.cards, view.uid);
-        name.textContent = view.set.name + (view.archived ? ' · archivé' : '');
+        name.textContent = view.set.name + (readOnly ? ' · archivé' : '');
         value.textContent = `${progress.owned} / ${progress.total}`;
         fill.style.width = `${progress.percent}%`;
-        hint.textContent = (view.archived ? 'Collection archivée · ' : '') + `${progress.percent} % du set`
+        hint.textContent = (readOnly ? 'Collection archivée · ' : '') + `${progress.percent} % du set`
             + (progress.foils ? ` · ${progress.foils} brillante${progress.foils > 1 ? 's' : ''}` : '')
             + (progress.complete ? ' · set complet 🏆' : '');
     }

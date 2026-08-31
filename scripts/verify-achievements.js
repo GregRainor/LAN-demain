@@ -367,6 +367,6 @@ assert(rules.rules.lan.tcg.packs['.write'].includes('!newData.exists()')
 assert(rules.rules.lan.tcg.resetAt['.write'].includes("val() !== true")
     && rules.rules.lan.tcg.resetAt['.validate'].includes('newData.val() === now'),
     'The durable reset marker must be gamemaster-writable only during an open LAN');
-assert(/20260831-lan-rankings/.test(desktopHtml) && /20260831-lan-rankings/.test(mobileHtml));
+assert(/20260831-finished-collection/.test(desktopHtml) && /20260831-finished-collection/.test(mobileHtml));
 
 console.log('Achievement and TCG archive checks passed (atomic ceremony claim, reset, archived sets).');

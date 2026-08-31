@@ -118,7 +118,13 @@ navState.settings = { isVotingOpen: false, isLanActive: false, lanFinished: true
 assert.strictEqual(nav.phase(), 'finished');
 assert.strictEqual(nav.screenAvailable('bilan'), true);
 assert.strictEqual(nav.screenAvailable('vote'), false);
+assert.strictEqual(nav.screenAvailable('cartes'), true,
+    'The mobile Collection must remain available after the LAN is finished');
 assert.strictEqual(nav.phaseFallbackScreen(), 'bilan');
+assert(/const readOnly = view\.archived === true \|\| state\.settings\.lanFinished === true/.test(script)
+    && /showMobileArchivedCollectionOnly\(readOnly\)/.test(script)
+    && /if \(readOnly\) return/.test(script),
+    'Finished mobile collections must expose cards in archive mode without live controls');
 
 for (const motion of ['m-prof-sweep', 'm-prof-prism', 'm-prof-lock', 'm-prof-orbit', 'm-prof-impact', 'm-prof-vote', 'm-prof-scan', 'm-prof-polonia']) {
     assert(css.includes('@keyframes ' + motion), 'Missing mobile Signature motion: ' + motion);
