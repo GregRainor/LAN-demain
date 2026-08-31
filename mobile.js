@@ -3447,6 +3447,25 @@ function buildMobileRecapMetric(label, value, mark, tone, index) {
     return card;
 }
 
+function buildMobileRecapRanking(group, index) {
+    const card = el('article', `m-recap-ranking m-recap-ranking--${group.tone}`);
+    card.style.setProperty('--ranking-index', index);
+    const head = el('div', 'm-recap-ranking__head');
+    head.appendChild(el('span', 'm-recap-ranking__mark', group.mark));
+    head.appendChild(el('h3', 'm-recap-ranking__title', group.title));
+    card.appendChild(head);
+    const list = el('ol', 'm-recap-ranking__list');
+    group.rows.forEach(row => {
+        const item = el('li', 'm-recap-ranking__row');
+        item.appendChild(el('span', 'm-recap-ranking__position', String(row.rank)));
+        item.appendChild(el('span', 'm-recap-ranking__name', playerName(row.uid)));
+        item.appendChild(el('strong', 'm-recap-ranking__value', group.format(row)));
+        list.appendChild(item);
+    });
+    card.appendChild(list);
+    return card;
+}
+
 function renderRecap() {
     const mount = $('m-recap');
     mount.innerHTML = '';
@@ -3507,6 +3526,42 @@ function renderRecap() {
         section.appendChild(head);
         const grid = el('div', 'm-recap-awards');
         awards.forEach((award, index) => grid.appendChild(buildMobileRecapAward(award, index)));
+        section.appendChild(grid);
+        box.appendChild(section);
+    }
+
+    const rankingGroups = [
+        {
+            tone: 'fortune', mark: 'ZŁ', title: 'Złotych gagnés',
+            rows: highlights.rankings.earned,
+            format: row => formatPoints(row.value)
+        },
+        {
+            tone: 'spender', mark: '◆', title: 'Złotych dépensés',
+            rows: highlights.rankings.spent,
+            format: row => formatPoints(row.value)
+        },
+        {
+            tone: 'challenge', mark: '⚔', title: 'Défis relevés',
+            rows: highlights.rankings.challenges,
+            format: row => row.value + ' défi' + (row.value > 1 ? 's' : '')
+        },
+        {
+            tone: 'collection', mark: '✦', title: 'Collection',
+            rows: highlights.rankings.collection,
+            format: row => row.owned + '/' + row.total
+                + (row.foils ? ' · ' + row.foils + ' brillante' + (row.foils > 1 ? 's' : '') : '')
+        }
+    ].filter(group => group.rows.length > 0);
+    if (rankingGroups.length) {
+        const section = el('section', 'm-section m-recap-rankings-section');
+        const head = el('div', 'm-section__head');
+        head.appendChild(el('h2', 'm-section__title', 'Tous les classements'));
+        section.appendChild(head);
+        section.appendChild(el('p', 'm-recap-rankings__intro',
+            'Chaque demande compte pour le joueur qui l’a envoyée, jamais pour l’admin qui l’a validée.'));
+        const grid = el('div', 'm-recap-rankings');
+        rankingGroups.forEach((group, index) => grid.appendChild(buildMobileRecapRanking(group, index)));
         section.appendChild(grid);
         box.appendChild(section);
     }

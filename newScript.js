@@ -3823,6 +3823,43 @@ document.addEventListener('DOMContentLoaded', () => {
         return card;
     }
 
+    function recapRankingCard(group, index) {
+        const card = document.createElement('article');
+        card.className = `recap-ranking recap-ranking--${group.tone}`;
+        card.style.setProperty('--ranking-index', index);
+
+        const head = document.createElement('div');
+        head.className = 'recap-ranking__head';
+        const mark = document.createElement('span');
+        mark.className = 'recap-ranking__mark';
+        mark.textContent = group.mark;
+        const title = document.createElement('h4');
+        title.className = 'recap-ranking__title';
+        title.textContent = group.title;
+        head.append(mark, title);
+        card.appendChild(head);
+
+        const list = document.createElement('ol');
+        list.className = 'recap-ranking__list';
+        group.rows.forEach(row => {
+            const item = document.createElement('li');
+            item.className = 'recap-ranking__row';
+            const position = document.createElement('span');
+            position.className = 'recap-ranking__position';
+            position.textContent = String(row.rank);
+            const name = document.createElement('span');
+            name.className = 'recap-ranking__name';
+            name.textContent = playerLabel(row.uid);
+            const value = document.createElement('strong');
+            value.className = 'recap-ranking__value';
+            value.textContent = group.format(row);
+            item.append(position, name, value);
+            list.appendChild(item);
+        });
+        card.appendChild(list);
+        return card;
+    }
+
     // Le bilan est calculé à la volée : rien n'ayant été effacé à la clôture,
     // toutes les données de la soirée sont encore en base.
     function renderLanRecap() {
@@ -3918,6 +3955,34 @@ document.addEventListener('DOMContentLoaded', () => {
         awardsMount.innerHTML = '';
         awards.forEach((award, index) => awardsMount.appendChild(recapAwardCard(award, index)));
         if (awardsPanel) awardsPanel.hidden = awards.length === 0;
+
+        const rankingGroups = [
+            {
+                tone: 'fortune', mark: 'ZŁ', title: 'Złotych gagnés',
+                rows: highlights.rankings.earned,
+                format: row => formatPoints(row.value)
+            },
+            {
+                tone: 'spender', mark: '◆', title: 'Złotych dépensés',
+                rows: highlights.rankings.spent,
+                format: row => formatPoints(row.value)
+            },
+            {
+                tone: 'challenge', mark: '⚔', title: 'Défis relevés',
+                rows: highlights.rankings.challenges,
+                format: row => `${row.value} défi${row.value > 1 ? 's' : ''}`
+            },
+            {
+                tone: 'collection', mark: '✦', title: 'Collection',
+                rows: highlights.rankings.collection,
+                format: row => `${row.owned}/${row.total}${row.foils ? ` · ${row.foils} brillante${row.foils > 1 ? 's' : ''}` : ''}`
+            }
+        ].filter(group => group.rows.length > 0);
+        const rankingsMount = document.getElementById('recap-rankings');
+        const rankingsPanel = document.getElementById('recap-rankings-panel');
+        rankingsMount.innerHTML = '';
+        rankingGroups.forEach((group, index) => rankingsMount.appendChild(recapRankingCard(group, index)));
+        if (rankingsPanel) rankingsPanel.hidden = rankingGroups.length === 0;
 
         const adminBox = document.getElementById('recap-admin');
         if (adminBox) adminBox.style.display = window.currentUserIsAdmin ? 'grid' : 'none';

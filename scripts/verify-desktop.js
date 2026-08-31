@@ -79,6 +79,11 @@ assert(/lanRecapHighlights\([\s\S]{0,160}globalQuests, recapSince/.test(script)
     'Desktop recap must derive economy and collection figures and suppress zero metrics');
 assert(/Plus gros gain de złotych/.test(script) && /Plus de défis relevés/.test(script)
     && !/title: 'Plus riche'/.test(script), 'Desktop recap must reward earnings and challenges, not leftover balance');
+assert(ids.includes('recap-rankings-panel') && ids.includes('recap-rankings'),
+    'Desktop recap must expose the complete player rankings');
+assert(html.includes('Chaque demande est attribuée au joueur')
+    && script.includes("rows: highlights.rankings.spent"),
+    'Desktop rankings must make requester attribution explicit');
 assert(/class="recap-infographic"/.test(html)
     && /\.recap-metric\s*\{/.test(baseCss)
     && /@keyframes recap-metric-in/.test(baseCss), 'Desktop figures must render as an animated infographic');

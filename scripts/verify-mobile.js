@@ -80,6 +80,11 @@ assert(/lanRecapHighlights\([\s\S]{0,160}state\.quests, recapSince/.test(script)
     'Mobile recap must derive economy and collection figures and suppress zero metrics');
 assert(/Plus gros gain de złotych/.test(script) && /Plus de défis relevés/.test(script)
     && !/title: 'Plus riche'/.test(script), 'Mobile recap must reward earnings and challenges, not leftover balance');
+assert(script.includes('Tous les classements')
+    && script.includes("rows: highlights.rankings.spent"),
+    'Mobile recap must render complete player rankings');
+assert(script.includes('jamais pour l’admin qui l’a validée'),
+    'Mobile rankings must make requester attribution explicit');
 assert(/m-recap-infographic/.test(script)
     && /\.m-recap-metric\s*\{/.test(css)
     && /@keyframes m-recap-metric-in/.test(css), 'Mobile figures must render as an animated infographic');

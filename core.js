@@ -1937,6 +1937,20 @@ function lanRecapHighlights(economy, tcg, uids, quests, since) {
         };
     });
 
+    function metricRanking(rows, metric) {
+        let previous = null;
+        let rank = 0;
+        return rows
+            .map(row => ({ uid: row.uid, value: Number(row[metric]) || 0 }))
+            .filter(row => row.value > 0)
+            .sort((a, b) => b.value - a.value)
+            .map((row, index) => {
+                if (row.value !== previous) rank = index + 1;
+                previous = row.value;
+                return { uid: row.uid, value: row.value, rank: rank };
+            });
+    }
+
     function leaders(metric) {
         const best = economyRows.reduce((max, row) => Math.max(max, Number(row[metric]) || 0), 0);
         if (best <= 0) return null;
@@ -1961,6 +1975,21 @@ function lanRecapHighlights(economy, tcg, uids, quests, since) {
     const board = set
         ? tcgLeaderboard(set.cards || {}, currentCards, Array.from(players))
         : [];
+    let previousCollectionScore = null;
+    let collectionRank = 0;
+    const collectionRanking = board.map((row, index) => {
+        const score = `${row.owned}:${row.foils}`;
+        if (score !== previousCollectionScore) collectionRank = index + 1;
+        previousCollectionScore = score;
+        return {
+            uid: row.uid,
+            rank: collectionRank,
+            owned: row.owned,
+            total: row.total,
+            percent: row.percent,
+            foils: row.foils
+        };
+    });
     let collector = null;
     if (board.length) {
         const best = board[0];
@@ -1992,6 +2021,12 @@ function lanRecapHighlights(economy, tcg, uids, quests, since) {
         spender: leaders('spent'),
         challenger: challenger,
         collector: collector,
+        rankings: {
+            earned: metricRanking(economyRows, 'earned'),
+            spent: metricRanking(economyRows, 'spent'),
+            challenges: metricRanking(challengeRows, 'count'),
+            collection: collectionRanking
+        },
         packs: currentPacks.length,
         cards: currentCards.length,
         trades: acceptedTrades(tcgNode).length,

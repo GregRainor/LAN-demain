@@ -86,29 +86,29 @@ assert.strictEqual(
 const recapEconomy = {
     ticks: { alice: { count: 2 } },
     ledger: {
-        aliceAward: { uid: 'alice', delta: 100, type: 'challenge', ts: 200 },
-        bobAward: { uid: 'bob', delta: 120, type: 'challenge', ts: 220 },
+        aliceAward: { uid: 'alice', delta: 100, type: 'challenge', by: 'greg-admin', ts: 200 },
+        bobAward: { uid: 'bob', delta: 120, type: 'challenge', by: 'greg-admin', ts: 220 },
         oldAward: { uid: 'alice', delta: 999, type: 'challenge', ts: 50 },
         ignoredDebit: { uid: 'alice', delta: -40, type: 'purchase', ts: 230 }
     },
     purchases: {
-        aliceBuy: { uid: 'alice', price: 40, status: 'granted', ts: 230 },
-        bobBuy: { uid: 'bob', price: 40, status: 'granted', ts: 240 },
+        aliceBuy: { uid: 'alice', price: 40, status: 'granted', resolvedBy: 'greg-admin', ts: 230 },
+        bobBuy: { uid: 'bob', price: 40, status: 'granted', resolvedBy: 'greg-admin', ts: 240 },
         oldAliceBuy: { uid: 'alice', price: 500, status: 'granted', ts: 50 }
     }
 };
 const recapQuests = {
     challenges: { c1: { category: 'fun' }, c2: { category: 'social' } },
     claims: {
-        aliceOne: { uid: 'alice', challengeId: 'c1', status: 'granted', ts: 200 },
-        aliceTwo: { uid: 'alice', challengeId: 'c2', status: 'granted', ts: 210 },
-        bobOne: { uid: 'bob', challengeId: 'c1', status: 'granted', ts: 220 },
+        aliceOne: { uid: 'alice', challengeId: 'c1', status: 'granted', resolvedBy: 'greg-admin', ts: 200 },
+        aliceTwo: { uid: 'alice', challengeId: 'c2', status: 'granted', resolvedBy: 'greg-admin', ts: 210 },
+        bobOne: { uid: 'bob', challengeId: 'c1', status: 'granted', resolvedBy: 'greg-admin', ts: 220 },
         oldBob: { uid: 'bob', challengeId: 'c2', status: 'granted', ts: 50 }
     }
 };
 assert.strictEqual(ach.latestLanArchiveTimestamp({ old: { timestamp: 50 }, latest: { timestamp: 100 } }), 100);
 const recap = plain(ach.lanRecapHighlights(
-    recapEconomy, {}, ['alice', 'bob', 'zero'], recapQuests, 100
+    recapEconomy, {}, ['alice', 'bob', 'greg-admin', 'zero'], recapQuests, 100
 ));
 assert.strictEqual(recap.totalEarned, 240, 'Recap earnings must include attendance and positive ledger awards');
 assert.strictEqual(recap.totalSpent, 80, 'Recap spending must ignore purchase receipts from earlier LANs');
@@ -116,6 +116,21 @@ assert.deepStrictEqual(recap.earner.uids, ['alice', 'bob'], 'Recap must preserve
 assert.deepStrictEqual(recap.spender.uids, ['alice', 'bob'], 'Recap must preserve ties for the spender badge');
 assert.strictEqual(recap.totalChallenges, 3, 'Recap challenges must ignore claims from earlier LANs');
 assert.deepStrictEqual(recap.challenger, { uids: ['alice'], value: 2 });
+assert.deepStrictEqual(recap.rankings.earned, [
+    { uid: 'alice', value: 120, rank: 1 },
+    { uid: 'bob', value: 120, rank: 1 }
+], 'Credits validated by an admin must remain attributed to their requesting players');
+assert.deepStrictEqual(recap.rankings.spent, [
+    { uid: 'alice', value: 40, rank: 1 },
+    { uid: 'bob', value: 40, rank: 1 }
+], 'Purchases validated by an admin must remain attributed to their requesting players');
+assert.deepStrictEqual(recap.rankings.challenges, [
+    { uid: 'alice', value: 2, rank: 1 },
+    { uid: 'bob', value: 1, rank: 2 }
+], 'Challenges must rank claim.uid, never resolvedBy');
+assert(!recap.rankings.earned.some(row => row.uid === 'greg-admin'));
+assert(!recap.rankings.spent.some(row => row.uid === 'greg-admin'));
+assert(!recap.rankings.challenges.some(row => row.uid === 'greg-admin'));
 assert.strictEqual(recap.collector, null, 'An absent set must not create an irrelevant collection badge');
 const emptyRecap = plain(ach.lanRecapHighlights({}, {}, ['zero']));
 assert.strictEqual(emptyRecap.earner, null);
@@ -148,6 +163,7 @@ assert.deepStrictEqual(collectionRecap.collector.uids, ['ghost-collector'],
     'A card owner must remain eligible for best collection after leaving presence lists');
 assert.strictEqual(collectionRecap.packs, 1);
 assert(collectionRecap.cards > 0);
+assert.deepStrictEqual(collectionRecap.rankings.collection.map(row => row.uid), ['ghost-collector']);
 assert.strictEqual(collectionRecap.totalSpent, 0,
     'A booster gifted by an admin must not count as a player purchase');
 assert.strictEqual(collectionRecap.spender, null,
@@ -351,6 +367,6 @@ assert(rules.rules.lan.tcg.packs['.write'].includes('!newData.exists()')
 assert(rules.rules.lan.tcg.resetAt['.write'].includes("val() !== true")
     && rules.rules.lan.tcg.resetAt['.validate'].includes('newData.val() === now'),
     'The durable reset marker must be gamemaster-writable only during an open LAN');
-assert(/20260831-lan-infographic/.test(desktopHtml) && /20260831-lan-infographic/.test(mobileHtml));
+assert(/20260831-lan-rankings/.test(desktopHtml) && /20260831-lan-rankings/.test(mobileHtml));
 
 console.log('Achievement and TCG archive checks passed (atomic ceremony claim, reset, archived sets).');

@@ -3479,6 +3479,7 @@ select.luxury-input option:disabled {
 }
 
 .recap-awards-panel[hidden],
+#recap-rankings-panel[hidden],
 #recap-stats-panel[hidden] {
     display: none;
 }
@@ -3582,6 +3583,68 @@ select.luxury-input option:disabled {
     line-height: 1.35;
 }
 
+.recap-rankings-panel {
+    margin-top: var(--space-5);
+    padding: var(--space-6);
+}
+
+.recap-rankings__intro {
+    max-width: 780px;
+    margin: calc(-1 * var(--space-2)) 0 var(--space-5);
+    color: var(--muted-text);
+    font-size: var(--text-sm);
+}
+
+.recap-rankings {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: var(--space-4);
+}
+
+.recap-ranking {
+    --ranking-accent: var(--accent-color);
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--ranking-accent) 32%, var(--border-subtle));
+    border-radius: var(--radius-soft);
+    background: linear-gradient(160deg, color-mix(in srgb, var(--ranking-accent) 10%, rgba(255,255,255,.025)), rgba(255,255,255,.012));
+    animation: recap-ranking-in .52s calc(var(--ranking-index) * 90ms) cubic-bezier(.2,.8,.2,1) both;
+}
+
+.recap-ranking--fortune { --ranking-accent: #e3bd3b; }
+.recap-ranking--spender { --ranking-accent: #cf7445; }
+.recap-ranking--challenge { --ranking-accent: #d95a5a; }
+.recap-ranking--collection { --ranking-accent: #9075df; }
+
+.recap-ranking__head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-4);
+    border-bottom: 1px solid color-mix(in srgb, var(--ranking-accent) 22%, var(--border-subtle));
+}
+
+.recap-ranking__mark {
+    color: var(--ranking-accent);
+    font-family: var(--font-display);
+    font-weight: 800;
+}
+
+.recap-ranking__title { margin: 0; color: var(--primary-text); font-size: var(--text-md); }
+.recap-ranking__list { margin: 0; padding: 0; list-style: none; }
+.recap-ranking__row {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr) auto;
+    gap: var(--space-2);
+    align-items: center;
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid rgba(255,255,255,.055);
+}
+.recap-ranking__row:last-child { border-bottom: 0; }
+.recap-ranking__position { color: var(--ranking-accent); font-family: var(--font-display); font-size: var(--text-sm); }
+.recap-ranking__name { overflow: hidden; color: var(--secondary-text); text-overflow: ellipsis; white-space: nowrap; }
+.recap-ranking__value { color: var(--primary-text); font-size: var(--text-xs); font-variant-numeric: tabular-nums; text-align: right; }
+
 @keyframes recap-metric-in {
     from { opacity: 0; transform: translateY(10px) scale(.98); }
     to { opacity: 1; transform: none; }
@@ -3596,6 +3659,11 @@ select.luxury-input option:disabled {
     0%, 58% { left: -35%; opacity: 0; }
     65% { opacity: 1; }
     78%, 100% { left: 120%; opacity: 0; }
+}
+
+@keyframes recap-ranking-in {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: none; }
 }
 
 @media (max-width: 768px) {
@@ -3619,7 +3687,8 @@ select.luxury-input option:disabled {
 @media (prefers-reduced-motion: reduce) {
     .recap-metric,
     .recap-award,
-    .recap-award::after {
+    .recap-award::after,
+    .recap-ranking {
         animation: none;
     }
 }

@@ -954,6 +954,30 @@ button[data-goto]:disabled { cursor: not-allowed; }
 .m-recap-award__winner { overflow-wrap: anywhere; color: var(--text); font-family: var(--fd); font-size: 1.2rem; line-height: 1.15; }
 .m-recap-award__value { margin-top: 3px; color: var(--award-accent); font-size: .72rem; font-variant-numeric: tabular-nums; }
 .m-recap-award__detail { margin-top: 5px; color: var(--text-3); font-size: .66rem; line-height: 1.32; }
+.m-recap-rankings__intro { margin: -5px 0 10px; color: var(--text-3); font-size: .72rem; line-height: 1.4; }
+.m-recap-rankings { display: grid; grid-template-columns: 1fr; gap: 10px; }
+.m-recap-ranking {
+    --ranking-accent: var(--gold);
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--ranking-accent) 32%, var(--line-2));
+    border-radius: var(--r-soft);
+    background: linear-gradient(160deg, color-mix(in srgb, var(--ranking-accent) 10%, rgba(255,255,255,.025)), rgba(255,255,255,.012));
+    animation: m-recap-ranking-in .46s calc(var(--ranking-index) * 75ms) cubic-bezier(.2,.8,.2,1) both;
+}
+.m-recap-ranking--fortune { --ranking-accent: #e3bd3b; }
+.m-recap-ranking--spender { --ranking-accent: #cf7445; }
+.m-recap-ranking--challenge { --ranking-accent: #d95a5a; }
+.m-recap-ranking--collection { --ranking-accent: #9b7ee8; }
+.m-recap-ranking__head { display: flex; align-items: center; gap: 9px; padding: 12px 13px; border-bottom: 1px solid color-mix(in srgb, var(--ranking-accent) 22%, var(--line-2)); }
+.m-recap-ranking__mark { color: var(--ranking-accent); font-family: var(--fd); font-size: .72rem; font-weight: 700; }
+.m-recap-ranking__title { margin: 0; color: var(--text); font-family: var(--fd); font-size: .96rem; }
+.m-recap-ranking__list { margin: 0; padding: 0; list-style: none; }
+.m-recap-ranking__row { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 8px; align-items: center; min-height: 42px; padding: 8px 13px; border-bottom: 1px solid rgba(255,255,255,.055); }
+.m-recap-ranking__row:last-child { border-bottom: 0; }
+.m-recap-ranking__position { color: var(--ranking-accent); font-family: var(--fd); font-size: .76rem; }
+.m-recap-ranking__name { overflow: hidden; color: var(--text-2); font-size: .78rem; text-overflow: ellipsis; white-space: nowrap; }
+.m-recap-ranking__value { color: var(--text); font-size: .72rem; font-variant-numeric: tabular-nums; text-align: right; }
 .m-recap-stats .m-stat { animation: m-stat-in .42s calc(var(--stat-index) * 36ms) ease both; }
 .m-stat { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line-2); }
 .m-stat:last-child { border-bottom: 0; }
@@ -972,6 +996,10 @@ button[data-goto]:disabled { cursor: not-allowed; }
     0%, 58% { left: -42%; opacity: 0; }
     65% { opacity: 1; }
     78%, 100% { left: 122%; opacity: 0; }
+}
+@keyframes m-recap-ranking-in {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: none; }
 }
 
 /* ---------- Toasts ---------- */
@@ -1008,6 +1036,7 @@ button[data-goto]:disabled { cursor: not-allowed; }
     .m-recap-award,
     .m-recap-award::after,
     .m-recap-metric,
+    .m-recap-ranking,
     .m-recap-stats .m-stat {
         animation: none !important;
     }
