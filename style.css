@@ -5554,27 +5554,237 @@ select.luxury-input option:disabled {
     color: var(--muted-text);
 }
 
-/* Le sélecteur de cartes d'un échange défile : une collection complète ne
-   tient pas dans une fenêtre modale. */
-.trade-picker {
-    max-height: 230px;
-    overflow-y: auto;
-    padding-right: var(--space-2);
+.tcg-card-search,
+.trade-search { width: 100%; }
+
+/* L'atelier occupe l'écran comme un vrai espace de travail. La modale
+   précédente empilait deux petites grilles de 230 px : comparer les cartes
+   demandait de faire défiler deux lucarnes sans jamais voir l'échange entier. */
+.trade-workspace {
+    width: min(96vw, 1280px);
+    max-width: none;
+    height: min(92vh, 900px);
+    padding: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    border-color: var(--accent-a40);
+    background: linear-gradient(145deg, rgba(24, 22, 17, .98), rgba(10, 10, 11, .99) 46%);
 }
 
-.tcg-card-search,
-.trade-search {
-    width: 100%;
-    margin: var(--space-3) 0;
+.trade-workspace__head {
+    padding: 24px 28px 20px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-5);
+    border-bottom: 1px solid var(--border-subtle);
+    background: radial-gradient(circle at 18% 0, var(--accent-a15), transparent 45%);
+}
+
+.trade-workspace__eyebrow {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--accent-color);
+    font-size: var(--text-xs);
+    font-weight: 700;
+    letter-spacing: .18em;
+    text-transform: uppercase;
+}
+
+.trade-workspace__head h3 { margin: 0; font-size: clamp(1.5rem, 2vw, 2rem); }
+.trade-workspace__head p {
+    margin: 6px 0 0;
+    max-width: 680px;
+    color: var(--secondary-text);
+    font-size: var(--text-sm);
+    line-height: 1.45;
+    text-align: left;
+}
+
+.trade-workspace__close {
+    width: 40px;
+    height: 40px;
+    flex: 0 0 auto;
+    padding: 0;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--border-subtle);
+    border-radius: 50%;
+    color: var(--secondary-text);
+    font-size: 1.6rem;
+    line-height: 1;
+}
+
+.trade-workspace__close:hover { border-color: var(--accent-a40); color: var(--accent-color); }
+
+.trade-workspace__target {
+    padding: 14px 28px;
+    display: flex;
+    align-items: center;
+    gap: var(--space-5);
+    border-bottom: 1px solid var(--border-subtle);
+    background: rgba(0, 0, 0, .22);
+}
+
+.trade-workspace__target label {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    color: var(--muted-text);
+    font-size: var(--text-xs);
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+}
+
+.trade-workspace__target select { min-width: 220px; text-transform: none; letter-spacing: 0; }
+.trade-workspace__target p {
+    margin: 0 0 0 auto;
+    color: var(--secondary-text);
+    font-size: var(--text-xs);
+    text-align: right;
+}
+
+.trade-workspace__columns {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 20px 28px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 44px minmax(0, 1fr);
+    gap: var(--space-3);
+}
+
+.trade-side {
+    min-width: 0;
+    min-height: 0;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    background: rgba(0, 0, 0, .24);
+}
+
+.trade-side--wanted { border-top-color: rgba(107, 167, 212, .65); }
+.trade-side--offered { border-top-color: var(--accent-a40); }
+
+.trade-side__head {
+    min-height: 52px;
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+}
+
+.trade-side__step {
+    width: 30px;
+    height: 30px;
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--accent-a40);
+    border-radius: 50%;
+    color: var(--accent-color);
+    font-size: var(--text-sm);
+    font-weight: 700;
+}
+
+.trade-side__head h4 { margin: 0; color: var(--primary-text); font-size: 1.05rem; }
+.trade-side__head p {
+    margin: 2px 0 0;
+    color: var(--muted-text);
+    font-size: var(--text-xs);
+    line-height: 1.25;
+    text-align: left;
+}
+
+.trade-side__count {
+    margin-left: auto;
+    padding: 4px 8px;
+    border-radius: 99px;
+    background: var(--accent-a08);
+    color: var(--secondary-text);
+    font-size: var(--text-xs);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.trade-search { margin: 14px 0 10px; }
+
+.trade-filterbar {
+    margin-bottom: 14px;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.trade-filterbar button {
+    min-height: 32px;
+    padding: 6px 10px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 99px;
+    color: var(--muted-text);
+    font-size: var(--text-xs);
+}
+
+.trade-filterbar button:hover,
+.trade-filterbar button.is-active {
+    border-color: var(--accent-a40);
+    background: var(--accent-a08);
+    color: var(--accent-color);
+}
+
+.trade-picker {
+    flex: 1 1 auto;
+    min-height: 220px;
+    overflow-y: auto;
+    align-content: start;
+    padding: 3px 10px 10px 3px;
+    scrollbar-color: var(--accent-a25) transparent;
+}
+
+.trade-workspace__swap {
+    width: 36px;
+    height: 36px;
+    place-self: center;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--accent-a40);
+    border-radius: 50%;
+    background: var(--card-bg);
+    color: var(--accent-color);
+    font-size: 1.2rem;
+}
+
+.trade-workspace__footer {
+    padding: 14px 28px 18px;
+    display: flex;
+    align-items: center;
+    gap: var(--space-5);
+    border-top: 1px solid var(--border-subtle);
+    background: rgba(4, 4, 5, .94);
 }
 
 .trade-builder__summary {
-    margin: var(--space-3) 0 var(--space-4);
-    padding: var(--space-3) var(--space-4);
+    flex: 1 1 auto;
+    min-width: 0;
+    padding-left: var(--space-4);
     border-left: 3px solid var(--accent-color);
-    background: var(--accent-a08);
     color: var(--secondary-text);
     font-size: var(--text-sm);
+}
+
+.trade-builder__summary strong { color: var(--primary-text); font-weight: 600; }
+.trade-workspace__actions { flex: 0 0 auto; display: flex; gap: var(--space-3); }
+.trade-workspace__actions button { min-width: 170px; }
+
+@media (max-width: 1000px) {
+    .trade-workspace { height: 94vh; }
+    .trade-workspace__columns { overflow-y: auto; grid-template-columns: 1fr; }
+    .trade-workspace__swap { transform: rotate(90deg); }
+    .trade-side { min-height: 460px; }
+    .trade-workspace__footer { align-items: stretch; flex-direction: column; }
+    .trade-workspace__actions button { flex: 1; }
 }
 
 .card-solo {

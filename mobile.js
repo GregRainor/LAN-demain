@@ -504,7 +504,7 @@ function openSheet(heading, buildBody) {
     const body = $('m-sheet-body');
     const head = $('m-sheet-head');
     body.innerHTML = '';
-    body.classList.remove('m-sheet__body--profile');
+    body.classList.remove('m-sheet__body--profile', 'm-sheet__body--trade');
     if (heading) {
         head.style.display = 'flex';
         $('m-sheet-heading').textContent = heading;
@@ -516,6 +516,7 @@ function openSheet(heading, buildBody) {
        donne au corps flex une vraie zone à faire défiler ; un simple
        max-height laissait son contenu conserver sa hauteur intrinsèque. */
     sheet.classList.toggle('m-sheet--profile', body.classList.contains('m-sheet__body--profile'));
+    sheet.classList.toggle('m-sheet--trade', body.classList.contains('m-sheet__body--trade'));
     sheet.classList.add('is-open');
     /* Une feuille réutilise toujours le même corps. Sans remise à zéro, une
        fiche longue pouvait se rouvrir au milieu de son contenu. */
@@ -523,7 +524,7 @@ function openSheet(heading, buildBody) {
 }
 
 function closeSheet() {
-    $('m-sheet').classList.remove('is-open', 'm-sheet--profile');
+    $('m-sheet').classList.remove('is-open', 'm-sheet--profile', 'm-sheet--trade');
 }
 
 /* ==========================================================================
@@ -6388,6 +6389,8 @@ function openTradeBuilder(options) {
     const request = new Set();
     let mineSearch = '';
     let theirsSearch = opts.wantedName || '';
+    let mineFilter = 'spares';
+    let theirsFilter = 'missing';
 
     if (opts.offeredGameKey) {
         const card = preferredTradeCard(view.cards, view.uid, opts.offeredGameKey);
@@ -6398,7 +6401,12 @@ function openTradeBuilder(options) {
         if (card) request.add(card.id);
     }
 
-    openSheet('Proposer un échange', (body) => {
+    openSheet('Nouvel échange', (body) => {
+        body.classList.add('m-sheet__body--trade');
+
+        const intro = el('p', 'm-trade-intro', 'Choisis ce qui complète ta collection, puis construis ton offre.');
+        const targetBox = el('div', 'm-trade-target');
+        const targetLabel = el('label', 'm-trade-target__label', 'Échanger avec');
         const who = el('select', 'm-input');
         others.forEach(uid => {
             const option = el('option', null, playerName(uid));
@@ -6406,21 +6414,64 @@ function openTradeBuilder(options) {
             who.appendChild(option);
         });
         who.value = target;
-        body.appendChild(who);
+        targetLabel.appendChild(who);
+        const targetHint = el('p', 'm-trade-target__hint');
+        targetBox.append(targetLabel, targetHint);
 
-        const summary = el('p', 'm-trade-summary');
-        const mineTitle = el('p', 'm-shop__cat', 'Je peux proposer');
+        const wantedPane = el('section', 'm-trade-pane m-trade-pane--wanted');
+        const wantedHead = el('div', 'm-trade-pane__head');
+        wantedHead.appendChild(el('span', 'm-trade-pane__step', '1'));
+        const wantedCopy = el('div');
+        wantedCopy.append(el('h3', 'm-trade-pane__title', 'Je veux'), el('p', 'm-trade-pane__copy', 'Dans sa collection'));
+        const theirsCount = el('span', 'm-trade-pane__count');
+        wantedHead.append(wantedCopy, theirsCount);
+        const theirsInput = el('input', 'm-input');
+        theirsInput.type = 'search';
+        theirsInput.placeholder = 'Rechercher chez ce joueur…';
+        theirsInput.value = theirsSearch;
+        const theirsFilters = el('div', 'm-trade-filterbar');
+        const theirsFilterButtons = [
+            ['missing', 'Il a, je n’ai pas'],
+            ['spares', 'Ses doubles'],
+            ['all', 'Toutes']
+        ].map(([value, label]) => {
+            const button = el('button', 'm-trade-filter', label);
+            button.type = 'button';
+            button.dataset.value = value;
+            theirsFilters.appendChild(button);
+            return button;
+        });
+        const theirsRow = el('div', 'm-cardgrid m-trade-picker-grid');
+        wantedPane.append(wantedHead, theirsInput, theirsFilters, theirsRow);
+
+        const offeredPane = el('section', 'm-trade-pane m-trade-pane--offered');
+        const offeredHead = el('div', 'm-trade-pane__head');
+        offeredHead.appendChild(el('span', 'm-trade-pane__step', '2'));
+        const offeredCopy = el('div');
+        offeredCopy.append(el('h3', 'm-trade-pane__title', 'Je peux proposer'), el('p', 'm-trade-pane__copy', 'Dans ma collection'));
+        const mineCount = el('span', 'm-trade-pane__count');
+        offeredHead.append(offeredCopy, mineCount);
         const mineInput = el('input', 'm-input');
         mineInput.type = 'search';
         mineInput.placeholder = 'Rechercher dans mes cartes…';
+        const mineFilters = el('div', 'm-trade-filterbar');
+        const mineFilterButtons = [
+            ['spares', 'Mes doubles'],
+            ['all', 'Toutes']
+        ].map(([value, label]) => {
+            const button = el('button', 'm-trade-filter', label);
+            button.type = 'button';
+            button.dataset.value = value;
+            mineFilters.appendChild(button);
+            return button;
+        });
         const mineRow = el('div', 'm-cardgrid m-trade-picker-grid');
-        const theirsTitle = el('p', 'm-shop__cat', 'Je veux');
-        const theirsInput = el('input', 'm-input');
-        theirsInput.type = 'search';
-        theirsInput.placeholder = 'Rechercher dans ses cartes…';
-        theirsInput.value = theirsSearch;
-        const theirsRow = el('div', 'm-cardgrid m-trade-picker-grid');
+        offeredPane.append(offeredHead, mineInput, mineFilters, mineRow);
+
+        const footer = el('div', 'm-trade-footer');
+        const summary = el('p', 'm-trade-summary');
         const submit = el('button', 'm-btn m-btn--solid m-btn--full', 'Envoyer la proposition');
+        footer.append(summary, submit);
 
         const toggleStack = (selection, stack, uid) => {
             const selected = stack.copies.filter(card => selection.has(card.id));
@@ -6448,25 +6499,67 @@ function openTradeBuilder(options) {
             }));
         };
 
+        const selectedLabel = (selection, emptyLabel) => {
+            const byId = new Map(view.cards.map(card => [card.id, card]));
+            const names = Array.from(selection)
+                .map(id => byId.get(id))
+                .filter(Boolean)
+                .map(card => card.name || 'Carte');
+            if (!names.length) return emptyLabel;
+            return names.slice(0, 2).join(', ') + (names.length > 2 ? ' +' + (names.length - 2) : '');
+        };
+
+        const paintFilters = (buttons, active) => {
+            buttons.forEach(button => {
+                const selected = button.dataset.value === active;
+                button.classList.toggle('is-active', selected);
+                button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+            });
+        };
+
         const paint = () => {
             mineRow.innerHTML = '';
             theirsRow.innerHTML = '';
 
-            const mine = filterCardStacks(cardStacks(view.cards, view.uid), mineSearch)
+            const allMine = cardStacks(view.cards, view.uid);
+            const mine = filterTradeStacks(filterCardStacks(allMine, mineSearch), mineFilter)
                 .sort((a, b) => b.spares - a.spares || a.name.localeCompare(b.name, 'fr'));
-            if (!mine.length) mineRow.appendChild(emptyState('Aucune carte à proposer pour cette recherche.'));
+            if (!mine.length) {
+                mineRow.appendChild(emptyState(mineFilter === 'spares'
+                    ? 'Aucun double. Affiche toutes tes cartes pour élargir ton offre.'
+                    : 'Aucune de tes cartes ne correspond à cette recherche.'));
+            }
             mine.forEach(stack => appendStack(mineRow, stack, offer, view.uid));
 
-            const theirs = filterCardStacks(cardStacks(view.cards, target), theirsSearch);
-            if (!theirs.length) theirsRow.appendChild(emptyState('Aucune carte demandable pour cette recherche.'));
+            const myGameKeys = new Set(allMine.map(stack => stack.gameKey));
+            const allTheirs = cardStacks(view.cards, target);
+            const theirs = filterTradeStacks(
+                filterCardStacks(allTheirs, theirsSearch),
+                theirsFilter,
+                myGameKeys
+            );
+            if (!theirs.length) {
+                const message = theirsFilter === 'missing'
+                    ? 'Tu as déjà toutes ses cartes. Affiche toute sa collection pour continuer.'
+                    : (theirsFilter === 'spares'
+                        ? 'Ce joueur n’a aucun double correspondant.'
+                        : 'Aucune de ses cartes ne correspond à cette recherche.');
+                theirsRow.appendChild(emptyState(message));
+            }
             theirs.forEach(stack => appendStack(theirsRow, stack, request, target));
+
+            paintFilters(mineFilterButtons, mineFilter);
+            paintFilters(theirsFilterButtons, theirsFilter);
+            mineCount.textContent = mine.length + ' / ' + allMine.length;
+            theirsCount.textContent = theirs.length + ' / ' + allTheirs.length;
+            targetHint.textContent = 'Les cartes de ' + playerName(target) + ' qui te manquent sont affichées en premier.';
 
             submit.disabled = !offer.size && !request.size;
             submit.textContent = (offer.size || request.size)
-                ? 'Proposer : ' + offer.size + ' contre ' + request.size
+                ? 'Envoyer · ' + offer.size + ' contre ' + request.size
                 : 'Choisis au moins une carte';
-            summary.textContent = 'Je veux ' + request.size + ' carte' + (request.size > 1 ? 's' : '')
-                + ' · je peux proposer ' + offer.size + ' carte' + (offer.size > 1 ? 's' : '') + '.';
+            summary.textContent = 'Je veux : ' + selectedLabel(request, 'rien sélectionné')
+                + '  ⇄  Je propose : ' + selectedLabel(offer, 'rien sélectionné');
         };
 
         who.addEventListener('change', () => {
@@ -6481,10 +6574,18 @@ function openTradeBuilder(options) {
 
         mineInput.addEventListener('input', () => { mineSearch = mineInput.value || ''; paint(); });
         theirsInput.addEventListener('input', () => { theirsSearch = theirsInput.value || ''; paint(); });
+        mineFilterButtons.forEach(button => button.addEventListener('click', () => {
+            mineFilter = button.dataset.value || 'spares';
+            paint();
+        }));
+        theirsFilterButtons.forEach(button => button.addEventListener('click', () => {
+            theirsFilter = button.dataset.value || 'missing';
+            paint();
+        }));
 
         submit.addEventListener('click', () => sendTrade(target, Array.from(offer), Array.from(request)));
 
-        body.append(summary, mineTitle, mineInput, mineRow, theirsTitle, theirsInput, theirsRow, submit);
+        body.append(intro, targetBox, wantedPane, offeredPane, footer);
         paint();
     });
 }

@@ -11555,6 +11555,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let tradeWantedGameKey = '';
     let tradeMineSearch = '';
     let tradeTheirsSearch = '';
+    let tradeMineFilter = 'spares';
+    let tradeTheirsFilter = 'missing';
     const tradeOffer = new Set();
     const tradeRequest = new Set();
 
@@ -11578,6 +11580,8 @@ document.addEventListener('DOMContentLoaded', () => {
         tradeWantedGameKey = opts.wantedGameKey || '';
         tradeMineSearch = '';
         tradeTheirsSearch = opts.wantedName || '';
+        tradeMineFilter = 'spares';
+        tradeTheirsFilter = 'missing';
         tradeTarget = others[0];
 
         if (opts.offeredGameKey) {
@@ -11625,6 +11629,20 @@ document.addEventListener('DOMContentLoaded', () => {
         paintTradePickers();
     });
 
+    document.querySelectorAll('[data-trade-mine-filter]').forEach(button => {
+        button.addEventListener('click', () => {
+            tradeMineFilter = button.dataset.tradeMineFilter || 'spares';
+            paintTradePickers();
+        });
+    });
+
+    document.querySelectorAll('[data-trade-theirs-filter]').forEach(button => {
+        button.addEventListener('click', () => {
+            tradeTheirsFilter = button.dataset.tradeTheirsFilter || 'missing';
+            paintTradePickers();
+        });
+    });
+
     function stackCardForPicker(view, stack, selection, uid) {
         const selected = stack.copies.find(card => selection.has(card.id));
         return selected || preferredTradeCard(view.cards, uid, stack.gameKey) || stack.copies[0];
@@ -11658,6 +11676,30 @@ document.addEventListener('DOMContentLoaded', () => {
         }));
     }
 
+    function paintTradeFilterButtons() {
+        document.querySelectorAll('[data-trade-mine-filter]').forEach(button => {
+            const active = button.dataset.tradeMineFilter === tradeMineFilter;
+            button.classList.toggle('is-active', active);
+            button.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
+        document.querySelectorAll('[data-trade-theirs-filter]').forEach(button => {
+            const active = button.dataset.tradeTheirsFilter === tradeTheirsFilter;
+            button.classList.toggle('is-active', active);
+            button.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
+    }
+
+    function selectedTradeLabel(view, selection, emptyLabel) {
+        const byId = new Map(view.cards.map(card => [card.id, card]));
+        const names = Array.from(selection)
+            .map(id => byId.get(id))
+            .filter(Boolean)
+            .map(card => card.name || 'Carte');
+        if (!names.length) return emptyLabel;
+        const visible = names.slice(0, 2).map(escapeHtml).join(', ');
+        return visible + (names.length > 2 ? ` +${names.length - 2}` : '');
+    }
+
     function paintTradePickers() {
         const view = tcgView();
         const mine = document.getElementById('trade-mine');
@@ -11665,30 +11707,61 @@ document.addEventListener('DOMContentLoaded', () => {
         mine.innerHTML = '';
         theirs.innerHTML = '';
 
-        const mineStacks = filterCardStacks(cardStacks(view.cards, view.uid), tradeMineSearch)
+        const allMineStacks = cardStacks(view.cards, view.uid);
+        const mineStacks = filterTradeStacks(
+            filterCardStacks(allMineStacks, tradeMineSearch),
+            tradeMineFilter
+        )
             .sort((a, b) => b.spares - a.spares || a.name.localeCompare(b.name, 'fr'));
-        if (!mineStacks.length) mine.innerHTML = '<p class="tcg-empty">Aucune carte à proposer pour cette recherche.</p>';
+        if (!mineStacks.length) {
+            mine.innerHTML = tradeMineFilter === 'spares'
+                ? '<p class="tcg-empty">Aucun double à proposer. Passe sur « Toutes » pour choisir une autre carte.</p>'
+                : '<p class="tcg-empty">Aucune de tes cartes ne correspond à cette recherche.</p>';
+        }
         mineStacks.forEach(stack => appendTradeStack(mine, view, stack, tradeOffer, view.uid));
 
-        const theirStacks = filterCardStacks(cardStacks(view.cards, tradeTarget), tradeTheirsSearch);
-        if (!theirStacks.length) theirs.innerHTML = '<p class="tcg-empty">Aucune carte demandable pour cette recherche.</p>';
+        const myGameKeys = new Set(allMineStacks.map(stack => stack.gameKey));
+        const allTheirStacks = cardStacks(view.cards, tradeTarget);
+        const theirStacks = filterTradeStacks(
+            filterCardStacks(allTheirStacks, tradeTheirsSearch),
+            tradeTheirsFilter,
+            myGameKeys
+        );
+        if (!theirStacks.length) {
+            theirs.innerHTML = tradeTheirsFilter === 'missing'
+                ? `<p class="tcg-empty">Tu as déjà toutes les cartes de ${escapeHtml(playerLabel(tradeTarget))}. Passe sur « Toutes » pour parcourir sa collection.</p>`
+                : (tradeTheirsFilter === 'spares'
+                    ? '<p class="tcg-empty">Ce joueur n’a aucun double correspondant.</p>'
+                    : '<p class="tcg-empty">Aucune de ses cartes ne correspond à cette recherche.</p>');
+        }
         theirStacks.forEach(stack => appendTradeStack(theirs, view, stack, tradeRequest, tradeTarget));
+
+        paintTradeFilterButtons();
+        const mineCount = document.getElementById('trade-mine-count');
+        const theirsCount = document.getElementById('trade-theirs-count');
+        if (mineCount) mineCount.textContent = `${mineStacks.length} / ${allMineStacks.length}`;
+        if (theirsCount) theirsCount.textContent = `${theirStacks.length} / ${allTheirStacks.length}`;
+        const targetHint = document.getElementById('trade-target-hint');
+        if (targetHint) targetHint.textContent = `Tu explores la collection de ${playerLabel(tradeTarget)} · les cartes qui te manquent sont prioritaires.`;
 
         const send = document.getElementById('trade-send');
         send.disabled = !tradeOffer.size && !tradeRequest.size;
         send.textContent = (tradeOffer.size || tradeRequest.size)
-            ? `Proposer ${tradeOffer.size} contre ${tradeRequest.size}`
+            ? `Envoyer · ${tradeOffer.size} contre ${tradeRequest.size}`
             : 'Choisis au moins une carte';
         const summary = document.getElementById('trade-summary');
         if (summary) {
-            summary.textContent = `Je veux ${tradeRequest.size} carte${tradeRequest.size > 1 ? 's' : ''} · `
-                + `je peux proposer ${tradeOffer.size} carte${tradeOffer.size > 1 ? 's' : ''}.`;
+            summary.innerHTML = `<strong>Je veux :</strong> ${selectedTradeLabel(view, tradeRequest, 'rien sélectionné')}`
+                + ` &nbsp;⇄&nbsp; <strong>Je propose :</strong> ${selectedTradeLabel(view, tradeOffer, 'rien sélectionné')}`;
         }
     }
 
-    document.getElementById('trade-cancel')?.addEventListener('click', () => {
+    function closeTradeBuilder() {
         document.getElementById('trade-modal').style.display = 'none';
-    });
+    }
+
+    document.getElementById('trade-cancel')?.addEventListener('click', closeTradeBuilder);
+    document.getElementById('trade-close')?.addEventListener('click', closeTradeBuilder);
 
     document.getElementById('trade-send')?.addEventListener('click', () => {
         const user = auth.currentUser;

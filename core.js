@@ -1794,6 +1794,23 @@ function filterCardStacks(stacks, query) {
     return (stacks || []).filter(stack => normalizeGameName(stack.name).includes(wanted));
 }
 
+/* Les filtres de l'atelier d'échange décrivent une intention, pas une rareté :
+   - missing : ce que le joueur de référence ne possède pas encore ;
+   - spares  : ce que le propriétaire de la pile possède en double ;
+   - all     : toute la collection du propriétaire.
+   Garder cette règle dans le cœur garantit le même résultat sur PC et mobile. */
+function filterTradeStacks(stacks, mode, referenceGameKeys) {
+    const rows = (stacks || []).slice();
+    if (mode === 'spares') return rows.filter(stack => stack.spares > 0);
+    if (mode === 'missing') {
+        const owned = referenceGameKeys instanceof Set
+            ? referenceGameKeys
+            : new Set(referenceGameKeys || []);
+        return rows.filter(stack => !owned.has(stack.gameKey));
+    }
+    return rows;
+}
+
 /* Pour une proposition rapide, on choisit d'abord un exemplaire réellement
    en trop. À défaut, une normale avant une brillante : l'utilisateur peut
    toujours retirer la sélection, mais le premier geste protège sa belle pièce. */

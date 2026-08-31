@@ -5,7 +5,7 @@ const vm = require('vm');
 
 const root = path.resolve(__dirname, '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
-const source = read('core.js') + '\nthis.__ach={TCG,buildCardSet,cardImage,cardArtKey,calculateScores,tcgSetDeletionPlan,latestLanArchiveTimestamp,lanRecapHighlights,cardStacks,filterCardStacks,preferredTradeCard,achievementAwardId,achievementById,achievementRevealTheme,achievementState,pendingAchievements,xpTotal,hasXpAward,isXpAwardRevoked,achievementGrantRecord,achievementGrantIfMissing,achievementResetRecord,achievementResetUpdates,unseenAchievementAwards,tcgArchiveSnapshot,tcgArchiveView,tcgArchivedSets,unsealedPurchases};';
+const source = read('core.js') + '\nthis.__ach={TCG,buildCardSet,cardImage,cardArtKey,calculateScores,tcgSetDeletionPlan,latestLanArchiveTimestamp,lanRecapHighlights,cardStacks,filterCardStacks,filterTradeStacks,preferredTradeCard,achievementAwardId,achievementById,achievementRevealTheme,achievementState,pendingAchievements,xpTotal,hasXpAward,isXpAwardRevoked,achievementGrantRecord,achievementGrantIfMissing,achievementResetRecord,achievementResetUpdates,unseenAchievementAwards,tcgArchiveSnapshot,tcgArchiveView,tcgArchivedSets,unsealedPurchases};';
 const context = vm.createContext({ console, URL, Date, Math, Promise, Set, Map });
 vm.runInContext(source, context, { filename: 'core.js' });
 const ach = context.__ach;
@@ -88,7 +88,8 @@ const stackFixture = [
     { id: 'alpha-2', owner: 'alice', gameKey: 'alpha', name: 'Alpha', rarity: 'common', foil: false, mintedAt: 2 },
     { id: 'alpha-foil', owner: 'alice', gameKey: 'alpha', name: 'Alpha', rarity: 'common', foil: true, mintedAt: 3 },
     { id: 'beta-1', owner: 'alice', gameKey: 'beta', name: 'Bêta', rarity: 'rare', foil: false, mintedAt: 4 },
-    { id: 'alpha-bob', owner: 'bob', gameKey: 'alpha', name: 'Alpha', rarity: 'common', foil: false, mintedAt: 5 }
+    { id: 'alpha-bob', owner: 'bob', gameKey: 'alpha', name: 'Alpha', rarity: 'common', foil: false, mintedAt: 5 },
+    { id: 'gamma-bob', owner: 'bob', gameKey: 'gamma', name: 'Gamma', rarity: 'uncommon', foil: false, mintedAt: 6 }
 ];
 const aliceStacks = plain(ach.cardStacks(stackFixture, 'alice'));
 assert.strictEqual(aliceStacks.length, 2, 'A collection must group physical copies by game');
@@ -99,6 +100,15 @@ assert.deepStrictEqual(
     'A stack must expose its ×N count, foil count and tradeable surplus'
 );
 assert.deepStrictEqual(plain(ach.filterCardStacks(aliceStacks, 'ALPH')).map(row => row.gameKey), ['alpha']);
+assert.deepStrictEqual(plain(ach.filterTradeStacks(aliceStacks, 'spares')).map(row => row.gameKey), ['alpha'],
+    'The offer-side default must only show stacks with a spare copy');
+const bobStacks = plain(ach.cardStacks(stackFixture, 'bob'));
+assert.deepStrictEqual(
+    plain(ach.filterTradeStacks(bobStacks, 'missing', new Set(aliceStacks.map(row => row.gameKey))))
+        .map(row => row.gameKey),
+    ['gamma'],
+    'The request-side default must only show cards missing from my collection'
+);
 assert.strictEqual(ach.preferredTradeCard(stackFixture, 'alice', 'alpha').id, 'alpha-1',
     'Quick trade selection must prefer a normal spare over the foil keepsake');
 
@@ -388,6 +398,6 @@ assert(!rules.rules.lan.tcg.trades['$trade_id']['.write'].includes('lanFinished'
 assert(rules.rules.lan.tcg.resetAt['.write'].includes("val() !== true")
     && rules.rules.lan.tcg.resetAt['.validate'].includes('newData.val() === now'),
     'The durable reset marker must be gamemaster-writable only during an open LAN');
-assert(/20260831-post-lan-trades/.test(desktopHtml) && /20260831-post-lan-trades/.test(mobileHtml));
+assert(/20260901-trade-workspace/.test(desktopHtml) && /20260901-trade-workspace/.test(mobileHtml));
 
 console.log('Achievement and TCG archive checks passed (atomic ceremony claim, reset, archived sets).');

@@ -127,12 +127,22 @@ assert(/const archived = view\.archived === true/.test(script)
 assert(ids.includes('tcg-card-search') && ids.includes('trade-mine-search')
     && ids.includes('trade-theirs-search') && ids.includes('trade-summary'),
     'Desktop collection and both trade sides must be searchable and explicit');
+assert(ids.includes('trade-close') && ids.includes('trade-mine-count') && ids.includes('trade-theirs-count')
+    && html.includes('data-trade-theirs-filter="missing"')
+    && html.includes('data-trade-mine-filter="spares"'),
+    'The desktop exchange workspace must expose close, counts and intent filters');
+assert(/let tradeMineFilter = 'spares'/.test(script)
+    && /let tradeTheirsFilter = 'missing'/.test(script)
+    && /filterTradeStacks\(/.test(script),
+    'Desktop trades must default to my spares and their cards missing from my collection');
 assert(/cardStacks\(view\.cards, view\.uid\)/.test(script)
     && /openTradeBuilder\(\{ wantedGameKey: row\.gameKey/.test(script)
     && /openTradeBuilder\(\{ offeredGameKey: stack\.gameKey/.test(script),
     'Desktop cards must stack and launch prefilled wanted/offered trades');
-assert(/\.tcard\.is-stack\s*\{/.test(baseCss) && /\.trade-builder__summary\s*\{/.test(baseCss),
-    'Desktop trade stacks and builder summary need dedicated styling');
+assert(/\.tcard\.is-stack\s*\{/.test(baseCss) && /\.trade-builder__summary\s*\{/.test(baseCss)
+    && /\.trade-workspace\s*\{[\s\S]{0,220}width:\s*min\(96vw, 1280px\)/.test(baseCss)
+    && /\.trade-workspace__columns\s*\{/.test(baseCss),
+    'Desktop trades need stacked cards and a large, two-sided workspace');
 assert(/phase === 'voting' \? desktopVotingDestination === 'events' : true/.test(script)
     && /phase === 'voting' && desktopVotingDestination === 'games'/.test(script), 'Events and Games navigation highlights must remain exclusive');
 // Le panneau admin est une destination, pas une phase. Testé après la branche

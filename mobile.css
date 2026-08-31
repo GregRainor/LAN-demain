@@ -795,6 +795,7 @@ button[data-goto]:disabled { cursor: not-allowed; }
     animation: m-rise .34s cubic-bezier(.25, .8, .25, 1);
 }
 .m-sheet.m-sheet--profile .m-sheet__panel { height: 90dvh; }
+.m-sheet.m-sheet--trade .m-sheet__panel { height: 96dvh; max-height: 96dvh; }
 @keyframes m-rise { from { transform: translateY(100%); } to { transform: none; } }
 /* La poignée se saisit vraiment (voir attachSheetDrag) : d'où la zone de
    toucher élargie par le padding, et touch-action qui empêche le navigateur
@@ -1257,8 +1258,105 @@ button[data-goto]:disabled { cursor: not-allowed; }
 .m-tcard--sm .m-tcard__name { -webkit-line-clamp: 1; min-height: 0; }
 
 .m-card-search { margin-top: 10px; }
-.m-trade-summary { margin: 2px 0 4px; padding: 10px 11px; border-left: 3px solid var(--gold); background: var(--gold-a08); color: var(--text-2); font-size: .76rem; line-height: 1.35; }
-.m-trade-picker-grid { max-height: 260px; overflow-y: auto; padding: 4px 6px 8px 2px; }
+
+/* L'échange utilise presque tout l'écran : deux mini-grilles successives
+   donnaient l'impression de négocier à travers une boîte aux lettres. */
+.m-sheet__body--trade {
+    padding-top: 8px;
+    gap: 12px;
+    background: radial-gradient(circle at 50% 0, var(--gold-a08), transparent 28%);
+}
+
+.m-trade-intro { margin: 0; color: var(--text-2); font-size: .82rem; line-height: 1.4; }
+
+.m-trade-target {
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-sharp);
+    background: rgba(0, 0, 0, .24);
+}
+
+.m-trade-target__label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text-3);
+    font-size: .67rem;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+}
+
+.m-trade-target__label .m-input { flex: 1; min-width: 0; text-transform: none; letter-spacing: 0; }
+.m-trade-target__hint { margin: 0; color: var(--text-3); font-size: .7rem; line-height: 1.35; }
+
+.m-trade-pane {
+    padding: 13px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    border: 1px solid var(--line);
+    border-radius: var(--r-sharp);
+    background: rgba(7, 7, 8, .76);
+}
+
+.m-trade-pane--wanted { border-top-color: rgba(107, 167, 212, .65); }
+.m-trade-pane--offered { border-top-color: var(--gold-a50); }
+.m-trade-pane__head { display: flex; align-items: center; gap: 9px; }
+
+.m-trade-pane__step {
+    width: 28px;
+    height: 28px;
+    flex: 0 0 auto;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--gold-a50);
+    border-radius: var(--r-pill);
+    color: var(--gold);
+    font-size: .72rem;
+    font-weight: 700;
+}
+
+.m-trade-pane__title { margin: 0; color: var(--text); font-family: var(--fd); font-size: 1rem; }
+.m-trade-pane__copy { margin: 1px 0 0; color: var(--text-3); font-size: .67rem; }
+.m-trade-pane__count { margin-left: auto; padding: 3px 7px; border-radius: var(--r-pill); background: var(--gold-a08); color: var(--text-3); font-size: .65rem; font-variant-numeric: tabular-nums; }
+
+.m-trade-filterbar { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.m-trade-filterbar::-webkit-scrollbar { display: none; }
+.m-trade-filter {
+    min-height: 34px;
+    padding: 6px 10px;
+    flex: 0 0 auto;
+    border: 1px solid var(--line-2);
+    border-radius: var(--r-pill);
+    color: var(--text-3);
+    font-size: .68rem;
+}
+.m-trade-filter.is-active { border-color: var(--gold-a50); background: var(--gold-a08); color: var(--gold); }
+
+.m-trade-picker-grid {
+    min-height: 180px;
+    padding: 4px 6px 8px 2px;
+    align-content: start;
+}
+
+.m-trade-summary { margin: 0; color: var(--text-2); font-size: .72rem; line-height: 1.4; }
+.m-trade-footer {
+    position: sticky;
+    bottom: -1px;
+    z-index: 2;
+    margin: 2px -4px -4px;
+    padding: 11px;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    border: 1px solid var(--gold-a30);
+    background: rgba(5, 5, 5, .96);
+    box-shadow: 0 -14px 30px rgba(0, 0, 0, .42);
+}
 
 /* ---------- Le brillant ----------
    Pas une image : un traitement, en deux couches superposées, comme le font

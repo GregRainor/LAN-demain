@@ -130,9 +130,16 @@ assert(html.includes('id="m-card-search"')
     && /openTradeBuilder\(\{ wantedGameKey: row\.gameKey/.test(script)
     && /openTradeBuilder\(\{ offeredGameKey: stack\.gameKey/.test(script),
     'Mobile collection must support search and prefilled wanted/offered trades');
+assert(/let mineFilter = 'spares'/.test(script)
+    && /let theirsFilter = 'missing'/.test(script)
+    && /filterTradeStacks\(/.test(script)
+    && /m-sheet__body--trade/.test(script),
+    'Mobile trades must use a dedicated full-screen workspace with intelligent defaults');
 assert(/\.m-tcard\.is-stack\s*\{/.test(css)
-    && /\.m-trade-picker-grid\s*\{/.test(css),
-    'Mobile trade stacks and searchable picker need dedicated styling');
+    && /\.m-trade-picker-grid\s*\{/.test(css)
+    && /\.m-sheet\.m-sheet--trade \.m-sheet__panel\s*\{[\s\S]{0,100}height:\s*96dvh/.test(css)
+    && /\.m-trade-filter\.is-active\s*\{/.test(css),
+    'Mobile trades need stacked cards, a near-full-screen sheet and tactile filters');
 
 for (const motion of ['m-prof-sweep', 'm-prof-prism', 'm-prof-lock', 'm-prof-orbit', 'm-prof-impact', 'm-prof-vote', 'm-prof-scan', 'm-prof-polonia']) {
     assert(css.includes('@keyframes ' + motion), 'Missing mobile Signature motion: ' + motion);

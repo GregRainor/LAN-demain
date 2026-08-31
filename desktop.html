@@ -11,8 +11,8 @@
     <script defer src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js" integrity="sha384-p62xBRve8PdqGDGASZtZMuHgPsyPcT5VsFwgmz2p4zaFdEtt5ZzNqxK+CLzQS7xP" crossorigin="anonymous"></script>
     <script defer src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js" integrity="sha384-fuqdSwJXSvcAuKu5FbSJcHqHK474liv5ji8tuDnHz1rpfrnuXZPdM0oRaSK6c95L" crossorigin="anonymous"></script>
 
-    <link rel="stylesheet" href="style.css?v=20260831-post-lan-trades">
-    <link rel="stylesheet" href="desktop-v2.css?v=20260831-post-lan-trades">
+    <link rel="stylesheet" href="style.css?v=20260901-trade-workspace">
+    <link rel="stylesheet" href="desktop-v2.css?v=20260901-trade-workspace">
 </head>
 
 <body>
@@ -1844,27 +1844,75 @@
         </div>
     </div>
 
-    <!-- Proposer un échange : ce que je donne, ce que je demande. -->
+    <!-- Atelier d'échange : on part du manque, puis on construit l'offre. -->
     <div id="trade-modal" class="modal-overlay" style="display:none;">
-        <div class="luxury-panel modal-content" style="max-width: 860px;">
-            <h3>🔁 Proposer un échange</h3>
-            <div class="admin-select-group">
-                <label>À qui ?</label>
-                <select id="trade-target" class="luxury-input"></select>
+        <div class="luxury-panel modal-content trade-workspace" role="dialog" aria-modal="true"
+            aria-labelledby="trade-workspace-title">
+            <header class="trade-workspace__head">
+                <div>
+                    <span class="trade-workspace__eyebrow">Atelier d'échange</span>
+                    <h3 id="trade-workspace-title">Construis ta proposition</h3>
+                    <p>Choisis d'abord ce qui complète ta collection, puis ce que tu peux proposer en retour.</p>
+                </div>
+                <button type="button" id="trade-close" class="trade-workspace__close" aria-label="Fermer">×</button>
+            </header>
+
+            <div class="trade-workspace__target">
+                <label for="trade-target">
+                    <span>Échanger avec</span>
+                    <select id="trade-target" class="luxury-input"></select>
+                </label>
+                <p id="trade-target-hint">Les cartes qu'il possède et qui te manquent sont affichées en premier.</p>
             </div>
-            <div id="trade-summary" class="trade-builder__summary">Choisis ce que tu veux et ce que tu proposes.</div>
-            <h4 class="trade-side-title">Je peux proposer</h4>
-            <input type="search" id="trade-mine-search" class="luxury-input trade-search"
-                placeholder="Rechercher dans mes cartes…" autocomplete="off">
-            <div id="trade-mine" class="card-grid card-grid--sm trade-picker"></div>
-            <h4 class="trade-side-title">Je veux</h4>
-            <input type="search" id="trade-theirs-search" class="luxury-input trade-search"
-                placeholder="Rechercher dans ses cartes…" autocomplete="off">
-            <div id="trade-theirs" class="card-grid card-grid--sm trade-picker"></div>
-            <div class="modal-actions" style="flex-direction: row; margin-top: 16px;">
-                <button type="button" id="trade-cancel" style="flex: 1;">Annuler</button>
-                <button type="button" id="trade-send" class="gold-btn" style="flex: 1;">Envoyer</button>
+
+            <div class="trade-workspace__columns">
+                <section class="trade-side trade-side--wanted" aria-labelledby="trade-wanted-title">
+                    <div class="trade-side__head">
+                        <span class="trade-side__step">1</span>
+                        <div>
+                            <h4 id="trade-wanted-title">Je veux</h4>
+                            <p>Pioche dans la collection de l'autre joueur.</p>
+                        </div>
+                        <span id="trade-theirs-count" class="trade-side__count"></span>
+                    </div>
+                    <input type="search" id="trade-theirs-search" class="luxury-input trade-search"
+                        placeholder="Rechercher chez ce joueur…" autocomplete="off">
+                    <div class="trade-filterbar" role="group" aria-label="Filtrer sa collection">
+                        <button type="button" class="is-active" data-trade-theirs-filter="missing" aria-pressed="true">Il a, je n'ai pas</button>
+                        <button type="button" data-trade-theirs-filter="spares" aria-pressed="false">Ses doubles</button>
+                        <button type="button" data-trade-theirs-filter="all" aria-pressed="false">Toutes</button>
+                    </div>
+                    <div id="trade-theirs" class="card-grid card-grid--sm trade-picker"></div>
+                </section>
+
+                <div class="trade-workspace__swap" aria-hidden="true">⇄</div>
+
+                <section class="trade-side trade-side--offered" aria-labelledby="trade-offered-title">
+                    <div class="trade-side__head">
+                        <span class="trade-side__step">2</span>
+                        <div>
+                            <h4 id="trade-offered-title">Je peux proposer</h4>
+                            <p>Commence par tes exemplaires en trop.</p>
+                        </div>
+                        <span id="trade-mine-count" class="trade-side__count"></span>
+                    </div>
+                    <input type="search" id="trade-mine-search" class="luxury-input trade-search"
+                        placeholder="Rechercher dans mes cartes…" autocomplete="off">
+                    <div class="trade-filterbar" role="group" aria-label="Filtrer ma collection">
+                        <button type="button" class="is-active" data-trade-mine-filter="spares" aria-pressed="true">Mes doubles</button>
+                        <button type="button" data-trade-mine-filter="all" aria-pressed="false">Toutes</button>
+                    </div>
+                    <div id="trade-mine" class="card-grid card-grid--sm trade-picker"></div>
+                </section>
             </div>
+
+            <footer class="trade-workspace__footer">
+                <div id="trade-summary" class="trade-builder__summary">Choisis une carte que tu veux et ce que tu proposes.</div>
+                <div class="trade-workspace__actions">
+                    <button type="button" id="trade-cancel">Annuler</button>
+                    <button type="button" id="trade-send" class="gold-btn">Envoyer la proposition</button>
+                </div>
+            </footer>
         </div>
     </div>
 
@@ -2000,9 +2048,9 @@
     <div id="toast-container"></div>
 
     <script defer src="config.js"></script>
-    <script defer src="core.js?v=20260831-post-lan-trades"></script>
+    <script defer src="core.js?v=20260901-trade-workspace"></script>
     <script defer src="sound.js"></script>
-    <script defer src="newScript.js?v=20260831-post-lan-trades"></script>
+    <script defer src="newScript.js?v=20260901-trade-workspace"></script>
 </body>
 
 </html>
