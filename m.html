@@ -14,7 +14,7 @@
     <script defer src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js" integrity="sha384-p62xBRve8PdqGDGASZtZMuHgPsyPcT5VsFwgmz2p4zaFdEtt5ZzNqxK+CLzQS7xP" crossorigin="anonymous"></script>
     <script defer src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js" integrity="sha384-fuqdSwJXSvcAuKu5FbSJcHqHK474liv5ji8tuDnHz1rpfrnuXZPdM0oRaSK6c95L" crossorigin="anonymous"></script>
 
-    <link rel="stylesheet" href="mobile.css?v=20260831-finished-collection">
+    <link rel="stylesheet" href="mobile.css?v=20260831-post-lan-trades">
 </head>
 
 <body>
@@ -702,7 +702,7 @@
                     <div id="m-packs"></div>
                 </div>
 
-                <div class="m-section" id="m-trade-in-section" data-m-tcg-live-only style="display:none">
+                <div class="m-section" id="m-trade-in-section" data-m-tcg-trade-only style="display:none">
                     <div class="m-section__head">
                         <h2 class="m-section__title">Échanges reçus</h2>
                     </div>
@@ -714,32 +714,35 @@
                         <h2 class="m-section__title">Le set</h2>
                         <button class="m-section__link" id="m-set-filter">Tout</button>
                     </div>
+                    <input type="search" id="m-card-search" class="m-input m-card-search"
+                        placeholder="Rechercher une carte…" autocomplete="off">
                     <div class="m-cardgrid" id="m-set-grid"></div>
                 </div>
 
-                <div class="m-section" id="m-dupes-section" data-m-tcg-live-only style="display:none">
+                <div class="m-section" id="m-dupes-section" data-m-tcg-trade-only style="display:none">
                     <div class="m-section__head">
-                        <h2 class="m-section__title">Mes doubles</h2>
-                        <button class="m-section__link" id="m-trade-new">Proposer</button>
+                        <h2 class="m-section__title">À échanger</h2>
+                        <button class="m-section__link" id="m-trade-new">Nouvel échange</button>
                     </div>
+                    <p class="m-card__meta">Tes exemplaires sont empilés. Touche une pile pour la proposer.</p>
                     <div class="m-cardgrid" id="m-dupes"></div>
                 </div>
 
-                <div class="m-section" id="m-trade-out-section" data-m-tcg-live-only style="display:none">
+                <div class="m-section" id="m-trade-out-section" data-m-tcg-trade-only style="display:none">
                     <div class="m-section__head">
                         <h2 class="m-section__title">Mes propositions</h2>
                     </div>
                     <div id="m-trade-out"></div>
                 </div>
 
-                <div class="m-section" data-m-tcg-live-only>
+                <div class="m-section" data-m-tcg-trade-only>
                     <div class="m-section__head">
                         <h2 class="m-section__title">Complétion</h2>
                     </div>
                     <div id="m-tcg-leaderboard"></div>
                 </div>
 
-                <div class="m-section" data-m-tcg-live-only>
+                <div class="m-section" data-m-tcg-trade-only>
                     <div class="m-section__head">
                         <h2 class="m-section__title">Journal des échanges</h2>
                     </div>
@@ -892,9 +895,9 @@
     <div id="m-toasts"></div>
 
     <script defer src="config.js"></script>
-    <script defer src="core.js?v=20260831-finished-collection"></script>
+    <script defer src="core.js?v=20260831-post-lan-trades"></script>
     <script defer src="sound.js"></script>
-    <script defer src="mobile.js?v=20260831-finished-collection"></script>
+    <script defer src="mobile.js?v=20260831-post-lan-trades"></script>
 </body>
 
 </html>

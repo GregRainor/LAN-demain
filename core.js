@@ -1758,6 +1758,58 @@ function collectionOf(cards, uid) {
             || (b.foil ? 1 : 0) - (a.foil ? 1 : 0));
 }
 
+/* Une collection se lit jeu par jeu, pas exemplaire par exemplaire. Chaque
+   pile garde toutefois les cartes physiques qui la composent : un échange
+   doit toujours désigner un identifiant précis, même quand l'interface montre
+   simplement « ×3 ». */
+function cardStacks(cards, uid) {
+    const stacks = new Map();
+    collectionOf(cards, uid).forEach(card => {
+        const key = card.gameKey || card.id;
+        if (!stacks.has(key)) {
+            stacks.set(key, {
+                gameKey: card.gameKey || '',
+                name: card.name || card.gameKey || 'Carte',
+                rarity: card.rarity || 'common',
+                appId: card.appId || null,
+                artKey: card.artKey || cardArtKey(card),
+                copies: []
+            });
+        }
+        stacks.get(key).copies.push(card);
+    });
+    return Array.from(stacks.values())
+        .map(stack => Object.assign(stack, {
+            count: stack.copies.length,
+            foils: stack.copies.filter(card => card.foil).length,
+            spares: Math.max(0, stack.copies.length - 1)
+        }))
+        .sort((a, b) => rarityIndex(a.rarity) - rarityIndex(b.rarity)
+            || a.name.localeCompare(b.name, 'fr'));
+}
+
+function filterCardStacks(stacks, query) {
+    const wanted = normalizeGameName(query || '');
+    if (!wanted) return (stacks || []).slice();
+    return (stacks || []).filter(stack => normalizeGameName(stack.name).includes(wanted));
+}
+
+/* Pour une proposition rapide, on choisit d'abord un exemplaire réellement
+   en trop. À défaut, une normale avant une brillante : l'utilisateur peut
+   toujours retirer la sélection, mais le premier geste protège sa belle pièce. */
+function preferredTradeCard(cards, uid, gameKey) {
+    const stack = cardStacks(cards, uid).find(row => row.gameKey === gameKey);
+    if (!stack) return null;
+    const spareIds = new Set(duplicatesOf(cards, uid)
+        .filter(card => card.gameKey === gameKey)
+        .map(card => card.id));
+    return stack.copies.find(card => spareIds.has(card.id) && !card.foil)
+        || stack.copies.find(card => spareIds.has(card.id))
+        || stack.copies.find(card => !card.foil)
+        || stack.copies[0]
+        || null;
+}
+
 /* Ce qu'on possède d'un set donné, jeu par jeu. Les exemplaires en trop
    restent listés : ce sont eux qui alimentent l'échange. */
 function collectionBySet(setCards, cards, uid) {

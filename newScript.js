@@ -438,7 +438,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (challengeBadge) challengeBadge.textContent = challengeCount ? String(challengeCount) : '';
 
         const collectionBadge = document.getElementById('desktop-collection-badge');
-        const collectionCount = sealedPacksOf(globalTcg, user.uid).length + pendingTradesFor(globalTcg, user.uid).length;
+        const sealedCount = phase === 'finished' ? 0 : sealedPacksOf(globalTcg, user.uid).length;
+        const collectionCount = sealedCount + pendingTradesFor(globalTcg, user.uid).length;
         if (collectionBadge) collectionBadge.textContent = collectionCount ? String(collectionCount) : '';
 
         const admin = document.getElementById('desktop-admin-nav');
@@ -9925,8 +9926,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function showArchivedCollectionOnly(panel, archived) {
+    function setCollectionMode(panel, archived, finished) {
         panel.querySelectorAll('[data-tcg-live-only]').forEach(node => {
+            node.style.display = (archived || finished) ? 'none' : '';
+        });
+        panel.querySelectorAll('[data-tcg-trade-only]').forEach(node => {
             node.style.display = archived ? 'none' : '';
         });
     }
@@ -10088,6 +10092,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (card.foil) node.classList.add('is-foil');
         if (opts.missing) node.classList.add('is-missing');
         if (opts.selected) node.classList.add('is-picked');
+        if (opts.stack) node.classList.add('is-stack');
 
         // Le reflet couvre la carte entière et se pose en dernier, donc au-dessus
         // de tout le reste. Il reste invisible tant qu'aucun pointeur ne la touche.
@@ -10248,19 +10253,22 @@ document.addEventListener('DOMContentLoaded', () => {
         renderTcgSetSelector(user.uid);
         renderTcgSetAdmin();
         const view = selectedTcgView(user.uid);
-        const readOnly = view.archived === true || globalSettings.lanFinished === true;
-        showArchivedCollectionOnly(panel, readOnly);
-        renderSetBanner(view, readOnly);
+        const archived = view.archived === true;
+        const finished = !archived && globalSettings.lanFinished === true;
+        setCollectionMode(panel, archived, finished);
+        renderSetBanner(view, archived, finished);
         renderSetGrid(view);
         renderTcgBadge(liveView);
-        if (readOnly) return;
+        if (archived) return;
 
         // L'emballage a son propre visuel, chargé comme celui d'une Signature.
         // Sans cette ligne, seul le maître du jeu qui vient de l'importer le
         // voyait : personne d'autre ne lisait jamais la clé.
-        ensureGeneratedArt(PACK_ART_KEY);
-        renderTcgGmPanel(view);
-        renderMyPacks(view);
+        if (!finished) {
+            ensureGeneratedArt(PACK_ART_KEY);
+            renderTcgGmPanel(view);
+            renderMyPacks(view);
+        }
         renderTradesIn(view);
         renderDupes(view);
         renderTradesOut(view);
@@ -10268,7 +10276,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderTradeFeed(view);
     }
 
-    function renderSetBanner(view, readOnly) {
+    function renderSetBanner(view, archived, finished) {
         const name = document.getElementById('tcg-set-name');
         const value = document.getElementById('tcg-progress');
         const fill = document.getElementById('tcg-progress-fill');
@@ -10284,10 +10292,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const progress = setProgress(view.setCards, view.cards, view.uid);
-        name.textContent = view.set.name + (readOnly ? ' · archivé' : '');
+        name.textContent = view.set.name + (archived ? ' · archivé' : (finished ? ' · final' : ''));
         value.textContent = `${progress.owned} / ${progress.total}`;
         fill.style.width = `${progress.percent}%`;
-        hint.textContent = (readOnly ? 'Collection archivée · ' : '') + `${progress.percent} % du set`
+        hint.textContent = (archived ? 'Collection archivée · '
+            : (finished ? 'Collection finale · échanges ouverts · ' : '')) + `${progress.percent} % du set`
             + (progress.foils ? ` · ${progress.foils} brillante${progress.foils > 1 ? 's' : ''}` : '')
             + (progress.complete ? ' · set complet 🏆' : '');
     }
@@ -10296,7 +10305,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const badge = document.getElementById('tcg-nav-badge');
         if (!badge) return;
         // Ce qui demande une action : un booster fermé, une proposition reçue.
-        const waiting = sealedPacksOf(globalTcg, view.uid).length
+        const waiting = (globalSettings.lanFinished ? 0 : sealedPacksOf(globalTcg, view.uid).length)
             + pendingTradesFor(globalTcg, view.uid).length;
         badge.style.display = waiting ? 'inline-flex' : 'none';
         badge.textContent = waiting;
@@ -11407,6 +11416,7 @@ document.addEventListener('DOMContentLoaded', () => {
     /* --- La grille du set ------------------------------------------------- */
 
     let tcgFilter = 'all';
+    let tcgSearch = '';
     /* Les raretés dépliées. Les deux plus gros groupes restent fermés : personne
        ne veut faire défiler trois cents silhouettes pour trouver ses Signature. */
     const openRarities = new Set(['signature', 'showcase', 'epic', 'rare']);
@@ -11415,6 +11425,11 @@ document.addEventListener('DOMContentLoaded', () => {
         { key: 'missing', label: 'Ce qui manque' },
         { key: 'owned', label: 'Ce que j\'ai' }
     ];
+
+    document.getElementById('tcg-card-search')?.addEventListener('input', event => {
+        tcgSearch = event.target.value || '';
+        renderCollection();
+    });
 
     function renderSetGrid(view) {
         const filters = document.getElementById('tcg-filters');
@@ -11439,12 +11454,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const rows = collectionBySet(view.setCards, view.cards, view.uid)
             .filter(row => tcgFilter === 'all'
                 || (tcgFilter === 'missing' && !row.owned)
-                || (tcgFilter === 'owned' && row.owned));
+                || (tcgFilter === 'owned' && row.owned))
+            .filter(row => !tcgSearch
+                || normalizeGameName(row.name).includes(normalizeGameName(tcgSearch)));
 
         if (!rows.length) {
-            mount.innerHTML = tcgFilter === 'missing'
-                ? '<p class="tcg-empty">Rien ne manque. Set complet.</p>'
-                : '<p class="tcg-empty">Aucune carte pour l\'instant. Un booster, et ça commence.</p>';
+            mount.innerHTML = tcgSearch
+                ? '<p class="tcg-empty">Aucune carte ne correspond à cette recherche.</p>'
+                : (tcgFilter === 'missing'
+                    ? '<p class="tcg-empty">Rien ne manque. Set complet.</p>'
+                    : '<p class="tcg-empty">Aucune carte pour l\'instant. Un booster, et ça commence.</p>');
             return;
         }
 
@@ -11472,16 +11491,16 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             mount.appendChild(head);
 
-            if (!openRarities.has(rarity.key)) return;
+            if (!openRarities.has(rarity.key) && !tcgSearch) return;
 
             const grid = document.createElement('div');
             grid.className = 'card-grid';
-            group.forEach(row => appendSetCard(grid, row));
+            group.forEach(row => appendSetCard(grid, row, view));
             mount.appendChild(grid);
         });
     }
 
-    function appendSetCard(grid, row) {
+    function appendSetCard(grid, row, view) {
         const best = row.copies.find(copy => copy.foil) || row.copies[0];
         /* La silhouette d'une carte manquante porte quand même son appId :
            sans lui, elle n'aurait aucune illustration à griser. Et sa clé
@@ -11496,10 +11515,13 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         grid.appendChild(buildCard(card, {
             missing: !row.owned,
-            badge: row.copies.length > 1 ? `×${row.copies.length}` : '',
+            stack: row.copies.length > 1,
+            badge: row.copies.length > 1 ? `×${row.copies.length}` : (!row.owned && !view.archived ? 'Je cherche' : ''),
             onClick: () => (best
                 ? openCardModal(best)
-                : showToast(`${row.name} — pas encore dans ta collection.`, 'error'))
+                : (view.archived
+                    ? showToast(`${row.name} — pas dans cette collection archivée.`, 'error')
+                    : openTradeBuilder({ wantedGameKey: row.gameKey, wantedName: row.name })))
         }));
     }
 
@@ -11510,11 +11532,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const mount = document.getElementById('tcg-dupes');
         if (!panel) return;
 
-        const dupes = duplicatesOf(view.cards, view.uid);
-        if (!dupes.length) { panel.style.display = 'none'; return; }
+        const stacks = cardStacks(view.cards, view.uid).filter(stack => stack.spares > 0);
+        if (!stacks.length) { panel.style.display = 'none'; return; }
         panel.style.display = 'block';
         mount.innerHTML = '';
-        dupes.forEach(card => mount.appendChild(buildCard(card, { onClick: () => openCardModal(card) })));
+        stacks.forEach(stack => {
+            const card = preferredTradeCard(view.cards, view.uid, stack.gameKey) || stack.copies[0];
+            mount.appendChild(buildCard(card, {
+                stack: true,
+                badge: `×${stack.count}`,
+                onClick: () => openTradeBuilder({ offeredGameKey: stack.gameKey, offeredName: stack.name })
+            }));
+        });
     }
 
     /* --- Les échanges -----------------------------------------------------
@@ -11523,18 +11552,42 @@ document.addEventListener('DOMContentLoaded', () => {
        n'est pas refusé — il est sans effet, à la vue de tous. */
 
     let tradeTarget = '';
+    let tradeWantedGameKey = '';
+    let tradeMineSearch = '';
+    let tradeTheirsSearch = '';
     const tradeOffer = new Set();
     const tradeRequest = new Set();
 
-    document.getElementById('btn-new-trade')?.addEventListener('click', () => {
+    document.getElementById('btn-new-trade')?.addEventListener('click', () => openTradeBuilder());
+
+    function openTradeBuilder(options) {
+        const opts = options || {};
         const view = tcgView();
-        const others = economyPlayers().filter(uid => uid !== view.uid
+        let others = Array.from(new Set(economyPlayers().concat(
+            view.cards.map(card => card.owner).filter(Boolean)
+        ))).filter(uid => uid !== view.uid
             && view.cards.some(card => card.owner === uid));
+        if (opts.wantedGameKey) {
+            others = others.filter(uid => view.cards.some(card =>
+                card.owner === uid && card.gameKey === opts.wantedGameKey));
+        }
         if (!others.length) { showToast('Personne d\'autre n\'a encore de cartes.', 'error'); return; }
 
         tradeOffer.clear();
         tradeRequest.clear();
+        tradeWantedGameKey = opts.wantedGameKey || '';
+        tradeMineSearch = '';
+        tradeTheirsSearch = opts.wantedName || '';
         tradeTarget = others[0];
+
+        if (opts.offeredGameKey) {
+            const offered = preferredTradeCard(view.cards, view.uid, opts.offeredGameKey);
+            if (offered) tradeOffer.add(offered.id);
+        }
+        if (tradeWantedGameKey) {
+            const wanted = preferredTradeCard(view.cards, tradeTarget, tradeWantedGameKey);
+            if (wanted) tradeRequest.add(wanted.id);
+        }
 
         const select = document.getElementById('trade-target');
         select.innerHTML = '';
@@ -11545,16 +11598,65 @@ document.addEventListener('DOMContentLoaded', () => {
             select.appendChild(option);
         });
         select.value = tradeTarget;
+        document.getElementById('trade-mine-search').value = tradeMineSearch;
+        document.getElementById('trade-theirs-search').value = tradeTheirsSearch;
 
         document.getElementById('trade-modal').style.display = 'flex';
         paintTradePickers();
-    });
+    }
 
     document.getElementById('trade-target')?.addEventListener('change', (e) => {
         tradeTarget = e.target.value;
         tradeRequest.clear();
+        if (tradeWantedGameKey) {
+            const wanted = preferredTradeCard(tcgView().cards, tradeTarget, tradeWantedGameKey);
+            if (wanted) tradeRequest.add(wanted.id);
+        }
         paintTradePickers();
     });
+
+    document.getElementById('trade-mine-search')?.addEventListener('input', event => {
+        tradeMineSearch = event.target.value || '';
+        paintTradePickers();
+    });
+
+    document.getElementById('trade-theirs-search')?.addEventListener('input', event => {
+        tradeTheirsSearch = event.target.value || '';
+        paintTradePickers();
+    });
+
+    function stackCardForPicker(view, stack, selection, uid) {
+        const selected = stack.copies.find(card => selection.has(card.id));
+        return selected || preferredTradeCard(view.cards, uid, stack.gameKey) || stack.copies[0];
+    }
+
+    function toggleTradeStackPick(view, selection, stack, uid) {
+        const selected = stack.copies.filter(card => selection.has(card.id));
+        if (selected.length) {
+            selected.forEach(card => selection.delete(card.id));
+            return;
+        }
+        if (selection.size >= TCG.TRADE_MAX) {
+            showToast(`${TCG.TRADE_MAX} cartes par côté, pas plus.`, 'error');
+            return;
+        }
+        const card = preferredTradeCard(view.cards, uid, stack.gameKey) || stack.copies[0];
+        if (card) selection.add(card.id);
+    }
+
+    function appendTradeStack(mount, view, stack, selection, uid) {
+        const selectedCount = stack.copies.filter(card => selection.has(card.id)).length;
+        const card = stackCardForPicker(view, stack, selection, uid);
+        mount.appendChild(buildCard(card, {
+            selected: selectedCount > 0,
+            stack: stack.count > 1,
+            badge: selectedCount ? `✓ · ×${stack.count}` : (stack.count > 1 ? `×${stack.count}` : ''),
+            onClick: () => {
+                toggleTradeStackPick(view, selection, stack, uid);
+                paintTradePickers();
+            }
+        }));
+    }
 
     function paintTradePickers() {
         const view = tcgView();
@@ -11563,40 +11665,25 @@ document.addEventListener('DOMContentLoaded', () => {
         mine.innerHTML = '';
         theirs.innerHTML = '';
 
-        // Les doubles d'abord : c'est le surplus qu'on troque, pas la pièce
-        // du souvenir.
-        const dupes = duplicatesOf(view.cards, view.uid);
-        const dupeIds = new Set(dupes.map(card => card.id));
-        const ordered = dupes.concat(collectionOf(view.cards, view.uid).filter(card => !dupeIds.has(card.id)));
+        const mineStacks = filterCardStacks(cardStacks(view.cards, view.uid), tradeMineSearch)
+            .sort((a, b) => b.spares - a.spares || a.name.localeCompare(b.name, 'fr'));
+        if (!mineStacks.length) mine.innerHTML = '<p class="tcg-empty">Aucune carte à proposer pour cette recherche.</p>';
+        mineStacks.forEach(stack => appendTradeStack(mine, view, stack, tradeOffer, view.uid));
 
-        if (!ordered.length) mine.innerHTML = '<p class="tcg-empty">Tu n\'as aucune carte à offrir.</p>';
-        ordered.forEach(card => mine.appendChild(buildCard(card, {
-            selected: tradeOffer.has(card.id),
-            badge: dupeIds.has(card.id) ? 'double' : '',
-            onClick: () => { toggleTradePick(tradeOffer, card.id); paintTradePickers(); }
-        })));
-
-        const theirCards = collectionOf(view.cards, tradeTarget);
-        if (!theirCards.length) theirs.innerHTML = '<p class="tcg-empty">Ce joueur n\'a aucune carte.</p>';
-        theirCards.forEach(card => theirs.appendChild(buildCard(card, {
-            selected: tradeRequest.has(card.id),
-            onClick: () => { toggleTradePick(tradeRequest, card.id); paintTradePickers(); }
-        })));
+        const theirStacks = filterCardStacks(cardStacks(view.cards, tradeTarget), tradeTheirsSearch);
+        if (!theirStacks.length) theirs.innerHTML = '<p class="tcg-empty">Aucune carte demandable pour cette recherche.</p>';
+        theirStacks.forEach(stack => appendTradeStack(theirs, view, stack, tradeRequest, tradeTarget));
 
         const send = document.getElementById('trade-send');
         send.disabled = !tradeOffer.size && !tradeRequest.size;
         send.textContent = (tradeOffer.size || tradeRequest.size)
             ? `Proposer ${tradeOffer.size} contre ${tradeRequest.size}`
             : 'Choisis au moins une carte';
-    }
-
-    function toggleTradePick(set, id) {
-        if (set.has(id)) { set.delete(id); return; }
-        if (set.size >= TCG.TRADE_MAX) {
-            showToast(`${TCG.TRADE_MAX} cartes par côté, pas plus.`, 'error');
-            return;
+        const summary = document.getElementById('trade-summary');
+        if (summary) {
+            summary.textContent = `Je veux ${tradeRequest.size} carte${tradeRequest.size > 1 ? 's' : ''} · `
+                + `je peux proposer ${tradeOffer.size} carte${tradeOffer.size > 1 ? 's' : ''}.`;
         }
-        set.add(id);
     }
 
     document.getElementById('trade-cancel')?.addEventListener('click', () => {

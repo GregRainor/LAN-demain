@@ -4859,6 +4859,15 @@ select.luxury-input option:disabled {
     cursor: pointer;
 }
 
+/* Plusieurs exemplaires restent une seule carte à l'écran : les deux ombres
+   décalées matérialisent la pile sans dupliquer le même visuel trois fois. */
+.tcard.is-stack {
+    margin: 0 8px 8px 0;
+    box-shadow:
+        3px 3px 0 rgba(20, 20, 24, .96), 3px 3px 0 1px var(--rc-soft),
+        7px 7px 0 rgba(12, 12, 15, .94), 7px 7px 0 1px var(--rc-soft);
+}
+
 /* Le survol soulève la carte, sauf quand le pointeur la pilote : les deux
    transforms se battraient, et c'est l'inclinaison qui doit gagner. */
 .tcard[role="button"]:not(.is-live):hover {
@@ -5551,6 +5560,21 @@ select.luxury-input option:disabled {
     max-height: 230px;
     overflow-y: auto;
     padding-right: var(--space-2);
+}
+
+.tcg-card-search,
+.trade-search {
+    width: 100%;
+    margin: var(--space-3) 0;
+}
+
+.trade-builder__summary {
+    margin: var(--space-3) 0 var(--space-4);
+    padding: var(--space-3) var(--space-4);
+    border-left: 3px solid var(--accent-color);
+    background: var(--accent-a08);
+    color: var(--secondary-text);
+    font-size: var(--text-sm);
 }
 
 .card-solo {

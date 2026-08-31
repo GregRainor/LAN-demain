@@ -11,8 +11,8 @@
     <script defer src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js" integrity="sha384-p62xBRve8PdqGDGASZtZMuHgPsyPcT5VsFwgmz2p4zaFdEtt5ZzNqxK+CLzQS7xP" crossorigin="anonymous"></script>
     <script defer src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js" integrity="sha384-fuqdSwJXSvcAuKu5FbSJcHqHK474liv5ji8tuDnHz1rpfrnuXZPdM0oRaSK6c95L" crossorigin="anonymous"></script>
 
-    <link rel="stylesheet" href="style.css?v=20260831-finished-collection">
-    <link rel="stylesheet" href="desktop-v2.css?v=20260831-finished-collection">
+    <link rel="stylesheet" href="style.css?v=20260831-post-lan-trades">
+    <link rel="stylesheet" href="desktop-v2.css?v=20260831-post-lan-trades">
 </head>
 
 <body>
@@ -1184,7 +1184,7 @@
                             <div id="tcg-packs" class="stack stack--sm"></div>
                         </div>
 
-                        <div id="tcg-trade-in-panel" class="luxury-panel" data-tcg-live-only
+                        <div id="tcg-trade-in-panel" class="luxury-panel" data-tcg-trade-only
                             style="padding: 25px; margin-bottom: 25px; display: none; border-color: rgba(212,175,55,0.35);">
                             <h3 class="section-title section-title--accent">Échanges reçus</h3>
                             <div id="tcg-trade-in" class="stack stack--sm"></div>
@@ -1195,28 +1195,28 @@
                                 <h3 class="section-title" style="margin: 0;">Le set</h3>
                                 <div class="filter-bar" id="tcg-filters"></div>
                             </div>
+                            <input type="search" id="tcg-card-search" class="luxury-input tcg-card-search"
+                                placeholder="Rechercher une carte…" autocomplete="off">
                             <div id="tcg-set-grid" class="card-grid"></div>
                         </div>
 
-                        <div id="tcg-dupes-panel" class="luxury-panel" data-tcg-live-only
+                        <div id="tcg-dupes-panel" class="luxury-panel" data-tcg-trade-only
                             style="padding: 25px; margin-bottom: 25px; display: none;">
                             <div class="panel-head">
-                                <h3 class="section-title" style="margin: 0;">Mes doubles</h3>
-                                <button id="btn-new-trade" class="gold-link-btn" style="font-size: 0.8em;">Proposer un
-                                    échange</button>
+                                <h3 class="section-title" style="margin: 0;">À échanger</h3>
+                                <button id="btn-new-trade" class="gold-link-btn" style="font-size: 0.8em;">Nouvel échange</button>
                             </div>
-                            <p class="panel-section__hint">Les doubles ne se transforment pas en poussière : sans eux,
-                                personne n'a rien à troquer.</p>
+                            <p class="panel-section__hint">Tes exemplaires sont empilés. Clique une pile pour la proposer immédiatement.</p>
                             <div id="tcg-dupes" class="card-grid card-grid--sm"></div>
                         </div>
 
-                        <div id="tcg-trade-out-panel" class="luxury-panel" data-tcg-live-only
+                        <div id="tcg-trade-out-panel" class="luxury-panel" data-tcg-trade-only
                             style="padding: 25px; margin-bottom: 25px; display: none;">
                             <h3 class="section-title">Mes propositions</h3>
                             <div id="tcg-trade-out" class="stack stack--sm"></div>
                         </div>
 
-                        <div class="dashboard-grid" data-tcg-live-only>
+                        <div class="dashboard-grid" data-tcg-trade-only>
                             <div class="luxury-panel" style="padding: 25px;">
                                 <h3 class="section-title">Journal des échanges</h3>
                                 <p class="panel-section__hint">Public, comme le registre des points. Un échange dont
@@ -1852,9 +1852,14 @@
                 <label>À qui ?</label>
                 <select id="trade-target" class="luxury-input"></select>
             </div>
-            <h4 class="trade-side-title">Je donne</h4>
+            <div id="trade-summary" class="trade-builder__summary">Choisis ce que tu veux et ce que tu proposes.</div>
+            <h4 class="trade-side-title">Je peux proposer</h4>
+            <input type="search" id="trade-mine-search" class="luxury-input trade-search"
+                placeholder="Rechercher dans mes cartes…" autocomplete="off">
             <div id="trade-mine" class="card-grid card-grid--sm trade-picker"></div>
-            <h4 class="trade-side-title">Je demande</h4>
+            <h4 class="trade-side-title">Je veux</h4>
+            <input type="search" id="trade-theirs-search" class="luxury-input trade-search"
+                placeholder="Rechercher dans ses cartes…" autocomplete="off">
             <div id="trade-theirs" class="card-grid card-grid--sm trade-picker"></div>
             <div class="modal-actions" style="flex-direction: row; margin-top: 16px;">
                 <button type="button" id="trade-cancel" style="flex: 1;">Annuler</button>
@@ -1995,9 +2000,9 @@
     <div id="toast-container"></div>
 
     <script defer src="config.js"></script>
-    <script defer src="core.js?v=20260831-finished-collection"></script>
+    <script defer src="core.js?v=20260831-post-lan-trades"></script>
     <script defer src="sound.js"></script>
-    <script defer src="newScript.js?v=20260831-finished-collection"></script>
+    <script defer src="newScript.js?v=20260831-post-lan-trades"></script>
 </body>
 
 </html>

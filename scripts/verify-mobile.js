@@ -121,10 +121,18 @@ assert.strictEqual(nav.screenAvailable('vote'), false);
 assert.strictEqual(nav.screenAvailable('cartes'), true,
     'The mobile Collection must remain available after the LAN is finished');
 assert.strictEqual(nav.phaseFallbackScreen(), 'bilan');
-assert(/const readOnly = view\.archived === true \|\| state\.settings\.lanFinished === true/.test(script)
-    && /showMobileArchivedCollectionOnly\(readOnly\)/.test(script)
-    && /if \(readOnly\) return/.test(script),
-    'Finished mobile collections must expose cards in archive mode without live controls');
+assert(/const archived = view\.archived === true/.test(script)
+    && /const finished = !archived && state\.settings\.lanFinished === true/.test(script)
+    && /setMobileCollectionMode\(archived, finished\)/.test(script)
+    && /if \(archived\) return/.test(script),
+    'Finished mobile collections must keep trades active while old archives stay read-only');
+assert(html.includes('id="m-card-search"')
+    && /openTradeBuilder\(\{ wantedGameKey: row\.gameKey/.test(script)
+    && /openTradeBuilder\(\{ offeredGameKey: stack\.gameKey/.test(script),
+    'Mobile collection must support search and prefilled wanted/offered trades');
+assert(/\.m-tcard\.is-stack\s*\{/.test(css)
+    && /\.m-trade-picker-grid\s*\{/.test(css),
+    'Mobile trade stacks and searchable picker need dedicated styling');
 
 for (const motion of ['m-prof-sweep', 'm-prof-prism', 'm-prof-lock', 'm-prof-orbit', 'm-prof-impact', 'm-prof-vote', 'm-prof-scan', 'm-prof-polonia']) {
     assert(css.includes('@keyframes ' + motion), 'Missing mobile Signature motion: ' + motion);

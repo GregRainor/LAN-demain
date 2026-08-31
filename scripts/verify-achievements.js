@@ -5,7 +5,7 @@ const vm = require('vm');
 
 const root = path.resolve(__dirname, '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
-const source = read('core.js') + '\nthis.__ach={TCG,buildCardSet,cardImage,cardArtKey,calculateScores,tcgSetDeletionPlan,latestLanArchiveTimestamp,lanRecapHighlights,achievementAwardId,achievementById,achievementRevealTheme,achievementState,pendingAchievements,xpTotal,hasXpAward,isXpAwardRevoked,achievementGrantRecord,achievementGrantIfMissing,achievementResetRecord,achievementResetUpdates,unseenAchievementAwards,tcgArchiveSnapshot,tcgArchiveView,tcgArchivedSets,unsealedPurchases};';
+const source = read('core.js') + '\nthis.__ach={TCG,buildCardSet,cardImage,cardArtKey,calculateScores,tcgSetDeletionPlan,latestLanArchiveTimestamp,lanRecapHighlights,cardStacks,filterCardStacks,preferredTradeCard,achievementAwardId,achievementById,achievementRevealTheme,achievementState,pendingAchievements,xpTotal,hasXpAward,isXpAwardRevoked,achievementGrantRecord,achievementGrantIfMissing,achievementResetRecord,achievementResetUpdates,unseenAchievementAwards,tcgArchiveSnapshot,tcgArchiveView,tcgArchivedSets,unsealedPurchases};';
 const context = vm.createContext({ console, URL, Date, Math, Promise, Set, Map });
 vm.runInContext(source, context, { filename: 'core.js' });
 const ach = context.__ach;
@@ -82,6 +82,25 @@ assert.strictEqual(
     ach.cardImage({ gameKey: '__signature--voted 1', rarity: 'signature', appId: 3000 }, { 'voted 1': 'data:image/png;base64,custom' }),
     'data:image/png;base64,custom'
 );
+
+const stackFixture = [
+    { id: 'alpha-1', owner: 'alice', gameKey: 'alpha', name: 'Alpha', rarity: 'common', foil: false, mintedAt: 1 },
+    { id: 'alpha-2', owner: 'alice', gameKey: 'alpha', name: 'Alpha', rarity: 'common', foil: false, mintedAt: 2 },
+    { id: 'alpha-foil', owner: 'alice', gameKey: 'alpha', name: 'Alpha', rarity: 'common', foil: true, mintedAt: 3 },
+    { id: 'beta-1', owner: 'alice', gameKey: 'beta', name: 'Bêta', rarity: 'rare', foil: false, mintedAt: 4 },
+    { id: 'alpha-bob', owner: 'bob', gameKey: 'alpha', name: 'Alpha', rarity: 'common', foil: false, mintedAt: 5 }
+];
+const aliceStacks = plain(ach.cardStacks(stackFixture, 'alice'));
+assert.strictEqual(aliceStacks.length, 2, 'A collection must group physical copies by game');
+const alphaStack = aliceStacks.find(stack => stack.gameKey === 'alpha');
+assert.deepStrictEqual(
+    { count: alphaStack.count, foils: alphaStack.foils, spares: alphaStack.spares },
+    { count: 3, foils: 1, spares: 2 },
+    'A stack must expose its ×N count, foil count and tradeable surplus'
+);
+assert.deepStrictEqual(plain(ach.filterCardStacks(aliceStacks, 'ALPH')).map(row => row.gameKey), ['alpha']);
+assert.strictEqual(ach.preferredTradeCard(stackFixture, 'alice', 'alpha').id, 'alpha-1',
+    'Quick trade selection must prefer a normal spare over the foil keepsake');
 
 const recapEconomy = {
     ticks: { alice: { count: 2 } },
@@ -364,9 +383,11 @@ assert(userRules.seenAchievements['$achievement_id']['.write'].includes('auth.ui
 assert(rules.rules.lan.tcg.packs['.write'].includes('!newData.exists()')
     && rules.rules.lan.tcg.trades['.write'].includes('!newData.exists()'),
     'Gamemasters need collection-level delete permission for player-card reset');
+assert(!rules.rules.lan.tcg.trades['$trade_id']['.write'].includes('lanFinished'),
+    'Players must still be able to create and resolve trades after LAN closure');
 assert(rules.rules.lan.tcg.resetAt['.write'].includes("val() !== true")
     && rules.rules.lan.tcg.resetAt['.validate'].includes('newData.val() === now'),
     'The durable reset marker must be gamemaster-writable only during an open LAN');
-assert(/20260831-finished-collection/.test(desktopHtml) && /20260831-finished-collection/.test(mobileHtml));
+assert(/20260831-post-lan-trades/.test(desktopHtml) && /20260831-post-lan-trades/.test(mobileHtml));
 
 console.log('Achievement and TCG archive checks passed (atomic ceremony claim, reset, archived sets).');

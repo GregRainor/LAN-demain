@@ -119,10 +119,20 @@ assert(/const adminPreview = phase !== 'active' && !votingProgramme && !!window\
 assert(/const finishedCollection = phase === 'finished' && targetId === 'lan-tcg'/.test(script)
     && /!adminPreview && !finishedCollection\) return/.test(script),
     'activateDesktopSubview must let every player revisit Collection after closure');
-assert(/const readOnly = view\.archived === true \|\| globalSettings\.lanFinished === true/.test(script)
-    && /showArchivedCollectionOnly\(panel, readOnly\)/.test(script)
-    && /if \(readOnly\) return/.test(script),
-    'Finished desktop collections must expose cards in archive mode without live controls');
+assert(/const archived = view\.archived === true/.test(script)
+    && /const finished = !archived && globalSettings\.lanFinished === true/.test(script)
+    && /setCollectionMode\(panel, archived, finished\)/.test(script)
+    && /if \(archived\) return/.test(script),
+    'Finished desktop collections must keep trades active while old archives stay read-only');
+assert(ids.includes('tcg-card-search') && ids.includes('trade-mine-search')
+    && ids.includes('trade-theirs-search') && ids.includes('trade-summary'),
+    'Desktop collection and both trade sides must be searchable and explicit');
+assert(/cardStacks\(view\.cards, view\.uid\)/.test(script)
+    && /openTradeBuilder\(\{ wantedGameKey: row\.gameKey/.test(script)
+    && /openTradeBuilder\(\{ offeredGameKey: stack\.gameKey/.test(script),
+    'Desktop cards must stack and launch prefilled wanted/offered trades');
+assert(/\.tcard\.is-stack\s*\{/.test(baseCss) && /\.trade-builder__summary\s*\{/.test(baseCss),
+    'Desktop trade stacks and builder summary need dedicated styling');
 assert(/phase === 'voting' \? desktopVotingDestination === 'events' : true/.test(script)
     && /phase === 'voting' && desktopVotingDestination === 'games'/.test(script), 'Events and Games navigation highlights must remain exclusive');
 // Le panneau admin est une destination, pas une phase. Testé après la branche

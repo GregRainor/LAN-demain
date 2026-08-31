@@ -1247,7 +1247,18 @@ button[data-goto]:disabled { cursor: not-allowed; }
 /* Choisie pour un échange. */
 .m-tcard.is-picked { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold-a30), 0 0 12px var(--gold-a30); }
 
+.m-tcard.is-stack {
+    margin: 0 6px 6px 0;
+    box-shadow:
+        2px 2px 0 rgba(20,20,24,.96), 2px 2px 0 1px var(--rc-soft),
+        5px 5px 0 rgba(10,10,13,.94), 5px 5px 0 1px var(--rc-soft);
+}
+
 .m-tcard--sm .m-tcard__name { -webkit-line-clamp: 1; min-height: 0; }
+
+.m-card-search { margin-top: 10px; }
+.m-trade-summary { margin: 2px 0 4px; padding: 10px 11px; border-left: 3px solid var(--gold); background: var(--gold-a08); color: var(--text-2); font-size: .76rem; line-height: 1.35; }
+.m-trade-picker-grid { max-height: 260px; overflow-y: auto; padding: 4px 6px 8px 2px; }
 
 /* ---------- Le brillant ----------
    Pas une image : un traitement, en deux couches superposées, comme le font

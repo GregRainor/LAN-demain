@@ -2505,11 +2505,15 @@ function renderPlus() {
     const openPolls = visiblePolls().filter(([, poll]) => !isPollClosed(poll)).length;
     $('m-plus-sondages').textContent = openPolls ? `${openPolls} en cours` : '';
     const view = tcgSnapshot();
-    const sealed = view.uid ? sealedPacksOf(state.tcg, view.uid).length : 0;
+    const sealed = view.uid && !state.settings.lanFinished
+        ? sealedPacksOf(state.tcg, view.uid).length : 0;
+    const trades = view.uid ? pendingTradesFor(state.tcg, view.uid).length : 0;
     const progress = setProgress(view.setCards, view.cards, view.uid);
-    $('m-plus-cartes').textContent = sealed
+    $('m-plus-cartes').textContent = trades
+        ? `${trades} échange${trades > 1 ? 's' : ''} à répondre`
+        : (sealed
         ? `${sealed} booster${sealed > 1 ? 's' : ''} à ouvrir`
-        : (progress.total ? `${progress.owned}/${progress.total}` : '');
+        : (progress.total ? `${progress.owned}/${progress.total}` : ''));
     /* La rangée « Hauts faits » montre le niveau : c'est le chiffre qui
        progresse d'une soirée à l'autre, celui qu'on vient vérifier. */
     const myXp = xpLevel(xpTotal(state.xp, view.uid));
@@ -4779,8 +4783,11 @@ function renderMobileTcgSetSelector(uid) {
     }
 }
 
-function showMobileArchivedCollectionOnly(archived) {
+function setMobileCollectionMode(archived, finished) {
     document.querySelectorAll('[data-m-tcg-live-only]').forEach(node => {
+        node.style.display = (archived || finished) ? 'none' : '';
+    });
+    document.querySelectorAll('[data-m-tcg-trade-only]').forEach(node => {
         node.style.display = archived ? 'none' : '';
     });
 }
@@ -4886,6 +4893,7 @@ function cardNode(card, options) {
     if (card.foil) node.classList.add('is-foil');
     if (opts.missing) node.classList.add('is-missing');
     if (opts.selected) node.classList.add('is-picked');
+    if (opts.stack) node.classList.add('is-stack');
     if (opts.small) node.classList.add('m-tcard--sm');
 
     const art = el('div', 'm-tcard__art');
@@ -4968,17 +4976,20 @@ function renderCartes() {
     renderMobileTcgSetSelector(liveView.uid);
     renderMobileTcgSetAdmin();
     const view = selectedMobileTcgView(liveView.uid);
-    const readOnly = view.archived === true || state.settings.lanFinished === true;
-    showMobileArchivedCollectionOnly(readOnly);
+    const archived = view.archived === true;
+    const finished = !archived && state.settings.lanFinished === true;
+    setMobileCollectionMode(archived, finished);
 
-    renderSetBand(view, readOnly);
+    renderSetBand(view, archived, finished);
     renderSetGrid(view);
-    if (readOnly) return;
+    if (archived) return;
 
     // L'emballage a son propre visuel, chargé comme celui d'une Signature.
-    ensureGeneratedArt(PACK_ART_KEY);
-    renderMintPanel(view);
-    renderMyPacks(view);
+    if (!finished) {
+        ensureGeneratedArt(PACK_ART_KEY);
+        renderMintPanel(view);
+        renderMyPacks(view);
+    }
     renderTradesIn(view);
     renderDupes(view);
     renderTradesOut(view);
@@ -4986,7 +4997,7 @@ function renderCartes() {
     renderTradeFeed(view);
 }
 
-function renderSetBand(view, readOnly) {
+function renderSetBand(view, archived, finished) {
     const band = $('m-set-band');
     band.innerHTML = '';
 
@@ -4998,14 +5009,16 @@ function renderSetBand(view, readOnly) {
     }
 
     const progress = setProgress(view.setCards, view.cards, view.uid);
-    band.appendChild(el('p', 'm-setband__title', view.set.name + (readOnly ? ' · archivé' : '')));
+    band.appendChild(el('p', 'm-setband__title', view.set.name
+        + (archived ? ' · archivé' : (finished ? ' · final' : ''))));
     const bar = el('div', 'm-setband__bar');
     const fill = el('span', 'm-setband__fill');
     fill.style.width = progress.percent + '%';
     bar.appendChild(fill);
     band.appendChild(bar);
     band.appendChild(el('p', 'm-setband__hint',
-        (readOnly ? 'Collection archivée · ' : '')
+        (archived ? 'Collection archivée · '
+            : (finished ? 'Collection finale · échanges ouverts · ' : ''))
         + progress.owned + ' / ' + progress.total + ' cartes'
         + (progress.foils ? ' · ' + progress.foils + ' brillante' + (progress.foils > 1 ? 's' : '') : '')
         + (progress.complete ? ' · set complet 🏆' : '')));
@@ -6228,12 +6241,18 @@ function listenToTilt() {
 /* ---------- La grille du set ---------- */
 
 let setFilter = 'all';
+let setSearch = '';
 
 $('m-set-filter').addEventListener('click', () => {
     const options = ['all', 'missing', 'owned'];
     setFilter = options[(options.indexOf(setFilter) + 1) % options.length];
     $('m-set-filter').textContent = setFilter === 'all' ? 'Tout'
         : (setFilter === 'missing' ? 'Manquantes' : 'Possédées');
+    renderCartes();
+});
+
+$('m-card-search').addEventListener('input', event => {
+    setSearch = event.target.value || '';
     renderCartes();
 });
 
@@ -6258,12 +6277,16 @@ function renderSetGrid(view) {
     const rows = collectionBySet(view.setCards, view.cards, view.uid)
         .filter(row => setFilter === 'all'
             || (setFilter === 'missing' && !row.owned)
-            || (setFilter === 'owned' && row.owned));
+            || (setFilter === 'owned' && row.owned))
+        .filter(row => !setSearch
+            || normalizeGameName(row.name).includes(normalizeGameName(setSearch)));
 
     if (!rows.length) {
-        mount.appendChild(emptyState(setFilter === 'missing'
-            ? 'Rien ne manque. Set complet.'
-            : 'Aucune carte pour l\'instant. Un booster, et ça commence.'));
+        mount.appendChild(emptyState(setSearch
+            ? 'Aucune carte ne correspond à cette recherche.'
+            : (setFilter === 'missing'
+                ? 'Rien ne manque. Set complet.'
+                : 'Aucune carte pour l\'instant. Un booster, et ça commence.')));
         return;
     }
 
@@ -6284,7 +6307,7 @@ function renderSetGrid(view) {
         });
         mount.appendChild(head);
 
-        if (!openRarities.has(rarity.key)) return;
+        if (!openRarities.has(rarity.key) && !setSearch) return;
 
         const grid = el('div', 'm-cardgrid');
         group.forEach(row => {
@@ -6301,10 +6324,14 @@ function renderSetGrid(view) {
             };
             grid.appendChild(cardNode(card, {
                 missing: !row.owned,
-                badge: row.copies.length > 1 ? '×' + row.copies.length : '',
+                stack: row.copies.length > 1,
+                badge: row.copies.length > 1 ? '×' + row.copies.length
+                    : (!row.owned && !view.archived ? 'Je cherche' : ''),
                 onClick: () => (best
                     ? openCardSheet(best)
-                    : showToast(row.name + ' — pas encore dans ta collection.', 'error'))
+                    : (view.archived
+                        ? showToast(row.name + ' — pas dans cette collection archivée.', 'error')
+                        : openTradeBuilder({ wantedGameKey: row.gameKey, wantedName: row.name })))
             }));
         });
         mount.appendChild(grid);
@@ -6316,15 +6343,20 @@ function renderSetGrid(view) {
 function renderDupes(view) {
     const section = $('m-dupes-section');
     const mount = $('m-dupes');
-    const dupes = duplicatesOf(view.cards, view.uid);
+    const stacks = cardStacks(view.cards, view.uid).filter(stack => stack.spares > 0);
 
-    if (!dupes.length) { section.style.display = 'none'; return; }
+    if (!stacks.length) { section.style.display = 'none'; return; }
     section.style.display = 'flex';
     mount.innerHTML = '';
-    dupes.forEach(card => mount.appendChild(cardNode(card, {
-        small: true,
-        onClick: () => openCardSheet(card)
-    })));
+    stacks.forEach(stack => {
+        const card = preferredTradeCard(view.cards, view.uid, stack.gameKey) || stack.copies[0];
+        mount.appendChild(cardNode(card, {
+            small: true,
+            stack: true,
+            badge: '×' + stack.count,
+            onClick: () => openTradeBuilder({ offeredGameKey: stack.gameKey, offeredName: stack.name })
+        }));
+    });
 }
 
 /* ---------- Les échanges ----------
@@ -6332,12 +6364,19 @@ function renderDupes(view) {
    possède quoi. C'est le rejeu qui tranche, et un échange malhonnête n'est pas
    refusé — il est sans effet, à la vue de tous dans le journal. */
 
-$('m-trade-new').addEventListener('click', openTradeBuilder);
+$('m-trade-new').addEventListener('click', () => openTradeBuilder());
 
-function openTradeBuilder() {
+function openTradeBuilder(options) {
+    const opts = options || {};
     const view = tcgSnapshot();
-    const others = economyPlayers().filter(uid => uid !== view.uid
+    let others = Array.from(new Set(economyPlayers().concat(
+        view.cards.map(card => card.owner).filter(Boolean)
+    ))).filter(uid => uid !== view.uid
         && view.cards.some(card => card.owner === uid));
+    if (opts.wantedGameKey) {
+        others = others.filter(uid => view.cards.some(card =>
+            card.owner === uid && card.gameKey === opts.wantedGameKey));
+    }
 
     if (!others.length) {
         showToast('Personne d\'autre n\'a encore de cartes.', 'error');
@@ -6347,6 +6386,17 @@ function openTradeBuilder() {
     let target = others[0];
     const offer = new Set();
     const request = new Set();
+    let mineSearch = '';
+    let theirsSearch = opts.wantedName || '';
+
+    if (opts.offeredGameKey) {
+        const card = preferredTradeCard(view.cards, view.uid, opts.offeredGameKey);
+        if (card) offer.add(card.id);
+    }
+    if (opts.wantedGameKey) {
+        const card = preferredTradeCard(view.cards, target, opts.wantedGameKey);
+        if (card) request.add(card.id);
+    }
 
     openSheet('Proposer un échange', (body) => {
         const who = el('select', 'm-input');
@@ -6358,63 +6408,85 @@ function openTradeBuilder() {
         who.value = target;
         body.appendChild(who);
 
-        const mineTitle = el('p', 'm-shop__cat', 'Je donne');
-        const mineRow = el('div', 'm-cardrow');
-        const theirsTitle = el('p', 'm-shop__cat', 'Je demande');
-        const theirsRow = el('div', 'm-cardrow');
+        const summary = el('p', 'm-trade-summary');
+        const mineTitle = el('p', 'm-shop__cat', 'Je peux proposer');
+        const mineInput = el('input', 'm-input');
+        mineInput.type = 'search';
+        mineInput.placeholder = 'Rechercher dans mes cartes…';
+        const mineRow = el('div', 'm-cardgrid m-trade-picker-grid');
+        const theirsTitle = el('p', 'm-shop__cat', 'Je veux');
+        const theirsInput = el('input', 'm-input');
+        theirsInput.type = 'search';
+        theirsInput.placeholder = 'Rechercher dans ses cartes…';
+        theirsInput.value = theirsSearch;
+        const theirsRow = el('div', 'm-cardgrid m-trade-picker-grid');
         const submit = el('button', 'm-btn m-btn--solid m-btn--full', 'Envoyer la proposition');
+
+        const toggleStack = (selection, stack, uid) => {
+            const selected = stack.copies.filter(card => selection.has(card.id));
+            if (selected.length) {
+                selected.forEach(card => selection.delete(card.id));
+                return;
+            }
+            if (selection.size >= TCG.TRADE_MAX) {
+                showToast(TCG.TRADE_MAX + ' cartes par côté, pas plus.', 'error');
+                return;
+            }
+            const card = preferredTradeCard(view.cards, uid, stack.gameKey) || stack.copies[0];
+            if (card) selection.add(card.id);
+        };
+
+        const appendStack = (mount, stack, selection, uid) => {
+            const selected = stack.copies.find(card => selection.has(card.id));
+            const card = selected || preferredTradeCard(view.cards, uid, stack.gameKey) || stack.copies[0];
+            mount.appendChild(cardNode(card, {
+                small: true,
+                selected: !!selected,
+                stack: stack.count > 1,
+                badge: selected ? '✓ · ×' + stack.count : (stack.count > 1 ? '×' + stack.count : ''),
+                onClick: () => { toggleStack(selection, stack, uid); paint(); }
+            }));
+        };
 
         const paint = () => {
             mineRow.innerHTML = '';
             theirsRow.innerHTML = '';
 
-            /* Les doubles d'abord : c'est ce qu'on troque, le reste on le garde. */
-            const dupes = duplicatesOf(view.cards, view.uid);
-            const dupeIds = new Set(dupes.map(card => card.id));
-            const mine = dupes.concat(collectionOf(view.cards, view.uid).filter(card => !dupeIds.has(card.id)));
+            const mine = filterCardStacks(cardStacks(view.cards, view.uid), mineSearch)
+                .sort((a, b) => b.spares - a.spares || a.name.localeCompare(b.name, 'fr'));
+            if (!mine.length) mineRow.appendChild(emptyState('Aucune carte à proposer pour cette recherche.'));
+            mine.forEach(stack => appendStack(mineRow, stack, offer, view.uid));
 
-            if (!mine.length) mineRow.appendChild(emptyState('Tu n\'as aucune carte à offrir.'));
-            mine.forEach(card => mineRow.appendChild(cardNode(card, {
-                small: true,
-                selected: offer.has(card.id),
-                badge: dupeIds.has(card.id) ? 'double' : '',
-                onClick: () => { togglePick(offer, card.id); paint(); }
-            })));
-
-            const theirs = collectionOf(view.cards, target);
-            if (!theirs.length) theirsRow.appendChild(emptyState('Ce joueur n\'a aucune carte.'));
-            theirs.forEach(card => theirsRow.appendChild(cardNode(card, {
-                small: true,
-                selected: request.has(card.id),
-                onClick: () => { togglePick(request, card.id); paint(); }
-            })));
+            const theirs = filterCardStacks(cardStacks(view.cards, target), theirsSearch);
+            if (!theirs.length) theirsRow.appendChild(emptyState('Aucune carte demandable pour cette recherche.'));
+            theirs.forEach(stack => appendStack(theirsRow, stack, request, target));
 
             submit.disabled = !offer.size && !request.size;
             submit.textContent = (offer.size || request.size)
                 ? 'Proposer : ' + offer.size + ' contre ' + request.size
                 : 'Choisis au moins une carte';
+            summary.textContent = 'Je veux ' + request.size + ' carte' + (request.size > 1 ? 's' : '')
+                + ' · je peux proposer ' + offer.size + ' carte' + (offer.size > 1 ? 's' : '') + '.';
         };
 
         who.addEventListener('change', () => {
             target = who.value;
             request.clear();
+            if (opts.wantedGameKey) {
+                const card = preferredTradeCard(view.cards, target, opts.wantedGameKey);
+                if (card) request.add(card.id);
+            }
             paint();
         });
 
+        mineInput.addEventListener('input', () => { mineSearch = mineInput.value || ''; paint(); });
+        theirsInput.addEventListener('input', () => { theirsSearch = theirsInput.value || ''; paint(); });
+
         submit.addEventListener('click', () => sendTrade(target, Array.from(offer), Array.from(request)));
 
-        body.append(mineTitle, mineRow, theirsTitle, theirsRow, submit);
+        body.append(summary, mineTitle, mineInput, mineRow, theirsTitle, theirsInput, theirsRow, submit);
         paint();
     });
-}
-
-function togglePick(set, id) {
-    if (set.has(id)) { set.delete(id); return; }
-    if (set.size >= TCG.TRADE_MAX) {
-        showToast('Six cartes par côté, pas plus.', 'error');
-        return;
-    }
-    set.add(id);
 }
 
 function sendTrade(toUid, offer, request) {
